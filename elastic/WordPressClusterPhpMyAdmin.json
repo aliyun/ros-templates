@@ -1,0 +1,991 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Deploy the WordPress site and the phpMyAdmin app.",
+  "Parameters": {
+    "OSSBucketEndPoint": {
+      "Type": "String",
+      "AllowedValues": [
+        "oss-eu-central-1.aliyuncs.com",
+        "oss-cn-hangzhou-internal.aliyuncs.com",
+        "oss-cn-shanghai-internal.aliyuncs.com",
+        "oss-cn-qingdao-internal.aliyuncs.com",
+        "oss-cn-beijing-internal.aliyuncs.com",
+        "oss-cn-zhangjiakou-internal.aliyuncs.com",
+        "oss-cn-huhehaote-internal.aliyuncs.com",
+        "oss-cn-shenzhen-internal.aliyuncs.com",
+        "oss-cn-hongkong-internal.aliyuncs.com",
+        "oss-us-west-1-internal.aliyuncs.com",
+        "oss-us-east-1-internal.aliyuncs.com",
+        "oss-ap-southeast-1-internal.aliyuncs.com",
+        "oss-ap-southeast-2-internal.aliyuncs.com",
+        "oss-ap-southeast-3-internal.aliyuncs.com",
+        "oss-ap-southeast-5-internal.aliyuncs.com",
+        "oss-ap-northeast-1-internal.aliyuncs.com",
+        "oss-ap-south-1-internal.aliyuncs.com",
+        "oss-eu-central-1-internal.aliyuncs.com",
+        "oss-me-east-1-internal.aliyuncs.com"
+      ],
+      "Default": "oss-cn-hangzhou-internal.aliyuncs.com",
+      "Label": "OSS Bucket EndPoint",
+      "Description": "Oss bucket endpoint"
+    },
+    "DBInstanceNetType": {
+      "Type": "String",
+      "AllowedValues": [
+        "Intranet",
+        "Internet"
+      ],
+      "Default": "Intranet",
+      "Label": "DB Instance Net Type",
+      "Description": "Database instance net type, default is Intranet.Internet for public access, Intranet for private access, default is 'Intranet'"
+    },
+    "NatGatewayName": {
+      "Type": "String",
+      "Description": "Display name of the NAT gateway, [2, 128] English or Chinese characters, must start with a letter or Chinese in size, can contain numbers, '_' or '.', '-'",
+      "Default": "NatGatewayName",
+      "Label": "NatGateway Name"
+    },
+    "MasterDBPassword": {
+      "Confirm": true,
+      "NoEcho": true,
+      "Type": "String",
+      "Label": "Master DB Password",
+      "Description": "The master password for the database instance."
+    },
+    "CidrBlock": {
+      "Type": "String",
+      "Default": "192.168.0.0/16",
+      "Label": "VPC CidrBlock",
+      "Description": "The IP address range of the VPC in the CIDR block form"
+    },
+    "JumpboxPassword": {
+      "Confirm": true,
+      "NoEcho": true,
+      "Type": "String",
+      "Label": "Jumpbox Instance Password",
+      "Description": "Password of created ecs instance"
+    },
+    "WebImageId": {
+      "Type": "String",
+      "Default": "centos_7_04_64_20G_alibase_201701015.vhd",
+      "Description": "Image Id, represents the image resource to startup one ECS instance, <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>",
+      "Label": "Web ECS Image Id"
+    },
+    "DBInstanceStorage": {
+      "Type": "Number",
+      "Description": "Incrementing in every 5G, unit: GB",
+      "MinValue": 5,
+      "ConstraintDescription": "[5, 2000] Incrementing in every 5G, unit: GB",
+      "MaxValue": 2000,
+      "Default": 10,
+      "Label": "DB Instance Storage"
+    },
+    "JumpboxDataDiskSize": {
+      "Type": "Number",
+      "Default": 100,
+      "Label": "Jumpbox Data Disk Size",
+      "Description": "The size of the disk unit in GB,default is '100'"
+    },
+    "Engine": {
+      "Type": "String",
+      "AllowedValues": [
+        "MySQL",
+        "SQLServer",
+        "PostgreSQL",
+        "PPAS"
+      ],
+      "Default": "MySQL",
+      "Label": "Database Engine",
+      "Description": "Database instance engine type, default is 'Mysql'"
+    },
+    "EngineVersion": {
+      "Type": "String",
+      "Description": "MySQL：5.5/5.6; SQLServer：2008r2; PostgreSQL：9.4",
+      "AllowedValues": [
+        "5.6",
+        "2008r2",
+        "9.4"
+      ],
+      "Default": "5.6",
+      "Label": "Database Engine Version"
+    },
+    "ZoneId": {
+      "Type": "String",
+      "Description": "Available Zone Id, <a href='#/product/cn-beijing/list/zoneList' target='_blank'>View zoneid info</a>",
+      "Label": "Instance Zone Id"
+    },
+    "TotalDataDisk": {
+      "Type": "String",
+      "Description": "The number of disks mounted in instance",
+      "Default": "1",
+      "Label": "Total Data Disk"
+    },
+    "DBInstanceClass": {
+      "Type": "String",
+      "AllowedValues": [
+        "rds.mysql.t1.small",
+        "rds.mysql.s1.small",
+        "rds.mysql.s2.large",
+        "rds.mysql.s2.xlarge",
+        "rds.mysql.s3.large",
+        "rds.mssql.s2.large",
+        "rds.mssql.s2.xlarge",
+        "rds.mssql.m1.medium",
+        "rds.mssql.c1.large",
+        "rds.mssql.c1.xlarge",
+        "rds.pg.s1.small",
+        "rds.pg.s2.large",
+        "rds.pg.s3.large",
+        "rds.pg.c1.large",
+        "rds.pg.c1.xlarge"
+      ],
+      "Default": "rds.mysql.s1.small",
+      "Description": "Database instance type. Refer the RDS database instance type reference, such as 'rds.mys2.large', 'rds.mss1.large', 'rds.pg.s1.small' etc",
+      "Label": "Database Instance Type"
+    },
+    "JumpboxDataDiskType": {
+      "Type": "String",
+      "Default": "cloud_efficiency",
+      "Description": "The disk category, default is cloud_efficiency",
+      "Label": "Jumpbox Data Disk Category",
+      "AllowedValues": [
+        "cloud_efficiency",
+        "cloud_ssd"
+      ]
+    },
+    "MasterUserName": {
+      "Type": "String",
+      "Description": "Database Username, e.g. masteradmin",
+      "Label": "Database Master Username"
+    },
+    "JumpboxImageId": {
+      "Type": "String",
+      "Description": "Image Id, represents the image resource to startup one ECS instance, <a href='#/product/cn-shenzhen/list/imageList' target='_blank'>View image resources</a>",
+      "Default": "centos_7_04_64_20G_alibase_201701015.vhd",
+      "Label": "Jumpbox ECS Image Id"
+    },
+    "OSSBucketMountPoint": {
+      "Type": "String",
+      "Default": "/ossbucket",
+      "Label": "OSS Bucket Mount Point",
+      "Description": "OSS Bucket Mount Point"
+    },
+    "MountPoint": {
+      "Type": "String",
+      "Description": "The mount point of data disk",
+      "Default": "/data",
+      "Label": "Data Disk Mount Point"
+    },
+    "JumpboxInstanceType": {
+      "Type": "String",
+      "Description": "The ECS instance type, <a href='#/product/cn-beijing/list/typeList' target='_blank'>View instance types</a>",
+      "AllowedValues": [
+        "ecs.c5.large",
+        "ecs.c5.xlarge",
+        "ecs.g5.large",
+        "ecs.g5.xlarge",
+        "ecs.i2.xlarge"
+      ],
+      "Default": "ecs.c5.large",
+      "Label": "Jumpbox ECS Instance Type"
+    },
+    "DBName": {
+      "Type": "String",
+      "Default": "dbname",
+      "Description": "Database name",
+      "Label": "Database Name"
+    },
+    "VpcName": {
+      "Type": "String",
+      "Default": "AliyunVPC",
+      "Label": "VPC Name",
+      "Description": "Display name of the vpc instance,default is 'AliyunVPC'"
+    },
+    "Spec": {
+      "Type": "String",
+      "Description": "NAT gateway specification. Now support 'Small|Middle|Large', default is 'Small'",
+      "AllowedValues": [
+        "Small",
+        "Middle",
+        "Large"
+      ],
+      "Default": "Small",
+      "Label": "NAT Gateway Specification"
+    },
+    "OSSBucket": {
+      "Type": "String",
+      "Description": "Oss in the Region",
+      "AllowedPattern": "[a-zA-Z0-9/-]*",
+      "Label": "Name Of Oss In The Region"
+    },
+    "OSSBucketAccessKey": {
+      "Description": "Your AccessKey ID",
+      "Type": "String",
+      "Label": "OSS Bucket AccessKey"
+    },
+    "OSSBucketSecret": {
+      "Description": "Your Accesskey Secret",
+      "Type": "String",
+      "Label": "OSS Bucket Secret"
+    }
+  },
+  "Resources": {
+    "NewElasticIP": {
+      "Type": "ALIYUN::ECS::EIP",
+      "Properties": {
+        "InternetChargeType": "PayByTraffic"
+      }
+    },
+    "WebScalingConfiguration": {
+      "Type": "ALIYUN::ESS::ScalingConfiguration",
+      "Properties": {
+        "DiskMappings": [
+          {
+            "Category": "cloud_efficiency",
+            "Device": "/dev/xvdb",
+            "Size": 100
+          }
+        ],
+        "UserData": {
+          "Fn::Join": [
+            "",
+            [
+              "#!/bin/sh\n",
+              "i=1\n",
+              "total=",
+              {
+                "Ref": "TotalDataDisk"
+              },
+              "\n",
+              "mountpoint=",
+              {
+                "Ref": "MountPoint"
+              },
+              "\n",
+              "while [ $i -le $total ]\n",
+              "do\n",
+              "    j=`echo $i|awk '{printf \"%c\", 97+$i}'`\n",
+              "fdisk -S 56 /dev/vd$j <<ALIYUN\n",
+              "n\n",
+              "p\n",
+              "1\n",
+              "\n",
+              "\n",
+              "w\n",
+              "ALIYUN\n",
+              "    echo \"/dev/vd$j is fdisked!\" >> $logs\n",
+              "    mkfs.ext4 /dev/vd${j}1\n",
+              "    if [ $? -eq 0 ];then\n",
+              "        echo \"/dev/vd${j}1 is formated!\" >> $logs\n",
+              "    fi\n",
+              "    touch ~/test_ftab\n",
+              "    mkdir $mountpoint\n",
+              "cat << ALIYUN > ~/test_ftab\n",
+              "/dev/vd${j}1         $mountpoint       ext4       defaults        0 0\n",
+              "ALIYUN\n",
+              "    cat ~/test_ftab >> /etc/fstab\n",
+              "    mount -a\n",
+              "    chmod -R 777 $mountpoint\n",
+              "    rm -rf ~/test_ftab\n",
+              "    echo \"/dev/vd${j}1 is mounted!\" >> $logs\n",
+              "    let i+=1\n",
+              "ossbucket=",
+              {
+                "Ref": "OSSBucket"
+              },
+              "\n",
+              "ossbucketaccesskey=",
+              {
+                "Ref": "OSSBucketAccessKey"
+              },
+              "\n",
+              "ossbucketsecret=",
+              {
+                "Ref": "OSSBucketSecret"
+              },
+              "\n",
+              "ossbucketmountpoint=",
+              {
+                "Ref": "OSSBucketMountPoint"
+              },
+              "\n",
+              "ossbucketendpoint=",
+              {
+                "Ref": "OSSBucketEndPoint"
+              },
+              "\n",
+              "DatabaseUser=",
+              {
+                "Ref": "MasterUserName"
+              },
+              "\n",
+              "DatabasePwd=",
+              {
+                "Ref": "MasterDBPassword"
+              },
+              "\n",
+              "DatabaseName=",
+              {
+                "Ref": "DBName"
+              },
+              "\n",
+              "DatabaseHost=",
+              {
+                "Fn::GetAtt": [
+                  "Database",
+                  "InnerConnectionString"
+                ]
+              },
+              "\n",
+              "yum install -y curl httpd mysql-server php php-common php-mysql\n",
+              "yum install -y php-gd php-imap php-ldap php-odbc php-pear php-xml php-xmlrpc\n",
+              "chkconfig httpd on\n",
+              "service httpd stop\n",
+              "DocumentRoot='/var/www/html'\n",
+              "sed -i \"s%$DocumentRoot%$ossbucketmountpoint%\" /etc/httpd/conf/httpd.conf\n",
+              "Directory='/var/www'\n",
+              "sed -i \"s%$Directory%$ossbucketmountpoint%\" /etc/httpd/conf/httpd.conf\n",
+              "wget https://github.com/aliyun/ossfs/releases/download/v1.80.3/ossfs_1.80.3_centos6.5_x86_64.rpm\n",
+              "yum install -y ossfs_1.80.3_centos6.5_x86_64.rpm\n",
+              "echo $ossbucket:$ossbucketaccesskey:$ossbucketsecret >> /etc/passwd-ossfs\n",
+              "chmod 600 /etc/passwd-ossfs\n",
+              "mkdir $ossbucketmountpoint\n",
+              "chmod -R 755 $ossbucketmountpoint\n",
+              "echo #This script will automount the ossbucket\n",
+              "echo umount $ossbucketmountpoint >> /usr/local/bin/ossfs-automount.sh\n",
+              "echo #Mounting OSS Bucket\n",
+              "echo ossfs $ossbucket $ossbucketmountpoint -ourl=http://$ossbucketendpoint -o allow_other -o mp_umask=0022 -ouid=48 -ogid=48 >> /usr/local/bin/ossfs-automount.sh\n",
+              "chmod 755 /usr/local/bin/ossfs-automount.sh\n",
+              "echo /usr/local/bin/ossfs-automount.sh >> /etc/rc.d/rc.local\n",
+              "chmod +x /etc/rc.d/rc.local\n",
+              "/usr/local/bin/./ossfs-automount.sh\n",
+              "chmod -R 755 /wwwroot/*\n",
+              "service httpd start\n",
+              "done\n"
+            ]
+          ]
+        },
+        "SystemDisk_Category": "cloud_efficiency",
+        "ScalingGroupId": {
+          "Fn::GetAtt": [
+            "WebScalingGroup",
+            "ScalingGroupId"
+          ]
+        },
+        "SecurityGroupId": {
+          "Fn::GetAtt": [
+            "SecurityGroup_default",
+            "SecurityGroupId"
+          ]
+        },
+        "ImageId": {
+          "Ref": "WebImageId"
+        },
+        "InstanceType": {
+          "Ref": "JumpboxInstanceType"
+        }
+      }
+    },
+    "ElasticIPAssociation": {
+      "Type": "ALIYUN::ECS::EIPAssociation",
+      "Properties": {
+        "InstanceId": {
+          "Ref": "Jumpbox"
+        },
+        "AllocationId": {
+          "Ref": "NewElasticIP"
+        }
+      }
+    },
+    "ScalingGroupEnable": {
+      "Type": "ALIYUN::ESS::ScalingGroupEnable",
+      "DependsOn": "Jumpbox",
+      "Properties": {
+        "ScalingGroupId": {
+          "Fn::GetAtt": [
+            "WebScalingGroup",
+            "ScalingGroupId"
+          ]
+        },
+        "ScalingConfigurationId": {
+          "Fn::GetAtt": [
+            "WebScalingConfiguration",
+            "ScalingConfigurationId"
+          ]
+        }
+      }
+    },
+    "NatGateway": {
+      "Type": "ALIYUN::ECS::NatGateway",
+      "DependsOn": "VSwitch1",
+      "Properties": {
+        "Description": "NAT_Gateway_OSSFS",
+        "VpcId": {
+          "Fn::GetAtt": [
+            "EcsVpc",
+            "VpcId"
+          ]
+        },
+        "NatGatewayName": {
+          "Ref": "NatGatewayName"
+        },
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "VSwitch1",
+            "VSwitchId"
+          ]
+        },
+        "Spec": {
+          "Ref": "Spec"
+        }
+      }
+    },
+    "SNatTableEntry": {
+      "Type": "ALIYUN::ECS::SNatEntry",
+      "DependsOn": "EIPBind",
+      "Properties": {
+        "SourceVSwitchId": {
+          "Fn::GetAtt": [
+            "VSwitch1",
+            "VSwitchId"
+          ]
+        },
+        "SNatTableId": {
+          "Fn::GetAtt": [
+            "NatGateway",
+            "SNatTableId"
+          ]
+        },
+        "SNatIp": {
+          "Fn::GetAtt": [
+            "NatEip",
+            "EipAddress"
+          ]
+        }
+      }
+    },
+    "WebScalingGroup": {
+      "Type": "ALIYUN::ESS::ScalingGroup",
+      "DependsOn": "Database",
+      "Properties": {
+        "MinSize": 2,
+        "VpcId": {
+          "Fn::GetAtt": [
+            "EcsVpc",
+            "VpcId"
+          ]
+        },
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "VSwitch1",
+            "VSwitchId"
+          ]
+        },
+        "LoadBalancerIds": [
+          {
+            "Fn::GetAtt": [
+              "CreateLoadBalancer",
+              "LoadBalancerId"
+            ]
+          }
+        ],
+        "DBInstanceIds": [
+          {
+            "Fn::GetAtt": [
+              "Database",
+              "DBInstanceId"
+            ]
+          }
+        ],
+        "MaxSize": 2
+      }
+    },
+    "NatEip": {
+      "Type": "ALIYUN::VPC::EIP",
+      "Properties": {
+        "InternetChargeType": "PayByTraffic"
+      }
+    },
+    "EIPBind": {
+      "Type": "ALIYUN::VPC::EIPAssociation",
+      "Properties": {
+        "InstanceId": {
+          "Ref": "NatGateway"
+        },
+        "AllocationId": {
+          "Ref": "NatEip"
+        }
+      }
+    },
+    "CreateListener": {
+      "Type": "ALIYUN::SLB::Listener",
+      "Properties": {
+        "Persistence": {
+          "StickySession": "off",
+          "PersistenceTimeout": 1,
+          "XForwardedFor": "on",
+          "StickySessionType": "insert"
+        },
+        "ListenerPort": "80",
+        "Scheduler": "wrr",
+        "Bandwidth": 1,
+        "HealthCheck": {
+          "UnhealthyThreshold": 3,
+          "Timeout": 5,
+          "HealthyThreshold": 3,
+          "Interval": 2
+        },
+        "LoadBalancerId": {
+          "Ref": "CreateLoadBalancer"
+        },
+        "Protocol": "tcp",
+        "BackendServerPort": 80
+      }
+    },
+    "CreateLoadBalancer": {
+      "Type": "ALIYUN::SLB::LoadBalancer",
+      "Properties": {
+        "LoadBalancerName": "PublicLoadBalancer",
+        "AddressType": "internet",
+        "MasterZoneId": {
+          "Ref": "ZoneId"
+        },
+        "InternetChargeType": "paybytraffic"
+      }
+    },
+    "EcsVpc": {
+      "Type": "ALIYUN::ECS::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "CidrBlock"
+        },
+        "VpcName": {
+          "Ref": "VpcName"
+        }
+      }
+    },
+    "Jumpbox": {
+      "Type": "ALIYUN::ECS::Instance",
+      "DependsOn": "Database",
+      "Properties": {
+        "VpcId": {
+          "Fn::GetAtt": [
+            "EcsVpc",
+            "VpcId"
+          ]
+        },
+        "ZoneId": {
+          "Ref": "ZoneId"
+        },
+        "UserData": {
+          "Fn::Join": [
+            "",
+            [
+              "#!/bin/sh\n",
+              "logs=/var/log/mount_logs\n",
+              "wget http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm\n",
+              "rpm -ivh mysql-community-release-el7-5.noarch.rpm\n",
+              "yum install mysql-community-client -y\n",
+              "i=1\n",
+              "total=",
+              {
+                "Ref": "TotalDataDisk"
+              },
+              "\n",
+              "mountpoint=",
+              {
+                "Ref": "MountPoint"
+              },
+              "\n",
+              "while [ $i -le $total ]\n",
+              "do\n",
+              "    j=`echo $i|awk '{printf \"%c\", 97+$i}'`\n",
+              "fdisk -S 56 /dev/vd$j <<ALIYUN\n",
+              "n\n",
+              "p\n",
+              "1\n",
+              "\n",
+              "\n",
+              "w\n",
+              "ALIYUN\n",
+              "    echo \"/dev/vd$j is fdisked!\" >> $logs\n",
+              "    mkfs.ext4 /dev/vd${j}1\n",
+              "    if [ $? -eq 0 ];then\n",
+              "        echo \"/dev/vd${j}1 is formated!\" >> $logs\n",
+              "    fi\n",
+              "    touch ~/test_ftab\n",
+              "    mkdir $mountpoint\n",
+              "cat << ALIYUN > ~/test_ftab\n",
+              "/dev/vd${j}1         $mountpoint       ext4       defaults        0 0\n",
+              "ALIYUN\n",
+              "    cat ~/test_ftab >> /etc/fstab\n",
+              "    mount -a\n",
+              "    chmod -R 777 $mountpoint\n",
+              "    rm -rf ~/test_ftab\n",
+              "    echo \"/dev/vd${j}1 is mounted!\" >> $logs\n",
+              "    let i+=1\n",
+              "ossbucket=",
+              {
+                "Ref": "OSSBucket"
+              },
+              "\n",
+              "ossbucketaccesskey=",
+              {
+                "Ref": "OSSBucketAccessKey"
+              },
+              "\n",
+              "ossbucketsecret=",
+              {
+                "Ref": "OSSBucketSecret"
+              },
+              "\n",
+              "ossbucketmountpoint=",
+              {
+                "Ref": "OSSBucketMountPoint"
+              },
+              "\n",
+              "ossbucketendpoint=",
+              {
+                "Ref": "OSSBucketEndPoint"
+              },
+              "\n",
+              "DatabaseUser=",
+              {
+                "Ref": "MasterUserName"
+              },
+              "\n",
+              "DatabasePwd=",
+              {
+                "Ref": "MasterDBPassword"
+              },
+              "\n",
+              "DatabaseName=",
+              {
+                "Ref": "DBName"
+              },
+              "\n",
+              "DatabaseHost=",
+              {
+                "Fn::GetAtt": [
+                  "Database",
+                  "InnerConnectionString"
+                ]
+              },
+              "\n",
+              "yum install -y curl httpd mysql-server php php-common php-mysql\n",
+              "yum install -y php-gd php-imap php-ldap php-odbc php-pear php-xml php-xmlrpc\n",
+              "yum install -y phpmyadmin\n",
+              "sed -i \"s%localhost%$DatabaseHost%\" /etc/phpMyAdmin/config.inc.php\n",
+              "sed -i \"s%Deny,Allow%Allow,Deny%\" /etc/httpd/conf.d/phpMyAdmin.conf\n",
+              "sed -i \"s%Deny from All%Allow from All%\" /etc/httpd/conf.d/phpMyAdmin.conf\n",
+              "sed -i \"/<RequireAny>/a Require all Granted\" /etc/httpd/conf.d/phpMyAdmin.conf\n",
+              "chkconfig httpd on\n",
+              "service httpd stop\n",
+              "wget https://github.com/aliyun/ossfs/releases/download/v1.80.3/ossfs_1.80.3_centos6.5_x86_64.rpm\n",
+              "yum install -y ossfs_1.80.3_centos6.5_x86_64.rpm\n",
+              "echo $ossbucket:$ossbucketaccesskey:$ossbucketsecret >> /etc/passwd-ossfs\n",
+              "chmod 600 /etc/passwd-ossfs\n",
+              "mkdir $ossbucketmountpoint\n",
+              "chmod -R 755 $ossbucketmountpoint\n",
+              "echo #This script will automount the ossbucket\n",
+              "echo umount $ossbucketmountpoint >> /usr/local/bin/ossfs-automount.sh\n",
+              "echo #Mounting OSS Bucket\n",
+              "echo ossfs $ossbucket $ossbucketmountpoint -ourl=http://$ossbucketendpoint -o allow_other -o mp_umask=0022 -ouid=48 -ogid=48 >> /usr/local/bin/ossfs-automount.sh\n",
+              "chmod 755 /usr/local/bin/ossfs-automount.sh\n",
+              "echo /usr/local/bin/ossfs-automount.sh >> /etc/rc.d/rc.local\n",
+              "chmod +x /etc/rc.d/rc.local\n",
+              "/usr/local/bin/./ossfs-automount.sh\n",
+              "wget http://wordpress.org/latest.tar.gz\n",
+              "tar -xzvf latest.tar.gz\n",
+              "sed -i \"s%database_name_here%$DatabaseName%\" wordpress/wp-config-sample.php\n",
+              "sed -i \"s%username_here%$DatabaseUser%\" wordpress/wp-config-sample.php\n",
+              "sed -i \"s%password_here%${DatabasePwd:-$DatabasePwdDef}%\" wordpress/wp-config-sample.php\n",
+              "sed -i \"s%localhost%$DatabaseHost%\" wordpress/wp-config-sample.php\n",
+              "mv wordpress/wp-config-sample.php wordpress/wp-config.php\n",
+              "cp -a wordpress/* $ossbucketmountpoint\n",
+              "chmod -R 755 /wwwroot/*\n",
+              "rm -rf wordpress*\n",
+              "service httpd start\n",
+              "done\n"
+            ]
+          ]
+        },
+        "SecurityGroupId": {
+          "Ref": "SecurityGroup_default"
+        },
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "VSwitch1",
+            "VSwitchId"
+          ]
+        },
+        "ImageId": {
+          "Ref": "JumpboxImageId"
+        },
+        "AllocatePublicIP": false,
+        "InstanceType": {
+          "Ref": "JumpboxInstanceType"
+        },
+        "Password": {
+          "Ref": "JumpboxPassword"
+        }
+      }
+    },
+    "JumpboxDataDiskAttachment": {
+      "Type": "ALIYUN::ECS::DiskAttachment",
+      "Properties": {
+        "InstanceId": {
+          "Ref": "Jumpbox"
+        },
+        "Device": "/dev/xvdb",
+        "DiskId": {
+          "Fn::GetAtt": [
+            "JumpboxDataDisk",
+            "DiskId"
+          ]
+        }
+      }
+    },
+    "Database": {
+      "Type": "ALIYUN::RDS::DBInstance",
+      "Properties": {
+        "MasterUserPassword": {
+          "Ref": "MasterDBPassword"
+        },
+        "EngineVersion": {
+          "Ref": "EngineVersion"
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "EcsVpc",
+            "VpcId"
+          ]
+        },
+        "DBInstanceNetType": {
+          "Ref": "DBInstanceNetType"
+        },
+        "DBInstanceClass": {
+          "Ref": "DBInstanceClass"
+        },
+        "SecurityIPList": "0.0.0.0/0",
+        "DBInstanceStorage": {
+          "Ref": "DBInstanceStorage"
+        },
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "VSwitch1",
+            "VSwitchId"
+          ]
+        },
+        "MasterUsername": {
+          "Ref": "MasterUserName"
+        },
+        "DBMappings": [
+          {
+            "CharacterSetName": "utf8",
+            "DBName": {
+              "Ref": "DBName"
+            }
+          }
+        ],
+        "Engine": {
+          "Ref": "Engine"
+        }
+      }
+    },
+    "SecurityGroup_default": {
+      "Type": "ALIYUN::ECS::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Fn::GetAtt": [
+            "EcsVpc",
+            "VpcId"
+          ]
+        },
+        "SecurityGroupName": "AliyunECS_SecurityGroup1",
+        "SecurityGroupIngress": [
+          {
+            "PortRange": "22/22",
+            "Priority": 1,
+            "SourceCidrIp": "0.0.0.0/0",
+            "IpProtocol": "tcp",
+            "NicType": "internet"
+          },
+          {
+            "PortRange": "80/80",
+            "Priority": 1,
+            "SourceCidrIp": "0.0.0.0/0",
+            "IpProtocol": "tcp",
+            "NicType": "internet"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "PortRange": "-1/-1",
+            "Priority": 1,
+            "IpProtocol": "all",
+            "DestCidrIp": "0.0.0.0/0",
+            "NicType": "internet"
+          },
+          {
+            "PortRange": "-1/-1",
+            "Priority": 1,
+            "IpProtocol": "all",
+            "DestCidrIp": "0.0.0.0/0",
+            "NicType": "intranet"
+          }
+        ]
+      }
+    },
+    "JumpboxDataDisk": {
+      "Type": "ALIYUN::ECS::Disk",
+      "Properties": {
+        "ZoneId": {
+          "Ref": "ZoneId"
+        },
+        "Size": {
+          "Ref": "JumpboxDataDiskSize"
+        },
+        "DiskCategory": {
+          "Ref": "JumpboxDataDiskType"
+        }
+      }
+    },
+    "VSwitch1": {
+      "Type": "ALIYUN::ECS::VSwitch",
+      "Properties": {
+        "VpcId": {
+          "Fn::GetAtt": [
+            "EcsVpc",
+            "VpcId"
+          ]
+        },
+        "ZoneId": {
+          "Ref": "ZoneId"
+        },
+        "CidrBlock": "192.168.1.0/24",
+        "VSwitchName": "VSwitch1-x"
+      }
+    }
+  },
+  "Outputs": {
+    "VRouterId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "EcsVpc",
+          "VRouterId"
+        ]
+      },
+      "Description": "Router id of created VPC."
+    },
+    "LoadBalancerIpAddress": {
+      "Description": "The ip address of the load balancer.",
+      "Value": {
+        "Fn::GetAtt": [
+          "CreateLoadBalancer",
+          "IpAddress"
+        ]
+      }
+    },
+    "RouteTableId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "EcsVpc",
+          "RouteTableId"
+        ]
+      },
+      "Description": "The router table id of created VPC."
+    },
+    "VpcId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "EcsVpc",
+          "VpcId"
+        ]
+      },
+      "Description": "Id of created VPC."
+    },
+    "DBInstanceId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Database",
+          "DBInstanceId"
+        ]
+      },
+      "Description": "The instance id of created database instance."
+    },
+    "SecurityGroupId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "SecurityGroup_default",
+          "SecurityGroupId"
+        ]
+      },
+      "Description": "generated security group id for security group."
+    },
+    "VSwitchId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "VSwitch1",
+          "VSwitchId"
+        ]
+      },
+      "Description": "Id of created VSwitch."
+    },
+    "JumpboxEipAddress": {
+      "Value": {
+        "Fn::GetAtt": [
+          "NewElasticIP",
+          "EipAddress"
+        ]
+      },
+      "Description": "IP address of created EIP."
+    },
+    "InnerConnectString": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Database",
+          "InnerConnectionString"
+        ]
+      },
+      "Description": "DB instance connection url by Intranet."
+    },
+    "JumpboxInstanceId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Jumpbox",
+          "InstanceId"
+        ]
+      },
+      "Description": "The instance id of created ecs instance"
+    },
+    "PublicPort": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Database",
+          "PublicPort"
+        ]
+      },
+      "Description": "Internet port of created DB instance."
+    },
+    "PhpAdminUrl": {
+      "Description": "phpAdmin url.",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "http://",
+            {
+              "Fn::GetAtt": [
+                "NewElasticIP",
+                "EipAddress"
+              ]
+            },
+            "/phpmyadmin",
+            "/index.php"
+          ]
+        ]
+      }
+    }
+  }
+}
