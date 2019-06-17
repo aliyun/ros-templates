@@ -1,4 +1,4 @@
-# ROS Template
+# ROS Templates
 This repository contains examples and best practices for building ROS templates.
 
 The function of these examples is as follows:
