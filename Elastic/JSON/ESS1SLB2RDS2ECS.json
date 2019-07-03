@@ -1,0 +1,393 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Creates 1 SLB, 2 ECS instances, 1 ESS and 1 RDS. Attach the instances and ESS to the SLB.",
+  "Parameters": {
+    "EssDefaultCooldown": {
+      "Type": "Number",
+      "Description": "The Default cooldown in seconds",
+      "Label": "Ess Default Cooldown",
+      "Default": 300
+    },
+    "EssMaxSize": {
+      "Type": "Number",
+      "Description": "The maximum of ECS instances in scaling group",
+      "Label": "Max Number ECS Instances In Scaling Group",
+      "Default": 3,
+      "MaxValue": 100,
+      "MinValue": 1
+    },
+    "EssMinSize": {
+      "Type": "Number",
+      "Description": "The minimum of ECS instances in scaling group",
+      "Label": "Min Number ECS Instances In Scaling Group",
+      "Default": 1,
+      "MaxValue": 100,
+      "MinValue": 1
+    },
+    "RdsDBInstanceClass": {
+      "Type": "String",
+      "Description": "Database instance type. Refer the RDS database instance type.<a href='https://help.aliyun.com/document_detail/26312.html' target='_blank'>View RDS resources type</a>",
+      "Label": "Rds DB Instance Class",
+      "Default": "rds.mysql.t1.small",
+      "AllowedValues": [
+        "rds.mysql.t1.small",
+        "rds.mysql.s1.small",
+        "rds.mysql.s2.large",
+        "rds.mysql.s2.xlarge",
+        "rds.mysql.s3.large",
+        "rds.mysql.m1.medium",
+        "rds.mysql.c1.large",
+        "rds.mysql.c1.xlarge",
+        "rds.mysql.c2.xlarge",
+        "rds.mysql.c2.xlp2"
+      ]
+    },
+    "RdsDBInstanceNetType": {
+      "Type": "String",
+      "Description": "Database instance net type, default is Intranet.Internet for public access, Intranet for private access.",
+      "Label": "Rds DB Instance Net Type",
+      "Default": "Intranet",
+      "AllowedValues": [
+        "Internet",
+        "Intranet"
+      ]
+    },
+    "RdsDBInstanceStorage": {
+      "Type": "Number",
+      "Description": "Incrementing in every 5G, unit: GB",
+      "ConstraintDescription": "Incrementing in every 5G, unit: GB",
+      "Label": "Rds DB Instance Storage",
+      "Default": 10,
+      "MaxValue": 2000,
+      "MinValue": 5
+    },
+    "RdsEngine": {
+      "Type": "String",
+      "Description": "Database instance engine type. Support MySQL/SQLServer/PostgreSQL/PPAS/MariaDB now.",
+      "Label": "Rds Engine",
+      "Default": "MySQL",
+      "AllowedValues": [
+        "MySQL",
+        "SQLServer",
+        "PostgreSQL",
+        "PPAS"
+      ]
+    },
+    "RdsEngineVersion": {
+      "Type": "String",
+      "Description": "MySQL:5.5/5.6; SQLServer:2008r2; PostgreSQL:9.4; PPAS:9.3",
+      "Label": "Rds Engine Version",
+      "Default": "5.6",
+      "AllowedValues": [
+        "5.5",
+        "5.6",
+        "2008r2",
+        "9.4",
+        "9.3"
+      ]
+    },
+    "RdsSecurityIPList": {
+      "Type": "String",
+      "Description": "The ECS instances IP list access database, separated by commas, do not be repeated",
+      "Label": "Rds Security IP List",
+      "Default": "0.0.0.0/0"
+    },
+    "EcsImageId": {
+      "Type": "String",
+      "Description": "Image Id, represents the image resource to startup the ECS instance, <a href='#/product/cn-shenzhen/list/imageList' target='_blank'>View image resources</a>",
+      "Label": "Ecs Image Id",
+      "Default": "centos_7"
+    },
+    "EcsInstanceType": {
+      "Type": "String",
+      "Description": "The ECS instance type, <a href='#/product/cn-shenzhen/list/typeList' target='_blank'>View instance types</a>",
+      "Default": "ecs.c5.large",
+      "AllowedValues": [
+        "ecs.c5.large",
+        "ecs.c5.xlarge",
+        "ecs.g5.large",
+        "ecs.g5.xlarge"
+      ]
+    },
+    "EcsInternetChargeType": {
+      "Type": "String",
+      "Description": "The charge type of public internet instance",
+      "Label": "Ecs Internet Charge Type",
+      "Default": "paybytraffic",
+      "AllowedValues": [
+        "paybytraffic",
+        "paybybandwidth"
+      ]
+    },
+    "EcsPassword": {
+      "Type": "String",
+      "Description": "The login password of ECS instance",
+      "ConstraintDescription": "[8, 30] characters, consists of 3 types of uppercase letter, lowercase letter, number or special characters.",
+      "Label": "Ecs Password",
+      "MaxLength": 30,
+      "MinLength": 8,
+      "NoEcho": true,
+      "Confirm": true
+    },
+    "EcsSystemDiskCategory": {
+      "Type": "String",
+      "Description": "System disk category: efficient cloud disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)",
+      "Label": "Ecs System Disk Category",
+      "Default": "cloud_ssd",
+      "AllowedValues": [
+        "cloud_efficiency",
+        "cloud_ssd"
+      ]
+    }
+  },
+  "Resources": {
+    "Vpc": {
+      "Type": "ALIYUN::ECS::VPC",
+      "Properties": {
+        "CidrBlock": "192.168.0.0/16",
+        "VpcName": "myvpc"
+      }
+    },
+    "VSwitch": {
+      "Type": "ALIYUN::ECS::VSwitch",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "ZoneId": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": {
+                "Ref": "ALIYUN::Region"
+              }
+            }
+          ]
+        },
+        "CidrBlock": "192.168.0.0/16"
+      }
+    },
+    "SG": {
+      "Type": "ALIYUN::ECS::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "SecurityGroupName": "mysg",
+        "SecurityGroupIngress": [
+          {
+            "PortRange": "-1/-1",
+            "Priority": 1,
+            "SourceCidrIp": "0.0.0.0/0",
+            "IpProtocol": "all",
+            "NicType": "intranet"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "PortRange": "-1/-1",
+            "Priority": 1,
+            "IpProtocol": "all",
+            "DestCidrIp": "0.0.0.0/0",
+            "NicType": "intranet"
+          }
+        ]
+      }
+    },
+    "ScalingGroup": {
+      "Type": "ALIYUN::ESS::ScalingGroup",
+      "Properties": {
+        "DBInstanceIds": [
+          {
+            "Fn::GetAtt": [
+              "Database",
+              "DBInstanceId"
+            ]
+          }
+        ],
+        "DefaultCooldown": {
+          "Ref": "EssDefaultCooldown"
+        },
+        "LoadBalancerIds": [
+          {
+            "Fn::GetAtt": [
+              "LoadBalancer",
+              "LoadBalancerId"
+            ]
+          }
+        ],
+        "MaxSize": {
+          "Ref": "EssMaxSize"
+        },
+        "MinSize": {
+          "Ref": "EssMinSize"
+        },
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "VSwitchId": {
+          "Ref": "VSwitch"
+        }
+      },
+      "DependsOn": "CreateListener"
+    },
+    "LoadBalancer": {
+      "Type": "ALIYUN::SLB::LoadBalancer",
+      "Properties": {
+        "AddressType": "internet"
+      }
+    },
+    "CreateListener": {
+      "Type": "ALIYUN::SLB::Listener",
+      "Properties": {
+        "BackendServerPort": 8080,
+        "Bandwidth": 50,
+        "HealthCheck": {
+          "HealthyThreshold": 3,
+          "HttpCode": "http_2xx,http_3xx,http_4xx,http_5xx",
+          "Interval": 2,
+          "Timeout": 5,
+          "UnhealthyThreshold": 3
+        },
+        "ListenerPort": "80",
+        "LoadBalancerId": {
+          "Ref": "LoadBalancer"
+        },
+        "Protocol": "http",
+        "Scheduler": "wrr"
+      }
+    },
+    "Attachment": {
+      "Type": "ALIYUN::SLB::BackendServerAttachment",
+      "Properties": {
+        "BackendServers": [
+          {
+            "ServerId": {
+              "Ref": "BackendServer1"
+            },
+            "Weight": 100
+          },
+          {
+            "ServerId": {
+              "Ref": "BackendServer2"
+            },
+            "Weight": 100
+          }
+        ],
+        "LoadBalancerId": {
+          "Ref": "LoadBalancer"
+        }
+      }
+    },
+    "Database": {
+      "Type": "ALIYUN::RDS::DBInstance",
+      "Properties": {
+        "DBInstanceClass": {
+          "Ref": "RdsDBInstanceClass"
+        },
+        "DBInstanceNetType": {
+          "Ref": "RdsDBInstanceNetType"
+        },
+        "DBInstanceStorage": {
+          "Ref": "RdsDBInstanceStorage"
+        },
+        "Engine": {
+          "Ref": "RdsEngine"
+        },
+        "EngineVersion": {
+          "Ref": "RdsEngineVersion"
+        },
+        "SecurityIPList": {
+          "Ref": "RdsSecurityIPList"
+        },
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "VSwitchId": {
+          "Ref": "VSwitch"
+        }
+      }
+    },
+    "BackendServer1": {
+      "Type": "ALIYUN::ECS::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "EcsImageId"
+        },
+        "InstanceType": {
+          "Ref": "EcsInstanceType"
+        },
+        "Password": {
+          "Ref": "EcsPassword"
+        },
+        "SecurityGroupId": {
+          "Ref": "SG"
+        },
+        "SystemDisk_Category": {
+          "Ref": "EcsSystemDiskCategory"
+        },
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "VSwitchId": {
+          "Ref": "VSwitch"
+        }
+      }
+    },
+    "BackendServer2": {
+      "Type": "ALIYUN::ECS::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "EcsImageId"
+        },
+        "InstanceType": {
+          "Ref": "EcsInstanceType"
+        },
+        "Password": {
+          "Ref": "EcsPassword"
+        },
+        "SecurityGroupId": {
+          "Ref": "SG"
+        },
+        "SystemDisk_Category": {
+          "Ref": "EcsSystemDiskCategory"
+        },
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "VSwitchId": {
+          "Ref": "VSwitch"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "PublicConnectionString": {
+      "Description": "DB instance connection url by Internet.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Database",
+          "PublicConnectionString"
+        ]
+      }
+    },
+    "DBInstanceId": {
+      "Description": "The instance id of created database instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Database",
+          "DBInstanceId"
+        ]
+      }
+    },
+    "PublicPort": {
+      "Description": "Internet port of created DB instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Database",
+          "PublicPort"
+        ]
+      }
+    }
+  }
+}

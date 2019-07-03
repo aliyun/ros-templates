@@ -1,0 +1,150 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Create a container service clusters to deploy Jenkins master and slaves
+  with different languages
+Parameters:
+  ImageId:
+    Type: String
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Label: ECS Image Id
+    Default: ubuntu_16_04_64_20G_alibase_20190513.vhd
+  ClusterSize:
+    Type: Number
+    Description: The number of cluster nodes is among [1, 100]
+    Label: Cluster Size
+    Default: 2
+    MaxValue: 100
+    MinValue: 1
+  InstancePassword:
+    Type: String
+    Description: The root password of ECS instance. The password is a string of 8
+      to 41 characters and must contain uppercase/lowercase letters, numbers.
+    ConstraintDescription: Consist of 8 to 30 alphanumeric.
+    Label: ECS Instance Password
+    MaxLength: '30'
+    MinLength: '8'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    NoEcho: true
+    Confirm: true
+  ClusterName:
+    Type: String
+    Description: Cluster name
+    Label: Cluster Name
+    Default: jenkinsCluster
+  InstanceType:
+    Type: String
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Label: Ecs Instance type
+    Default: ecs.c5.large
+    AllowedValues: [ecs.c5.large, ecs.c5.xlarge, ecs.g5.large, ecs.g5.xlarge]
+  IoOptimized:
+    Type: Boolean
+    Description: The 'optimized' instance can provide better IO performance.
+    Label: Io Optimized
+    Default: true
+    AllowedValues: [false, true]
+  SystemDiskCategory:
+    Type: String
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Label: System Disk Category
+    Default: cloud_ssd
+    AllowedValues: [cloud, cloud_efficiency, cloud_ssd]
+  VpcId:
+    Type: String
+    Description: VPC ID
+    Label: Vpc Id
+  VSwitchId:
+    Type: String
+    Description: VSW ID
+    Label: VSwitch Id
+  SubnetCidr:
+    Type: String
+    Description: Subnet for containers. The range allowed is 172.17.0.0/24 - 172.31.0.0/24.
+      Make sure it's different from vpc and vswitch.
+    Label: Subnet Cidr
+    Default: 172.28.1.0/24
+Resources:
+  App:
+    Type: ALIYUN::CS::App
+    Properties:
+      Ca:
+        Fn::GetAtt: [MyCluster, Ca]
+      Cert:
+        Fn::GetAtt: [MyCluster, Cert]
+      ClusterId:
+        Fn::GetAtt: [MyCluster, ClusterId]
+      Key:
+        Fn::GetAtt: [MyCluster, Key]
+      MasterUrl:
+        Fn::GetAtt: [MyCluster, MasterUrl]
+      Name: jenkins
+      Template: "jenkins:\n    image: 'registry.aliyuncs.com/acs-sample/jenkins:2.32.1'\n\
+        \    volumes:\n        - /var/lib/docker/jenkins:/var/jenkins_home\n    privileged:\
+        \ true\n    restart: always \n    labels:\n        aliyun.scale: '1'\n   \
+        \     aliyun.probe.url: 'tcp://container:8080'\n        aliyun.probe.initial_delay_seconds:\
+        \ '10'\n        aliyun.routing.port_8080: jenkins\n    links:\n        - slave-golang\n\
+        \        - slave-java\n        - slave-nodejs\n        - slave-python\n  \
+        \      - slave-php\nslave-golang:\n    image: 'registry.aliyuncs.com/acs-sample/jenkins-slave-dind-golang'\n\
+        \    volumes:\n        - /var/run/docker.sock:/var/run/docker.sock\n    restart:\
+        \ always \n    labels:\n        aliyun.scale: '1'\nslave-java:\n    image:\
+        \ 'registry.aliyuncs.com/acs-sample/jenkins-slave-dind-java'\n    volumes:\n\
+        \        - /var/run/docker.sock:/var/run/docker.sock\n    restart: always\
+        \ \n    labels:\n        aliyun.scale: '1'        \nslave-nodejs:\n    image:\
+        \ 'registry.aliyuncs.com/acs-sample/jenkins-slave-dind-nodejs'\n    volumes:\n\
+        \        - /var/run/docker.sock:/var/run/docker.sock\n    restart: always\
+        \ \n    labels:\n        aliyun.scale: '1'\nslave-python:\n    image: 'registry.aliyuncs.com/acs-sample/jenkins-slave-dind-python'\n\
+        \    volumes:\n        - /var/run/docker.sock:/var/run/docker.sock    \n \
+        \   restart: always \n    labels:\n        aliyun.scale: '1'\nslave-php:\n\
+        \    image: 'registry.aliyuncs.com/acs-sample/jenkins-slave-dind-php'\n  \
+        \  volumes:\n        - /var/run/docker.sock:/var/run/docker.sock    \n   \
+        \ restart: always \n    labels:\n        aliyun.scale: '1'"
+  MyCluster:
+    Type: ALIYUN::CS::Cluster
+    Properties:
+      IoOptimized:
+        Ref: IoOptimized
+      Name:
+        Ref: ClusterName
+      ImageId:
+        Ref: ImageId
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Size:
+        Ref: ClusterSize
+      InstanceType:
+        Ref: InstanceType
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SubnetCidr:
+        Ref: SubnetCidr
+Outputs:
+  CaCert:
+    Description: CA cert of the cluster.
+    Value:
+      Fn::GetAtt: [MyCluster, Ca]
+  ClientCert:
+    Description: Client cert of the cluster.
+    Value:
+      Fn::GetAtt: [MyCluster, Cert]
+  ClientKey:
+    Description: Client key of the cluster.
+    Value:
+      Fn::GetAtt: [MyCluster, Key]
+  ClusterId:
+    Description: Id of the cluster.
+    Value:
+      Fn::GetAtt: [MyCluster, ClusterId]
+  Endpoints:
+    Description: Endpoints of the app.
+    Value:
+      Fn::GetAtt: [App, Endpoints]
+  MasterUrl:
+    Description: Master url of the cluster.
+    Value:
+      Fn::GetAtt: [MyCluster, MasterUrl]

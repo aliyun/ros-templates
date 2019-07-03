@@ -1,0 +1,108 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Clones ECS Instance And DataBase Disk",
+  "Parameters": {
+    "SourceEcsDataDiskId": {
+      "Type": "String",
+      "Description": "Create snapshot based on source ECS data disk",
+      "Label": "Source ECS data disk ID"
+    },
+    "SourceEcsSystemDiskId": {
+      "Type": "String",
+      "Description": "Create custom image based on source ECS system disk",
+      "Label": "Source ECS system disk ID"
+    },
+    "SourceEcsInstanceId": {
+      "Type": "String",
+      "Description": "Source ECS Instance",
+      "Label": "Source ECS Instance ID"
+    },
+    "LoginPassword": {
+      "Type": "String",
+      "Description": "ECS Login Password",
+      "Label": "ECS Login Password",
+      "MaxLength": 41,
+      "MinLength": 8,
+      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
+      "NoEcho": true,
+      "Confirm": true
+    },
+    "NumberOfClonedEcs": {
+      "Type": "Number",
+      "Description": "The number of nodes will be cloned",
+      "Label": "Number of Cloned ECS",
+      "Default": 1,
+      "MaxValue": 100,
+      "MinValue": 1
+    }
+  },
+  "Resources": {
+    "CustomImage": {
+      "Type": "ALIYUN::ECS::CustomImage",
+      "Properties": {
+        "SnapshotId": {
+          "Ref": "SystemDiskSnapshot"
+        }
+      }
+    },
+    "NewEcsInstance": {
+      "Type": "ALIYUN::ECS::InstanceGroupClone",
+      "Properties": {
+        "DiskMappings": [
+          {
+            "SnapshotId": {
+              "Fn::GetAtt": [
+                "DataDiskSnapshot",
+                "SnapshotId"
+              ]
+            },
+            "Size": 20
+          }
+        ],
+        "MinAmount": {
+          "Ref": "NumberOfClonedEcs"
+        },
+        "ImageId": {
+          "Ref": "CustomImage"
+        },
+        "SourceInstanceId": {
+          "Ref": "SourceEcsInstanceId"
+        },
+        "MaxAmount": {
+          "Ref": "NumberOfClonedEcs"
+        },
+        "Password": {
+          "Ref": "LoginPassword"
+        }
+      }
+    },
+    "DataDiskSnapshot": {
+      "Type": "ALIYUN::ECS::Snapshot",
+      "Properties": {
+        "DiskId": {
+          "Ref": "SourceEcsDataDiskId"
+        }
+      }
+    },
+    "SystemDiskSnapshot": {
+      "Type": "ALIYUN::ECS::Snapshot",
+      "Properties": {
+        "Timeout": 300,
+        "DiskId": {
+          "Ref": "SourceEcsSystemDiskId"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "NewEcsInstanceIds": {
+      "Description": "New Instance Id.",
+      "Value": {
+        "Fn::GetAtt": [
+          "NewEcsInstance",
+          "InstanceIds"
+        ]
+      }
+    }
+  }
+}

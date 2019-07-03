@@ -1,0 +1,310 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Creates VPC environment and configures NatGateway to ensure ECS access internet and provider service for public.",
+  "Parameters": {
+    "ImageId": {
+      "Type": "String",
+      "Description": "Image ID to create ecs instance, <a href='#/product/cn-beijing/list/imageList' target='_blank'> Serach Aliyun public image ID</a>.",
+      "Label": "Ecs Image Id",
+      "Default": "centos_7"
+    },
+    "InstanceType": {
+      "Type": "String",
+      "Description": "The ECS instance type, <a href='#/product/cn-beijing/list/typeList' target='_blank'>View instance types</a>.",
+      "Label": "ECS Instance Type",
+      "Default": "ecs.c5.large",
+      "AllowedValues": [
+        "ecs.c5.large",
+        "ecs.g5.large",
+        "ecs.c5.xlarge",
+        "ecs.g5.xlarge"
+      ]
+    },
+    "Password": {
+      "Type": "String",
+      "Description": "Root login Password.",
+      "ConstraintDescription": "Consist of 8 to 30 alphanumeric.",
+      "MaxLength": "30",
+      "MinLength": "8",
+      "AllowedPattern": "[a-zA-Z0-9]*",
+      "NoEcho": true,
+      "Confirm": true
+    },
+    "VpcCidrBlock": {
+      "Type": "String",
+      "Description": "The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:\n10.0.0.0/8\n172.16.0.0/12 (Default)\n192.168.0.0/16.",
+      "Label": "Vpc Cidr Block",
+      "Default": "192.168.0.0/16",
+      "AllowedValues": [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16"
+      ]
+    },
+    "VSwitchCidrBlock": {
+      "Type": "String",
+      "Description": "Cidr Block of created VSwitch.",
+      "Label": "VSwitch Cidr Block",
+      "Default": "192.168.1.0/24"
+    },
+    "ECSMaxAmount": {
+      "Type": "Number",
+      "Description": "ECS Max Amount.",
+      "Label": "ECS Max Amount",
+      "Default": 1
+    },
+    "NatGatewayBandwidth": {
+      "Type": "Number",
+      "Description": "Nat Gateway Bandwidth.",
+      "Label": "Nat Gateway Bandwidth",
+      "Default": 5,
+      "MinValue": 5
+    },
+    "NatGatewayPublicIPCount": {
+      "Type": "Number",
+      "Description": "Nat Gateway Public IP Count.",
+      "Label": "Nat Gateway Public IP Count",
+      "Default": 2,
+      "MinValue": 2
+    }
+  },
+  "Resources": {
+    "ForwardEntry": {
+      "Type": "ALIYUN::ECS::ForwardEntry",
+      "Properties": {
+        "ExternalIp": {
+          "Fn::Select": [
+            "1",
+            {
+              "Fn::GetAtt": [
+                "NatGateway",
+                "BandwidthPackageIps"
+              ]
+            }
+          ]
+        },
+        "ExternalPort": "Any",
+        "ForwardTableId": {
+          "Fn::GetAtt": [
+            "NatGateway",
+            "ForwardTableId"
+          ]
+        },
+        "InternalIp": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAtt": [
+                "WebServer",
+                "PrivateIps"
+              ]
+            }
+          ]
+        },
+        "InternalPort": "Any",
+        "IpProtocol": "Any"
+      }
+    },
+    "NatGateway": {
+      "Type": "ALIYUN::ECS::NatGateway",
+      "Properties": {
+        "BandwidthPackage": [
+          {
+            "Bandwidth": {
+              "Ref": "NatGatewayBandwidth"
+            },
+            "IpCount": {
+              "Ref": "NatGatewayPublicIPCount"
+            },
+            "ZoneId": {
+              "Fn::Select": [
+                "0",
+                {
+                  "Fn::GetAZs": {
+                    "Ref": "ALIYUN::Region"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "Description": "My NAT Gateway",
+        "NatGatewayName": "nat_gateway_1",
+        "Spec": "Middle",
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "VSwitch",
+            "VSwitchId"
+          ]
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        }
+      },
+      "DependsOn": "VSwitch"
+    },
+    "SNatEntry": {
+      "Type": "ALIYUN::ECS::SNatEntry",
+      "Properties": {
+        "SNatIp": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAtt": [
+                "NatGateway",
+                "BandwidthPackageIps"
+              ]
+            }
+          ]
+        },
+        "SNatTableId": {
+          "Fn::GetAtt": [
+            "NatGateway",
+            "SNatTableId"
+          ]
+        },
+        "SourceVSwitchId": {
+          "Fn::GetAtt": [
+            "VSwitch",
+            "VSwitchId"
+          ]
+        }
+      }
+    },
+    "SecurityGroup": {
+      "Type": "ALIYUN::ECS::SecurityGroup",
+      "Properties": {
+        "SecurityGroupEgress": [
+          {
+            "DestCidrIp": "0.0.0.0/0",
+            "IpProtocol": "all",
+            "NicType": "internet",
+            "PortRange": "-1/-1",
+            "Priority": 1
+          },
+          {
+            "DestCidrIp": "0.0.0.0/0",
+            "IpProtocol": "all",
+            "NicType": "intranet",
+            "PortRange": "-1/-1",
+            "Priority": 1
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "all",
+            "NicType": "internet",
+            "PortRange": "-1/-1",
+            "Priority": 1,
+            "SourceCidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "all",
+            "NicType": "intranet",
+            "PortRange": "-1/-1",
+            "Priority": 1,
+            "SourceCidrIp": "0.0.0.0/0"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      }
+    },
+    "VSwitch": {
+      "Type": "ALIYUN::ECS::VSwitch",
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "VSwitchCidrBlock"
+        },
+        "VSwitchName": "test_vswitch",
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        },
+        "ZoneId": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": {
+                "Ref": "ALIYUN::Region"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Vpc": {
+      "Type": "ALIYUN::ECS::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "VpcCidrBlock"
+        },
+        "VpcName": "test_vpc_entry"
+      }
+    },
+    "WebServer": {
+      "Type": "ALIYUN::ECS::InstanceGroup",
+      "Properties": {
+        "AllocatePublicIP": false,
+        "ImageId": {
+          "Ref": "ImageId"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "IoOptimized": "optimized",
+        "Password": {
+          "Ref": "Password"
+        },
+        "SecurityGroupId": {
+          "Ref": "SecurityGroup"
+        },
+        "SystemDiskCategory": "cloud_efficiency",
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "VSwitch",
+            "VSwitchId"
+          ]
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        },
+        "MinAmount": {
+          "Ref": "ECSMaxAmount"
+        },
+        "MaxAmount": {
+          "Ref": "ECSMaxAmount"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "WebServerIPs": {
+      "Description": "Private IP address list of created ecs instance. Only for VPC instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "WebServer",
+          "PrivateIps"
+        ]
+      }
+    },
+    "BandwidthPackageIps": {
+      "Description": "The allocated public IPs.",
+      "Value": {
+        "Fn::GetAtt": [
+          "NatGateway",
+          "BandwidthPackageIps"
+        ]
+      }
+    }
+  }
+}

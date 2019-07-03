@@ -1,0 +1,793 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Deploy a Hadoop environment on 3 ECS instances. One ECS instance plays
+  role of master node, and the other 2 instances play role of worker node. *** WARNING
+  *** Only test in CentOS-7. Maybe stopping firewall is needed. The deploying time
+  mainly depends on the speed of downloading jdk and hadoop packages.
+Parameters:
+  ImageId:
+    Type: String
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Label: ECS Image Id
+    Default: centos_7
+  VpcName:
+    Type: String
+    Description: Name of VPC
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    Label: Vpc Name
+    MaxLength: 128
+    MinLength: 2
+  Slave2Name:
+    Type: String
+    Description: Slave2 hostname
+    Label: Slave 2 Name
+    Default: slave2.hadoop
+  Slave1Name:
+    Type: String
+    Description: Slave1 hostname
+    Label: Slave 1 Name
+    Default: slave1.hadoop
+  MasterName:
+    Type: String
+    Description: Master hostname
+    Label: Master Name
+    Default: master.hadoop
+  HadoopHome:
+    Type: String
+    Description: HADOOP_HOME directory should be new.
+    Label: Hadoop Home
+    Default: /usr/local/hadoop/hadoop-2.7.7
+  ZoneId:
+    Type: String
+    Description: Ecs Available Zone Id, <a href='#/product/cn-beijing/list/zoneList'
+      target='_blank'>View zoneid info</a>
+    Label: ECS Zone Id
+  VSwitchCidrBlock:
+    Type: String
+    Description: Cidr Block of created VSwitch
+    Label: VSwitch Cidr Block
+    Default: 192.168.1.0/24
+  InstanceType:
+    Type: String
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Label: ECS Instance Type
+    Default: ecs.c5.large
+    AllowedValues: [ecs.c5.large, ecs.g5.large, ecs.c5.xlarge, ecs.g5.xlarge]
+  IoOptimized:
+    Type: String
+    Description: The 'optimized' instance can provide better IO performance. Support
+      'none' and 'optimized' only, default is 'optimized'.
+    Label: Io Optimized
+    Default: optimized
+  InstancePassword:
+    Type: String
+    Description: The root password of ECS instance. The password is a string of 8
+      to 41 characters and must contain uppercase/lowercase letters, numbers.
+    ConstraintDescription: Consist of 8 to 30 alphanumeric.
+    Label: ECS Instance Password
+    MaxLength: '30'
+    MinLength: '8'
+    AllowedPattern: '[a-zA-Z0-9]*'
+    NoEcho: true
+    Confirm: true
+  VpcCidrBlock:
+    Type: String
+    Description: 'The IP address range of the VPC in the CIDR block form. You can
+      use the following IP address ranges and their subnets:
+
+      10.0.0.0/8
+
+      172.16.0.0/12 (Default)
+
+      192.168.0.0/16'
+    Label: Vpc Cidr Block
+    Default: 192.168.0.0/16
+    AllowedValues: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+  HadoopUrl:
+    Type: String
+    Description: The official download path of .tar.gz
+    Label: Hadoop Url
+    Default: http://apache.claz.org/hadoop/common/hadoop-2.7.7/hadoop-2.7.7.tar.gz
+  SystemDiskCategory:
+    Type: String
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Label: Instance System Disk Category
+    Default: cloud_ssd
+    AllowedValues: [cloud, cloud_efficiency, cloud_ssd]
+  InstanceName:
+    Type: String
+    Description: The name of ECS instance
+    Label: Instance Name
+    Default: ecsinstance
+Resources:
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt: [Vpc, VpcId]
+  Slave1:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      IoOptimized:
+        Ref: IoOptimized
+      ImageId:
+        Ref: ImageId
+      SecurityGroupId:
+        Ref: SecurityGroup
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt: [Slave1ConditionHandle, CurlCli]
+        - Fn::Join:
+          - ''
+          - - "#!/bin/bash \n"
+            - "# set -e \n"
+            - Slave1Name=
+            - Ref: Slave1Name
+            - '
+
+              '
+            - "hostnamectl --static set-hostname \"$Slave1Name\" \n"
+            - "export HOME=/root \n"
+            - "export HOSTNAME=`hostname` \n"
+            - "ip_addr=`ifconfig eth0 | awk '/inet /{print $2}'` \n"
+            - "cd /root \n"
+            - "rm -rf .ssh \n"
+            - "ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+            - "cd /root/.ssh \n"
+            - "rm -f * \n"
+            - "echo '-----BEGIN RSA PRIVATE KEY-----' > id_rsa \n"
+            - "echo 'MIIEowIBAAKCAQEAzfQ/QHwWB1njU9+Wu3RYi9g+g5rydSpAE0klefTJuZjtcaic'\
+              \ >> id_rsa \n"
+            - "echo 'SCeBN5avih8UToZ148+Ef2YzOtoosqluZpoYLCPSpAqr8pmviBJIU3vfu9mnDG9L'\
+              \ >> id_rsa \n"
+            - "echo 'oevT6K8w3wCBRCmqu+vc0Tpju/EeCuYK3+8w7e2I6F3+zIYzhhX3qmkocje7ACnV'\
+              \ >> id_rsa \n"
+            - "echo 'yh2DB/2m3sogTMc0RT+5y3kJAnC6TOIlGsYjOOkPbEF3Ifn1o4ZjOFOmQlcRJer4'\
+              \ >> id_rsa \n"
+            - "echo '1E6rTdXAxS2uDNMFBCf9Xyx7O9J+ELTCAXc4h7AE6WLdQb5Apzv4t1KswCAtRenP'\
+              \ >> id_rsa \n"
+            - "echo '1xGcUYY8I/JUT2VvBWtQJennrk9jrPZUFDcmcwIDAQABAoIBAAwzDZQaRYvF7UtI'\
+              \ >> id_rsa \n"
+            - "echo 'kTslVyFhe8J76SS7jfQWfxvMPi66OkZjQG6duG+8g0VhNei42j7WSfjp6trvlT2P'\
+              \ >> id_rsa \n"
+            - "echo '/7QgKJJkxNNmtmy2Ycljm9kmG0ibSePYq9g5ieHcjr6G3yFUfoKHJBtYpBO74pWu'\
+              \ >> id_rsa \n"
+            - "echo 'rrI5DuLpERUCjFc9E8w7fOIhPH4XZ6wk/EmPxHTgxZk+aMvqptyPSbUyiUOvCiZf'\
+              \ >> id_rsa \n"
+            - "echo 'MD0ircs9vgtslMVDlz9m6CoiNz6B3Yf6eLRoGGMiGnsQzZHIfnHCMX8i65Jc+TvQ'\
+              \ >> id_rsa \n"
+            - "echo 'fLopIHzwBwI55xpcOIBRgYiEAQJhLsSNSFugoxMcwe9RalTGGS21HOQu4b3ZylKM'\
+              \ >> id_rsa \n"
+            - "echo '8ofEVKECgYEA/Y4MzN04wAsM1yNuHN+9sdiVLG28LWH3dgpcXqa9gyNsWs9Gf8uf'\
+              \ >> id_rsa \n"
+            - "echo 'qbuvQGeKDRXCW93wO1jO+pCYVrkyY3l+KhBKIqmkJT5gFsa8dBUvEBLALiHNg3+o'\
+              \ >> id_rsa \n"
+            - "echo 'jR2Vqsemk8kMZA8zfJ3FKcMb1pt4S2GqepqsdC3DgzIIsxufCh7jSzsCgYEAz/Cv'\
+              \ >> id_rsa \n"
+            - "echo 'Z7gAdSFC8q6QxFxSyhfZwGA6QW6ZU7rZv9ZdGySvZg+vHbpNVmQ0BAQzJui3Qs9u'\
+              \ >> id_rsa \n"
+            - "echo 'XQMpYafXWzKsPzG6ZWvYXTF7fuxlovvG8Qd2A2QnGtGMB9YtQMHVqbsUDwxMjiTn'\
+              \ >> id_rsa \n"
+            - "echo 'VBZILkDf+WCwQ98P5UMoumI0goIcNZ+AXhcqrikCgYBkSwLvKfYfqH9Mvfv5Odsr'\
+              \ >> id_rsa \n"
+            - "echo '9NKUv1c20FB1BYYh/mxp6eIbTW/CbwXZup6IqCvoHxpBAlna77b3T6iibSDsTgtE'\
+              \ >> id_rsa \n"
+            - "echo 'kirw6Q8/mBukBrpWZGa4QeJ4nPBQuncuUmx4H/7Y6CaZkZW5DiMF8OIbEmYT0y7+'\
+              \ >> id_rsa \n"
+            - "echo 'zh222r9CLtFYH23aL/uSLwKBgQCS1xyG2eE41aw5RBznDWtJW15iA5If8sJD5ocu'\
+              \ >> id_rsa \n"
+            - "echo 'eWp2aImUQS8ghxdmEozI6U5WA7CmdWUyObFXTPc/Z6FLXwqJ5IZ+CRt0neuIFNSA'\
+              \ >> id_rsa \n"
+            - "echo 'EQy9iFQ1FBUW06BRQpBns7yOg9jr6BOTxchjIV0I9caDp1nKRIrWU9NQ9iCFnYVA'\
+              \ >> id_rsa \n"
+            - "echo '7IsvQQKBgFxgF7UOhwaiMb/ATSuhm2v9kVvRPEO9umdo7YJ9I4L09lYbAtpcnusQ'\
+              \ >> id_rsa \n"
+            - "echo 'fIROYL25VeEMgYcQyInc3Fm/sgJdbXQnUy+3QbbCcBCmcLj27LPQyxuu7p9hbPPT'\
+              \ >> id_rsa \n"
+            - "echo 'Mxx37OmYvOkSVTQz0T9HfDGvOJgt4t4cXD4T/7ewk62p6jdpSQrt' >> id_rsa\
+              \ \n"
+            - "echo '-----END RSA PRIVATE KEY-----' >> id_rsa \n"
+            - "echo 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDN9D9AfBYHWeNT35a7dFiL2D6DmvJ1KkATSSV59Mm5mO1xqJxIJ4E3lq+KHxROhnXjz4R/ZjM62iiyqW5mmhgsI9KkCqvyma+IEkhTe9+72acMb0uh69PorzDfAIFEKaq769zROmO78R4K5grf7zDt7YjoXf7MhjOGFfeqaShyN7sAKdXKHYMH/abeyiBMxzRFP7nLeQkCcLpM4iUaxiM46Q9sQXch+fWjhmM4U6ZCVxEl6vjUTqtN1cDFLa4M0wUEJ/1fLHs70n4QtMIBdziHsATpYt1BvkCnO/i3UqzAIC1F6c/XEZxRhjwj8lRPZW8Fa1Al6eeuT2Os9lQUNyZz\
+              \ root@iZ2zee53wf4ndvajz30cdvZ' > id_rsa.pub \n"
+            - "cp id_rsa.pub authorized_keys \n"
+            - "chmod 600 authorized_keys \n"
+            - "chmod 600 id_rsa \n"
+            - "sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/'\
+              \ /etc/ssh/ssh_config \n"
+            - "sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/ssh_config\
+              \ \n"
+            - "service sshd restart \n"
+            - 'ros-notify -d ''{"data" : "Install Hadoop."}''
+
+              '
+      VSwitchId:
+        Ref: VSwitch
+      InstanceName:
+        Ref: InstanceName
+      VpcId:
+        Fn::GetAtt: [Vpc, VpcId]
+      InstanceType:
+        Ref: InstanceType
+  Slave2WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: Slave2ConditionHandle
+      Timeout: 1800
+      Count: 1
+    DependsOn: Slave2
+  Slave2:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      IoOptimized:
+        Ref: IoOptimized
+      ImageId:
+        Ref: ImageId
+      SecurityGroupId:
+        Ref: SecurityGroup
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt: [Slave2ConditionHandle, CurlCli]
+        - Fn::Join:
+          - ''
+          - - "#!/bin/bash \n"
+            - "# set -e \n"
+            - Slave2Name=
+            - Ref: Slave2Name
+            - '
+
+              '
+            - "hostnamectl --static set-hostname \"$Slave2Name\" \n"
+            - "export HOME=/root \n"
+            - "export HOSTNAME=`hostname` \n"
+            - "ip_addr=`ifconfig eth0 | awk '/inet /{print $2}'` \n"
+            - "cd /root \n"
+            - "rm -rf .ssh \n"
+            - "ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+            - "cd /root/.ssh \n"
+            - "rm -f * \n"
+            - "echo '-----BEGIN RSA PRIVATE KEY-----' > id_rsa \n"
+            - "echo 'MIIEowIBAAKCAQEAzfQ/QHwWB1njU9+Wu3RYi9g+g5rydSpAE0klefTJuZjtcaic'\
+              \ >> id_rsa \n"
+            - "echo 'SCeBN5avih8UToZ148+Ef2YzOtoosqluZpoYLCPSpAqr8pmviBJIU3vfu9mnDG9L'\
+              \ >> id_rsa \n"
+            - "echo 'oevT6K8w3wCBRCmqu+vc0Tpju/EeCuYK3+8w7e2I6F3+zIYzhhX3qmkocje7ACnV'\
+              \ >> id_rsa \n"
+            - "echo 'yh2DB/2m3sogTMc0RT+5y3kJAnC6TOIlGsYjOOkPbEF3Ifn1o4ZjOFOmQlcRJer4'\
+              \ >> id_rsa \n"
+            - "echo '1E6rTdXAxS2uDNMFBCf9Xyx7O9J+ELTCAXc4h7AE6WLdQb5Apzv4t1KswCAtRenP'\
+              \ >> id_rsa \n"
+            - "echo '1xGcUYY8I/JUT2VvBWtQJennrk9jrPZUFDcmcwIDAQABAoIBAAwzDZQaRYvF7UtI'\
+              \ >> id_rsa \n"
+            - "echo 'kTslVyFhe8J76SS7jfQWfxvMPi66OkZjQG6duG+8g0VhNei42j7WSfjp6trvlT2P'\
+              \ >> id_rsa \n"
+            - "echo '/7QgKJJkxNNmtmy2Ycljm9kmG0ibSePYq9g5ieHcjr6G3yFUfoKHJBtYpBO74pWu'\
+              \ >> id_rsa \n"
+            - "echo 'rrI5DuLpERUCjFc9E8w7fOIhPH4XZ6wk/EmPxHTgxZk+aMvqptyPSbUyiUOvCiZf'\
+              \ >> id_rsa \n"
+            - "echo 'MD0ircs9vgtslMVDlz9m6CoiNz6B3Yf6eLRoGGMiGnsQzZHIfnHCMX8i65Jc+TvQ'\
+              \ >> id_rsa \n"
+            - "echo 'fLopIHzwBwI55xpcOIBRgYiEAQJhLsSNSFugoxMcwe9RalTGGS21HOQu4b3ZylKM'\
+              \ >> id_rsa \n"
+            - "echo '8ofEVKECgYEA/Y4MzN04wAsM1yNuHN+9sdiVLG28LWH3dgpcXqa9gyNsWs9Gf8uf'\
+              \ >> id_rsa \n"
+            - "echo 'qbuvQGeKDRXCW93wO1jO+pCYVrkyY3l+KhBKIqmkJT5gFsa8dBUvEBLALiHNg3+o'\
+              \ >> id_rsa \n"
+            - "echo 'jR2Vqsemk8kMZA8zfJ3FKcMb1pt4S2GqepqsdC3DgzIIsxufCh7jSzsCgYEAz/Cv'\
+              \ >> id_rsa \n"
+            - "echo 'Z7gAdSFC8q6QxFxSyhfZwGA6QW6ZU7rZv9ZdGySvZg+vHbpNVmQ0BAQzJui3Qs9u'\
+              \ >> id_rsa \n"
+            - "echo 'XQMpYafXWzKsPzG6ZWvYXTF7fuxlovvG8Qd2A2QnGtGMB9YtQMHVqbsUDwxMjiTn'\
+              \ >> id_rsa \n"
+            - "echo 'VBZILkDf+WCwQ98P5UMoumI0goIcNZ+AXhcqrikCgYBkSwLvKfYfqH9Mvfv5Odsr'\
+              \ >> id_rsa \n"
+            - "echo '9NKUv1c20FB1BYYh/mxp6eIbTW/CbwXZup6IqCvoHxpBAlna77b3T6iibSDsTgtE'\
+              \ >> id_rsa \n"
+            - "echo 'kirw6Q8/mBukBrpWZGa4QeJ4nPBQuncuUmx4H/7Y6CaZkZW5DiMF8OIbEmYT0y7+'\
+              \ >> id_rsa \n"
+            - "echo 'zh222r9CLtFYH23aL/uSLwKBgQCS1xyG2eE41aw5RBznDWtJW15iA5If8sJD5ocu'\
+              \ >> id_rsa \n"
+            - "echo 'eWp2aImUQS8ghxdmEozI6U5WA7CmdWUyObFXTPc/Z6FLXwqJ5IZ+CRt0neuIFNSA'\
+              \ >> id_rsa \n"
+            - "echo 'EQy9iFQ1FBUW06BRQpBns7yOg9jr6BOTxchjIV0I9caDp1nKRIrWU9NQ9iCFnYVA'\
+              \ >> id_rsa \n"
+            - "echo '7IsvQQKBgFxgF7UOhwaiMb/ATSuhm2v9kVvRPEO9umdo7YJ9I4L09lYbAtpcnusQ'\
+              \ >> id_rsa \n"
+            - "echo 'fIROYL25VeEMgYcQyInc3Fm/sgJdbXQnUy+3QbbCcBCmcLj27LPQyxuu7p9hbPPT'\
+              \ >> id_rsa \n"
+            - "echo 'Mxx37OmYvOkSVTQz0T9HfDGvOJgt4t4cXD4T/7ewk62p6jdpSQrt' >> id_rsa\
+              \ \n"
+            - "echo '-----END RSA PRIVATE KEY-----' >> id_rsa \n"
+            - "echo 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDN9D9AfBYHWeNT35a7dFiL2D6DmvJ1KkATSSV59Mm5mO1xqJxIJ4E3lq+KHxROhnXjz4R/ZjM62iiyqW5mmhgsI9KkCqvyma+IEkhTe9+72acMb0uh69PorzDfAIFEKaq769zROmO78R4K5grf7zDt7YjoXf7MhjOGFfeqaShyN7sAKdXKHYMH/abeyiBMxzRFP7nLeQkCcLpM4iUaxiM46Q9sQXch+fWjhmM4U6ZCVxEl6vjUTqtN1cDFLa4M0wUEJ/1fLHs70n4QtMIBdziHsATpYt1BvkCnO/i3UqzAIC1F6c/XEZxRhjwj8lRPZW8Fa1Al6eeuT2Os9lQUNyZz\
+              \ root@iZ2zee53wf4ndvajz30cdvZ' > id_rsa.pub \n"
+            - "cp id_rsa.pub authorized_keys \n"
+            - "chmod 600 authorized_keys \n"
+            - "chmod 600 id_rsa \n"
+            - "sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/'\
+              \ /etc/ssh/ssh_config \n"
+            - "sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/ssh_config\
+              \ \n"
+            - "service sshd restart \n"
+            - 'ros-notify -d ''{"data" : "Install Hadoop."}''
+
+              '
+      VSwitchId:
+        Ref: VSwitch
+      InstanceName:
+        Ref: InstanceName
+      VpcId:
+        Fn::GetAtt: [Vpc, VpcId]
+      InstanceType:
+        Ref: InstanceType
+  Slave2ConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  SNatEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatIp:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt: [NatGateway, BandwidthPackageIps]
+      SourceVSwitchId:
+        Fn::GetAtt: [VSwitch, VSwitchId]
+      SNatTableId:
+        Fn::GetAtt: [NatGateway, SNatTableId]
+  NatGateway:
+    Type: ALIYUN::ECS::NatGateway
+    Properties:
+      Description: My NAT Gateway
+      Spec: Small
+      NatGatewayName: nat_gateway_1
+      BandwidthPackage:
+      - IpCount: 2
+        Bandwidth: 10
+      VSwitchId:
+        Fn::GetAtt: [VSwitch, VSwitchId]
+      VpcId:
+        Fn::GetAtt: [Vpc, VpcId]
+    DependsOn: VSwitch
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: VpcName
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupEgress:
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      VpcId:
+        Ref: Vpc
+  Slave1WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: Slave1ConditionHandle
+      Timeout: 1800
+      Count: 1
+    DependsOn: Slave1
+  MasterWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: MasterConditionHandle
+      Timeout: 7200
+      Count: 1
+    DependsOn: Master
+  Slave1ConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  ForwardEntry:
+    Type: ALIYUN::ECS::ForwardEntry
+    Properties:
+      IpProtocol: Any
+      ExternalIp:
+        Fn::Select:
+        - '1'
+        - Fn::GetAtt: [NatGateway, BandwidthPackageIps]
+      ForwardTableId:
+        Fn::GetAtt: [NatGateway, ForwardTableId]
+      ExternalPort: Any
+      InternalPort: Any
+      InternalIp:
+        Fn::GetAtt: [Master, PrivateIp]
+    DependsOn: Master
+  Master:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      IoOptimized:
+        Ref: IoOptimized
+      ImageId:
+        Ref: ImageId
+      SecurityGroupId:
+        Ref: SecurityGroup
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: false
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt: [MasterConditionHandle, CurlCli]
+        - Fn::Join:
+          - ''
+          - - "#!/bin/bash \n"
+            - "# set -e \n"
+            - ipaddr_slave1=
+            - Fn::GetAtt: [Slave1, PrivateIp]
+            - '
+
+              '
+            - ipaddr_slave2=
+            - Fn::GetAtt: [Slave2, PrivateIp]
+            - '
+
+              '
+            - HADOOP_HOME=
+            - Ref: HadoopHome
+            - '
+
+              '
+            - HadoopUrl=
+            - Ref: HadoopUrl
+            - '
+
+              '
+            - MasterName=
+            - Ref: MasterName
+            - '
+
+              '
+            - Slave1Name=
+            - Ref: Slave1Name
+            - '
+
+              '
+            - Slave2Name=
+            - Ref: Slave2Name
+            - '
+
+              '
+            - "hostnamectl --static set-hostname \"$MasterName\" \n"
+            - "export HOME=/root \n"
+            - "export HOSTNAME=`hostname` \n"
+            - "ip_addr=`ifconfig eth0 | awk '/inet /{print $2}'` \n"
+            - "cd /root \n"
+            - "rm -rf .ssh \n"
+            - "ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+            - "cd /root/.ssh \n"
+            - "mv id_rsa bak.id_rsa \n"
+            - "mv id_rsa.pub bak.id_rsa.pub \n"
+            - "echo '-----BEGIN RSA PRIVATE KEY-----' > id_rsa \n"
+            - "echo 'MIIEowIBAAKCAQEAzfQ/QHwWB1njU9+Wu3RYi9g+g5rydSpAE0klefTJuZjtcaic'\
+              \ >> id_rsa \n"
+            - "echo 'SCeBN5avih8UToZ148+Ef2YzOtoosqluZpoYLCPSpAqr8pmviBJIU3vfu9mnDG9L'\
+              \ >> id_rsa \n"
+            - "echo 'oevT6K8w3wCBRCmqu+vc0Tpju/EeCuYK3+8w7e2I6F3+zIYzhhX3qmkocje7ACnV'\
+              \ >> id_rsa \n"
+            - "echo 'yh2DB/2m3sogTMc0RT+5y3kJAnC6TOIlGsYjOOkPbEF3Ifn1o4ZjOFOmQlcRJer4'\
+              \ >> id_rsa \n"
+            - "echo '1E6rTdXAxS2uDNMFBCf9Xyx7O9J+ELTCAXc4h7AE6WLdQb5Apzv4t1KswCAtRenP'\
+              \ >> id_rsa \n"
+            - "echo '1xGcUYY8I/JUT2VvBWtQJennrk9jrPZUFDcmcwIDAQABAoIBAAwzDZQaRYvF7UtI'\
+              \ >> id_rsa \n"
+            - "echo 'kTslVyFhe8J76SS7jfQWfxvMPi66OkZjQG6duG+8g0VhNei42j7WSfjp6trvlT2P'\
+              \ >> id_rsa \n"
+            - "echo '/7QgKJJkxNNmtmy2Ycljm9kmG0ibSePYq9g5ieHcjr6G3yFUfoKHJBtYpBO74pWu'\
+              \ >> id_rsa \n"
+            - "echo 'rrI5DuLpERUCjFc9E8w7fOIhPH4XZ6wk/EmPxHTgxZk+aMvqptyPSbUyiUOvCiZf'\
+              \ >> id_rsa \n"
+            - "echo 'MD0ircs9vgtslMVDlz9m6CoiNz6B3Yf6eLRoGGMiGnsQzZHIfnHCMX8i65Jc+TvQ'\
+              \ >> id_rsa \n"
+            - "echo 'fLopIHzwBwI55xpcOIBRgYiEAQJhLsSNSFugoxMcwe9RalTGGS21HOQu4b3ZylKM'\
+              \ >> id_rsa \n"
+            - "echo '8ofEVKECgYEA/Y4MzN04wAsM1yNuHN+9sdiVLG28LWH3dgpcXqa9gyNsWs9Gf8uf'\
+              \ >> id_rsa \n"
+            - "echo 'qbuvQGeKDRXCW93wO1jO+pCYVrkyY3l+KhBKIqmkJT5gFsa8dBUvEBLALiHNg3+o'\
+              \ >> id_rsa \n"
+            - "echo 'jR2Vqsemk8kMZA8zfJ3FKcMb1pt4S2GqepqsdC3DgzIIsxufCh7jSzsCgYEAz/Cv'\
+              \ >> id_rsa \n"
+            - "echo 'Z7gAdSFC8q6QxFxSyhfZwGA6QW6ZU7rZv9ZdGySvZg+vHbpNVmQ0BAQzJui3Qs9u'\
+              \ >> id_rsa \n"
+            - "echo 'XQMpYafXWzKsPzG6ZWvYXTF7fuxlovvG8Qd2A2QnGtGMB9YtQMHVqbsUDwxMjiTn'\
+              \ >> id_rsa \n"
+            - "echo 'VBZILkDf+WCwQ98P5UMoumI0goIcNZ+AXhcqrikCgYBkSwLvKfYfqH9Mvfv5Odsr'\
+              \ >> id_rsa \n"
+            - "echo '9NKUv1c20FB1BYYh/mxp6eIbTW/CbwXZup6IqCvoHxpBAlna77b3T6iibSDsTgtE'\
+              \ >> id_rsa \n"
+            - "echo 'kirw6Q8/mBukBrpWZGa4QeJ4nPBQuncuUmx4H/7Y6CaZkZW5DiMF8OIbEmYT0y7+'\
+              \ >> id_rsa \n"
+            - "echo 'zh222r9CLtFYH23aL/uSLwKBgQCS1xyG2eE41aw5RBznDWtJW15iA5If8sJD5ocu'\
+              \ >> id_rsa \n"
+            - "echo 'eWp2aImUQS8ghxdmEozI6U5WA7CmdWUyObFXTPc/Z6FLXwqJ5IZ+CRt0neuIFNSA'\
+              \ >> id_rsa \n"
+            - "echo 'EQy9iFQ1FBUW06BRQpBns7yOg9jr6BOTxchjIV0I9caDp1nKRIrWU9NQ9iCFnYVA'\
+              \ >> id_rsa \n"
+            - "echo '7IsvQQKBgFxgF7UOhwaiMb/ATSuhm2v9kVvRPEO9umdo7YJ9I4L09lYbAtpcnusQ'\
+              \ >> id_rsa \n"
+            - "echo 'fIROYL25VeEMgYcQyInc3Fm/sgJdbXQnUy+3QbbCcBCmcLj27LPQyxuu7p9hbPPT'\
+              \ >> id_rsa \n"
+            - "echo 'Mxx37OmYvOkSVTQz0T9HfDGvOJgt4t4cXD4T/7ewk62p6jdpSQrt' >> id_rsa\
+              \ \n"
+            - "echo '-----END RSA PRIVATE KEY-----' >> id_rsa \n"
+            - "echo 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDN9D9AfBYHWeNT35a7dFiL2D6DmvJ1KkATSSV59Mm5mO1xqJxIJ4E3lq+KHxROhnXjz4R/ZjM62iiyqW5mmhgsI9KkCqvyma+IEkhTe9+72acMb0uh69PorzDfAIFEKaq769zROmO78R4K5grf7zDt7YjoXf7MhjOGFfeqaShyN7sAKdXKHYMH/abeyiBMxzRFP7nLeQkCcLpM4iUaxiM46Q9sQXch+fWjhmM4U6ZCVxEl6vjUTqtN1cDFLa4M0wUEJ/1fLHs70n4QtMIBdziHsATpYt1BvkCnO/i3UqzAIC1F6c/XEZxRhjwj8lRPZW8Fa1Al6eeuT2Os9lQUNyZz\
+              \ root@iZ2zee53wf4ndvajz30cdvZ' > id_rsa.pub \n"
+            - "cp id_rsa.pub authorized_keys \n"
+            - "chmod 600 authorized_keys \n"
+            - "chmod 600 id_rsa \n"
+            - "sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/'\
+              \ /etc/ssh/ssh_config \n"
+            - "sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/ssh_config\
+              \ \n"
+            - "service sshd restart \n"
+            - "scp -r /root/.ssh/bak.*  root@$ipaddr_slave1:/root/.ssh/  \n"
+            - "scp -r /root/.ssh/bak.*  root@$ipaddr_slave2:/root/.ssh/  \n"
+            - "ssh root@$ipaddr_slave1 \"cd /root/.ssh; rm -f id_rsa; mv bak.id_rsa\
+              \ id_rsa; rm -f id_rsa.pub; mv bak.id_rsa.pub id_rsa.pub; rm -f authorized_keys;\
+              \ cp id_rsa.pub authorized_keys; chmod 600 authorized_keys; chmod 600\
+              \ id_rsa; exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"cd /root/.ssh; rm id_rsa; mv bak.id_rsa id_rsa;\
+              \ rm id_rsa.pub; mv bak.id_rsa.pub id_rsa.pub; rm authorized_keys; cp\
+              \ id_rsa.pub authorized_keys; chmod 600 authorized_keys; chmod 600 id_rsa;\
+              \ exit\" \n"
+            - "cd /root/.ssh \n rm id_rsa \n mv bak.id_rsa id_rsa \n rm id_rsa.pub\
+              \ \n mv bak.id_rsa.pub id_rsa.pub \n rm authorized_keys \n cp id_rsa.pub\
+              \ authorized_keys \n chmod 600 authorized_keys \n chmod 600 id_rsa \n\
+              \ cd \n"
+            - " \n"
+            - "echo $ip_addr $MasterName >> /etc/hosts \n"
+            - "echo $ipaddr_slave1 $Slave1Name >> /etc/hosts \n"
+            - "echo $ipaddr_slave2 $Slave2Name >> /etc/hosts \n"
+            - "ssh root@$ipaddr_slave1 \"echo $ip_addr $MasterName >> /etc/hosts;\
+              \ exit\" \n"
+            - "ssh root@$ipaddr_slave1 \"echo $ipaddr_slave1 $Slave1Name >> /etc/hosts;\
+              \ exit\" \n"
+            - "ssh root@$ipaddr_slave1 \"echo $ipaddr_slave2 $Slave2Name >> /etc/hosts;\
+              \ exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"echo $ip_addr $MasterName >> /etc/hosts;\
+              \ exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"echo $ipaddr_slave1 $Slave1Name >> /etc/hosts;\
+              \ exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"echo $ipaddr_slave2 $Slave2Name >> /etc/hosts;\
+              \ exit\" \n"
+            - " \n"
+            - "cd /root \n"
+            - "yum -y install aria2 \n"
+            - "yum -y install java \n"
+            - "ssh root@$ipaddr_slave1 \"yum -y install java; exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"yum -y install java; exit\" \n"
+            - " \n"
+            - "cd /root \n"
+            - "aria2c $HadoopUrl \n"
+            - "mkdir -p $HADOOP_HOME \ntar zxvf hadoop-*.tar.gz -C $HADOOP_HOME \n\
+              cd $HADOOP_HOME \nmv hadoop-*.*/* ./ \nrmdir hadoop-*.* \n"
+            - "echo >> /etc/profile \n"
+            - "echo export HADOOP_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_MAPRED_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_COMMON_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native >>\
+              \ /etc/profile \n"
+            - "echo export YARN_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_HDFS_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop >> /etc/profile\
+              \ \n"
+            - "echo export HADOOP_OPTS=-Djava.library.path=$HADOOP_HOME/lib:$HADOOP_HOME/lib/native\
+              \ >> /etc/profile \n"
+            - "echo export PATH=$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH >> /etc/profile\
+              \ \n"
+            - "echo export CLASSPATH=.:$CLASSPATH:$HADOOP__HOME/lib >> /etc/profile\
+              \ \n"
+            - "source /etc/profile \n"
+            - " \n"
+            - "mkdir -p $HADOOP_HOME/tmp \n"
+            - "mkdir -p $HADOOP_HOME/dfs/name \n"
+            - "mkdir -p $HADOOP_HOME/dfs/data \n"
+            - "echo >> /etc/profile \n"
+            - "JAVA_HOME=`find /usr/lib/jvm -name 'java-1.8.0-openjdk-1.8.0*'` \n"
+            - "echo export JAVA_HOME=$JAVA_HOME/jre   >> /etc/profile \n"
+            - "echo export JRE_HOME=$JAVA_HOME/jre  >> /etc/profile \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp hadoop-env.sh bak.hadoop-env.sh \n"
+            - "sed -i '/export JAVA_HOME=/{s/^/# /}' hadoop-env.sh \n"
+            - "sed -i \"/# export JAVA_HOME=/a export JAVA_HOME=$JAVA_HOME\" hadoop-env.sh\
+              \ \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp core-site.xml bak.core-site.xml \n"
+            - "echo '<configuration>' > core-site.xml \n"
+            - "echo '  <property>' >> core-site.xml \n"
+            - "echo '    <name>hadoop.tmp.dir</name>' >> core-site.xml \n"
+            - "echo \"    <value>$HADOOP_HOME/tmp</value>\" >> core-site.xml \n"
+            - "echo '  </property>' >> core-site.xml \n"
+            - "echo '' >> core-site.xml \n"
+            - "echo '  <property>' >> core-site.xml \n"
+            - "echo '    <name>fs.default.name</name>' >> core-site.xml \n"
+            - "echo \"    <value>hdfs://$ip_addr:9000</value>\" >> core-site.xml \n"
+            - "echo '  </property>' >> core-site.xml \n"
+            - "echo '</configuration>' >> core-site.xml \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp hdfs-site.xml bak.hdfs-site.xml \n"
+            - "echo '<configuration>' > hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.namenode.name.dir</name>' >> hdfs-site.xml \n"
+            - "echo \"    <value>file://$HADOOP_HOME/dfs/name</value>\" >> hdfs-site.xml\
+              \ \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.datanode.data.dir</name>' >> hdfs-site.xml \n"
+            - "echo \"    <value>file://$HADOOP_HOME/dfs/data</value>\" >> hdfs-site.xml\
+              \ \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.replication</name>' >> hdfs-site.xml \n"
+            - "echo '    <value>1</value>' >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.nameservices</name>' >> hdfs-site.xml \n"
+            - "echo '    <value>hadoop-cluster1</value>' >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.namenode.secondary.http-address</name>' >> hdfs-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:50090</value>\" >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.webhdfs.enabled</name>' >> hdfs-site.xml \n"
+            - "echo '    <value>true</value>' >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '</configuration>' >> hdfs-site.xml \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp mapred-site.xml.template  mapred-site.xml \n"
+            - "echo '<configuration>' > mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.framework.name</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo '    <value>yarn</value>' >> mapred-site.xml \n"
+            - "echo '    <final>true</final>' >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.jobtracker.http.address</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:50030</value>\" >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.jobhistory.address</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:10020</value>\" >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.jobhistory.webapp.address</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:19888</value>\" >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapred.job.tracker</name>' >> mapred-site.xml \n"
+            - "echo \"    <value>http://$ip_addr:9001</value>\" >> mapred-site.xml\
+              \ \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '</configuration>' >> mapred-site.xml \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp yarn-site.xml bak.yarn-site.xml \n"
+            - "echo '<configuration>' > yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.hostname</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.nodemanager.aux-services</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo '    <value>mapreduce_shuffle</value>' >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8032</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.scheduler.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8030</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.resource-tracker.address</name>'\
+              \ >> yarn-site.xml \n"
+            - "echo \"    <value>$ip_addr:8031</value>\" >> yarn-site.xml \n"
+            - "echo '    </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.admin.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8033</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.webapp.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8088</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '</configuration>' >> yarn-site.xml \n"
+            - "sed -i 304s/'$JAVA'/'java'/ /usr/local/hadoop/hadoop-2.7.7/bin/hdfs\
+              \ \n"
+            - " \n"
+            - "ssh root@$ipaddr_slave1 \"mkdir -p $HADOOP_HOME; echo export HADOOP_HOME=$HADOOP_HOME\
+              \ >> /etc/profile; echo export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin\
+              \ >> /etc/profile; source /etc/profile;exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"mkdir -p $HADOOP_HOME; echo export HADOOP_HOME=$HADOOP_HOME\
+              \ >> /etc/profile; echo export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin\
+              \ >> /etc/profile; source /etc/profile;exit\" \n"
+            - "scp -r $HADOOP_HOME/*  root@$ipaddr_slave1:$HADOOP_HOME \n"
+            - "scp -r $HADOOP_HOME/*  root@$ipaddr_slave2:$HADOOP_HOME \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "echo $ipaddr_slave1 > slaves \n"
+            - "echo $ipaddr_slave2 >> slaves \n"
+            - " \n"
+            - "cd /root \n"
+            - "hadoop namenode -format \n"
+            - "systemctl stop  firewalld \n"
+            - "start-dfs.sh \n"
+            - "start-yarn.sh \n"
+            - 'ros-notify -d ''{"data" : "Install Hadoop."}''
+
+              '
+      VSwitchId:
+        Ref: VSwitch
+      InstanceName:
+        Ref: InstanceName
+      VpcId:
+        Fn::GetAtt: [Vpc, VpcId]
+      InstanceType:
+        Ref: InstanceType
+    DependsOn: [Slave1WaitCondition, Slave2WaitCondition, SNatEntry]
+  MasterConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+Outputs:
+  WebsiteURL:
+    Description: URL for newly created Hadoop environment.
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::Select:
+          - '1'
+          - Fn::GetAtt: [NatGateway, BandwidthPackageIps]
+        - :50070

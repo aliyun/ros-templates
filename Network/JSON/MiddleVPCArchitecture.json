@@ -1,0 +1,638 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Medium business VPC network architecture. Three subnets are created under VPC. ECS and SLB in Front subnet handle public network request. ECS, SLB, RDS, Redis, OSS and so on in Backend subnet provide core business logic. The network accesses the public network through NatGateway's SNAT",
+  "Parameters": {
+    "FrontServerImageId": {
+      "Type": "String",
+      "Description": "Front Server Image ID to create ecs instance.",
+      "Label": "Front Server ImageId",
+      "Default": "centos_7"
+    },
+    "FrontServerInstanceType": {
+      "Type": "String",
+      "Description": "Front Server Instance Type to create ecs instance.",
+      "Label": "Front Server Instance Type",
+      "Default": "ecs.c5.large",
+      "AllowedValues": [
+        "ecs.c5.large",
+        "ecs.g5.large",
+        "ecs.c5.xlarge",
+        "ecs.g5.xlarge"
+      ]
+    },
+    "NumberOfFrontServer": {
+      "Type": "Number",
+      "Description": "Number Of Front Server.",
+      "Label": "Number Of Front Server",
+      "Default": 1
+    },
+    "BackendServerImageId": {
+      "Type": "String",
+      "Description": "Backend Server Image ID to create ecs instance.",
+      "Label": "Backend Server Image Id",
+      "Default": "centos_7"
+    },
+    "BackendServerInstanceType": {
+      "Type": "String",
+      "Description": "Backend Server Instance Type to create ecs instance.",
+      "Label": "Backend Server Instance Type",
+      "Default": "ecs.c5.large",
+      "AllowedValues": [
+        "ecs.c5.large",
+        "ecs.g5.large",
+        "ecs.c5.xlarge",
+        "ecs.g5.xlarge"
+      ]
+    },
+    "NumberOfBackendServer": {
+      "Type": "Number",
+      "Description": "Number Of Backend Server.",
+      "Label": "Number Of Backend Server",
+      "Default": 1
+    },
+    "OtherServerImageId": {
+      "Type": "String",
+      "Description": "Other Server Image ID to create ecs instance.",
+      "Label": "Other Server Image Id",
+      "Default": "centos_7"
+    },
+    "OtherServerInstanceType": {
+      "Type": "String",
+      "Description": "Other Server Instance Type to create ecs instance.",
+      "Label": "Other Server Instance Type",
+      "Default": "ecs.c5.large",
+      "AllowedValues": [
+        "ecs.c5.large",
+        "ecs.g5.large",
+        "ecs.c5.xlarge",
+        "ecs.g5.xlarge"
+      ]
+    },
+    "NumberOfOtherServer": {
+      "Type": "Number",
+      "Description": "Number Of Other Server to create ecs instance.",
+      "Label": "Number Of Other Server",
+      "Default": 1
+    },
+    "Password": {
+      "Type": "String",
+      "Description": "Root login password",
+      "ConstraintDescription": "Consist of alphanumeric characters",
+      "MaxLength": "30",
+      "MinLength": "8",
+      "AllowedPattern": "[a-zA-Z0-9]*",
+      "NoEcho": true,
+      "Confirm": true
+    },
+    "VpcCidrBlock": {
+      "Type": "String",
+      "Description": "The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:\n10.0.0.0/8\n172.16.0.0/12 (Default)\n192.168.0.0/16",
+      "Label": "Vpc Cidr Block",
+      "Default": "192.168.0.0/16",
+      "AllowedValues": [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16"
+      ]
+    },
+    "FrontVSwitchCidrBlock": {
+      "Type": "String",
+      "Description": "Front VSwitch Cidr Block of created VSwitch",
+      "Label": "Front VSwitch Cidr Block",
+      "Default": "192.168.1.0/24"
+    },
+    "BackendVSwitchCidrBlock": {
+      "Type": "String",
+      "Description": "Backend VSwitch Cidr Block of created VSwitch",
+      "Label": "Backend VSwitch Cidr Block",
+      "Default": "192.168.2.0/24"
+    },
+    "OtherVSwitchCidrBlock": {
+      "Type": "String",
+      "Description": "Other VSwitch Cidr Block of created VSwitch",
+      "Label": "Other VSwitch Cidr Block",
+      "Default": "192.168.3.0/24"
+    },
+    "NatGatewayBandwidth": {
+      "Type": "Number",
+      "Description": "Nat Gateway Band width",
+      "Label": "Nat Gateway Band width",
+      "Default": 5,
+      "MinValue": 5
+    }
+  },
+  "Resources": {
+    "NatGateway": {
+      "Type": "ALIYUN::ECS::NatGateway",
+      "Properties": {
+        "BandwidthPackage": [
+          {
+            "Bandwidth": {
+              "Ref": "NatGatewayBandwidth"
+            },
+            "IpCount": 1,
+            "ZoneId": {
+              "Fn::Select": [
+                "0",
+                {
+                  "Fn::GetAZs": {
+                    "Ref": "ALIYUN::Region"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "Description": "My NAT Gateway",
+        "NatGatewayName": "nat_gateway_1",
+        "Spec": "Middle",
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "OtherVSwitch",
+            "VSwitchId"
+          ]
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        }
+      }
+    },
+    "SNatEntry": {
+      "Type": "ALIYUN::ECS::SNatEntry",
+      "Properties": {
+        "SNatIp": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAtt": [
+                "NatGateway",
+                "BandwidthPackageIps"
+              ]
+            }
+          ]
+        },
+        "SNatTableId": {
+          "Fn::GetAtt": [
+            "NatGateway",
+            "SNatTableId"
+          ]
+        },
+        "SourceVSwitchId": {
+          "Fn::GetAtt": [
+            "OtherVSwitch",
+            "VSwitchId"
+          ]
+        }
+      }
+    },
+    "SecurityGroup": {
+      "Type": "ALIYUN::ECS::SecurityGroup",
+      "Properties": {
+        "SecurityGroupEgress": [
+          {
+            "DestCidrIp": "0.0.0.0/0",
+            "IpProtocol": "tcp",
+            "NicType": "intranet",
+            "PortRange": "22/22",
+            "Priority": 1
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "all",
+            "NicType": "intranet",
+            "PortRange": "-1/-1",
+            "Priority": 1,
+            "SourceCidrIp": "0.0.0.0/0"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      }
+    },
+    "FrontVSwitch": {
+      "Type": "ALIYUN::ECS::VSwitch",
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "FrontVSwitchCidrBlock"
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        },
+        "ZoneId": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": {
+                "Ref": "ALIYUN::Region"
+              }
+            }
+          ]
+        },
+        "VSwitchName": "FrontSubnet"
+      }
+    },
+    "BackendVSwitch": {
+      "Type": "ALIYUN::ECS::VSwitch",
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "BackendVSwitchCidrBlock"
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        },
+        "ZoneId": {
+          "Fn::Select": [
+            "1",
+            {
+              "Fn::GetAZs": {
+                "Ref": "ALIYUN::Region"
+              }
+            }
+          ]
+        },
+        "VSwitchName": "BackendSubnet"
+      },
+      "DependsOn": "FrontVSwitch"
+    },
+    "OtherVSwitch": {
+      "Type": "ALIYUN::ECS::VSwitch",
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "OtherVSwitchCidrBlock"
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        },
+        "ZoneId": {
+          "Fn::Select": [
+            "1",
+            {
+              "Fn::GetAZs": {
+                "Ref": "ALIYUN::Region"
+              }
+            }
+          ]
+        },
+        "VSwitchName": "OtherSubnet"
+      },
+      "DependsOn": "BackendVSwitch"
+    },
+    "Vpc": {
+      "Type": "ALIYUN::ECS::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "VpcCidrBlock"
+        },
+        "VpcName": "MyVPC"
+      }
+    },
+    "FrontLoadBalancerListener443": {
+      "Type": "ALIYUN::SLB::Listener",
+      "Properties": {
+        "Persistence": {
+          "StickySession": "on",
+          "PersistenceTimeout": 600
+        },
+        "HealthCheck": {
+          "Timeout": "2",
+          "Port": "443",
+          "Interval": "5",
+          "HealthyThreshold": "2",
+          "UnhealthyThreshold": "4"
+        },
+        "LoadBalancerId": {
+          "Ref": "FrontLoadBalancer"
+        },
+        "BackendServerPort": "443",
+        "Protocol": "tcp",
+        "Bandwidth": -1,
+        "ListenerPort": "443"
+      },
+      "DependsOn": "FrontLoadBalancer"
+    },
+    "FrontLoadBalancerListener80": {
+      "Type": "ALIYUN::SLB::Listener",
+      "Properties": {
+        "Persistence": {
+          "StickySession": "on",
+          "PersistenceTimeout": 600
+        },
+        "HealthCheck": {
+          "Timeout": "2",
+          "Port": "80",
+          "Interval": "5",
+          "HealthyThreshold": "2",
+          "UnhealthyThreshold": "4"
+        },
+        "LoadBalancerId": {
+          "Ref": "FrontLoadBalancer"
+        },
+        "BackendServerPort": "80",
+        "Protocol": "tcp",
+        "Bandwidth": -1,
+        "ListenerPort": "80"
+      },
+      "DependsOn": "FrontLoadBalancer"
+    },
+    "FrontLoadBalancerListener22": {
+      "Type": "ALIYUN::SLB::Listener",
+      "Properties": {
+        "Persistence": {
+          "StickySession": "on",
+          "PersistenceTimeout": 600
+        },
+        "HealthCheck": {
+          "Timeout": "2",
+          "Port": "22",
+          "Interval": "5",
+          "HealthyThreshold": "2",
+          "UnhealthyThreshold": "4"
+        },
+        "LoadBalancerId": {
+          "Ref": "FrontLoadBalancer"
+        },
+        "BackendServerPort": "22",
+        "Protocol": "tcp",
+        "Bandwidth": -1,
+        "ListenerPort": "22"
+      },
+      "DependsOn": "FrontLoadBalancer"
+    },
+    "FrontSLBAttachment": {
+      "Type": "ALIYUN::SLB::BackendServerAttachment",
+      "Properties": {
+        "BackendServerList": {
+          "Fn::GetAtt": [
+            "FrontServers",
+            "InstanceIds"
+          ]
+        },
+        "LoadBalancerId": {
+          "Ref": "FrontLoadBalancer"
+        }
+      }
+    },
+    "FrontLoadBalancer": {
+      "Type": "ALIYUN::SLB::LoadBalancer",
+      "Properties": {
+        "LoadBalancerName": "FrontLoadBalancer",
+        "AddressType": "internet"
+      }
+    },
+    "FrontServers": {
+      "Type": "ALIYUN::ECS::InstanceGroup",
+      "Properties": {
+        "AllocatePublicIP": false,
+        "ImageId": {
+          "Ref": "FrontServerImageId"
+        },
+        "InstanceType": {
+          "Ref": "FrontServerInstanceType"
+        },
+        "IoOptimized": "optimized",
+        "Password": {
+          "Ref": "Password"
+        },
+        "SecurityGroupId": {
+          "Ref": "SecurityGroup"
+        },
+        "SystemDiskCategory": "cloud_efficiency",
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "FrontVSwitch",
+            "VSwitchId"
+          ]
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        },
+        "MinAmount": {
+          "Ref": "NumberOfFrontServer"
+        },
+        "MaxAmount": {
+          "Ref": "NumberOfFrontServer"
+        }
+      }
+    },
+    "BackendLoadBalancerListener443": {
+      "Type": "ALIYUN::SLB::Listener",
+      "Properties": {
+        "Persistence": {
+          "StickySession": "on",
+          "PersistenceTimeout": 600
+        },
+        "HealthCheck": {
+          "Timeout": "2",
+          "Port": "443",
+          "Interval": "5",
+          "HealthyThreshold": "2",
+          "UnhealthyThreshold": "4"
+        },
+        "LoadBalancerId": {
+          "Ref": "BackendLoadBalancer"
+        },
+        "BackendServerPort": "443",
+        "Protocol": "tcp",
+        "Bandwidth": -1,
+        "ListenerPort": "443"
+      },
+      "DependsOn": "BackendLoadBalancer"
+    },
+    "BackendLoadBalancerListener80": {
+      "Type": "ALIYUN::SLB::Listener",
+      "Properties": {
+        "Persistence": {
+          "StickySession": "on",
+          "PersistenceTimeout": 600
+        },
+        "HealthCheck": {
+          "Timeout": "2",
+          "Port": "80",
+          "Interval": "5",
+          "HealthyThreshold": "2",
+          "UnhealthyThreshold": "4"
+        },
+        "LoadBalancerId": {
+          "Ref": "BackendLoadBalancer"
+        },
+        "BackendServerPort": "80",
+        "Protocol": "tcp",
+        "Bandwidth": -1,
+        "ListenerPort": "80"
+      },
+      "DependsOn": "BackendLoadBalancer"
+    },
+    "BackendSLBAttachment": {
+      "Type": "ALIYUN::SLB::BackendServerAttachment",
+      "Properties": {
+        "BackendServerList": {
+          "Fn::GetAtt": [
+            "BackendServers",
+            "InstanceIds"
+          ]
+        },
+        "LoadBalancerId": {
+          "Ref": "BackendLoadBalancer"
+        }
+      }
+    },
+    "BackendLoadBalancer": {
+      "Type": "ALIYUN::SLB::LoadBalancer",
+      "Properties": {
+        "LoadBalancerName": "BackendLoadBalancer",
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "BackendVSwitch",
+            "VSwitchId"
+          ]
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        }
+      }
+    },
+    "BackendServers": {
+      "Type": "ALIYUN::ECS::InstanceGroup",
+      "Properties": {
+        "AllocatePublicIP": false,
+        "ImageId": {
+          "Ref": "BackendServerImageId"
+        },
+        "InstanceType": {
+          "Ref": "BackendServerInstanceType"
+        },
+        "IoOptimized": "optimized",
+        "Password": {
+          "Ref": "Password"
+        },
+        "SecurityGroupId": {
+          "Ref": "SecurityGroup"
+        },
+        "SystemDiskCategory": "cloud_efficiency",
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "BackendVSwitch",
+            "VSwitchId"
+          ]
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        },
+        "MinAmount": {
+          "Ref": "NumberOfBackendServer"
+        },
+        "MaxAmount": {
+          "Ref": "NumberOfBackendServer"
+        }
+      }
+    },
+    "OtherServers": {
+      "Type": "ALIYUN::ECS::InstanceGroup",
+      "Properties": {
+        "AllocatePublicIP": false,
+        "ImageId": {
+          "Ref": "OtherServerImageId"
+        },
+        "InstanceType": {
+          "Ref": "OtherServerInstanceType"
+        },
+        "IoOptimized": "optimized",
+        "Password": {
+          "Ref": "Password"
+        },
+        "SecurityGroupId": {
+          "Ref": "SecurityGroup"
+        },
+        "SystemDiskCategory": "cloud_efficiency",
+        "VSwitchId": {
+          "Fn::GetAtt": [
+            "OtherVSwitch",
+            "VSwitchId"
+          ]
+        },
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        },
+        "MinAmount": {
+          "Ref": "NumberOfOtherServer"
+        },
+        "MaxAmount": {
+          "Ref": "NumberOfOtherServer"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "FrontAccessHttpURL": {
+      "Description": "Front Access Http URL",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "https://",
+            {
+              "Fn::GetAtt": [
+                "FrontLoadBalancer",
+                "IpAddress"
+              ]
+            },
+            ":443"
+          ]
+        ]
+      }
+    },
+    "FrontAccessHttpsURL": {
+      "Description": "Front Access Https URL",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "http://",
+            {
+              "Fn::GetAtt": [
+                "FrontLoadBalancer",
+                "IpAddress"
+              ]
+            },
+            ":80"
+          ]
+        ]
+      }
+    },
+    "FrontServerSSHIP": {
+      "Description": "The ip address of the front load balancer.",
+      "Value": {
+        "Fn::GetAtt": [
+          "FrontLoadBalancer",
+          "IpAddress"
+        ]
+      }
+    }
+  }
+}
