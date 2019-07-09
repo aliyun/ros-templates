@@ -3,6 +3,8 @@
 # ROS Templates
 本仓库包含了编写 ROS 模板的示例和最佳实践。
 
+欢迎体验 [ROS控制台](https://ros.console.aliyun.com)，阅读 [ROS帮助文档](https://help.aliyun.com/product/28850.html) 以了解更多细节。
+
 ## Application
 | 序号   | 名称           | 描述（用途）                     | 链接         |
 | ----- | -------------- | ------------------------------- | ------------ |
@@ -88,6 +90,8 @@
 
 # English
 This repository contains examples and best practices for building ROS templates.
+
+Welcome to access [ROS console](https://ros.console.aliyun.com), and to read [ROS document](https://www.alibabacloud.com/help/doc-detail/28852.htm) for more details.
 
 ## Application
 | No.   | Name           | Description                     | Links        |
