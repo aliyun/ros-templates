@@ -78,6 +78,12 @@
 | ----- | -------------- | ------------------------------- | ------------ |
 | 1 | RAMCreateSubAccount | 创建子帐号, 生成ak，并开启控制台登录。 | [YAML](Security/YAML/RAMCreateSubAccount.yml) [JSON](Security/JSON/RAMCreateSubAccount.json) |
 
+## StackGroup
+| 序号   | 名称           | 描述（用途）                     | 链接         |
+| ----- | -------------- | ------------------------------- | ------------ |
+| 1 | AliyunROSStackGroupAdministrationRole | 配置 AliyunROSStackGroupAdministrationRole 以使用阿里云资源编排服务（ROS）的资源栈组功能。 | [YAML](StackGroup/YAML/AliyunROSStackGroupAdministrationRole.yml) [JSON](StackGroup/JSON/AliyunROSStackGroupAdministrationRole.json) |
+| 2 | AliyunROSStackGroupExecutionRole | 配置 AliyunROSStackGroupExecutionRole 以在阿里云资源编排服务（ROS）的资源栈组功能中使用您的账户作为目标账户。 | [YAML](StackGroup/YAML/AliyunROSStackGroupExecutionRole.yml) [JSON](StackGroup/JSON/AliyunROSStackGroupExecutionRole.json) |
+
 ## Storage
 | 序号   | 名称           | 描述（用途）                     | 链接         |
 | ----- | -------------- | ------------------------------- | ------------ |
@@ -165,6 +171,12 @@ Welcome to access [ROS console](https://ros.console.aliyun.com), and to read [RO
 | No.   | Name           | Description                     | Links        |
 | ----- | -------------- | ------------------------------- | ------------ |
 | 1 | RAMCreateSubAccount | Creates a sub account, enable the console login, and create access key. | [YAML](Security/YAML/RAMCreateSubAccount.yml) [JSON](Security/JSON/RAMCreateSubAccount.json) |
+
+## StackGroup
+| No.   | Name           | Description                     | Links        |
+| ----- | -------------- | ------------------------------- | ------------ |
+| 1 | AliyunROSStackGroupAdministrationRole | Configure the AliyunROSStackGroupAdministrationRole to enable use of Alibaba Cloud ROS StackGroup. | [YAML](StackGroup/YAML/AliyunROSStackGroupAdministrationRole.yml) [JSON](StackGroup/JSON/AliyunROSStackGroupAdministrationRole.json) |
+| 2 | AliyunROSStackGroupExecutionRole | Configure the AliyunROSStackGroupExecutionRole to enable use of your account as a target account in Alibaba Cloud ROS StackGroup. | [YAML](StackGroup/YAML/AliyunROSStackGroupExecutionRole.yml) [JSON](StackGroup/JSON/AliyunROSStackGroupExecutionRole.json) |
 
 ## Storage
 | No.   | Name           | Description                     | Links        |
