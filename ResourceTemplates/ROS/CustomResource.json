@@ -1,0 +1,86 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Parameters": {
+    "ServiceName": {
+      "Type": "String",
+      "Default": "mytest"
+    },
+    "FunctionName": {
+      "Type": "String",
+      "Default": "mytest"
+    },
+    "Timeout": {
+      "Type": "Number",
+      "Default": 60
+    },
+    "X": {
+      "Type": "Number",
+      "Default": 1
+    },
+    "Y": {
+      "Type": "Number",
+      "Default": 2
+    }
+  },
+  "Resources": {
+    "Service": {
+      "Type": "ALIYUN::FC::Service",
+      "Properties": {
+        "ServiceName": {
+          "Ref": "ServiceName"
+        }
+      }
+    },
+    "Function": {
+      "Type": "ALIYUN::FC::Function",
+      "Properties": {
+        "ServiceName": {
+          "Fn::GetAtt": [
+            "Service",
+            "ServiceName"
+          ]
+        },
+        "FunctionName": {
+          "Ref": "FunctionName"
+        },
+        "Handler": "index.handler",
+        "Runtime": "python2.7",
+        "Code": {
+          "SourceCode": "import time\nimport json\nimport urllib2\nimport logging\n\n\ndef handler(event, context):\n    logger = logging.getLogger()\n\n    event = json.loads(event)\n    logger.info('receive request: %s', event)\n\n    res_props = event['ResourceProperties']\n\n    result = dict(\n        RequestId=event['RequestId'],\n        LogicalResourceId=event['LogicalResourceId'],\n        StackId=event['StackId'],\n        Status='SUCCESS',\n        PhysicalResourceId='dummy'\n    )\n    if event['RequestType'] != 'Delete':\n        result['Data'] = dict(z=res_props['X'] + res_props['Y'])\n\n    headers = {\n        'Content-type': 'application/json',\n        'Accept': 'application/json',\n        'Date': time.strftime('%a, %d %b %Y %X GMT', time.gmtime())\n    }\n    req = urllib2.Request(event['ResponseURL'], data=json.dumps(result), headers=headers)\n    resp = urllib2.urlopen(req)\n    resp_content = resp.read()\n    logger.info('response: %s', resp_content)\n"
+        }
+      }
+    },
+    "SimpleTest": {
+      "Type": "Custom::Add",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": [
+            "Function",
+            "ARN"
+          ]
+        },
+        "Parameters": {
+          "X": {
+            "Ref": "X"
+          },
+          "Y": {
+            "Ref": "Y"
+          }
+        },
+        "Timeout": {
+          "Ref": "Timeout"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "SimpleTestOutputs": {
+      "Value": {
+        "Fn::GetAtt": [
+          "SimpleTest",
+          "Outputs"
+        ]
+      }
+    }
+  }
+}

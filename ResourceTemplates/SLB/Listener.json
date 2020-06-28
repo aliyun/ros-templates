@@ -1,0 +1,339 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Test SLB LoadBalancer、Listener、LoadBalancerClone、Certificate、DomainExtension、VServerGroup、Rule",
+  "Parameters": {
+    "LoadBalancerName": {
+      "Type": "String",
+      "Default": "mytest"
+    },
+    "BackendServersPolicy": {
+      "Type": "String",
+      "AllowedValues": [
+        "clone",
+        "empty",
+        "append",
+        "replace"
+      ],
+      "Default": "empty"
+    },
+    "ServerId": {
+      "Type": "String"
+    },
+    "ListenerPort": {
+      "Type": "Number",
+      "Default": 80
+    },
+    "VServerGroupName": {
+      "Type": "String",
+      "Default": "mytest"
+    },
+    "MasterZoneId": {
+      "Type": "String",
+      "AssociationProperty": "ALIYUN::ECS::Instance:ZoneId"
+    },
+    "LoadBalancerSpec": {
+      "Type": "String",
+      "Default": "slb.s1.small"
+    },
+    "Certificate": {
+      "Type": "String"
+    },
+    "PrivateKey": {
+      "Type": "String"
+    },
+    "AliCloudCertificateId": {
+      "Type": "String"
+    },
+    "AliCloudCertificateName": {
+      "Type": "String"
+    },
+    "Domain": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "Listener": {
+      "Type": "ALIYUN::SLB::Listener",
+      "DependsOn": [
+        "LoadBalance",
+        "SLBCertificate"
+      ],
+      "Properties": {
+        "BackendServerPort": 8080,
+        "Bandwidth": 50,
+        "ListenerPort": {
+          "Ref": "ListenerPort"
+        },
+        "LoadBalancerId": {
+          "Ref": "LoadBalance"
+        },
+        "Protocol": "https",
+        "Scheduler": "wrr",
+        "ServerCertificateId": {
+          "Fn::GetAtt": [
+            "SLBCertificate",
+            "CertificateId"
+          ]
+        },
+        "VServerGroupId": {
+          "Ref": "VServerGroup"
+        }
+      }
+    },
+    "LoadBalance": {
+      "Type": "ALIYUN::SLB::LoadBalancer",
+      "Properties": {
+        "PayType": "PayOnDemand",
+        "AddressType": "internet",
+        "LoadBalancerSpec": {
+          "Ref": "LoadBalancerSpec"
+        },
+        "MasterZoneId": {
+          "Ref": "MasterZoneId"
+        },
+        "LoadBalancerName": {
+          "Ref": "LoadBalancerName"
+        }
+      }
+    },
+    "CloneLoadBalancer": {
+      "DependsOn": "Listener",
+      "Type": "ALIYUN::SLB::LoadBalancerClone",
+      "Properties": {
+        "SourceLoadBalancerId": {
+          "Ref": "LoadBalance"
+        }
+      },
+      "BackendServersPolicy": {
+        "Ref": "BackendServersPolicy"
+      }
+    },
+    "SLBCertificate": {
+      "Type": "ALIYUN::SLB::Certificate",
+      "Properties": {
+        "Certificate": {
+          "Ref": "Certificate"
+        },
+        "PrivateKey": {
+          "Ref": "PrivateKey"
+        },
+        "AliCloudCertificateId": {
+          "Ref": "AliCloudCertificateId"
+        },
+        "AliCloudCertificateName": {
+          "Ref": "AliCloudCertificateName"
+        },
+        "CertificateType": "Server"
+      }
+    },
+    "DomainExtension": {
+      "Type": "ALIYUN::SLB::DomainExtension",
+      "DependsOn": "Listener",
+      "Properties": {
+        "Domain": {
+          "Ref": "Domain"
+        },
+        "ListenerPort": {
+          "Ref": "ListenerPort"
+        },
+        "ServerCertificateId": {
+          "Fn::GetAtt": [
+            "SLBCertificate",
+            "CertificateId"
+          ]
+        },
+        "LoadBalancerId": {
+          "Ref": "LoadBalance"
+        }
+      }
+    },
+    "VServerGroup": {
+      "Type": "ALIYUN::SLB::VServerGroup",
+      "DependsOn": "LoadBalance",
+      "Properties": {
+        "VServerGroupName": {
+          "Ref": "VServerGroupName"
+        },
+        "BackendServers": [
+          {
+            "ServerId": {
+              "Ref": "ServerId"
+            },
+            "Port": 80,
+            "Weight": 100
+          }
+        ],
+        "LoadBalancerId": {
+          "Ref": "LoadBalance"
+        }
+      }
+    },
+    "Rule": {
+      "Type": "ALIYUN::SLB::Rule",
+      "DependsOn": "Listener",
+      "Properties": {
+        "ListenerPort": {
+          "Ref": "ListenerPort"
+        },
+        "RuleList": [
+          {
+            "VServerGroupId": {
+              "Ref": "VServerGroup"
+            },
+            "RuleName": "mytest",
+            "Url": "/index"
+          }
+        ],
+        "LoadBalancerId": {
+          "Ref": "LoadBalance"
+        }
+      }
+    },
+    "BackendServerToVServerGroupAddition": {
+      "Type": "ALIYUN::SLB::BackendServerToVServerGroupAddition",
+      "Properties": {
+        "BackendServers": [
+          {
+            "ServerId": {
+              "Ref": "ServerId"
+            },
+            "Port": 8088,
+            "Weight": 100
+          }
+        ],
+        "VServerGroupId": {
+          "Ref": "VServerGroup"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "VServerId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "BackendServerToVServerGroupAddition",
+          "VServerGroupId"
+        ]
+      }
+    },
+    "LoadBalancerId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Listener",
+          "LoadBalancerId"
+        ]
+      }
+    },
+    "ListenerPortsAndProtocol": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Listener",
+          "ListenerPortsAndProtocol"
+        ]
+      }
+    },
+    "OrderId": {
+      "Description": "The order ID.",
+      "Value": {
+        "Fn::GetAtt": [
+          "LoadBalance",
+          "OrderId"
+        ]
+      }
+    },
+    "NetworkType": {
+      "Description": "The network type of the load balancer. \"vpc\" or \"classic\" network.",
+      "Value": {
+        "Fn::GetAtt": [
+          "LoadBalance",
+          "NetworkType"
+        ]
+      }
+    },
+    "AddressType": {
+      "Description": "The address type of the load balancer. \"intranet\" or \"internet\".",
+      "Value": {
+        "Fn::GetAtt": [
+          "LoadBalance",
+          "AddressType"
+        ]
+      }
+    },
+    "IpAddress": {
+      "Description": "The ip address of the load balancer.",
+      "Value": {
+        "Fn::GetAtt": [
+          "LoadBalance",
+          "IpAddress"
+        ]
+      }
+    },
+    "SLBId": {
+      "Description": "The id of load balance created.",
+      "Value": {
+        "Fn::GetAtt": [
+          "LoadBalance",
+          "LoadBalancerId"
+        ]
+      }
+    },
+    "CertificateId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "SLBCertificate",
+          "CertificateId"
+        ]
+      }
+    },
+    "Fingerprint": {
+      "Value": {
+        "Fn::GetAtt": [
+          "SLBCertificate",
+          "Fingerprint"
+        ]
+      }
+    },
+    "DomainExtensionId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "DomainExtension",
+          "DomainExtensionId"
+        ]
+      }
+    },
+    "ListenerPort": {
+      "Value": {
+        "Fn::GetAtt": [
+          "DomainExtension",
+          "ListenerPort"
+        ]
+      }
+    },
+    "VServerGroupId": {
+      "Description": "The id of VServerGroup created.",
+      "Value": {
+        "Fn::GetAtt": [
+          "VServerGroup",
+          "VServerGroupId"
+        ]
+      }
+    },
+    "BackendServers": {
+      "Description": "Backend server list in this VServerGroup.",
+      "Value": {
+        "Fn::GetAtt": [
+          "VServerGroup",
+          "BackendServers"
+        ]
+      }
+    },
+    "Rules": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Rule",
+          "Rules"
+        ]
+      }
+    }
+  }
+}

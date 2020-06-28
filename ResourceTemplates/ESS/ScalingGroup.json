@@ -1,0 +1,172 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Test ESS ScalingGroup、ScalingRule、AlarmTask、AlarmTaskEnable、LifecycleHook、ScheduledTask",
+  "Parameters": {
+    "VSwitchId": {
+      "Type": "String",
+      "Description": "VSW Id."
+    },
+    "ScalingGroupName": {
+      "Type": "String",
+      "Description": "ScalingGroup Name",
+      "Default": "mytest"
+    },
+    "AdjustmentType": {
+      "Type": "String",
+      "Default": "QuantityChangeInCapacity"
+    },
+    "AdjustmentValue": {
+      "Type": "Number",
+      "Default": 1
+    },
+    "Threshold": {
+      "Type": "Number",
+      "Default": 10
+    },
+    "MetricName": {
+      "Type": "String",
+      "Default": "CpuUtilization"
+    },
+    "MetricType": {
+      "Type": "String",
+      "Default": "system"
+    },
+    "LifecycleTransition": {
+      "Type": "String",
+      "Default": "SCALE_OUT"
+    },
+    "LaunchTime": {
+      "Type": "String",
+      "Default": "2020-08-10T20:00Z"
+    }
+  },
+  "Resources": {
+    "ScalingGroup": {
+      "Type": "ALIYUN::ESS::ScalingGroup",
+      "Properties": {
+        "MaxSize": 10,
+        "MinSize": 1,
+        "VSwitchId": {
+          "Ref": "VSwitchId"
+        },
+        "ScalingGroupName": {
+          "Ref": "ScalingGroupName"
+        }
+      }
+    },
+    "ScalingRule": {
+      "DependsOn": "ScalingGroup",
+      "Type": "ALIYUN::ESS::ScalingRule",
+      "Properties": {
+        "AdjustmentType": {
+          "Ref": "AdjustmentType"
+        },
+        "ScalingGroupId": {
+          "Fn::GetAtt": [
+            "ScalingGroup",
+            "ScalingGroupId"
+          ]
+        },
+        "AdjustmentValue": {
+          "Ref": "AdjustmentValue"
+        }
+      }
+    },
+    "AlarmTask": {
+      "DependsOn": "ScalingRule",
+      "Type": "ALIYUN::ESS::AlarmTask",
+      "Properties": {
+        "ScalingGroupId": {
+          "Ref": "ScalingGroup"
+        },
+        "AlarmAction": [
+          {
+            "Fn::GetAtt": [
+              "ScalingRule",
+              "ScalingRuleAri"
+            ]
+          }
+        ],
+        "Threshold": {
+          "Ref": "Threshold"
+        },
+        "MetricName": {
+          "Ref": "MetricName"
+        },
+        "MetricType": {
+          "Ref": "MetricType"
+        },
+        "Statistics": "Average"
+      }
+    },
+    "AlarmTaskEnable": {
+      "Type": "ALIYUN::ESS::AlarmTaskEnable",
+      "Properties": {
+        "AlarmTaskId": {
+          "Ref": "AlarmTask"
+        },
+        "Enable": true
+      }
+    },
+    "LifecycleHook": {
+      "Type": "ALIYUN::ESS::LifecycleHook",
+      "Properties": {
+        "ScalingGroupId": {
+          "Ref": "ScalingGroup"
+        },
+        "LifecycleTransition": {
+          "Ref": "LifecycleTransition"
+        }
+      }
+    },
+    "ScheduledTask": {
+      "Type": "ALIYUN::ESS::ScheduledTask",
+      "Properties": {
+        "LaunchTime": {
+          "Ref": "LaunchTime"
+        },
+        "ScheduledAction": {
+          "Fn::GetAtt": [
+            "ScalingRule",
+            "ScalingRuleAri"
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ScheduledTaskId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ScheduledTask",
+          "ScheduledTaskId"
+        ]
+      }
+    },
+    "LifecycleHookId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "LifecycleHook",
+          "LifecycleHookId"
+        ]
+      }
+    },
+    "AlarmTaskId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "AlarmTask",
+          "AlarmTaskId"
+        ]
+      }
+    },
+    "ScalingGroupId": {
+      "Description": "Scaling group Id",
+      "Value": {
+        "Fn::GetAtt": [
+          "ScalingGroup",
+          "ScalingGroupId"
+        ]
+      }
+    }
+  }
+}

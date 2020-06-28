@@ -1,0 +1,579 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Test Cen",
+  "Parameters": {
+    "CenName": {
+      "Type": "String",
+      "Description": "CenInstance Name.",
+      "Default": "mytest"
+    },
+    "MapResult": {
+      "Type": "String",
+      "Default": "Permit"
+    },
+    "CommunityMatchMode": {
+      "Type": "String",
+      "Default": "Include"
+    },
+    "CommunityOperateMode": {
+      "Type": "String",
+      "Default": "Additive"
+    },
+    "VpcName": {
+      "Type": "String",
+      "Default": "mytest"
+    },
+    "VSwitchName": {
+      "Type": "String",
+      "Default": "mytest"
+    },
+    "ZoneId": {
+      "Type": "String",
+      "AssociationProperty": "ALIYUN::ECS::Instance:ZoneId"
+    },
+    "GeographicRegionAId": {
+      "Type": "String",
+      "Description": "The other area A to connect.",
+      "AllowedValues": [
+        "China",
+        "North-America",
+        "Asia-Pacific",
+        "Europe",
+        "Australia"
+      ],
+      "Default": "China"
+    },
+    "GeographicRegionBId": {
+      "Type": "String",
+      "Description": "The other area B to connect.",
+      "AllowedValues": [
+        "China",
+        "North-America",
+        "Asia-Pacific",
+        "Europe",
+        "Australia"
+      ],
+      "Default": "China"
+    },
+    "Bandwidth": {
+      "Type": "Number",
+      "Description": "The bandwidth in Mbps of the bandwidth package. The bandwidth cannot be less than 2 Mbps.",
+      "MinValue": 2,
+      "MaxValue": 1000,
+      "Default": 2
+    },
+    "OppositeRegionId": {
+      "Type": "String",
+      "Description": "The ID of the other interconnected region."
+    },
+    "OppositeChildInstanceId": {
+      "Type": "String",
+      "Description": "The ID of the network to attach."
+    },
+    "BandwidthLimit": {
+      "Type": "Number",
+      "Description": "The bandwidth configured for the interconnected regions communication. Minimal value: 1",
+      "MinValue": 1,
+      "Default": 1
+    },
+    "RouteTableName": {
+      "Type": "String",
+      "Description": "The name of the route table.The name must be 2 to 128 characters in length. It can contain letters, numbers, periods (.), underscores (_), and hyphens (-). It must start with a letter and cannot start with http:// or https://.",
+      "Default": "mytest"
+    }
+  },
+  "Resources": {
+    "Vpc": {
+      "Type": "ALIYUN::ECS::VPC",
+      "Properties": {
+        "VpcName": {
+          "Ref": "VpcName"
+        },
+        "CidrBlock": "192.168.0.0/16"
+      }
+    },
+    "VpcDestination": {
+      "Type": "ALIYUN::ECS::VPC",
+      "Properties": {
+        "VpcName": {
+          "Ref": "VpcName"
+        },
+        "CidrBlock": "192.168.0.0/16"
+      }
+    },
+    "VSwitch": {
+      "Type": "ALIYUN::ECS::VSwitch",
+      "Properties": {
+        "ZoneId": {
+          "Ref": "ZoneId"
+        },
+        "CidrBlock": "192.168.100.0/24",
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        },
+        "VSwitchName": {
+          "Ref": "VSwitchName"
+        }
+      }
+    },
+    "CenInstance": {
+      "Type": "ALIYUN::CEN::CenInstance",
+      "Properties": {
+        "Name": {
+          "Ref": "CenName"
+        }
+      }
+    },
+    "CenBandPackage": {
+      "Type": "ALIYUN::CEN::CenBandwidthPackage",
+      "Properties": {
+        "GeographicRegionAId": {
+          "Ref": "GeographicRegionAId"
+        },
+        "GeographicRegionBId": {
+          "Ref": "GeographicRegionBId"
+        },
+        "Bandwidth": {
+          "Ref": "Bandwidth"
+        },
+        "BandwidthPackageChargeType": "POSTPAY"
+      }
+    },
+    "CenBandwidthPackageAssociation": {
+      "Type": "ALIYUN::CEN::CenBandwidthPackageAssociation",
+      "DependsOn": [
+        "CenInstance",
+        "CenBandPackage"
+      ],
+      "Properties": {
+        "CenId": {
+          "Ref": "CenInstance"
+        },
+        "CenBandwidthPackageId": {
+          "Ref": "CenBandPackage"
+        }
+      }
+    },
+    "CenInstanceAttachmentLocalVpc": {
+      "DependsOn": [
+        "CenInstance",
+        "Vpc",
+        "VSwitch"
+      ],
+      "Type": "ALIYUN::CEN::CenInstanceAttachment",
+      "Properties": {
+        "ChildInstanceRegionId": {
+          "Ref": "ALIYUN::Region"
+        },
+        "ChildInstanceType": "VPC",
+        "ChildInstanceId": {
+          "Ref": "Vpc"
+        },
+        "CenId": {
+          "Ref": "CenInstance"
+        }
+      }
+    },
+    "CenInstanceAttachmentOppositeVpc": {
+      "DependsOn": [
+        "CenInstance",
+        "Vpc"
+      ],
+      "Type": "ALIYUN::CEN::CenInstanceAttachment",
+      "Properties": {
+        "ChildInstanceRegionId": {
+          "Ref": "OppositeRegionId"
+        },
+        "ChildInstanceType": "VPC",
+        "ChildInstanceId": {
+          "Ref": "OppositeChildInstanceId"
+        },
+        "CenId": {
+          "Ref": "CenInstance"
+        }
+      }
+    },
+    "CenBandwidthLimit": {
+      "Type": "ALIYUN::CEN::CenBandwidthLimit",
+      "DependsOn": [
+        "CenBandwidthPackageAssociation",
+        "CenInstanceAttachmentLocalVpc",
+        "CenInstanceAttachmentOppositeVpc"
+      ],
+      "Properties": {
+        "OppositeRegionId": {
+          "Ref": "OppositeRegionId"
+        },
+        "CenId": {
+          "Ref": "CenInstance"
+        },
+        "BandwidthLimit": {
+          "Ref": "BandwidthLimit"
+        },
+        "LocalRegionId": {
+          "Ref": "ALIYUN::Region"
+        }
+      }
+    },
+    "RouteEntry": {
+      "Type": "ALIYUN::CEN::RouteEntry",
+      "DependsOn": [
+        "CenBandwidthLimit"
+      ],
+      "Properties": {
+        "ChildInstanceRegionId": {
+          "Ref": "ALIYUN::Region"
+        },
+        "CenId": {
+          "Ref": "CenInstance"
+        },
+        "DestinationCidrBlock": "192.168.100.0/24",
+        "ChildInstanceRouteTableId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "RouteTableId"
+          ]
+        },
+        "ChildInstanceType": "VPC",
+        "ChildInstanceId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        }
+      }
+    },
+    "RouteMap": {
+      "DependsOn": [
+        "CenInstance"
+      ],
+      "Type": "ALIYUN::CEN::CenRouteMap",
+      "Properties": {
+        "TransmitDirection": "RegionOut",
+        "CenRegionId": {
+          "Ref": "ALIYUN::Region"
+        },
+        "Priority": 1,
+        "MapResult": {
+          "Ref": "MapResult"
+        },
+        "CenId": {
+          "Ref": "CenInstance"
+        },
+        "SourceInstanceIdsReverseMatch": false,
+        "MatchCommunitySet": [
+          "65501:1"
+        ],
+        "CommunityMatchMode": {
+          "Ref": "CommunityMatchMode"
+        },
+        "CommunityOperateMode": {
+          "Ref": "CommunityOperateMode"
+        },
+        "OperateCommunitySet": [
+          "65501:1"
+        ],
+        "SourceRouteTableIds": [
+          {
+            "Fn::GetAtt": [
+              "Vpc",
+              "RouteTableId"
+            ]
+          }
+        ],
+        "DestinationInstanceIds": [
+          {
+            "Ref": "VpcDestination"
+          }
+        ],
+        "DestinationInstanceIdsReverseMatch": false,
+        "SourceInstanceIds": [
+          {
+            "Ref": "Vpc"
+          }
+        ],
+        "DestinationRouteTableIds": [
+          {
+            "Fn::GetAtt": [
+              "VpcDestination",
+              "RouteTableId"
+            ]
+          }
+        ],
+        "DestinationCidrBlocks": [
+          "1.1.1.0/10"
+        ],
+        "DestinationChildInstanceTypes": [
+          "VPC"
+        ],
+        "SourceChildInstanceTypes": [
+          "VPC"
+        ],
+        "AsPathMatchMode": "Include",
+        "CidrMatchMode": "Include",
+        "RouteTypes": [
+          "System"
+        ],
+        "Preference": 2,
+        "NextPriority": 1,
+        "PrependAsPath": [
+          65501
+        ],
+        "MatchAsns": [
+          65501
+        ],
+        "SourceRegionIds": [
+          {
+            "Ref": "ALIYUN::Region"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "RouteMapId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "RouteMapId"
+        ]
+      }
+    },
+    "MapResult": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "MapResult"
+        ]
+      }
+    },
+    "SourceInstanceIdsReverseMatch": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "SourceInstanceIdsReverseMatch"
+        ]
+      }
+    },
+    "TransmitDirection": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "TransmitDirection"
+        ]
+      }
+    },
+    "MatchCommunitySet": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "MatchCommunitySet"
+        ]
+      }
+    },
+    "CenRegionId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "CenRegionId"
+        ]
+      }
+    },
+    "SourceRouteTableIds": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "SourceRouteTableIds"
+        ]
+      }
+    },
+    "DestinationInstanceIds": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "DestinationInstanceIds"
+        ]
+      }
+    },
+    "DestinationInstanceIdsReverseMatch": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "DestinationInstanceIdsReverseMatch"
+        ]
+      }
+    },
+    "SourceInstanceIds": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "SourceInstanceIds"
+        ]
+      }
+    },
+    "DestinationRouteTableIds": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "DestinationRouteTableIds"
+        ]
+      }
+    },
+    "DestinationCidrBlocks": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "DestinationCidrBlocks"
+        ]
+      }
+    },
+    "OperateCommunitySet": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "OperateCommunitySet"
+        ]
+      }
+    },
+    "DestinationChildInstanceTypes": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "DestinationChildInstanceTypes"
+        ]
+      }
+    },
+    "Status": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "Status"
+        ]
+      }
+    },
+    "Priority": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "Priority"
+        ]
+      }
+    },
+    "PrependAsPath": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "PrependAsPath"
+        ]
+      }
+    },
+    "CommunityMatchMode": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "CommunityMatchMode"
+        ]
+      }
+    },
+    "SourceChildInstanceTypes": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "SourceChildInstanceTypes"
+        ]
+      }
+    },
+    "AsPathMatchMode": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "AsPathMatchMode"
+        ]
+      }
+    },
+    "CidrMatchMode": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "CidrMatchMode"
+        ]
+      }
+    },
+    "RouteTypes": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "RouteTypes"
+        ]
+      }
+    },
+    "Preference": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "Preference"
+        ]
+      }
+    },
+    "CommunityOperateMode": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "CommunityOperateMode"
+        ]
+      }
+    },
+    "NextPriority": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "NextPriority"
+        ]
+      }
+    },
+    "RouteMapCenId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "CenId"
+        ]
+      }
+    },
+    "MatchAsns": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "MatchAsns"
+        ]
+      }
+    },
+    "SourceRegionIds": {
+      "Value": {
+        "Fn::GetAtt": [
+          "RouteMap",
+          "SourceRegionIds"
+        ]
+      }
+    },
+    "CenId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "CenInstance",
+          "CenId"
+        ]
+      }
+    },
+    "CenBandwidthPackageId": {
+      "Description": "The ID of the bandwidth package.",
+      "Value": {
+        "Fn::GetAtt": [
+          "CenBandPackage",
+          "CenBandwidthPackageId"
+        ]
+      }
+    }
+  }
+}

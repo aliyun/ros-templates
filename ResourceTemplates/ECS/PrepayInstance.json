@@ -1,0 +1,274 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Test ECS PrepayInstance",
+  "Parameters": {
+    "PeriodType": {
+      "Type": "String",
+      "Description": "ECS Period Type.",
+      "Label": "ECS Period Type",
+      "Default": "Monthly"
+    },
+    "ImageId": {
+      "Type": "String",
+      "Description": "Image Id, represents the image resource to startup one ECS instance, <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>",
+      "Label": "ECS Image Id",
+      "Default": "centos_7"
+    },
+    "InstanceType": {
+      "Default": "ecs.t6-c4m1.large",
+      "Type": "String",
+      "Label": "ECS Instance Type",
+      "Description": "The ECS instance type, <a href='#/product/cn-beijing/list/typeList' target='_blank'>View instance types</a>"
+    },
+    "LoginPassword": {
+      "NoEcho": true,
+      "Type": "String",
+      "Description": "ECS Login Password",
+      "MinLength": 8,
+      "MaxLength": 41
+    },
+    "PublicIp": {
+      "Type": "Boolean",
+      "Description": "Allocate Public IP or Not",
+      "Label": "Allocate Public IP or Not",
+      "Default": false
+    },
+    "VpcName": {
+      "Type": "String",
+      "Description": "Vpc Name",
+      "Default": "mytest"
+    },
+    "VSwitchName": {
+      "Type": "String",
+      "Description": "VSwitch Name",
+      "Default": "mytest"
+    },
+    "SecurityGroupName": {
+      "Type": "String",
+      "Description": "Security Group Name",
+      "Default": "mytest"
+    },
+    "InstanceName": {
+      "Type": "String",
+      "Description": "Instance Name",
+      "Default": "mytest"
+    }
+  },
+  "Resources": {
+    "Vpc": {
+      "Type": "ALIYUN::ECS::VPC",
+      "Properties": {
+        "VpcName": {
+          "Ref": "VpcName"
+        },
+        "CidrBlock": "192.168.0.0/16"
+      }
+    },
+    "VSwitch": {
+      "Type": "ALIYUN::ECS::VSwitch",
+      "Properties": {
+        "VSwitchName": {
+          "Ref": "VSwitchName"
+        },
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "ZoneId": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": {
+                "Ref": "ALIYUN::Region"
+              }
+            }
+          ]
+        },
+        "CidrBlock": "192.168.0.0/16"
+      }
+    },
+    "SecurityGroup": {
+      "Type": "ALIYUN::ECS::SecurityGroup",
+      "Properties": {
+        "SecurityGroupName": {
+          "Ref": "SecurityGroupName"
+        },
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      }
+    },
+    "PrepayInstance": {
+      "Type": "ALIYUN::ECS::PrepayInstance",
+      "Properties": {
+        "InstanceChargeType": "PrePaid",
+        "MinAmount": 1,
+        "MaxAmount": 1,
+        "Period": 1,
+        "PeriodUnit": "Month",
+        "PeriodType": {
+          "Ref": "PeriodType"
+        },
+        "InstanceName": {
+          "Ref": "InstanceName"
+        },
+        "IoOptimized": "True",
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "SecurityGroupId": {
+          "Ref": "SecurityGroup"
+        },
+        "VSwitchId": {
+          "Ref": "VSwitch"
+        },
+        "ImageId": {
+          "Ref": "ImageId"
+        },
+        "AllocatePublicIP": {
+          "Ref": "PublicIp"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "SystemDiskCategory": "cloud_efficiency",
+        "Password": {
+          "Ref": "LoginPassword"
+        }
+      }
+    },
+    "MergePay": {
+      "DependsOn": "PrepayInstance",
+      "Type": "ALIYUN::ROS::MergePay",
+      "Properties": {
+        "OrderIds": [
+          {
+            "Fn::GetAtt": [
+              "PrepayInstance",
+              "OrderId"
+            ]
+          }
+        ]
+      }
+    },
+    "WaitOrder": {
+      "DependsOn": "MergePay",
+      "Type": "ALIYUN::BSS::WaitOrder",
+      "Properties": {
+        "OrderIds": [
+          {
+            "Fn::GetAtt": [
+              "PrepayInstance",
+              "OrderId"
+            ]
+          }
+        ],
+        "WaitForOrderProduced": true
+      }
+    },
+    "PrepayInstanceGroupClone": {
+      "DependsOn": "WaitOrder",
+      "Type": "ALIYUN::ECS::PrepayInstanceGroupClone",
+      "Properties": {
+        "PeriodType": {
+          "Ref": "PeriodType"
+        },
+        "MinAmount": 1,
+        "MaxAmount": 1,
+        "Period": 1,
+        "SourceInstanceId": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAtt": [
+                "PrepayInstance",
+                "InstanceIds"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "CloneOrder": {
+      "Value": {
+        "Fn::GetAtt": [
+          "PrepayInstanceGroupClone",
+          "OrderId"
+        ]
+      }
+    },
+    "PublicIps": {
+      "Description": "Public IP address list of created ecs instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "PrepayInstance",
+          "PublicIps"
+        ]
+      }
+    },
+    "RelatedOrderIds": {
+      "Description": "The related order id list of created ecs instances",
+      "Value": {
+        "Fn::GetAtt": [
+          "PrepayInstance",
+          "RelatedOrderIds"
+        ]
+      }
+    },
+    "PrivateIps": {
+      "Description": "Private IP address list of created ecs instance. Only for VPC instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "PrepayInstance",
+          "PrivateIps"
+        ]
+      }
+    },
+    "HostNames": {
+      "Description": "Host names of created instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "PrepayInstance",
+          "HostNames"
+        ]
+      }
+    },
+    "InnerIps": {
+      "Description": "Inner IP address list of the specified instance. Only for classical instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "PrepayInstance",
+          "InnerIps"
+        ]
+      }
+    },
+    "ZoneIds": {
+      "Description": "Zone id of created instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "PrepayInstance",
+          "ZoneIds"
+        ]
+      }
+    },
+    "OrderId": {
+      "Description": "The order id list of created instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "PrepayInstance",
+          "OrderId"
+        ]
+      }
+    },
+    "InstanceIds": {
+      "Description": "The instance id list of created ecs instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "PrepayInstance",
+          "InstanceIds"
+        ]
+      }
+    }
+  }
+}
