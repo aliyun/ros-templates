@@ -1,0 +1,112 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test EHPC Cluster
+Parameters:
+  AccessGroupName:
+    Type: String
+  BucketAccessControl:
+    Default: public-read
+    Type: String
+  BucketName:
+    Default: mytest
+    Type: String
+  BucketStorageClass:
+    Default: Standard
+    Type: String
+  EcsOrderComputeCount:
+    Default: 1
+    Type: Number
+  EcsOrderLoginInstanceType:
+    Default: ecs.g6.large
+    Type: String
+  Password:
+    Type: String
+  VSwitchId:
+    Type: String
+  VpcId:
+    Type: String
+  ZoneId:
+    Type: String
+Resources:
+  AccessGroup:
+    Properties:
+      AccessGroupName:
+        Ref: AccessGroupName
+      AccessGroupType: Vpc
+    Type: ALIYUN::NAS::AccessGroup
+  AccessRule:
+    Properties:
+      AccessGroupName:
+        Ref: AccessGroup
+      SourceCidrIp: 0.0.0.0/0
+    Type: ALIYUN::NAS::AccessRule
+  Cluster:
+    DependsOn:
+    - AccessRule
+    - FileSystem
+    - MountTarget
+    Properties:
+      EcsOrderComputeCount:
+        Ref: EcsOrderComputeCount
+      EcsOrderComputeInstanceType:
+        Ref: EcsOrderLoginInstanceType
+      EcsOrderLoginCount:
+        Ref: EcsOrderComputeCount
+      EcsOrderLoginInstanceType:
+        Ref: EcsOrderLoginInstanceType
+      EcsOrderManagerInstanceType:
+        Ref: EcsOrderLoginInstanceType
+      EhpcVersion: 1.0.0
+      Name:
+        Fn::Join:
+        - '-'
+        - - Cluster
+          - Ref: ALIYUN::StackId
+      OsTag: CentOS_7.2_64
+      Password:
+        Ref: Password
+      VSwitchId:
+        Ref: VSwitchId
+      VolumeId:
+        Ref: FileSystem
+      VolumeMountpoint:
+        Ref: MountTarget
+    Type: ALIYUN::EHPC::Cluster
+  FileSystem:
+    Properties:
+      ProtocolType: NFS
+      StorageType: Capacity
+    Type: ALIYUN::NAS::FileSystem
+  MountTarget:
+    Properties:
+      AccessGroupName:
+        Ref: AccessGroup
+      FileSystemId:
+        Ref: FileSystem
+      NetworkType: Vpc
+      VSwitchId:
+        Ref: VSwitchId
+      VpcId:
+        Ref: VpcId
+    Type: ALIYUN::NAS::MountTarget
+  OssBucket:
+    Properties:
+      AccessControl:
+        Ref: BucketAccessControl
+      BucketName:
+        Ref: BucketName
+      StorageClass:
+        Ref: BucketStorageClass
+    Type: ALIYUN::OSS::Bucket
+Outputs:
+  FileSystemId:
+    Description: ID of the file system created
+    Value:
+      Fn::GetAtt:
+      - FileSystem
+      - FileSystemId
+  MountTargetDomain:
+    Description: Mount point domain name
+    Value:
+      Fn::GetAtt:
+      - MountTarget
+      - MountTargetDomain

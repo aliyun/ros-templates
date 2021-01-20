@@ -1,0 +1,147 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ACTIONTRAIL Trail、TrailLogging
+Parameters:
+  Enable:
+    Default: true
+    Type: Boolean
+  EventRW:
+    AllowedValues:
+    - Write
+    - Read
+    - All
+    Default: Write
+    Type: String
+  OssBucketName:
+    Default: mytest
+    Type: String
+  OssKeyPrefix:
+    Default: ''
+    Type: String
+  RoleName:
+    Default: mytest
+    MaxLength: 64
+    MinLength: 1
+    Type: String
+  SlsProjectName:
+    Default: mytest
+    Type: String
+  TrailName:
+    Default: mytest
+    Type: String
+Resources:
+  Bucket:
+    Properties:
+      AccessControl: private
+      BucketName:
+        Ref: OssBucketName
+      DeletionForce: true
+    Type: ALIYUN::OSS::Bucket
+  Role:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - actiontrail.aliyuncs.com
+        Version: '1'
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - oss:GetBucketLocation
+            - oss:ListObjects
+            - oss:PutObject
+            Effect: Allow
+            Resource:
+            - '*'
+          - Action:
+            - log:PostLogStoreLogs
+            - log:CreateLogstore
+            - Log:GetLogstore
+            Effect: Allow
+            Resource:
+            - '*'
+          - Action:
+            - mns:PublishMessage
+            Effect: Allow
+            Resource:
+            - '*'
+          Version: '1'
+        PolicyName:
+          Fn::Sub: ActionTrailPolicy-${ALIYUN::StackId}
+      RoleName:
+        Ref: RoleName
+    Type: ALIYUN::RAM::Role
+  SlsLogStore:
+    DependsOn: SlsProject
+    Properties:
+      AppendMeta: true
+      AutoSplit: true
+      EnableTracking: false
+      LogstoreName:
+        Fn::Sub: actiontrail_${TrailName}
+      MaxSplitShard: 64
+      PreserveStorage: true
+      ProjectName:
+        Fn::GetAtt:
+        - SlsProject
+        - Name
+      ShardCount: 2
+    Type: ALIYUN::SLS::Logstore
+  SlsProject:
+    Properties:
+      Name:
+        Ref: SlsProjectName
+    Type: ALIYUN::SLS::Project
+  Trail:
+    DependsOn:
+    - Role
+    - Bucket
+    - SlsLogStore
+    Properties:
+      EventRW:
+        Ref: EventRW
+      Name:
+        Ref: TrailName
+      OssBucketName:
+        Fn::GetAtt:
+        - Bucket
+        - Name
+      OssKeyPrefix:
+        Ref: OssKeyPrefix
+      RoleName:
+        Fn::GetAtt:
+        - Role
+        - RoleName
+      SlsProjectArn:
+        Fn::Sub: acs:log:${ALIYUN::Region}::project/${SlsProjectName}
+      SlsWriteRoleArn:
+        Fn::Sub: acs:ram::${ALIYUN::TenantId}:role/${Role.RoleName}
+    Type: ALIYUN::ACTIONTRAIL::Trail
+  TrailLogging:
+    Properties:
+      Enable:
+        Ref: Enable
+      Name:
+        Fn::GetAtt:
+        - Trail
+        - Name
+    Type: ALIYUN::ACTIONTRAIL::TrailLogging
+Outputs:
+  IsLogging:
+    Value:
+      Fn::GetAtt:
+      - TrailLogging
+      - IsLogging
+  Name:
+    Value:
+      Fn::GetAtt:
+      - Trail
+      - Name
+  StartLoggingTime:
+    Value:
+      Fn::GetAtt:
+      - TrailLogging
+      - StartLoggingTime

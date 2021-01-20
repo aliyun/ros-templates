@@ -1,0 +1,190 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Test DTS MigrationJob、SynchronizationJob",
+  "Parameters": {
+    "VpcId": {
+      "Type": "String"
+    },
+    "VSwitchId": {
+      "Type": "String"
+    },
+    "RdsDBName": {
+      "Type": "String"
+    },
+    "RdsUserName": {
+      "Type": "String",
+      "MinLength": 2,
+      "MaxLength": 16
+    },
+    "RdsUserPassword": {
+      "Type": "String",
+      "NoEcho": true,
+      "MinLength": 8,
+      "MaxLength": 32
+    },
+    "DtsMigrationJobName": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "RdsDBInstance": {
+      "Count": 2,
+      "Type": "ALIYUN::RDS::DBInstance",
+      "Properties": {
+        "Engine": "MySQL",
+        "MultiAZ": true,
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "DBMappings": [
+          {
+            "CharacterSetName": "utf8",
+            "DBName": {
+              "Ref": "RdsDBName"
+            }
+          }
+        ],
+        "MasterUsername": {
+          "Ref": "RdsUserName"
+        },
+        "MasterUserPassword": {
+          "Ref": "RdsUserPassword"
+        },
+        "DBInstanceStorage": 50,
+        "VSwitchId": {
+          "Ref": "VSwitchId"
+        },
+        "MasterUserType": "Super",
+        "EngineVersion": "5.6",
+        "DBInstanceClass": "rds.mysql.s2.large",
+        "SecurityIPList": "0.0.0.0/0"
+      }
+    },
+    "DtsMigrationJob": {
+      "DependsOn": [
+        "RdsDBInstance"
+      ],
+      "Type": "ALIYUN::DTS::MigrationJob",
+      "Properties": {
+        "MigrationJobClass": "small",
+        "MigrationJobName": {
+          "Ref": "DtsMigrationJobName"
+        },
+        "MigrationMode": {
+          "StructureIntialization": true,
+          "DataSynchronization": true,
+          "DataIntialization": true
+        },
+        "SourceEndpoint": {
+          "UserName": {
+            "Ref": "RdsUserName"
+          },
+          "InstanceID": {
+            "Fn::Select": [
+              1,
+              {
+                "Ref": "RdsDBInstance"
+              }
+            ]
+          },
+          "Region": {
+            "Ref": "ALIYUN::Region"
+          },
+          "InstanceType": "RDS",
+          "Password": {
+            "Ref": "RdsUserPassword"
+          },
+          "Port": "3306"
+        },
+        "DestinationEndpoint": {
+          "EngineName": "MySQL",
+          "Port": "3306",
+          "Region": {
+            "Ref": "ALIYUN::Region"
+          },
+          "InstanceID": {
+            "Fn::Select": [
+              0,
+              {
+                "Ref": "RdsDBInstance"
+              }
+            ]
+          },
+          "Password": {
+            "Ref": "RdsUserPassword"
+          },
+          "UserName": {
+            "Ref": "RdsUserName"
+          },
+          "InstanceType": "RDS"
+        },
+        "MigrationObject": [
+          {
+            "DBName": {
+              "Ref": "RdsDBName"
+            }
+          }
+        ]
+      }
+    },
+    "SynchronizationJob": {
+      "DependsOn": "DtsMigrationJob",
+      "Type": "ALIYUN::DTS::SynchronizationJob",
+      "Properties": {
+        "SynchronizationJobClass": "small",
+        "SourceEndpoint": {
+          "InstanceId": {
+            "Fn::Select": [
+              0,
+              {
+                "Ref": "RdsDBInstance"
+              }
+            ]
+          },
+          "InstanceTypeForCreation": "MySQL",
+          "InstanceType": "RDS"
+        },
+        "PayType": "Postpaid",
+        "DataInitialization": false,
+        "DestRegion": {
+          "Ref": "ALIYUN::Region"
+        },
+        "SourceRegion": {
+          "Ref": "ALIYUN::Region"
+        },
+        "NetworkType": "Internet",
+        "DestinationEndpoint": {
+          "InstanceId": {
+            "Fn::Select": [
+              1,
+              {
+                "Ref": "RdsDBInstance"
+              }
+            ]
+          },
+          "InstanceTypeForCreation": "MySQL",
+          "InstanceType": "RDS"
+        },
+        "StructureInitialization": false
+      }
+    }
+  },
+  "Outputs": {
+    "MigrationJobId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "DtsMigrationJob",
+          "MigrationJobId"
+        ]
+      }
+    },
+    "SynchronizationJobId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "SynchronizationJob",
+          "SynchronizationJobId"
+        ]
+      }
+    }
+  }
+}

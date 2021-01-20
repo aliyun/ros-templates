@@ -1,0 +1,205 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test RDS DBInstance、Account、AccountPrivilege
+Parameters:
+  AccountName:
+    Default: mytest
+    Type: String
+  AccountPassword:
+    NoEcho: true
+    Type: String
+  AccountPrivilege:
+    AllowedValues:
+    - ReadWrite
+    - ReadOnly
+    - DDLOnly
+    - DMLOnly
+    - DBOwner
+    Default: ReadOnly
+    Description: Account Privilege.
+    Type: String
+  AccountType:
+    AllowedValues:
+    - Normal
+    - Super
+    Default: Normal
+    Type: String
+  CharacterSetName:
+    Default: utf8
+    Description: 'MySQL: utf8、gbk、latin1、 utf8mb4'
+    Type: String
+  DBInstanceClass:
+    Default: rds.mysql.s2.large
+    Description: Instance Class
+    Type: String
+  DBInstanceStorage:
+    Description: MySQL：5-1000，SQLServer：10-1000，others：5-2000
+    Type: Number
+  DBName:
+    Default: mytest
+    Type: String
+  DataBaseName:
+    Default: mytestdb
+    Type: String
+  Engine:
+    Description: 'RDS Engine, Allowed values: MySQL、SQLServer、PostgreSQL、PPAS。'
+    Type: String
+  EngineVersion:
+    Description: 'MySQL: 5.5、5.6、5.7、5.8，SQLServer：2008r2，PostgreSQL：9.4'
+    Type: String
+  VSwitchName:
+    Default: mytest
+    Type: String
+  VpcName:
+    Default: mytest
+    Type: String
+  ZoneId:
+    Type: String
+Resources:
+  AccountRdsPrivilege:
+    DependsOn: RDSAccount
+    Properties:
+      AccountName:
+        Fn::GetAtt:
+        - RDSAccount
+        - AccountName
+      AccountPrivilege:
+        Ref: AccountPrivilege
+      DBInstanceId:
+        Ref: RDSInstance
+      DBName:
+        Ref: DBName
+    Type: ALIYUN::RDS::AccountPrivilege
+  DBInstanceParameterGroup:
+    DependsOn: RDSInstance
+    Properties:
+      DBInstanceId:
+        Ref: RDSInstance
+      Forcerestart: 'false'
+      Parameters:
+      - Key: back_log
+        Value: '3000'
+      - Key: wait_timeout
+        Value: '86400'
+    Type: ALIYUN::RDS::DBInstanceParameterGroup
+  DBInstanceSecurityIps:
+    DependsOn: DBInstanceParameterGroup
+    Properties:
+      DBInstanceIPArrayAttribute: 0.0.0.0/0
+      DBInstanceId:
+        Ref: RDSInstance
+    Type: ALIYUN::RDS::DBInstanceSecurityIps
+  Database:
+    DependsOn: RDSInstance
+    Properties:
+      CharacterSetName: utf8mb4
+      DBDescription: db
+      DBInstanceId:
+        Ref: RDSInstance
+      DBName:
+        Ref: DataBaseName
+    Type: ALIYUN::RDS::Database
+  RDSAccount:
+    DependsOn: RDSInstance
+    Properties:
+      AccountName:
+        Ref: AccountName
+      AccountPassword:
+        Ref: AccountPassword
+      AccountType:
+        Ref: AccountType
+      DBInstanceId:
+        Ref: RDSInstance
+    Type: ALIYUN::RDS::Account
+  RDSInstance:
+    DependsOn: VSwitch
+    Properties:
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBMappings:
+      - CharacterSetName:
+          Ref: CharacterSetName
+        DBName:
+          Ref: DBName
+      Engine:
+        Ref: Engine
+      EngineVersion:
+        Ref: EngineVersion
+      SecurityIPList: 0.0.0.0/0
+      VSwitchId:
+        Ref: VSwitch
+      VpcId:
+        Ref: VPC
+    Type: ALIYUN::RDS::DBInstance
+  ReadOnlyDBInstance:
+    DependsOn: RDSInstance
+    Properties:
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceId:
+        Ref: RDSInstance
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      EngineVersion:
+        Ref: EngineVersion
+      VPCId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      ZoneId:
+        Ref: ZoneId
+    Type: ALIYUN::RDS::ReadOnlyDBInstance
+  VPC:
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Ref: VpcName
+    Type: ALIYUN::ECS::VPC
+  VSwitch:
+    DependsOn: VPC
+    Properties:
+      CidrBlock: 192.168.10.0/24
+      VSwitchName:
+        Ref: VSwitchName
+      VpcId:
+        Ref: VPC
+      ZoneId:
+        Ref: ZoneId
+    Type: ALIYUN::ECS::VSwitch
+Outputs:
+  AccountName:
+    Value:
+      Fn::GetAtt:
+      - RDSAccount
+      - AccountName
+  DBInstanceId:
+    Value:
+      Fn::GetAtt:
+      - RDSInstance
+      - DBInstanceId
+  DBName:
+    Value:
+      Fn::GetAtt:
+      - Database
+      - DBName
+  InnerConnectionString:
+    Value:
+      Fn::GetAtt:
+      - RDSInstance
+      - InnerConnectionString
+  InnerIPAddress:
+    Value:
+      Fn::GetAtt:
+      - RDSInstance
+      - InnerIPAddress
+  InnerPort:
+    Value:
+      Fn::GetAtt:
+      - RDSInstance
+      - InnerPort
+  SecurityIps:
+    Value:
+      Fn::GetAtt:
+      - DBInstanceSecurityIps
+      - SecurityIps

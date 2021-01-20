@@ -1,0 +1,138 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ECI ContainerGroup
+Parameters:
+  ContainerGroupName:
+    Default: mytest
+    Description: The name of the ContainerGroup.
+    Type: String
+  ContainerImage:
+    Default: busybox
+    Description: The name of the Image.
+    Type: String
+  ContainerName:
+    Default: mytest
+    Description: The name of the Container.
+    Type: String
+  RestartPolicy:
+    AllowedValues:
+    - Always
+    - OnFailure
+    - Never
+    Default: Always
+    Description: 'The policy for restarting the instance. Default value: Always.'
+    Type: String
+  SlsEnable:
+    AllowedValues:
+    - 'true'
+    - 'false'
+    Default: false
+    Description: Enable user log collection. The default is false.
+    Type: Boolean
+  VSwitchName:
+    Default: mytest
+    Type: String
+  VpcName:
+    Default: mytest
+    Type: String
+Resources:
+  ContainerGroup:
+    Properties:
+      Container:
+      - Cpu: 2
+        Image:
+          Ref: ContainerImage
+        Memory: 4
+        Name:
+          Ref: ContainerName
+        Port:
+        - Port: 8080
+          Protocol: TCP
+        - Port: 8888
+          Protocol: TCP
+      ContainerGroupName:
+        Ref: ContainerGroupName
+      Cpu: 2
+      Memory: 4
+      RestartPolicy:
+        Ref: RestartPolicy
+      SecurityGroupId:
+        Ref: SG
+      SlsEnable:
+        Ref: SlsEnable
+      VSwitchId:
+        Ref: VSwitch
+    Type: ALIYUN::ECI::ContainerGroup
+  EIP:
+    Properties:
+      InstanceChargeType: Postpaid
+      InternetChargeType: PayByTraffic
+    Type: ALIYUN::VPC::EIP
+  EIPAssociation:
+    DependsOn:
+    - EIP
+    - NatGateway
+    Properties:
+      AllocationId:
+        Ref: EIP
+      InstanceId:
+        Ref: NatGateway
+    Type: ALIYUN::VPC::EIPAssociation
+  NatGateway:
+    DependsOn: VSwitch
+    Properties:
+      VSwitchId:
+        Ref: VSwitch
+      VpcId:
+        Ref: VPC
+    Type: ALIYUN::ECS::NatGateway
+  SG:
+    DependsOn: VPC
+    Properties:
+      VpcId:
+        Ref: VPC
+    Type: ALIYUN::ECS::SecurityGroup
+  SnatEntry:
+    DependsOn: EIPAssociation
+    Properties:
+      SnatIp:
+        Fn::GetAtt:
+        - EIP
+        - EipAddress
+      SnatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SourceVSwitchIds:
+      - Ref: VSwitch
+    Type: ALIYUN::VPC::SnatEntry
+  VPC:
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Ref: VpcName
+    Type: ALIYUN::ECS::VPC
+  VSwitch:
+    DependsOn: VPC
+    Properties:
+      CidrBlock: 192.168.10.0/24
+      VSwitchName:
+        Ref: VSwitchName
+      VpcId:
+        Ref: VPC
+      ZoneId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAZs:
+            Ref: ALIYUN::Region
+    Type: ALIYUN::ECS::VSwitch
+Outputs:
+  ContainerGroupId:
+    Value:
+      Fn::GetAtt:
+      - ContainerGroup
+      - ContainerGroupId
+  ContainerGroupName:
+    Value:
+      Fn::GetAtt:
+      - ContainerGroup
+      - ContainerGroupName

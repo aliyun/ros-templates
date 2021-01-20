@@ -1,0 +1,327 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: >-
+  Test SLS
+  Project、Logstore、Alert、Index、SavedSearch、LogtailConfig、MachineGroup、ApplyConfigToMachineGroup、ApiGatewayLogConfig
+Parameters:
+  ImageId:
+    Type: String
+    Description: >-
+      Image Id, represents the image resource to startup one ECS instance, <a
+      href='#/product/cn-beijing/list/imageList' target='_blank'>View image
+      resources</a>
+    Label: ECS Image Id
+    Default: centos_7
+  InstanceType:
+    Default: ecs.c5.large
+    Type: String
+    Label: ECS Instance Type
+    Description: >-
+      The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+  LoginPassword:
+    NoEcho: true
+    Type: String
+    Description: ECS Login Password
+    MinLength: 8
+    MaxLength: 41
+  PublicIp:
+    Type: Boolean
+    Description: Allocate Public IP or Not
+    Label: Allocate Public IP or Not
+    Default: false
+  VpcId:
+    Type: String
+    Description: VPC Id.
+  VSwitchId:
+    Type: String
+    Description: VSW Id.
+  SecurityGroupId:
+    Type: String
+    Description: Security Group Id.
+  InstanceName:
+    Type: String
+    Description: Instance Name
+    Default: mytest
+  SlsProjectName:
+    Type: String
+    MinLength: 3
+    MaxLength: 63
+    Default: mytest
+  SlsLogStoreName:
+    Type: String
+    MinLength: 3
+    MaxLength: 63
+    Default: mytest
+  LogtailConfigName:
+    MinLength: 3
+    Type: String
+    MaxLength: 63
+    Default: mytest
+  SearchQuery:
+    Type: String
+    Description: Search sentence
+  SavedsearchName:
+    Type: String
+    Description: Search name，starts with "savedsearch-"
+  DisplayName:
+    Type: String
+    Description: Quick search name
+    Default: null
+  AlertName:
+    Type: String
+    Description: 'Alert name, starts with "alert-".'
+  AlertDisplayName:
+    Type: String
+    Description: Alert display name
+  Dashboard:
+    Type: String
+    Description: Starts with "dashboard-".
+  ChartTitle:
+    Type: String
+    Description: Starts with "chart-".
+  Schedule:
+    Type: Json
+    Description: The interval at which the log service evaluates alert rules
+    Default:
+      Type: FixedRate
+      Interval: 10m
+      Delay: 10
+      RunImmediately: false
+  Throttling:
+    Type: String
+    Description: Notification interval
+    Default: 5m
+  Condition:
+    Type: String
+    Description: Triggering conditions
+    Default: a>0
+  Query:
+    Type: String
+    Description: Query
+    Default: a>0
+  Start:
+    Type: String
+    Description: Query start time
+    Default: '-900s'
+  TimeSpanType:
+    Type: String
+    Description: Query interval type
+    Default: Custom
+Resources:
+  Instance:
+    Type: 'ALIYUN::ECS::Instance'
+    Properties:
+      InstanceName:
+        Ref: InstanceName
+      IoOptimized: optimized
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_efficiency
+      Password:
+        Ref: LoginPassword
+  SlsProject:
+    Type: 'ALIYUN::SLS::Project'
+    Properties:
+      Description: Test SLS Project
+      Name:
+        Ref: SlsProjectName
+  SlsLogStore:
+    Type: 'ALIYUN::SLS::Logstore'
+    DependsOn: SlsProject
+    Properties:
+      LogstoreName:
+        Ref: SlsLogStoreName
+      PreserveStorage: true
+      ProjectName:
+        'Fn::GetAtt':
+          - SlsProject
+          - Name
+      AppendMeta: true
+      MaxSplitShard: 64
+      AutoSplit: true
+      EnableTracking: false
+      ShardCount: 2
+  LogIndex:
+    Type: 'ALIYUN::SLS::Index'
+    DependsOn: SlsLogStore
+    Properties:
+      ProjectName:
+        'Fn::GetAtt':
+          - SlsProject
+          - Name
+      FullTextIndex:
+        CaseSensitive: true
+      LogstoreName:
+        'Fn::GetAtt':
+          - SlsLogStore
+          - LogstoreName
+  LogtailConfig:
+    Type: 'ALIYUN::SLS::LogtailConfig'
+    DependsOn: LogIndex
+    Properties:
+      ProjectName:
+        'Fn::GetAtt':
+          - SlsProject
+          - Name
+      LogtailConfigName:
+        Ref: LogtailConfigName
+      LogstoreName:
+        'Fn::GetAtt':
+          - SlsLogStore
+          - LogstoreName
+      RawConfigData:
+        configName:
+          Ref: LogtailConfigName
+        outputType: LogService
+        inputType: file
+        inputDetail:
+          logPath: /logPath
+          filePattern: access.log
+          logType: json_log
+          topicFormat: default
+          discardUnmatch: false
+          enableRawLog: true
+          fileEncoding: utf8
+          maxDepth: 10
+        outputDetail:
+          projectName:
+            'Fn::GetAtt':
+              - SlsProject
+              - Name
+          logstoreName:
+            'Fn::GetAtt':
+              - SlsLogStore
+              - LogstoreName
+  MachineGroup:
+    Type: 'ALIYUN::SLS::MachineGroup'
+    DependsOn: LogtailConfig
+    Properties:
+      ProjectName:
+        Ref: SlsProject
+      GroupName: machine-group-test2
+      MachineIdentifyType: ip
+      MachineList:
+        - 'Fn::GetAtt':
+            - Instance
+            - PrivateIp
+  ApplyConfigToMachineGroup:
+    Type: 'ALIYUN::SLS::ApplyConfigToMachineGroup'
+    DependsOn: MachineGroup
+    Properties:
+      ProjectName:
+        'Fn::GetAtt':
+          - SlsProject
+          - Name
+      ConfigName:
+        Ref: LogtailConfigName
+      GroupName:
+        'Fn::GetAtt':
+          - MachineGroup
+          - GroupName
+  ApiGatewayLogConfig:
+    Type: 'ALIYUN::ApiGateway::LogConfig'
+    Properties:
+      SlsLogStore:
+        'Fn::GetAtt':
+          - SlsLogStore
+          - LogstoreName
+      SlsProject:
+        'Fn::GetAtt':
+          - SlsProject
+          - Name
+  SavedSearch:
+    Type: 'ALIYUN::SLS::Savedsearch'
+    DependsOn: SlsLogStore
+    Properties:
+      Project:
+        'Fn::GetAtt':
+          - SlsProject
+          - Name
+      Detail:
+        SearchQuery:
+          Ref: SearchQuery
+        Logstore:
+          'Fn::GetAtt':
+            - SlsLogStore
+            - LogstoreName
+        DisplayName:
+          Ref: DisplayName
+        SavedsearchName:
+          Ref: SavedsearchName
+        Topic: test
+  Alert:
+    Type: 'ALIYUN::SLS::Alert'
+    Properties:
+      Project:
+        'Fn::GetAtt':
+          - SlsProject
+          - Name
+      Detail:
+        Configuration:
+          Throttling:
+            Ref: Throttling
+          Condition:
+            Ref: Condition
+          Dashboard:
+            Ref: Dashboard
+          QueryList:
+            - Query:
+                Ref: Query
+              LogStore:
+                'Fn::GetAtt':
+                  - SlsLogStore
+                  - LogstoreName
+              Start:
+                Ref: Start
+              TimeSpanType:
+                Ref: TimeSpanType
+              End: now
+              ChartTitle:
+                'Fn::Sub': '${SlsProject.Name}-${ChartTitle}'
+        State: Enabled
+        Schedule:
+          Ref: Schedule
+        DisplayName:
+          Ref: AlertDisplayName
+        Name:
+          Ref: AlertName
+Outputs:
+  InstanceId:
+    Value:
+      'Fn::GetAtt':
+        - Instance
+        - InstanceId
+  PrivateIp:
+    Value:
+      'Fn::GetAtt':
+        - Instance
+        - PrivateIp
+  SlsProjectName:
+    Value:
+      'Fn::GetAtt':
+        - SlsProject
+        - Name
+  SlsLogStoreName:
+    Value:
+      'Fn::GetAtt':
+        - SlsLogStore
+        - LogstoreName
+  SavedsearchName:
+    Value:
+      'Fn::GetAtt':
+        - SavedSearch
+        - SavedsearchName
+  AlertName:
+    Value:
+      'Fn::GetAtt':
+        - Alert
+        - Name

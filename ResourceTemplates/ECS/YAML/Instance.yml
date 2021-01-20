@@ -1,0 +1,164 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Create Vpc ECS instance、EIP、NatGateway、SSHKeyPair
+Parameters:
+  EcsKeyPairName:
+    Default: mytest
+    Description: SSH key pair name. It must be unique. [2, 128] characters. All character
+      sets are supported. Do not start with a special character, digit, http://, or
+      https://. It can contain digits, ".", "_", or "-".
+    Type: String
+  ImageId:
+    Default: centos_7
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Label: ECS Image Id
+    Type: String
+  InstanceName:
+    Default: mytest
+    Description: Instance Name
+    Type: String
+  InstanceType:
+    Default: ecs.c5.large
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Label: ECS Instance Type
+    Type: String
+  LoginPassword:
+    Description: ECS Login Password
+    MaxLength: 41
+    MinLength: 8
+    NoEcho: true
+    Type: String
+  NatGatewayName:
+    Default: mytest
+    Type: String
+  PublicIp:
+    Default: false
+    Description: Allocate Public IP or Not
+    Label: Allocate Public IP or Not
+    Type: Boolean
+  SecurityGroupId:
+    Description: Security Group Id.
+    Type: String
+  VSwitchId:
+    Description: VSW Id.
+    Type: String
+  VpcId:
+    Description: VPC Id.
+    Type: String
+Resources:
+  AttachSSHKeyPair:
+    DependsOn:
+    - SSHKeyPair
+    - Instance
+    Properties:
+      InstanceIds:
+      - Ref: Instance
+      KeyPairName:
+        Fn::GetAtt:
+        - SSHKeyPair
+        - KeyPairName
+    Type: ALIYUN::ECS::SSHKeyPairAttachment
+  EIpAssociateNat:
+    DependsOn:
+    - Eip
+    - NatGateway
+    Properties:
+      AllocationId:
+        Ref: Eip
+      InstanceId:
+        Ref: NatGateway
+    Type: ALIYUN::VPC::EIPAssociation
+  Eip:
+    Properties:
+      Bandwidth: 5
+      InternetChargeType: PayByTraffic
+    Type: ALIYUN::VPC::EIP
+  Instance:
+    Properties:
+      AllocatePublicIP:
+        Ref: PublicIp
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: LoginPassword
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      SystemDiskCategory: cloud_efficiency
+      VSwitchId:
+        Ref: VSwitchId
+      VpcId:
+        Ref: VpcId
+    Type: ALIYUN::ECS::Instance
+  InstanceClone:
+    DependsOn: AttachSSHKeyPair
+    Properties:
+      SourceInstanceId:
+        Ref: Instance
+    Type: ALIYUN::ECS::InstanceClone
+  NatGateway:
+    Properties:
+      NatGatewayName:
+        Ref: NatGatewayName
+      Spec: Small
+      VSwitchId:
+        Ref: VSwitchId
+      VpcId:
+        Ref: VpcId
+    Type: ALIYUN::ECS::NatGateway
+  SSHKeyPair:
+    Properties:
+      KeyPairName:
+        Ref: EcsKeyPairName
+    Type: ALIYUN::ECS::SSHKeyPair
+Outputs:
+  ClonedHostName:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - HostName
+  ClonedInstanceId:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - InstanceId
+  ClonedPrivateIp:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - PrivateIp
+  ClonedZoneId:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - ZoneId
+  InstanceId:
+    Value:
+      Fn::GetAtt:
+      - Instance
+      - InstanceId
+  KeyPairFingerPrint:
+    Value:
+      Fn::GetAtt:
+      - SSHKeyPair
+      - KeyPairFingerPrint
+  KeyPairName:
+    Value:
+      Fn::GetAtt:
+      - SSHKeyPair
+      - KeyPairName
+  PrivateKeyBody:
+    Value:
+      Fn::GetAtt:
+      - SSHKeyPair
+      - PrivateKeyBody
+  PublicIp:
+    Value:
+      Fn::GetAtt:
+      - Instance
+      - PublicIp
