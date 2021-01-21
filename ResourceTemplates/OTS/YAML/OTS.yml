@@ -1,0 +1,166 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test OTS Table、Instance、VpcBinder
+Parameters:
+  ClusterType:
+    Default: HYBRID
+    Type: String
+  FieldSchemas:
+    Default:
+    - EnableSortAndAgg: true
+      FieldName: id
+      FieldType: FieldType.LONG
+      Index: true
+      IsArray: false
+      Store: true
+    Type: Json
+  InstanceName:
+    Default: mytest
+    Type: String
+  InstanceVpcName:
+    Default: mytest
+    Type: String
+  Network:
+    AllowedValues:
+    - NORMAL
+    - VPC
+    - VPC_CONSOLE
+    Default: VPC
+    Type: String
+  PrimaryKey:
+    Default:
+    - Name: id
+      Type: INTEGER
+    Type: Json
+  SearchIndexName:
+    Default: searchIndex
+    Type: String
+  TableName:
+    Default: mytest
+    Type: String
+  VSwitchName:
+    Default: mytest
+    Type: String
+  VpcName:
+    Default: mytest
+    Type: String
+Resources:
+  Instance:
+    Properties:
+      ClusterType:
+        Ref: ClusterType
+      Description: Test Ots Instance
+      InstanceName:
+        Ref: InstanceName
+      Network: NORMAL
+      Tags:
+      - Key: mytest
+        Value: ''
+    Type: ALIYUN::OTS::Instance
+  SearchIndex:
+    DependsOn: Table
+    Properties:
+      FieldSchemas:
+        Ref: FieldSchemas
+      IndexName:
+        Ref: SearchIndexName
+      InstanceName:
+        Fn::GetAtt:
+        - Instance
+        - InstanceName
+      TableName:
+        Fn::GetAtt:
+        - Table
+        - TableName
+    Type: ALIYUN::OTS::SearchIndex
+  Table:
+    DependsOn: Instance
+    Properties:
+      InstanceName:
+        Ref: InstanceName
+      PrimaryKey:
+        Ref: PrimaryKey
+      TableName:
+        Fn::Join:
+        - ''
+        - Fn::Split:
+          - '-'
+          - Ref: TableName
+    Type: ALIYUN::OTS::Table
+  VSwitch:
+    DependsOn: Vpc
+    Properties:
+      CidrBlock: 192.168.10.0/24
+      VSwitchName:
+        Ref: VSwitchName
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAZs:
+            Ref: ALIYUN::Region
+    Type: ALIYUN::ECS::VSwitch
+  Vpc:
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Ref: VpcName
+    Type: ALIYUN::ECS::VPC
+  VpcBinder:
+    DependsOn: VSwitch
+    Properties:
+      InstanceName:
+        Fn::GetAtt:
+        - Instance
+        - InstanceName
+      Vpcs:
+      - InstanceVpcName:
+          Ref: InstanceVpcName
+        Network:
+          Ref: Network
+        VirtualSwitchId:
+          Ref: VSwitch
+        VpcId:
+          Ref: Vpc
+    Type: ALIYUN::OTS::VpcBinder
+Outputs:
+  Domains:
+    Value:
+      Fn::GetAtt:
+      - VpcBinder
+      - Domains
+  Endpoints:
+    Value:
+      Fn::GetAtt:
+      - VpcBinder
+      - Endpoints
+  IndexName:
+    Value:
+      Fn::GetAtt:
+      - SearchIndex
+      - IndexName
+  InstanceName:
+    Value:
+      Fn::GetAtt:
+      - Instance
+      - InstanceName
+  PrivateEndpoint:
+    Value:
+      Fn::GetAtt:
+      - Instance
+      - PrivateEndpoint
+  PublicEndpoint:
+    Value:
+      Fn::GetAtt:
+      - Instance
+      - PublicEndpoint
+  TableName:
+    Value:
+      Fn::GetAtt:
+      - Table
+      - TableName
+  VpcEndpoint:
+    Value:
+      Fn::GetAtt:
+      - Instance
+      - VpcEndpoint

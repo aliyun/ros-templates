@@ -1,0 +1,328 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Test Cen",
+  "Parameters": {
+    "CenName": {
+      "Type": "String",
+      "Description": "CenInstance Name.",
+      "Default": "mytest"
+    },
+    "VpcName": {
+      "Type": "String",
+      "Default": "mytest"
+    },
+    "VSwitchName": {
+      "Type": "String",
+      "Default": "mytest"
+    },
+    "ZoneId": {
+      "Type": "String",
+      "AssociationProperty": "ALIYUN::ECS::Instance:ZoneId"
+    },
+    "GeographicRegionAId": {
+      "Type": "String",
+      "Description": "The other area A to connect.",
+      "AllowedValues": [
+        "China",
+        "North-America",
+        "Asia-Pacific",
+        "Europe",
+        "Australia"
+      ],
+      "Default": "China"
+    },
+    "GeographicRegionBId": {
+      "Type": "String",
+      "Description": "The other area B to connect.",
+      "AllowedValues": [
+        "China",
+        "North-America",
+        "Asia-Pacific",
+        "Europe",
+        "Australia"
+      ],
+      "Default": "China"
+    },
+    "Bandwidth": {
+      "Type": "Number",
+      "Description": "The bandwidth in Mbps of the bandwidth package. The bandwidth cannot be less than 2 Mbps.",
+      "MinValue": 2,
+      "MaxValue": 1000,
+      "Default": 2
+    },
+    "OppositeRegionId": {
+      "Type": "String",
+      "Description": "The ID of the other interconnected region."
+    },
+    "OppositeChildInstanceId": {
+      "Type": "String",
+      "Description": "The ID of the network to attach."
+    },
+    "BandwidthLimit": {
+      "Type": "Number",
+      "Description": "The bandwidth configured for the interconnected regions communication. Minimal value: 1",
+      "MinValue": 1,
+      "Default": 1
+    },
+    "CcnName": {
+      "Type": "String",
+      "Description": "The name can contain 2 to 128 characters including a-z, A-Z, 0-9, chinese, underlines, and hyphens. The name must start with an English letter, but cannot start with http:// or https://."
+    },
+    "CenUid": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "Vpc": {
+      "Type": "ALIYUN::ECS::VPC",
+      "Properties": {
+        "VpcName": {
+          "Ref": "VpcName"
+        },
+        "CidrBlock": "192.168.0.0/16"
+      }
+    },
+    "VpcDestination": {
+      "Type": "ALIYUN::ECS::VPC",
+      "Properties": {
+        "VpcName": {
+          "Ref": "VpcName"
+        },
+        "CidrBlock": "192.168.0.0/16"
+      }
+    },
+    "VSwitch": {
+      "Type": "ALIYUN::ECS::VSwitch",
+      "Properties": {
+        "ZoneId": {
+          "Ref": "ZoneId"
+        },
+        "CidrBlock": "192.168.100.0/24",
+        "VpcId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        },
+        "VSwitchName": {
+          "Ref": "VSwitchName"
+        }
+      }
+    },
+    "CenInstance": {
+      "Type": "ALIYUN::CEN::CenInstance",
+      "Properties": {
+        "Name": {
+          "Ref": "CenName"
+        }
+      }
+    },
+    "CenBandPackage": {
+      "Type": "ALIYUN::CEN::CenBandwidthPackage",
+      "Properties": {
+        "GeographicRegionAId": {
+          "Ref": "GeographicRegionAId"
+        },
+        "GeographicRegionBId": {
+          "Ref": "GeographicRegionBId"
+        },
+        "Bandwidth": {
+          "Ref": "Bandwidth"
+        },
+        "BandwidthPackageChargeType": "POSTPAY"
+      }
+    },
+    "CenBandwidthPackageAssociation": {
+      "Type": "ALIYUN::CEN::CenBandwidthPackageAssociation",
+      "DependsOn": [
+        "CenInstance",
+        "CenBandPackage"
+      ],
+      "Properties": {
+        "CenId": {
+          "Ref": "CenInstance"
+        },
+        "CenBandwidthPackageId": {
+          "Ref": "CenBandPackage"
+        }
+      }
+    },
+    "CenInstanceAttachmentLocalVpc": {
+      "DependsOn": [
+        "CenInstance",
+        "VSwitch"
+      ],
+      "Type": "ALIYUN::CEN::CenInstanceAttachment",
+      "Properties": {
+        "ChildInstanceRegionId": {
+          "Ref": "ALIYUN::Region"
+        },
+        "ChildInstanceType": "VPC",
+        "ChildInstanceId": {
+          "Ref": "Vpc"
+        },
+        "CenId": {
+          "Ref": "CenInstance"
+        }
+      }
+    },
+    "CenInstanceAttachmentOppositeVpc": {
+      "DependsOn": [
+        "CenInstance",
+        "Vpc"
+      ],
+      "Type": "ALIYUN::CEN::CenInstanceAttachment",
+      "Properties": {
+        "ChildInstanceRegionId": {
+          "Ref": "OppositeRegionId"
+        },
+        "ChildInstanceType": "VPC",
+        "ChildInstanceId": {
+          "Ref": "OppositeChildInstanceId"
+        },
+        "CenId": {
+          "Ref": "CenInstance"
+        }
+      }
+    },
+    "CenBandwidthLimit": {
+      "Type": "ALIYUN::CEN::CenBandwidthLimit",
+      "DependsOn": [
+        "CenBandwidthPackageAssociation",
+        "CenInstanceAttachmentLocalVpc",
+        "CenInstanceAttachmentOppositeVpc"
+      ],
+      "Properties": {
+        "OppositeRegionId": {
+          "Ref": "OppositeRegionId"
+        },
+        "CenId": {
+          "Ref": "CenInstance"
+        },
+        "BandwidthLimit": {
+          "Ref": "BandwidthLimit"
+        },
+        "LocalRegionId": {
+          "Ref": "ALIYUN::Region"
+        }
+      }
+    },
+    "RouteEntry": {
+      "Type": "ALIYUN::CEN::RouteEntry",
+      "DependsOn": [
+        "CenBandwidthLimit"
+      ],
+      "Properties": {
+        "ChildInstanceRegionId": {
+          "Ref": "ALIYUN::Region"
+        },
+        "CenId": {
+          "Ref": "CenInstance"
+        },
+        "DestinationCidrBlock": "192.168.100.0/24",
+        "ChildInstanceRouteTableId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "RouteTableId"
+          ]
+        },
+        "ChildInstanceType": "VPC",
+        "ChildInstanceId": {
+          "Fn::GetAtt": [
+            "Vpc",
+            "VpcId"
+          ]
+        }
+      }
+    },
+    "CloudConnectNetwork": {
+      "Type": "ALIYUN::SAG::CloudConnectNetwork",
+      "Properties": {
+        "Description": "Test",
+        "Name": {
+          "Ref": "CcnName"
+        }
+      }
+    },
+    "GrantCcnToCen": {
+      "DependsOn": [
+        "CenInstance",
+        "CloudConnectNetwork"
+      ],
+      "Type": "ALIYUN::SAG::GrantCcnToCen",
+      "Properties": {
+        "CenInstanceId": {
+          "Fn::GetAtt": [
+            "CenInstance",
+            "CenId"
+          ]
+        },
+        "CenUid": {
+          "Ref": "CenUid"
+        },
+        "CcnInstanceId": {
+          "Fn::GetAtt": [
+            "CloudConnectNetwork",
+            "CcnId"
+          ]
+        }
+      }
+    },
+    "GrantInstanceToCen": {
+      "Type": "ALIYUN::VPC::GrantInstanceToCen",
+      "DependsOn": "CenInstance",
+      "Properties": {
+        "InstanceId": {
+          "Ref": "Vpc"
+        },
+        "CenOwnerId": {
+          "Ref": "CenUid"
+        },
+        "CenId": {
+          "Fn::GetAtt": [
+            "CenInstance",
+            "CenId"
+          ]
+        },
+        "InstanceType": "VPC"
+      }
+    }
+  },
+  "Outputs": {
+    "CenId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "CenInstance",
+          "CenId"
+        ]
+      }
+    },
+    "CenBandwidthPackageId": {
+      "Description": "The ID of the bandwidth package.",
+      "Value": {
+        "Fn::GetAtt": [
+          "CenBandPackage",
+          "CenBandwidthPackageId"
+        ]
+      }
+    },
+    "CcnId": {
+      "Description": "The ID of the CCN instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "CloudConnectNetwork",
+          "CcnId"
+        ]
+      }
+    },
+    "InstanceId": {
+      "Description": "The ID of the network instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "GrantInstanceToCen",
+          "InstanceId"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,189 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ECS PrepayInstance
+Parameters:
+  ImageId:
+    Default: centos_7
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Label: ECS Image Id
+    Type: String
+  InstanceName:
+    Default: mytest
+    Description: Instance Name
+    Type: String
+  InstanceType:
+    Default: ecs.t6-c4m1.large
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Label: ECS Instance Type
+    Type: String
+  LoginPassword:
+    Description: ECS Login Password
+    MaxLength: 41
+    MinLength: 8
+    NoEcho: true
+    Type: String
+  PeriodType:
+    Default: Monthly
+    Description: ECS Period Type.
+    Label: ECS Period Type
+    Type: String
+  PublicIp:
+    Default: false
+    Description: Allocate Public IP or Not
+    Label: Allocate Public IP or Not
+    Type: Boolean
+  SecurityGroupName:
+    Default: mytest
+    Description: Security Group Name
+    Type: String
+  VSwitchName:
+    Default: mytest
+    Description: VSwitch Name
+    Type: String
+  VpcName:
+    Default: mytest
+    Description: Vpc Name
+    Type: String
+Resources:
+  MergePay:
+    DependsOn: PrepayInstance
+    Properties:
+      OrderIds:
+      - Fn::GetAtt:
+        - PrepayInstance
+        - OrderId
+    Type: ALIYUN::ROS::MergePay
+  PrepayInstance:
+    Properties:
+      AllocatePublicIP:
+        Ref: PublicIp
+      ImageId:
+        Ref: ImageId
+      InstanceChargeType: PrePaid
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: 'True'
+      MaxAmount: 1
+      MinAmount: 1
+      Password:
+        Ref: LoginPassword
+      Period: 1
+      PeriodType:
+        Ref: PeriodType
+      PeriodUnit: Month
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SystemDiskCategory: cloud_efficiency
+      VSwitchId:
+        Ref: VSwitch
+      VpcId:
+        Ref: Vpc
+    Type: ALIYUN::ECS::PrepayInstance
+  PrepayInstanceGroupClone:
+    DependsOn: WaitOrder
+    Properties:
+      MaxAmount: 1
+      MinAmount: 1
+      Period: 1
+      PeriodType:
+        Ref: PeriodType
+      SourceInstanceId:
+        Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - PrepayInstance
+          - InstanceIds
+    Type: ALIYUN::ECS::PrepayInstanceGroupClone
+  SecurityGroup:
+    Properties:
+      SecurityGroupName:
+        Ref: SecurityGroupName
+      VpcId:
+        Ref: Vpc
+    Type: ALIYUN::ECS::SecurityGroup
+  VSwitch:
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VSwitchName:
+        Ref: VSwitchName
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAZs:
+            Ref: ALIYUN::Region
+    Type: ALIYUN::ECS::VSwitch
+  Vpc:
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Ref: VpcName
+    Type: ALIYUN::ECS::VPC
+  WaitOrder:
+    DependsOn: MergePay
+    Properties:
+      OrderIds:
+      - Fn::GetAtt:
+        - PrepayInstance
+        - OrderId
+      WaitForOrderProduced: true
+    Type: ALIYUN::BSS::WaitOrder
+Outputs:
+  CloneOrder:
+    Value:
+      Fn::GetAtt:
+      - PrepayInstanceGroupClone
+      - OrderId
+  HostNames:
+    Description: Host names of created instance.
+    Value:
+      Fn::GetAtt:
+      - PrepayInstance
+      - HostNames
+  InnerIps:
+    Description: Inner IP address list of the specified instance. Only for classical
+      instance.
+    Value:
+      Fn::GetAtt:
+      - PrepayInstance
+      - InnerIps
+  InstanceIds:
+    Description: The instance id list of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - PrepayInstance
+      - InstanceIds
+  OrderId:
+    Description: The order id list of created instance.
+    Value:
+      Fn::GetAtt:
+      - PrepayInstance
+      - OrderId
+  PrivateIps:
+    Description: Private IP address list of created ecs instance. Only for VPC instance.
+    Value:
+      Fn::GetAtt:
+      - PrepayInstance
+      - PrivateIps
+  PublicIps:
+    Description: Public IP address list of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - PrepayInstance
+      - PublicIps
+  RelatedOrderIds:
+    Description: The related order id list of created ecs instances
+    Value:
+      Fn::GetAtt:
+      - PrepayInstance
+      - RelatedOrderIds
+  ZoneIds:
+    Description: Zone id of created instance.
+    Value:
+      Fn::GetAtt:
+      - PrepayInstance
+      - ZoneIds

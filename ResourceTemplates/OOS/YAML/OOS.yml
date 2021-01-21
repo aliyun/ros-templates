@@ -1,0 +1,226 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test OOS Template、Execution
+Parameters:
+  PolicyName1:
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    Default: mytest1
+    Description: 名称为2-64个字符，以大小写字母，数字或中文开头，可包含(._-)。
+    Label: 策略名称
+    MaxLength: 128
+    MinLength: 2
+    Type: String
+  PolicyName2:
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    Default: mytest2
+    Description: 名称为2-64个字符，以大小写字母，数字或中文开头，可包含(._-)。
+    Label: 策略名称
+    MaxLength: 128
+    MinLength: 2
+    Type: String
+  PolicyName3:
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    Default: mytest3
+    Description: 名称为2-64个字符，以大小写字母，数字或中文开头，可包含(._-)。
+    Label: 策略名称
+    MaxLength: 128
+    MinLength: 2
+    Type: String
+  PolicyName4:
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    Default: mytest4
+    Description: 名称为2-64个字符，以大小写字母，数字或中文开头，可包含(._-)。
+    Label: 策略名称
+    MaxLength: 128
+    MinLength: 2
+    Type: String
+  RoleName:
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    Default: mytest
+    Description: 名称为2-64个字符，以大小写字母，数字或中文开头，可包含(._-)。
+    Label: 角色名称
+    MaxLength: 128
+    MinLength: 2
+    Type: String
+  TemplateName:
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    Default: mytest
+    Description: 名称为2-64个字符，以大小写字母，数字或中文开头，可包含(._-)。
+    Label: 模板名称
+    MaxLength: 128
+    MinLength: 2
+    Type: String
+Resources:
+  Execution:
+    DependsOn: RamRole
+    Properties:
+      Parameters: {}
+      ResourceOptions:
+        CancelOnDelete: true
+        SuccessStatuses:
+        - Running
+        - Success
+        - Queued
+        - Waiting
+      TemplateName:
+        Fn::GetAtt:
+        - Template
+        - TemplateName
+    Type: ALIYUN::OOS::Execution
+  RamRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - oos.aliyuncs.com
+        Version: '1'
+      Description: mytest
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - yundun-antiddosbag:DeleteBlackhole
+            Effect: Allow
+            Resource:
+            - '*'
+          Version: '1'
+        PolicyName:
+          Ref: PolicyName1
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - ecs:DescribeInstances
+            - ecs:RunCommand
+            - ecs:DescribeInvocationResults
+            - ecs:DescribeInvocations
+            Effect: Allow
+            Resource:
+            - '*'
+          Version: '1'
+        PolicyName:
+          Ref: PolicyName2
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - slb:SetBackendServers
+            - slb:DescribeLoadBalancers
+            - slb:RemoveBackendServers
+            Effect: Allow
+            Resource:
+            - '*'
+          Version: '1'
+        PolicyName:
+          Ref: PolicyName3
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - ecs:DescribeTags
+            - ecs:StartInstance
+            Effect: Allow
+            Resource:
+            - '*'
+          Version: '1'
+        PolicyName:
+          Ref: PolicyName4
+      RoleName:
+        Ref: RoleName
+    Type: ALIYUN::RAM::Role
+  Template:
+    DependsOn: RamRole
+    Properties:
+      Content:
+        Fn::Join:
+        - '"'
+        - - '{"FormatVersion":"OOS-2019-06-01","Description":"automaticly delete black
+            hole.","Parameters":{"OOSAssumeRole":{"Description":"The RAM role to be
+            assumed by OOS.","Type":"String","Default":'
+          - Ref: RoleName
+          - '}},"RamRole":"{{OOSAssumeRole}}","Tasks":[{"Name":"ddosbgp_event_blackhole","Action":"ACS::EventTrigger","Properties":{"Product":"ddosbgp","Name":["ddosbgp_event_blackhole"],"Level":["CRITICAL"],"Content":{"action":["add"]}},"Outputs":{"InstanceId":{"ValueSelector":".content.instanceId","Type":"String"},"Ip":{"ValueSelector":".content.ip","Type":"String"}}},{"Name":"DeleteBlackhole","Action":"ACS::ExecuteAPI","Properties":{"Service":"ddosbgp","API":"DeleteBlackhole","Parameters":{"InstanceId":"{{
+            ddosbgp_event_blackhole.InstanceId }}","Ip":"{{ddosbgp_event_blackhole.Ip}}"}},"Description":"DeleteBlackhole."}],"Outputs":{"InstanceId":{"Value":"{{
+            ddosbgp_event_blackhole.InstanceId }}","Type":"String"},"Ip":{"Value":"{{
+            ddosbgp_event_blackhole.Ip }}","Type":"String"}}}'
+      TemplateName:
+        Ref: TemplateName
+    Type: ALIYUN::OOS::Template
+Outputs:
+  Counters:
+    Description: 'Task statistics: FailedTasks, SuccessTasks, TotalTasks.'
+    Value:
+      Fn::GetAtt:
+      - Execution
+      - Counters
+  CurlCli:
+    Description: 'Convenience attribute, provides curl CLI command prefix, which can
+      be used to notify oos execution instead of OOS API NotifyExecution. You can
+      notify approve to oos execution by adding --data-binary ''{"data": {"NotifyType":
+      "Approve"}}''  You can also notify execution via ROS API SignalResource. API
+      parameters Status and UniqueId are ignored. Use API parameter Data to pass data.'
+    Value:
+      Fn::GetAtt:
+      - Execution
+      - CurlCli
+  ExecutionId:
+    Description: Execution ID.
+    Value:
+      Fn::GetAtt:
+      - Execution
+      - ExecutionId
+  ExecutionPolicy:
+    Description: Execution Policy
+    Value:
+      Fn::GetAtt:
+      - Template
+      - ExecutionPolicy
+  Outputs:
+    Description: Execution output.
+    Value:
+      Fn::GetAtt:
+      - Execution
+      - Outputs
+  PowerShellCurlCli:
+    Description: 'Convenience attribute, provides curl CLI command prefix for PowerShell,
+      which can be used to notify oos execution instead of OOS API NotifyExecution.
+      You can notify approve to oos execution by adding -Body ''{"data": {"NotifyType":
+      "Approve"}}'' You can also notify execution via ROS API SignalResource. API
+      parameters Status and UniqueId are ignored. Use API parameter Data to pass data.'
+    Value:
+      Fn::GetAtt:
+      - Execution
+      - PowerShellCurlCli
+  Status:
+    Description: Execution status.
+    Value:
+      Fn::GetAtt:
+      - Execution
+      - Status
+  StatusMessage:
+    Description: Execution status information.
+    Value:
+      Fn::GetAtt:
+      - Execution
+      - StatusMessage
+  TemplateId:
+    Description: Template ID
+    Value:
+      Fn::GetAtt:
+      - Template
+      - TemplateId
+  TemplateName:
+    Description: Template Name
+    Value:
+      Fn::GetAtt:
+      - Template
+      - TemplateName
+  WindowsCurlCli:
+    Description: 'Convenience attribute, provides curl CLI command prefix for Windows,
+      which can be used to notify oos execution instead of OOS API NotifyExecution.
+      You can notify approve to oos execution by adding --data-binary "{\"data\":
+      {\"NotifyType\": \"Approve\"}}" You can also notify execution via ROS API SignalResource.
+      API parameters Status and UniqueId are ignored. Use API parameter Data to pass
+      data.'
+    Value:
+      Fn::GetAtt:
+      - Execution
+      - WindowsCurlCli
