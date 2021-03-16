@@ -1,7 +1,22 @@
 ROSTemplateFormatVersion: '2015-09-01'
-Description: Small business VPC network architecture. Two subnets are created in the
-  VPC. ECS access international network through NatGateway DNAT and SNAT.
+Description: >-
+  Small business VPC network architecture. Two subnets are created in the VPC.
+  ECS access international network through NatGateway DNAT and SNAT.
 Parameters:
+  VSwitchZoneId1:
+    Type: String
+    Description: >-
+      The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+      or not.
+    Label: VSwitch Zone ID 1
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+  VSwitchZoneId2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance:ZoneId'
+    Description: >-
+      The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+      or not.
+    Label: VSwitch Zone ID 2
   ImageId:
     Type: String
     Description: Image ID to create ecs instance
@@ -9,10 +24,9 @@ Parameters:
     Default: centos_7
   InstanceType:
     Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
     Description: Instance Type to create ecs instance.
     Label: Ecs Instance Type
-    Default: ecs.c5.large
-    AllowedValues: [ecs.c5.large, ecs.g5.large, ecs.c5.xlarge, ecs.g5.xlarge]
   Password:
     Type: String
     Description: Root login password
@@ -34,17 +48,21 @@ Parameters:
     Default: 2
   VpcCidrBlock:
     Type: String
-    Description: 'The IP address range of the VPC in the CIDR block form. You can
-      use the following IP address ranges and their subnets:
+    Description: >-
+      The IP address range of the VPC in the CIDR block form. You can use the
+      following IP address ranges and their subnets:
 
       10.0.0.0/8
 
       172.16.0.0/12 (Default)
 
-      192.168.0.0/16'
+      192.168.0.0/16
     Label: Vpc Cidr Block
     Default: 192.168.0.0/16
-    AllowedValues: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+    AllowedValues:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
   FirstVSwitchCidrBlock:
     Type: String
     Description: Cidr Block of created First VSwitch
@@ -63,118 +81,135 @@ Parameters:
     MinValue: 5
 Resources:
   ForwardEntry4FirstServer1:
-    Type: ALIYUN::ECS::ForwardEntry
+    Type: 'ALIYUN::ECS::ForwardEntry'
     Properties:
       ExternalIp:
-        Fn::Select:
-        - '0'
-        - Fn::GetAtt: [NatGateway, BandwidthPackageIps]
+        'Fn::Select':
+          - '0'
+          - 'Fn::GetAtt':
+              - NatGateway
+              - BandwidthPackageIps
       ExternalPort: Any
       ForwardTableId:
-        Fn::GetAtt: [NatGateway, ForwardTableId]
+        'Fn::GetAtt':
+          - NatGateway
+          - ForwardTableId
       InternalIp:
-        Fn::Select:
-        - '0'
-        - Fn::GetAtt: [FirstServers, PrivateIps]
+        'Fn::Select':
+          - '0'
+          - 'Fn::GetAtt':
+              - FirstServers
+              - PrivateIps
       InternalPort: Any
       IpProtocol: Any
   ForwardEntry4FirstServer2:
-    Type: ALIYUN::ECS::ForwardEntry
+    Type: 'ALIYUN::ECS::ForwardEntry'
     Properties:
       ExternalIp:
-        Fn::Select:
-        - '1'
-        - Fn::GetAtt: [NatGateway, BandwidthPackageIps]
+        'Fn::Select':
+          - '1'
+          - 'Fn::GetAtt':
+              - NatGateway
+              - BandwidthPackageIps
       ExternalPort: Any
       ForwardTableId:
-        Fn::GetAtt: [NatGateway, ForwardTableId]
+        'Fn::GetAtt':
+          - NatGateway
+          - ForwardTableId
       InternalIp:
-        Fn::Select:
-        - '1'
-        - Fn::GetAtt: [FirstServers, PrivateIps]
+        'Fn::Select':
+          - '1'
+          - 'Fn::GetAtt':
+              - FirstServers
+              - PrivateIps
       InternalPort: Any
       IpProtocol: Any
   NatGateway:
-    Type: ALIYUN::ECS::NatGateway
+    Type: 'ALIYUN::ECS::NatGateway'
     Properties:
       BandwidthPackage:
-      - Bandwidth:
-          Ref: NatGatewayBandwidth
-        IpCount: 3
-        ZoneId:
-          Fn::Select:
-          - '0'
-          - Fn::GetAZs:
-              Ref: ALIYUN::Region
+        - Bandwidth:
+            Ref: NatGatewayBandwidth
+          IpCount: 3
+          ZoneId:
+            Ref: VSwitchZoneId1
       Description: My NAT Gateway
       NatGatewayName: nat_gateway_1
       Spec: Middle
       VSwitchId:
-        Fn::GetAtt: [SecondVSwitch, VSwitchId]
+        'Fn::GetAtt':
+          - SecondVSwitch
+          - VSwitchId
       VpcId:
-        Fn::GetAtt: [Vpc, VpcId]
+        'Fn::GetAtt':
+          - Vpc
+          - VpcId
     DependsOn: SecondVSwitch
   SNatEntry:
-    Type: ALIYUN::ECS::SNatEntry
+    Type: 'ALIYUN::ECS::SNatEntry'
     Properties:
       SNatIp:
-        Fn::Select:
-        - '2'
-        - Fn::GetAtt: [NatGateway, BandwidthPackageIps]
+        'Fn::Select':
+          - '2'
+          - 'Fn::GetAtt':
+              - NatGateway
+              - BandwidthPackageIps
       SNatTableId:
-        Fn::GetAtt: [NatGateway, SNatTableId]
+        'Fn::GetAtt':
+          - NatGateway
+          - SNatTableId
       SourceVSwitchId:
-        Fn::GetAtt: [SecondVSwitch, VSwitchId]
+        'Fn::GetAtt':
+          - SecondVSwitch
+          - VSwitchId
   SecurityGroup:
-    Type: ALIYUN::ECS::SecurityGroup
+    Type: 'ALIYUN::ECS::SecurityGroup'
     Properties:
       SecurityGroupEgress:
-      - DestCidrIp: 0.0.0.0/0
-        IpProtocol: tcp
-        NicType: intranet
-        PortRange: 22/22
-        Priority: 1
+        - DestCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: intranet
+          PortRange: 22/22
+          Priority: 1
       SecurityGroupIngress:
-      - IpProtocol: all
-        NicType: intranet
-        PortRange: -1/-1
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
+        - IpProtocol: all
+          NicType: intranet
+          PortRange: '-1/-1'
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
       VpcId:
         Ref: Vpc
   FirstVSwitch:
-    Type: ALIYUN::ECS::VSwitch
+    Type: 'ALIYUN::ECS::VSwitch'
     Properties:
       CidrBlock:
         Ref: FirstVSwitchCidrBlock
       VpcId:
-        Fn::GetAtt: [Vpc, VpcId]
+        'Fn::GetAtt':
+          - Vpc
+          - VpcId
       ZoneId:
-        Fn::Select:
-        - '0'
-        - Fn::GetAZs:
-            Ref: ALIYUN::Region
+        Ref: VSwitchZoneId1
   SecondVSwitch:
-    Type: ALIYUN::ECS::VSwitch
+    Type: 'ALIYUN::ECS::VSwitch'
     Properties:
       CidrBlock:
         Ref: SecondVSwitchCidrBlock
       VpcId:
-        Fn::GetAtt: [Vpc, VpcId]
+        'Fn::GetAtt':
+          - Vpc
+          - VpcId
       ZoneId:
-        Fn::Select:
-        - '1'
-        - Fn::GetAZs:
-            Ref: ALIYUN::Region
+        Ref: VSwitchZoneId2
     DependsOn: FirstVSwitch
   Vpc:
-    Type: ALIYUN::ECS::VPC
+    Type: 'ALIYUN::ECS::VPC'
     Properties:
       CidrBlock:
         Ref: VpcCidrBlock
       VpcName: test_vpc_entry
   FirstServers:
-    Type: ALIYUN::ECS::InstanceGroup
+    Type: 'ALIYUN::ECS::InstanceGroup'
     Properties:
       AllocatePublicIP: false
       ImageId:
@@ -188,15 +223,19 @@ Resources:
         Ref: SecurityGroup
       SystemDiskCategory: cloud_efficiency
       VSwitchId:
-        Fn::GetAtt: [FirstVSwitch, VSwitchId]
+        'Fn::GetAtt':
+          - FirstVSwitch
+          - VSwitchId
       VpcId:
-        Fn::GetAtt: [Vpc, VpcId]
+        'Fn::GetAtt':
+          - Vpc
+          - VpcId
       MinAmount:
         Ref: NumberOfNodeInFirstSubnet
       MaxAmount:
         Ref: NumberOfNodeInFirstSubnet
   SecondServers:
-    Type: ALIYUN::ECS::InstanceGroup
+    Type: 'ALIYUN::ECS::InstanceGroup'
     Properties:
       AllocatePublicIP: false
       ImageId:
@@ -210,9 +249,13 @@ Resources:
         Ref: SecurityGroup
       SystemDiskCategory: cloud_efficiency
       VSwitchId:
-        Fn::GetAtt: [SecondVSwitch, VSwitchId]
+        'Fn::GetAtt':
+          - SecondVSwitch
+          - VSwitchId
       VpcId:
-        Fn::GetAtt: [Vpc, VpcId]
+        'Fn::GetAtt':
+          - Vpc
+          - VpcId
       MinAmount:
         Ref: NumberOfNodeInSecondSubnet
       MaxAmount:
@@ -221,20 +264,28 @@ Outputs:
   FirstServerIPs:
     Description: First Server IPs
     Value:
-      Fn::GetAtt: [FirstServers, PrivateIps]
+      'Fn::GetAtt':
+        - FirstServers
+        - PrivateIps
   SecondServerIPs:
     Description: Second Server IPs
     Value:
-      Fn::GetAtt: [SecondServers, PrivateIps]
+      'Fn::GetAtt':
+        - SecondServers
+        - PrivateIps
   FirstSSHIP:
     Description: First SSH IP
     Value:
-      Fn::Select:
-      - '0'
-      - Fn::GetAtt: [NatGateway, BandwidthPackageIps]
+      'Fn::Select':
+        - '0'
+        - 'Fn::GetAtt':
+            - NatGateway
+            - BandwidthPackageIps
   SecondSSSHIP:
     Description: Second SSH IP
     Value:
-      Fn::Select:
-      - '1'
-      - Fn::GetAtt: [NatGateway, BandwidthPackageIps]
+      'Fn::Select':
+        - '1'
+        - 'Fn::GetAtt':
+            - NatGateway
+            - BandwidthPackageIps
