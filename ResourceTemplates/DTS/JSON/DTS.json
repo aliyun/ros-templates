@@ -3,10 +3,15 @@
   "Description": "Test DTS MigrationJob、SynchronizationJob",
   "Parameters": {
     "VpcId": {
-      "Type": "String"
+      "Type": "String",
+      "AssociationProperty": "ALIYUN::ECS::VPC::VPCId"
     },
     "VSwitchId": {
-      "Type": "String"
+      "Type": "String",
+      "AssociationProperty": "ALIYUN::ECS::VSwitch::VSwitchId",
+      "AssociationPropertyMetadata": {
+        "VpcId": "VpcId"
+      }
     },
     "RdsDBName": {
       "Type": "String"
@@ -23,6 +28,26 @@
       "MaxLength": 32
     },
     "DtsMigrationJobName": {
+      "Type": "String"
+    },
+    "SourceEndpointInstanceType": {
+      "Type": "String",
+      "Description": "Data subscription instance type, value is: MySQL, PolarDB, DRDS, Oracle. Default: MySQL.",
+      "Default": "MySQL"
+    },
+    "ConsumerGroupPassword": {
+      "Type": "String",
+      "Description": "Password of consumer group."
+    },
+    "ConsumerGroupUserName": {
+      "Type": "String",
+      "Description": "User name of consumer group."
+    },
+    "ConsumerGroupName": {
+      "Type": "String",
+      "Description": "Consumer group name."
+    },
+    "SubscriptionInstanceName": {
       "Type": "String"
     }
   },
@@ -167,6 +192,71 @@
         },
         "StructureInitialization": false
       }
+    },
+    "SubscriptionInstance": {
+      "DependsOn": "RdsDBInstance",
+      "Type": "ALIYUN::DTS::SubscriptionInstance",
+      "Properties": {
+        "Configuration": {
+          "SubscriptionObject": [
+            {
+              "DBName": {
+                "Ref": "RdsDBName"
+              }
+            }
+          ],
+          "SubscriptionDataType": {
+            "DML": true,
+            "DDL": true
+          },
+          "SubscriptionInstanceName": {
+            "Ref": "SubscriptionInstanceName"
+          },
+          "SubscriptionInstance": {
+            "VPCId": "",
+            "VSwitchId": ""
+          },
+          "SourceEndpoint": {
+            "InstanceType": "RDS",
+            "InstanceID": {
+              "Fn::Select": [
+                0,
+                {
+                  "Ref": "RdsDBInstance"
+                }
+              ]
+            },
+            "UserName": {
+              "Ref": "RdsUserName"
+            },
+            "Password": {
+              "Ref": "RdsUserPassword"
+            }
+          },
+          "SubscriptionInstanceNetworkType": "classic"
+        },
+        "SourceEndpointInstanceType": {
+          "Ref": "SourceEndpointInstanceType"
+        }
+      }
+    },
+    "ConsumerGroup": {
+      "DependsOn": "SubscriptionInstance",
+      "Type": "ALIYUN::DTS::ConsumerGroup",
+      "Properties": {
+        "ConsumerGroupPassword": {
+          "Ref": "ConsumerGroupPassword"
+        },
+        "ConsumerGroupUserName": {
+          "Ref": "ConsumerGroupUserName"
+        },
+        "ConsumerGroupName": {
+          "Ref": "ConsumerGroupName"
+        },
+        "SubscriptionInstanceId": {
+          "Ref": "SubscriptionInstance"
+        }
+      }
     }
   },
   "Outputs": {
@@ -183,6 +273,33 @@
         "Fn::GetAtt": [
           "SynchronizationJob",
           "SynchronizationJobId"
+        ]
+      }
+    },
+    "SubscriptionInstanceId": {
+      "Description": "The ID of Data subscription instance.",
+      "Value": {
+        "Fn::GetAtt": [
+          "SubscriptionInstance",
+          "SubscriptionInstanceId"
+        ]
+      }
+    },
+    "ConsumerGroupID": {
+      "Description": "Consumer group ID",
+      "Value": {
+        "Fn::GetAtt": [
+          "ConsumerGroup",
+          "ConsumerGroupID"
+        ]
+      }
+    },
+    "ConsumerGroupName": {
+      "Description": "Consumer group name",
+      "Value": {
+        "Fn::GetAtt": [
+          "ConsumerGroup",
+          "ConsumerGroupName"
         ]
       }
     }
