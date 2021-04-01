@@ -1,0 +1,223 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Parameters": {
+    "MasterZoneId": {
+      "Type": "String",
+      "Description": "The master zone id to create load balancer instance.",
+      "AssociationProperty": "ALIYUN::ECS::Instance::ZoneId"
+    },
+    "SlaveZoneId": {
+      "Type": "String",
+      "Description": "The slave zone id to create load balancer instance.",
+      "AssociationProperty": "ALIYUN::ECS::Instance::ZoneId"
+    },
+    "VpcId": {
+      "Type": "String",
+      "Description": "The VPC id to create load balancer instance. For VPC network only.",
+      "AssociationProperty": "ALIYUN::ECS::VPC::VPCId"
+    },
+    "VSwitchId": {
+      "Type": "String",
+      "Description": "The VSwitch id to create load balancer instance. For VPC network only.",
+      "AssociationProperty": "ALIYUN::ECS::VSwitch::VSwitchId",
+      "AssociationPropertyMetadata": {
+        "VpcId": "VpcId",
+        "ZoneId": "MasterZoneId"
+      }
+    },
+    "SecurityGroupId": {
+      "Type": "CommaDelimitedList",
+      "Description": "The security group associated with the endpoint network interface. The security group can control the data communication from the VPC to the endpoint network interface.",
+      "MinLength": 1,
+      "MaxLength": 10
+    },
+    "LoadBalancerSpec": {
+      "Type": "String",
+      "Description": "The specification of the Server Load Balancer instance. Allowed value: slb.s1.small|slb.s2.small|slb.s2.medium|slb.s3.small|slb.s3.medium|slb.s3.large|slb.s3.xlarge|slb.s3.xxlarge. Default value: slb.s1.small. The supported performance specification in each region is different, two specifications are supported in the US East 1 region. If the region does not support the performance-guaranteed instances, the value will not take effect.",
+      "Default": "slb.s1.small"
+    },
+    "LoadBalancerName": {
+      "Type": "String",
+      "Description": "Name of created load balancer. Length is limited to 1-80 characters, allowed to contain letters, numbers, '-, /, _,.' When not specified, a default name will be assigned.",
+      "Default": "mytest"
+    },
+    "User": {
+      "Type": "Json",
+      "Description": "Account IDs to the whitelist of an endpoint service.",
+      "MinLength": 1,
+      "MaxLength": 20,
+      "Default": null
+    },
+    "ServiceDescription": {
+      "Type": "String",
+      "Description": "The description for the endpoint service.",
+      "MinLength": 2,
+      "MaxLength": 256,
+      "Default": "test service endpoint"
+    },
+    "ConnectBandwidth": {
+      "Type": "Number",
+      "Description": "The default maximum bandwidth of the endpoint connection. Valid values: 100 to 1024. Unit: Mbit/s.",
+      "MinValue": 100,
+      "MaxValue": 1024,
+      "Default": 100
+    },
+    "AutoAcceptEnabled": {
+      "Type": "Boolean",
+      "Description": "Specifies whether to automatically accept endpoint connection requests. Valid values:\ntrue: automatically accepts endpoint connection requests.\nfalse: does not automatically accept endpoint connection requests.",
+      "AllowedValues": [
+        true,
+        false
+      ],
+      "Default": true
+    },
+    "EndpointName": {
+      "Type": "String",
+      "Description": "The name of the endpoint.\nThe name must be 2 to 128 characters in length and can contain digits, underscores\n(_), and hyphens (-). The name must start with a letter.",
+      "MinLength": 2,
+      "MaxLength": 128,
+      "Default": "mytest"
+    }
+  },
+  "Resources": {
+    "LoadBalancer": {
+      "Type": "ALIYUN::SLB::LoadBalancer",
+      "Properties": {
+        "SupportPrivateLink": true,
+        "PayType": "PayOnDemand",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "VSwitchId": {
+          "Ref": "VSwitchId"
+        },
+        "LoadBalancerSpec": {
+          "Ref": "LoadBalancerSpec"
+        },
+        "LoadBalancerName": {
+          "Ref": "LoadBalancerName"
+        },
+        "AddressType": "intranet",
+        "MasterZoneId": {
+          "Ref": "MasterZoneId"
+        },
+        "SlaveZoneId": {
+          "Ref": "SlaveZoneId"
+        }
+      }
+    },
+    "VpcEndpointService": {
+      "DependsOn": "LoadBalancer",
+      "Type": "ALIYUN::PrivateLink::VpcEndpointService",
+      "Properties": {
+        "User": {
+          "Ref": "User"
+        },
+        "ServiceDescription": {
+          "Ref": "ServiceDescription"
+        },
+        "Resource": [
+          {
+            "ZoneId": {
+              "Ref": "MasterZoneId"
+            },
+            "ResourceId": {
+              "Ref": "LoadBalancer"
+            },
+            "ResourceType": "slb"
+          }
+        ],
+        "ConnectBandwidth": {
+          "Ref": "ConnectBandwidth"
+        },
+        "AutoAcceptEnabled": {
+          "Ref": "AutoAcceptEnabled"
+        }
+      }
+    },
+    "VpcEndpoint": {
+      "DependsOn": "VpcEndpointService",
+      "Type": "ALIYUN::PrivateLink::VpcEndpoint",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "EndpointName": {
+          "Ref": "EndpointName"
+        },
+        "Zone": [
+          {
+            "ZoneId": {
+              "Ref": "MasterZoneId"
+            },
+            "VSwitchId": {
+              "Ref": "VSwitchId"
+            }
+          }
+        ],
+        "SecurityGroupId": {
+          "Ref": "SecurityGroupId"
+        },
+        "ServiceId": {
+          "Ref": "VpcEndpointService"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ServiceName": {
+      "Description": "The name of the endpoint service.",
+      "Value": {
+        "Fn::GetAtt": [
+          "VpcEndpointService",
+          "ServiceName"
+        ]
+      }
+    },
+    "ServiceDomain": {
+      "Description": "The domain name of the endpoint service.",
+      "Value": {
+        "Fn::GetAtt": [
+          "VpcEndpointService",
+          "ServiceDomain"
+        ]
+      }
+    },
+    "ServiceId": {
+      "Description": "The ID of the endpoint service.",
+      "Value": {
+        "Fn::GetAtt": [
+          "VpcEndpointService",
+          "ServiceId"
+        ]
+      }
+    },
+    "EndpointDomain": {
+      "Description": "The domain name of the endpoint.",
+      "Value": {
+        "Fn::GetAtt": [
+          "VpcEndpoint",
+          "EndpointDomain"
+        ]
+      }
+    },
+    "Bandwidth": {
+      "Description": "The bandwidth of the endpoint.",
+      "Value": {
+        "Fn::GetAtt": [
+          "VpcEndpoint",
+          "Bandwidth"
+        ]
+      }
+    },
+    "EndpointId": {
+      "Description": "The ID of the endpoint.",
+      "Value": {
+        "Fn::GetAtt": [
+          "VpcEndpoint",
+          "EndpointId"
+        ]
+      }
+    }
+  }
+}
