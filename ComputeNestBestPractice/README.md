@@ -1,8 +1,9 @@
 ## 场景说明
 ### 基础版
+* ecs-deploy 单机部署
 * ecs-rds 部署ecs和rds，同时传入rds的连接配置安装ecs中的应用
-* ack-nginx ack部署场景
 * master-slave-ecs ecs部署master-slave架构
+* ack-nginx ack容器部署场景
 
 ### 进阶版
 * scaling-ecs ecs部署带有弹性伸缩
