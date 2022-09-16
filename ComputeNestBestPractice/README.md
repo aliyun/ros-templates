@@ -7,6 +7,7 @@
 
 ### 进阶版
 * scaling-ecs ecs部署带有弹性伸缩
+* ecs-mysql-deploy ecs单机部署MySQL
 
 ## 模版规范和注意事项
 * 资源付费类型需要统一参数名用 PayType, PayPeriodUnit, PayPeriod

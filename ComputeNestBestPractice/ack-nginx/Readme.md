@@ -8,6 +8,7 @@
 ![result_1.png](result_1.png)
 ![result_2.png](result_2.png)
 ## 架构图
+![architecture.jpg](architecture.jpg)
 
 暂无
 
