@@ -1,0 +1,351 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: web backend service environment (slb + ecs + rds) and initialize ecs environment with command and use slb to load balancer use specific vpc,vswitch
+  zh-cn: 指定vpc,vswitch 创建Web后端环境(ECS + SLB + RDS) 并使用ECS命令初始化环境, 使用slb做负载均衡
+Parameters:
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    Description:
+      zh-cn: </font><a href='https://help.aliyun.com/document_detail/188196.html' target='_blank'><b> 查看可用区信息</b><font color='blue'></a>。
+      en: <a href='https://help.aliyun.com/document_detail/188196.html' target='_blank'><b><font color='blue'>View region and zone info</font></b></a>.
+  VpcId:
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Type: String
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
+      zh-cn: 现有虚拟专有网络的实例ID
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+  VSwitchId:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+    Type: String
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    MinLength: 8
+    MaxLength: 30
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${PayType}
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+  PayPeriodUnit:
+    Type: String
+    Description:
+      en: The long cycle of purchasing resources. <br>Week is a Week and Month is a Month. <br> The default value is month.<br><b><font color='red'> When ECS instance types are PrePaid valid </b></font>
+      zh-cn: 购买资源时长的周期。<br>Week为周，Month为月<br>默认值为月<br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  PayPeriod:
+    Type: Number
+    Description:
+      en: When the purchasing Period is Week, the value of Period ranges from 1 to 4. <br> When the resource purchase duration is Month, the value of Period ranges from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Week时，Period取值：1~4。<br>当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Or:
+            - Fn::Equals:
+                - ${PayType}
+                - PrePaid
+            - Fn::Equals:
+                - ${PayType}
+                - undefined
+  DBInstanceClass:
+    Label:
+      zh-cn: 实例规格
+      en: DB Instance Class
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+      Engine: SQLServer
+      EngineVersion: 2017_std_ha
+    Type: String
+    Default: mssql.s2.medium.s2
+    Description:
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html' target='_blank'><b><font color='blue'>实例规格表</font></b></a>
+      en: 'Select the instance specification based on the type of database engine and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.html'' target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+  DBInstanceStorage:
+    Label:
+      zh-cn: 实例存储
+      en: Storage
+    Type: Number
+    Description:
+      zh-cn: RDS实例大小范围为20-2000，每5个增量，单位为GB
+      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
+    MinValue: 20
+    MaxValue: 2000
+    ConstraintDescription:
+      zh-cn: RDS实例大小范围为20-2000，每5个增量，单位为GB
+      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
+    Default: 20
+  MasterUsername:
+    Type: String
+    Description:
+      en: Primary account name of the database instance.
+      zh-cn: 数据库实例的主账号名称。
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin with a letter and be end with an alphanumeric character
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾
+    Label:
+      zh-cn: 数据库账号名称
+      en: DB Username
+    Default: automation
+    MaxLength: 16
+    MinLength: 2
+  MasterUserPassword:
+    Type: String
+    Description:
+      en: Password of the primary account of the database instance, consisting of letters, numbers, and underline(_), is 8 to 32 characters long
+      zh-cn: 数据库实例的主账号密码，由字母、数字、下划线（_）组成，长度为8~32个字符
+    ConstraintDescription:
+      en: '[8, 32] characters consist of alphanumeric characters, hyphen and underline'
+      zh-cn: '[8, 32] 个字符由字母数字字符、连字符和下划线组成'
+    Label:
+      zh-cn: 数据库密码
+      en: DB Password
+    MaxLength: 32
+    MinLength: 8
+    NoEcho: true
+Resources:
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+      SecurityGroupEgress:
+        - PortRange: '-1/-1'
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: internet
+        - PortRange: '-1/-1'
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      IoOptimized: optimized
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      InstanceChargeType:
+        Ref: PayType
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      VSwitchId:
+        Ref: VSwitchId
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 100
+      VpcId:
+        Ref: VpcId
+      ImageId: centos_7_9_x64_20G_alibase_20220727.vhd
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: true
+      InstanceName:
+        Fn::Join:
+          - '-'
+          - - Ref: ALIYUN::StackName
+            - '[1,4]'
+      InternetMaxBandwidthOut: 5
+      UserData: |-
+        #!/bin/bash
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VPCId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      Engine: SQLServer
+      EngineVersion: 2017_std_ha
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      ZoneId:
+        Ref: ZoneId
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBInstanceNetType: Intranet
+      MasterUserPassword:
+        Ref: MasterUserPassword
+      MasterUsername:
+        Ref: MasterUsername
+      PayType:
+        Ref: PayType
+      PeriodType:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      SecurityIPList:
+        Fn::Join:
+          - ','
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - PrivateIps
+  SQLDump:
+    Type: ALIYUN::RDS::MigrateTask
+    Properties:
+      IsOnlineDB: 'true'
+      CheckDBMode: SyncExecuteDBCheck
+      BackupMode: FULL
+      DBName:
+        Ref: ALIYUN::StackName
+      DBInstanceId:
+        Fn::GetAtt:
+          - Database
+          - DBInstanceId
+      OssObjectPositions: '{{ computenest::file::OssObjectPositions }}'
+  RunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Description: 获取创建资源的信息，给后续自动化部署的程序读取
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      Type: RunShellScript
+      CommandContent:
+        Fn::Sub:
+          - |
+            $MasterUsername=${MasterUsername}
+            $MasterUserPassword=${MasterUserPassword}
+            $DBConnectString=${DBConnectString}
+          - MasterUsername:
+              Ref: MasterUsername
+            MasterUserPassword:
+              Ref: MasterUserPassword
+            DBConnectString:
+              Fn::GetAtt:
+                - Database
+                - InnerConnectionString
+Outputs:
+  PublicIp:
+    Value:
+      Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - EcsInstanceGroup
+          - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            zh-cn: 可用区配置
+            en: Zone Configuration
+      - Parameters:
+          - VpcId
+          - VSwitchId
+        Label:
+          default:
+            zh-cn: 选择已有基础资源配置
+            en: Choose existing Infrastructure Configuration
+      - Parameters:
+          - PayType
+          - PayPeriodUnit
+          - PayPeriod
+        Label:
+          default:
+            en: PayType Configuration
+            zh-cn: 付费类型配置
+      - Parameters:
+          - EcsInstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: Instance
+            zh-cn: ECS实例配置
+      - Parameters:
+          - DBInstanceClass
+          - DBInstanceStorage
+          - MasterUsername
+          - MasterUserPassword
+        Label:
+          default:
+            en: RDS
+            zh-cn: RDS配置
