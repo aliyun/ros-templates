@@ -9,7 +9,7 @@
 ![img.png](img.png)
 
 ## 架构图
-80端口 -> ecs(公网)
+![architecture.jpg](architecture.jpg)
 
 ## 部署
 * 基于ecs部署 UserData中可以添启动的命令
@@ -30,4 +30,4 @@
 ## 附录
 
 参考文档
-* 云服务器ecs: https://ros.console.aliyun.com/resourceType/ALIYUN::ECS::InstanceGroup
+* [云服务器ecs](https://ros.console.aliyun.com/resourceType/ALIYUN::ECS::InstanceGroup)

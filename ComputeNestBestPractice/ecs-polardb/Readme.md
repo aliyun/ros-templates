@@ -1,8 +1,15 @@
 ## 场景说明
 本文介绍了在计算巢上polardb+ecs的部署架构
 
+部署预览
+![deploy.jpg](deploy.jpg)
+
+部署结果
+![result.jqg](result.jpg)
+
 ## 架构图
-暂无
+![architecture.jpg](architecture.jpg)
+
 
 ## 部署
 
@@ -13,6 +20,6 @@
 
 ## 附录
 参考文档
-* 云服务器ecs: https://ros.console.aliyun.com/resourceType/ALIYUN::ECS::InstanceGroup
-* 云数据库polardb: https://ros.console.aliyun.com/resourceType/ALIYUN::POLARDB::DBCluster
-* 到云服务器执行命令: https://ros.console.aliyun.com/resourceType/ALIYUN::ECS::RunCommand
+* [云服务器ecs](https://ros.console.aliyun.com/resourceType/ALIYUN::ECS::InstanceGroup)
+* [云数据库polardb](https://ros.console.aliyun.com/resourceType/ALIYUN::POLARDB::DBCluster)
+* [到云服务器执行命令](https://ros.console.aliyun.com/resourceType/ALIYUN::ECS::RunCommand)

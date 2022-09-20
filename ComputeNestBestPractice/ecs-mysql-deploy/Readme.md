@@ -14,7 +14,7 @@
 
 
 ## 架构图
-
+![architecture.jpg](architecture.jpg)
 
 ## 部署
 
@@ -32,3 +32,4 @@
 * 通过公网IP远程连接到Ecs中进行运维操作。
 
 ## 附录
+* [云服务器ecs](https://ros.console.aliyun.com/resourceType/ALIYUN::ECS::InstanceGroup)
