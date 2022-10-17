@@ -17,13 +17,27 @@
 
 ## 模版规范和注意事项
 
+### 通用
+
 * 资源付费类型需要统一参数名用 PayType, PayPeriodUnit, PayPeriod
-* ALIYUN::ECS::RunCommand代替用ALIYUN::ECS::Command和ALIYUN::ECS::Invocation 
-* 对于ecs的密码请配置 AssociationProperty: ALIYUN::ECS::Instance::Password，否则会导致校验不完全
 * 如果是指定可用区的场景，可用区, VSwitch, VpcId放到最后让用户选择
-* 同时创建VPC和VSwitch时，需要保证VSwitch的CIDR Block包含在VPC的CIDR Block下。为了防止用户输入错误的CIDR Block参数，需要在VpcCidrBlock和VSwitchCidrBlock入参下指定AssociationProperty和AssociationPropertyMetadata，具体配置方法请参照[场景模板ack-nginx](./ack-nginx/template.yaml)
+
+### ECS
+
+* ALIYUN::ECS::RunCommand代替用ALIYUN::ECS::Command和ALIYUN::ECS::Invocation
+* 对于ecs的密码请配置 AssociationProperty: ALIYUN::ECS::Instance::Password，否则会导致校验不完全
 * 安全组请新建，不要让用户配置，isv对自己的安全组配置是更了解的
 * 如果产品面向中文用户，模板中的命令、脚本可以输出中文错误信息，对用户友好
 * 如果模板存在执行脚本的部分，建议脚本步骤里打印日志并保存到本地，以便于在出现错误时进行debug。建议对脚本执行失败进行捕获并打印用户友好的错误信息，并通过[ROS的WaitConditionHandle通信机制](https://help.aliyun.com/document_detail/438170.html)返回错误信息给用户。
+
+### VPC
+
+* 同时创建VPC和VSwitch时，需要保证VSwitch的CIDR Block包含在VPC的CIDR Block下。为了防止用户输入错误的CIDR Block参数，需要在VpcCidrBlock和VSwitchCidrBlock入参下指定AssociationProperty和AssociationPropertyMetadata，具体配置方法请参照[场景模板ack-nginx](./ack-nginx/template.yaml)
+
+### RDS
+
+* 对于RDS数据库实例资源（ALIYUN::RDS::DBInstance），必须指定DBInstanceStorageType和Category属性，否则会导致校验不完全，用户部署后可能出现资源无库存的错误。具体配置方法请参照[场景模板ecs-rds](./ecs-rds/template.yaml)
+
+### CS
+
 * 对于容器集群资源（ALIYUN::CS::ManagedKubernetesCluster），必须指定ZoneIds属性，否则会导致校验不完全，用户部署后可能出现资源无库存的错误。具体配置方法请参照[场景模板ack-nginx](./ack-nginx/template.yaml)
-* 对于RDS数据库实例资源（ALIYUN::RDS::DBInstance），必须指定DBInstanceStorageType属性，否则会导致校验不完全，用户部署后可能出现资源无库存的错误。具体配置方法请参照[场景模板ecs-rds](./ecs-rds/template.yaml)
