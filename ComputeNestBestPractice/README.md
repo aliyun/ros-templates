@@ -21,7 +21,7 @@
 
 * 资源付费类型需要统一参数名用 PayType, PayPeriodUnit, PayPeriod
 * 如果是指定可用区的场景，可用区, VSwitch, VpcId放到最后让用户选择
-
+* 模版中引用ALIYUN::StackName存放名字，对应计算巢服务实例名
 ### ECS
 
 * ALIYUN::ECS::RunCommand代替用ALIYUN::ECS::Command和ALIYUN::ECS::Invocation
