@@ -24,7 +24,7 @@
 * 如果是指定可用区的场景，可用区, VSwitch, VpcId放到最后让用户选择
 * 模版中引用ALIYUN::StackName存放名字，对应计算巢服务实例名
 * 建议配置参数分组，参考[使用Metadata为参数分组](https://help.aliyun.com/document_detail/211198.html).
-* 对于需要客户下拉框选的参数试用AssociationProperty和AssocitionPropertyMetadata,参考[AssociationProperty和AssociationPropertyMetadata](https://help.aliyun.com/document_detail/315578.html).
+* 对于需要客户下拉框选的参数使用AssociationProperty和AssocitionPropertyMetadata,参考[AssociationProperty和AssociationPropertyMetadata](https://help.aliyun.com/document_detail/315578.html).
 
 ### ECS
 
