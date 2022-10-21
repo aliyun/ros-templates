@@ -2,14 +2,14 @@
 
 ### 基础版
 
-* ecs-deploy 单机部署
+* ecs-deploy ecs单机部署nginx
 * ecs-rds 部署ecs和rds，同时传入rds的连接配置安装ecs中的应用
 * ecs-polardb 部署ecs和polardb, 同时传入polardb的连接配置安装ecs中的应用
 * ecs-sqlserver 部署ecs和sqlserver, 从oss中导入sql, 同时传入sqlserver的连接配置到安装ecs的应用中
 * master-slave-ecs ecs部署master-slave架构
 * ack-nginx ack容器部署场景
 * ecs-postgresql 部署ecs和postgresql,同时传入postgresql的连接配置到安装ecs的应用中
-
+* terraform-ecs-nginx terraform版ecs单机部署nginx
 ### 进阶版
 
 * scaling-ecs ecs部署带有弹性伸缩
@@ -22,6 +22,8 @@
 * 资源付费类型需要统一参数名用 PayType, PayPeriodUnit, PayPeriod
 * 如果是指定可用区的场景，可用区, VSwitch, VpcId放到最后让用户选择
 * 模版中引用ALIYUN::StackName存放名字，对应计算巢服务实例名
+* 建议配置参数分组，参考[使用Metadata为参数分组](https://help.aliyun.com/document_detail/438170.html).
+
 ### ECS
 
 * ALIYUN::ECS::RunCommand代替用ALIYUN::ECS::Command和ALIYUN::ECS::Invocation
