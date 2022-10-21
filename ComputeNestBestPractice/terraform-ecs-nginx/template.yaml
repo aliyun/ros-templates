@@ -1,0 +1,298 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.1
+Parameters:
+  pay_type:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+  pay_period_unit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${pay_type}
+              - PostPaid
+  pay_period:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Or:
+            - Fn::Equals:
+                - ${pay_type}
+                - PrePaid
+            - Fn::Equals:
+                - ${pay_type}
+                - undefined
+  zone_id:
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>notex：<font color='blue'>before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources,which is recommended to be different from other VSwitch Availability Zone</font></b>
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+  vpc_id:
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Type: String
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
+      zh-cn: 现有虚拟专有网络的实例ID
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+  vswitch_id:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${vpc_id}
+      ZoneId: ${zone_id}
+    Type: String
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+  instance_type:
+    Type: String
+    Label: 实例规格
+    Default: ecs.g6.large
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: ${pay_type}
+      ZoneId: ${zone_id}
+  SystemDiskCategory:
+    Type: String
+    AllowedValues:
+      - cloud_efficiency
+      - cloud_ssd
+      - cloud
+      - cloud_essd
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    Default: cloud_essd
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+  SystemDiskSize:
+    Default: 40
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间 (GB)
+      en: System Disk Space (GB)
+  instance_password:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    Label:
+      en: Instance Password
+      zh-cn: 登录密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    MinLength: 8
+    MaxLength: 30
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+Workspace:
+  main.tf: |-
+    provider "alicloud" {
+    }
+
+    variable "pay_type" {
+    }
+
+    variable "pay_period_unit" {
+    }
+
+    variable "pay_period" {
+    }
+
+    variable "zone_id" {
+    }
+
+    variable "instance_type" {
+    }
+    
+    variable "vpc_id" {
+    }
+
+    variable "vswitch_id" {
+    }
+    
+    variable "SystemDiskCategory" {
+    }
+    
+    variable "SystemDiskSize" {
+    }
+    
+    variable "instance_password" {
+    }
+
+    # 默认资源名称。
+    locals {
+      production_name = "nginx"
+      new_scg_name = "sg-for-${local.production_name}"
+      new_host_name = "app-for-${local.production_name}"
+    }
+    
+    # 安全组基本信息配置
+    resource "alicloud_security_group" "default" {
+      name        = local.new_scg_name
+      description = "nginx scg"
+      vpc_id =  var.vpc_id
+    }
+    
+    # 安全组入口端1
+    resource "alicloud_security_group_rule" "allow_ssh" {
+      security_group_id = "${alicloud_security_group.default.id}"
+      type = "ingress"
+      cidr_ip= "0.0.0.0/0"
+      policy = "accept"
+      ip_protocol= "tcp"
+      port_range= "22/22"
+      priority= 1
+    }
+    
+    # 安全组入口端2
+    resource "alicloud_security_group_rule" "allow_web" {
+      security_group_id = "${alicloud_security_group.default.id}"
+      type = "ingress"
+      cidr_ip= "0.0.0.0/0"
+      policy = "accept"
+      ip_protocol= "tcp"
+      port_range= "80/443"
+      priority= 1
+    }
+    
+    # 安全组出口端
+    resource "alicloud_security_group_rule" "allow_egress" {
+      security_group_id = "${alicloud_security_group.default.id}"
+      type = "egress"
+      cidr_ip= "0.0.0.0/0"
+      policy = "accept"
+      ip_protocol= "tcp"
+      port_range= "1/65535"
+      priority= 1
+    }
+    
+    # 实例基本配置
+    resource "alicloud_instance" "instance" {
+      availability_zone = var.zone_id
+      security_groups = [alicloud_security_group.default.id]
+      # series III
+      host_name = local.new_host_name
+      instance_type              = var.instance_type
+      system_disk_size           = 500
+      system_disk_category       = "cloud_efficiency"
+      image_id                   = "centos_7_9_x64_20G_alibase_20210318.vhd"
+      vswitch_id                 = var.vswitch_id
+      password                   = var.instance_password
+      internet_charge_type = "PayByTraffic"
+      internet_max_bandwidth_out = 30
+      instance_charge_type = var.pay_type
+      period = var.pay_period
+      period_unit = var.pay_period_unit
+      user_data = file("${path.cwd}/user-data.sh")
+    }
+
+  #cloud-init执行用户命令
+  #/var/log/cloud-init.log /var/log/cloud-init-output.log 可以看到执行日志
+  #/var/lib/cloud/instance/scripts/part-001 为具体的脚本 可以sh 执行来排查问题
+  user-data.sh: |-
+    #!/bin/bash -v
+    #安装nginx
+    install_nginx() {
+      sudo yum install -y nginx
+    }
+    install_nginx
+Metadata:
+  "ALIYUN::ROS::Interface":
+    ResourcesForParameterConstraints:
+      - instance:
+          Type: ALIYUN::ECS::InstanceF
+          Properties:
+            instance_type:
+              Ref: instance_type
+            image_id:
+              Ref: centos_7_9_x64_20G_alibase_20210318.vhd
+            vswitch_id:
+              Ref: vswitch_id
+            zone_id:
+              Ref: zone_id
+            # 磁盘类型和大小
+            SystemDiskCategory:
+              Ref: SystemDiskCategory
+            SystemDiskSize:
+              Ref: SystemDiskSize
+    ParameterGroups:
+      - Parameters:
+          - pay_type
+          - pay_period_unit
+          - pay_period
+        Label:
+          default:
+            en: Payment mode Configuration
+            zh-cn: 付费模式配置
+      - Parameters:
+          - SystemDiskCategory
+          - SystemDiskSize
+        Label:
+          default:
+            en: SystemDisk Configuration
+            zh-cn: 磁盘类型和大小配置
+      - Parameters:
+          - zone_id
+        Label:
+          default:
+            zh-cn: 可用区配置
+            en: Zone Configuration
+      - Parameters:
+          - vpc_id
+          - vswitch_id
+        Label:
+          default:
+            zh-cn: 选择已有基础资源配置
+            en: Choose existing Infrastructure Configuration
+      - Parameters:
+          - instance_type
+          - instance_password
+        Label:
+          default:
+            en: Instance
+            zh-cn: ECS实例配置
