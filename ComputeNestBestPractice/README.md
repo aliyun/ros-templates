@@ -14,6 +14,7 @@
 
 * scaling-ecs ecs部署带有弹性伸缩
 * ecs-mysql-deploy ecs单机部署MySQL
+* ehpc-demo ehpc部署
 
 ## 模版规范和注意事项
 
@@ -22,7 +23,7 @@
 * 资源付费类型需要统一参数名用 PayType, PayPeriodUnit, PayPeriod
 * 如果是指定可用区的场景，可用区, VSwitch, VpcId放到最后让用户选择
 * 模版中引用ALIYUN::StackName存放名字，对应计算巢服务实例名
-* 建议配置参数分组，参考[使用Metadata为参数分组](https://help.aliyun.com/document_detail/438170.html).
+* 建议配置参数分组，参考[使用Metadata为参数分组](https://help.aliyun.com/document_detail/211198.html).
 
 ### ECS
 
