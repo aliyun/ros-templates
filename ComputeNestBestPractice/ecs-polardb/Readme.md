@@ -5,7 +5,7 @@
 ![deploy.jpg](deploy.jpg)
 
 部署结果
-![result.jqg](result.jpg)
+![result.jpg](result.jpg)
 
 ## 架构图
 ![architecture.jpg](architecture.jpg)

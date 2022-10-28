@@ -1,9 +1,5 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Conditions:
-  StandardFileSystem:
-    Fn::Equals:
-    - Ref: VolumeFileSystemType
-    - standard
   TinyMode:
     Fn::Equals:
     - Ref: EhpcDeployMode
@@ -23,15 +19,14 @@ Parameters:
       zh-cn: 集群登录密码
       en: Cluster Login Password
     Description:
-      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*-+=|{}[]:;'<>,.?/ 中的特殊符号）。
       en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
-        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+        ()`~!@#$%^&*-+=|{}[]:;'<>,.?/ Special symbol in).
     ConstraintDescription:
-      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*-+=|{}[]:;'<>,.?/ 中的特殊符号）。
       en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
-        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
-    AssociationProperty: ALIYUN::ECS::Instance::Password
-    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+        ()`~!@#$%^&*-+=|{}[]:;'<>,.?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
     MinLength: 8
     MaxLength: 30
     NoEcho: true
@@ -126,11 +121,13 @@ Parameters:
       zh-cn: 管控节点数量
       en: Manager Node Number
     Description:
-      zh-cn: '管控节点数量, 可选值: 1-8.'
-      en: 'Manager node number, which ranges from: 1-8.'
+      zh-cn: '管控节点数量, 可选值: 1,2,4.'
+      en: 'Manager node number, which ranges from: 1,2,4.'
     Default: 1
-    MinValue: 1
-    MaxValue: 8
+    AllowedValues:
+    - 1
+    - 2
+    - 4
   SystemDiskCategory:
     Type: String
     Label:
@@ -227,8 +224,8 @@ Parameters:
       en: The instance ID of an existing network switch.
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
     AssociationPropertyMetadata:
-      VpcId: VpcId
-      ZoneId: ZoneId
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
   PayType:
     Type: String
     Label:
@@ -250,6 +247,7 @@ Parameters:
       en: The long cycle of purchasing resources. <br>Week is a Week and Month is
         a Month. <br> The default value is month.<br><b><font color='red'> When ECS
         instance types are PrePaid valid </b></font>
+    AssociationProperty: PayPeriodUnit
     AssociationPropertyMetadata:
       Visible:
         Condition:
@@ -267,22 +265,19 @@ Parameters:
       zh-cn: 购买资源时长
       en: Period
     Description:
-      zh-cn: 当购买资源时长为Week时，Period取值：1~4。<br>当购买资源时长为Month时，Period取值：1~9 <br><b><font
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font
         color='red'>当ECS实例类型为PrePaid有效</b></font>
-      en: When the purchasing Period is Week, the value of Period ranges from 1 to
-        4. <br> When the resource purchase duration is Month, the value of Period
+      en: When the resource purchase duration is Month, the value of Period
         ranges from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When
         ECS instance types are PrePaid valid </b></font>
+    AssociationProperty: PayPeriod
     AssociationPropertyMetadata:
       Visible:
         Condition:
-          Fn::Or:
-          - Fn::Equals:
+          Fn::Not:
+            Fn::Equals:
             - ${PayType}
-            - PrePaid
-          - Fn::Equals:
-            - ${PayType}
-            - undefined
+            - PostPaid
     Default: 1
     AllowedValues:
     - 1
@@ -317,8 +312,7 @@ Parameters:
     Default: nfs
     AllowedValues:
     - nfs
-    - nfs3
-    - nfs4
+    - smb
   VolumeId:
     Type: String
     Label:
@@ -343,23 +337,30 @@ Parameters:
       VpcId: ${VpcId}
       VolumeId: ${VolumeId}
 Resources:
+  # 安全组
   EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
+      # 使用默认名称
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
       VpcId:
         Ref: VpcId
+      # 入方向开放22端口
       SecurityGroupIngress:
       - Priority: 1
         PortRange: 22/22
         NicType: internet
         SourceCidrIp: 0.0.0.0/0
         IpProtocol: tcp
+      # 出方向全开
       SecurityGroupEgress:
       - Priority: 1
         PortRange: -1/-1
         DestCidrIp: 0.0.0.0/0
         NicType: intranet
         IpProtocol: all
+  # 类型用于创建一个弹性高性能计算集群
   Cluster:
     Type: ALIYUN::EHPC::Cluster
     Properties:
@@ -369,20 +370,13 @@ Resources:
         Ref: VSwitchId
       SecurityGroupId:
         Ref: EcsSecurityGroup
-      ImageId: centos_7
+      ImageId: centos_7_6_x64_20G_alibase_20211130.vhd
       OsTag: CentOS_7.6_64
       EcsOrderComputeCount:
         Ref: EphcComputeCount
-      VolumeType:
-        Fn::If:
-        - StandardFileSystem
-        - nas
-        - extreme
+      VolumeType: 'nas'
       VolumeProtocol:
-        Fn::If:
-        - StandardFileSystem
-        - Ref: VolumeProtocol
-        - nfs
+        Ref: VolumeProtocol
       VolumeId:
         Ref: VolumeId
       EcsOrderManagerInstanceType:
@@ -414,14 +408,17 @@ Resources:
         Ref: EhpcManagerCount
       EcsOrderLoginInstanceType:
         Ref: EhpcLoginInstanceType
+  # 类型用于获取弹性高性能计算集群节点的列表
   ClusterNodes:
     Type: DATASOURCE::EHPC::Nodes
     Properties:
+      # 节点类型
       Role:
         Fn::If:
         - TinyMode
         - Manager
         - Login
+      # 待查询的集群ID。
       ClusterId:
         Fn::GetAtt:
         - Cluster
