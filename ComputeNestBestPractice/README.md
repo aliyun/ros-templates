@@ -17,6 +17,7 @@
 * scaling-ecs ecs部署带有弹性伸缩
 * ecs-mysql-deploy ecs单机部署MySQL
 * ehpc-demo ehpc部署
+* managed-reverse-vpc-connection 托管版vpc私网反向访问
 
 ## 模版规范和注意事项
 
