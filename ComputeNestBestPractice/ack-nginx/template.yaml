@@ -61,13 +61,10 @@ Parameters:
     AssociationPropertyMetadata:
       Visible:
         Condition:
-          Fn::Or:
-            - Fn::Equals:
-                - ${PayType}
-                - PrePaid
-            - Fn::Equals:
-                - ${PayType}
-                - undefined
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
   # 可用区
   ZoneId:
     Type: String
@@ -183,73 +180,22 @@ Parameters:
       en: Specifications
       zh-cn: 规格
     Default: slb.s1.small
-Metadata:
-  ALIYUN::ROS::Interface:
-    # 定义参数分组
-    ParameterGroups:
-      - Parameters:
-          - PayType
-          - PayPeriodUnit
-          - PayPeriod
-        Label:
-          default:
-            en: PayType Configuration
-            zh-cn: 付费类型配置
-      - Parameters:
-          - ZoneId
-          - VpcCidrBlock
-          - VSwitchCidrBlock
-          - LoginPassword
-        Label:
-          en: Basic Configuration
-          zh-cn: 基础配置
-      - Parameters:
-          - WorkerInstanceType
-          - WorkerSystemDiskCategory
-          - WorkerSystemDiskSize
-        Label:
-          en: Kubernetes配置
-          zh-cn: KUBERNETES
-      - Parameters:
-          - EcsInstanceType
-          - SystemDiskSize
-          - SystemDiskCategory
-        Label:
-          en: ECS跳板机配置
-          zh-cn: ECS跳板机配置
-      - Parameters:
-          - LoadBalancerSpec
-        Label:
-          en: 负载均衡配置
-          zh-cn: 负载均衡配置
-# 定义输出
-Outputs:
-  # 将公网ip做为http返回的地址显示在控制台
-  endpoint:
-    Description:
-      zh-cn: 对外暴露的公网IP地址
-      en: Public IP Addresses
-    Value:
-      Fn::Sub:
-        - http://${ServerAddress}
-        - ServerAddress:
-            Fn::GetAtt:
-              - EipSlbAddress
-              - EipAddress
 # 定义资源
 Resources:
   # 新建vpc
   EcsVpc:
     Type: ALIYUN::ECS::VPC
     Properties:
-      CidrBlock:
-        Ref: VpcCidrBlock
       VpcName:
         Ref: ALIYUN::StackName
+      CidrBlock:
+        Ref: VpcCidrBlock
   # 新建vswitch
   EcsVSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
+      VSwitchName:
+        Ref: ALIYUN::StackName
       VpcId:
         Ref: EcsVpc
       ZoneId:
@@ -260,6 +206,8 @@ Resources:
   EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
       VpcId:
         Ref: EcsVpc
       # 只开放访问外网的规则
@@ -273,6 +221,8 @@ Resources:
   ManagedKubernetesCluster:
     Type: ALIYUN::CS::ManagedKubernetesCluster
     Properties:
+      Name:
+        Ref: ALIYUN::StackName
       ChargeType:
         Ref: PayType
       Period:
@@ -322,12 +272,12 @@ Resources:
         # ingres插件
         # - Name: nginx-ingress-controller
         #   Config: '{"IngressSlbNetworkType":"intranet","IngressSlbSpec":"slb.s2.small"}'
-      Name:
-        Ref: ALIYUN::StackName
   # 新建负载均衡
   Slb:
     Type: ALIYUN::SLB::LoadBalancer
     Properties:
+      LoadBalancerName:
+        Ref: ALIYUN::StackName
       PayType:
         Ref: PayType
       PricingCycle:
@@ -338,8 +288,6 @@ Resources:
         Ref: EcsVpc
       VSwitchId:
         Ref: EcsVSwitch
-      LoadBalancerName:
-        Ref: ALIYUN::StackName
       LoadBalancerSpec:
         Ref: LoadBalancerSpec
       AddressType: intranet
@@ -347,6 +295,8 @@ Resources:
   EipSlbAddress:
     Type: ALIYUN::VPC::EIP
     Properties:
+      Name:
+        Ref: ALIYUN::StackName
       InternetChargeType: PayByTraffic
       Bandwidth: 100
   # 绑定eip到负载均衡
@@ -377,13 +327,14 @@ Resources:
       - ManagedKubernetesCluster
       - Slb
     Properties:
+      InstanceName:
+        Ref: ALIYUN::StackName
       InstanceChargeType:
         Ref: PayType
       Period:
         Ref: PayPeriod
       PeriodUnit:
         Ref: PayPeriodUnit
-      InstanceName: jumpbox
       ImageId: centos_7
       InstanceType:
         Ref: EcsInstanceType
@@ -482,3 +433,56 @@ Resources:
                     Fn::GetAtt:
                       - Slb
                       - LoadBalancerId
+# 定义输出
+Outputs:
+  # 将公网ip做为http返回的地址显示在控制台
+  Endpoint:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}
+        - ServerAddress:
+            Fn::GetAtt:
+              - EipSlbAddress
+              - EipAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    # 定义参数分组
+    ParameterGroups:
+      - Parameters:
+          - PayType
+          - PayPeriodUnit
+          - PayPeriod
+        Label:
+          default:
+            en: PayType Configuration
+            zh-cn: 付费类型配置
+      - Parameters:
+          - ZoneId
+          - VpcCidrBlock
+          - VSwitchCidrBlock
+          - LoginPassword
+        Label:
+          en: Basic Configuration
+          zh-cn: 基础配置
+      - Parameters:
+          - WorkerInstanceType
+          - WorkerSystemDiskCategory
+          - WorkerSystemDiskSize
+        Label:
+          en: Kubernetes配置
+          zh-cn: KUBERNETES
+      - Parameters:
+          - EcsInstanceType
+          - SystemDiskSize
+          - SystemDiskCategory
+        Label:
+          en: ECS跳板机配置
+          zh-cn: ECS跳板机配置
+      - Parameters:
+          - LoadBalancerSpec
+        Label:
+          en: 负载均衡配置
+          zh-cn: 负载均衡配置
