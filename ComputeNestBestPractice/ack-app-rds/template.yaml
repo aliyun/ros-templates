@@ -23,6 +23,8 @@ Parameters:
       ZoneId: ${ZoneId}
   PayType:
     AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
     Type: String
     Label:
       en: ECS Instance Charge Type
@@ -53,6 +55,7 @@ Parameters:
       - 12
       - 24
       - 36
+    AssociationProperty: PayPeriod
     AssociationPropertyMetadata:
       Visible:
         Condition:
@@ -80,6 +83,32 @@ Parameters:
     MaxValue: 2000
     ConstraintDescription: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
     Default: 30
+  RdsInstanceStorageType:
+    Label:
+      zh-cn: 实例存储类型
+      en: Storage Type
+    Type: String
+    Description:
+      zh-cn: 实例存储类型；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/69795.html' target='_blank'><b><font color='blue'>存储类型</font></b></a>
+      en: The storage type of DB instance; see detail <a href='https://www.alibabacloud.com/help/en/apsaradb-for-rds/latest/storage-types' target='_blank'><b><font color=''blue''>Storage types</font></b></a>'
+    AllowedValues:
+      - local_ssd
+      - cloud_ssd
+      - cloud_essd
+      - cloud_essd2
+      - cloud_essd3
+  RdsCategory:
+    Label:
+      zh-cn: 实例系列
+      en: DB Category
+    Type: String
+    AllowedValues:
+      - Basic
+      - HighAvailability
+      - AlwaysOn
+      - Finance
+    AssociationPropertyMetadata:
+      LocaleKey: RDSCategory
   RdsAccountName:
     Type: String
     Label:
@@ -125,24 +154,14 @@ Parameters:
         The NameSpace in which application deployed.
       zh-cn: >-
         部署应用程序的K8s命名空间
+  SecurityIpList:
+    Type: String
+    Description:
+      en: >-
+        The IP whitelist of RDS instance, K8s application's private IP CIDR should be set here.
+      zh-cn: >-
+        RDS实例的IP白名单，需要将K8s应用的私网IP段设置在白名单里
 Resources:
-  EcsSecurityGroup:
-    Type: ALIYUN::ECS::SecurityGroup
-    Properties:
-      VpcId:
-        Ref: VpcId
-      SecurityGroupIngress:
-        - PortRange: '-1/-1'
-          Priority: 1
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: all
-          NicType: intranet
-      SecurityGroupEgress:
-        - PortRange: '-1/-1'
-          Priority: 1
-          IpProtocol: all
-          DestCidrIp: 0.0.0.0/0
-          NicType: intranet
   DBInstance:
     Type: ALIYUN::RDS::DBInstance
     Properties:
@@ -158,12 +177,17 @@ Resources:
         Ref: RdsInstanceClass
       DBInstanceStorage:
         Ref: RdsInstanceStorage
+      DBInstanceStorageType:
+        Ref: RdsInstanceStorageType
+      Category:
+        Ref: RdsCategory
       PayType:
         Ref: PayType
       PeriodType: Month
       Period:
         Ref: PayPeriod
-      SecurityIPList: '0.0.0.0/0'
+      SecurityIPList:
+        Ref: SecurityIpList
   RdsAccount:
     DependsOn: DBInstance
     Type: ALIYUN::RDS::Account
@@ -315,8 +339,11 @@ Metadata:
       - Parameters:
           - RdsInstanceClass
           - RdsInstanceStorage
+          - RdsInstanceStorageType
+          - RdsCategory
           - RdsAccountName
           - RdsAccountPassword
+          - SecurityIpList
         Label:
           en: Database Configuration
           zh-cn: 数据库参数配置

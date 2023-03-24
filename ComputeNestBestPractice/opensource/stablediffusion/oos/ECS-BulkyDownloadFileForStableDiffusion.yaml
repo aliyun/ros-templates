@@ -1,0 +1,178 @@
+FormatVersion: OOS-2019-06-01
+Description:
+  en: Download stable diffusion model file to ECS instance
+  zh-cn: 下载StableDiffusion模型或预览图到ECS实例
+  name-en: ACS-ECS-BulkyDownloadFileForStableDiffusion
+  name-zh-cn: 下载StableDiffusion模型或预览图
+  categories:
+    - instance_manage
+    - application_manage
+    - computenest
+Parameters:
+  regionId:
+    Type: String
+    Label:
+      en: RegionId
+      zh-cn: 地域ID
+    AssociationProperty: RegionId
+    Default: '{{ ACS::RegionId }}'
+  targets:
+    Type: Json
+    Label:
+      en: TargetInstance
+      zh-cn: 目标实例
+    AssociationProperty: Targets
+    AssociationPropertyMetadata:
+      ResourceType: ALIYUN::ECS::Instance
+      RegionId: regionId
+  sourceType:
+    Type: String
+    Label:
+      en: SourceType
+      zh-cn: 下载方式(本地上传文件不能超过5GB)
+    AllowedValues:
+      - https
+      - local
+      - oss
+    Default: https
+    AssociationPropertyMetadata:
+      LocaleKey: DownloadFileType
+      RegionId: ${regionId}
+  sourcePath:
+    Type: String
+    Label:
+      en: SourcePath
+      zh-cn: 文件来源(https方式填写链接地址)
+    AssociationProperty: ALIYUN::OOS::File::FileUrl
+    AssociationPropertyMetadata:
+      FileType: ${sourceType}
+      RegionId: ${regionId}
+  modelType:
+    Type: String
+    Label:
+      en: ModelType
+      zh-cn: 模型类型
+    AllowedValues:
+      - CHECKPOINT
+      - LORA
+      - VAE
+      - OTHER
+    Default: CHECKPOINT
+  modelFileDir:
+    Type: String
+    Label:
+      en: ModelFileDir
+      zh-cn: 模型或预览图存储目录
+    AssociationPropertyMetadata:
+      Value:
+        - Condition:
+            Fn::Equals:
+              - ${modelType}
+              - CHECKPOINT
+          Value: /home/models/Stable-diffusion/
+        - Condition:
+            Fn::Equals:
+              - ${modelType}
+              - LORA
+          Value: /home/models/Lora/
+        - Condition:
+            Fn::Equals:
+              - ${modelType}
+              - VAE
+          Value: /home/models/VAE/
+        - Condition:
+            Fn::Equals:
+              - ${modelType}
+              - OTHER
+          Value: /home/models/
+  modelFileType:
+    Type: String
+    Label:
+      en: ModelFileType
+      zh-cn: 选择模型或预览图
+    AllowedValues:
+      - Model
+      - PreviewImage
+    Default: Model
+  modelFileName:
+    Type: String
+    Label:
+      en: ModelFileName
+      zh-cn: 自定义模型或预览图名称
+    Description:
+      en: <font color='red'><b>Example：model.safetensors、model.png,Please note that the file extension needs to be included, otherwise the uploaded model may be invalid,The preview image name and the model name should remain consistent</b>
+      zh-cn: <font color='red'><b>例如：model.safetensors、model.png, 注意需要填写文件后缀，否则上传的模型可能无效,预览图名称和模型名称需保持一致</b>
+RamRole: ''
+Tasks:
+  - Name: getInstance
+    Description:
+      en: Views the ECS instances
+      zh-cn: 获取ECS实例
+    Action: ACS::SelectTargets
+    Properties:
+      ResourceType: ALIYUN::ECS::Instance
+      RegionId: '{{ regionId }}'
+      Filters:
+        - '{{ targets }}'
+    Outputs:
+      instanceIds:
+        Type: List
+        ValueSelector: Instances.Instance[].InstanceId
+  - Name: downloadLinuxFile
+    Action: ACS::ECS::RunCommand
+    Description:
+      en: Runs download file command on linux instance
+      zh-cn: 在linux类型实例上执行下载文件命令
+    Properties:
+      instanceId: '{{ ACS::TaskLoopItem }}'
+      regionId: '{{ regionId }}'
+      commandType: RunShellScript
+      timeout: 3600
+      commandContent: |-
+        #/bin/bash
+        if [ {{sourceType}} = 'oss' ]; then
+          acs-plugin-manager --exec -P oosutil --params  download_content,{{sourceType}},'"{{sourcePath}}"',\'''\','{{modelFileDir}}/{{modelFileName}}','-F'
+        else
+          test -e {{modelFileDir}} || mkdir -p {{modelFileDir}}
+          wget "{{sourcePath}}" -O {{modelFileDir}}/{{modelFileName}} --no-check-certificate
+          echo "{{modelFileDir}}/{{modelFileName}} Execute Success"
+        fi
+    Loop:
+      Items: '{{ getInstance.instanceIds }}'
+      RateControl:
+        Mode: Concurrency
+        MaxErrors: 0
+        Concurrency: 1
+      Outputs:
+        commandOutputs:
+          AggregateType: Fn::ListJoin
+          AggregateField: commandOutput
+    Outputs:
+      commandOutput:
+        Type: String
+        ValueSelector: invocationOutput
+Outputs:
+  commandOutput:
+    Type: String
+    Value: '{{ downloadLinuxFile.commandOutputs }}'
+Metadata:
+  ALIYUN::OOS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - regionId
+          - targets
+        Label:
+          default:
+            zh-cn: 选择实例
+            en: Select Instances
+      - Parameters:
+          - modelFileType
+          - modelType
+          - sourceType
+          - sourcePath
+          - modelFileDir
+          - modelFileName
+        Label:
+          default:
+            zh-cn: 配置参数
+            en: Configure Parameters

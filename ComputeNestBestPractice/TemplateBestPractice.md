@@ -1,6 +1,7 @@
 # 计算巢模板编写和测试最佳实践
 
 <!-- TOC -->
+
 * [总体过程](#)
 * [分析您的应用](#)
 * [提高模板编写效率](#)
@@ -12,7 +13,8 @@
   * [Metadata](#metadata)
 * [编写Terraform模板](#terraform)
 * [测试部署模板](#)
-<!-- TOC -->
+  
+  <!-- TOC -->
 
 接入计算巢服务的过程中，模板的编写和测试占用了一半以上的时间。按照最佳实践编写和测试模板，能够大大减少工作量，避免常见错误，同时让最终用户使用起来更方便。
 
@@ -50,7 +52,8 @@
 
 ## 安全
 
-计算巢安全审核最佳实践参考[发布审核标准](https://help.aliyun.com/document_detail/406760.html)。
+1. 计算巢安全审核最佳实践参考[发布审核标准](https://help.aliyun.com/document_detail/406760.html)。
+2. 如果您的软件在系统盘或数据盘保存了重要的业务数据，建议使用[自动快照策略](https://help.aliyun.com/document_detail/127811.html)提供备份功能。
 
 ## 编写ROS模板
 
@@ -61,8 +64,15 @@
 - 存在校验规则的参数应配置AllowedValues/AllowedPattern/MinLength/MaxLength/MinValue/MaxValue属性，可以提高部署成功率。
 - 密码类参数必须将NoEcho属性设置为true，为了安全性一般不应设置默认值。
 - 资源付费类型需要统一参数名用 PayType, PayPeriodUnit, PayPeriod，并且配置上AssociationProperty。
-- 在选择资源规格的场景，按照影响库存的参数的依赖关系对参数进行排序。比如付费类型优先于可用区，可用区优先于实例规格。因为付费类型基于财务考虑，但可用区会因为无选定付费类型的库存而被自动排除掉。
-- 对于需要客户下拉框选的参数使用AssociationProperty和AssociationPropertyMetadata,参考[AssociationProperty和AssociationPropertyMetadata](https://help.aliyun.com/document_detail/315578.html)。
+- 对于需要客户选择的参数使用AssociationProperty和AssociationPropertyMetadata，除了增加易用性和保证值的正确性外，计算巢会利用此信息来判断参数值是否可用，比如无库存的实例规格无法选择。参考[AssociationProperty和AssociationPropertyMetadata](https://help.aliyun.com/document_detail/315578.html)。
+- 参数的顺序影响用户体验，用户选定前面的参数后，后续参数只会展示可用值，比如选定可用区后，后续的实例规格列表只会展示该可用区有库存的规格。建议使用参数分组进行排序。
+
+### 参数分组
+
+1. 建议配置参数分组，参考[使用Metadata为参数分组](https://help.aliyun.com/document_detail/211198.html)。参数分组会提升用户的部署体验，让部署参数看起来更有条理。
+2. ParameterGroup支持两种样式，指定GroupType为Table时使用表格样式，不指定时使用普通平铺表单样式，可以根据喜好选择。
+3. 如果配置了套餐，套餐所在参数分组一般应该排在最前面，因为套餐中的参数值比如实例规格可以配置多个值。将套餐参数放在后面时，输入前面参数后无法准确判断套餐参数的可用值。如果将可用区等参数放在套餐参数后，选完套餐后可判断出哪些可用区有库存。
+
 
 ### 资源
 
@@ -80,8 +90,8 @@
   - 请新建安全组，不应让用户配置，因为服务商对自身软件的安全要求更了解。
 
 - #### 弹性伸缩ESS
-
-    - 如果伸缩组资源（ALIYUN::ESS::ScalingGroup）中只定义了一个伸缩规则资源（ALIYUN::ESS::ScalingConfiguration），则伸缩组资源中要显式定义对伸缩规则资源依赖的资源的依赖关系。
+  
+  - 如果伸缩组资源（ALIYUN::ESS::ScalingGroup）中只定义了一个伸缩规则资源（ALIYUN::ESS::ScalingConfiguration），则伸缩组资源中要显式定义对伸缩规则资源依赖的资源的依赖关系。
     比如伸缩规则资源依赖了安全组资源，则需要在伸缩组资源中显式DependsOn安全组资源，这样在服务实例删除时，安全组才能够被正确删除。
 
 - #### 专有网络VPC
@@ -99,12 +109,13 @@
 
 - #### 执行初始化脚本
   
+  - 不建议使用UserData的方式执行初始化脚本，推荐使用RunCommand的方式（ROS资源类型为ALIYUN::ECS::RunCommand）执行初始化脚本，尤其是对于在脚本中引用了模板入参的情况。因为在资源编排资源栈里UserData脚本执行失败后，无法重新执行，只有重新创建ECS实例才能修复；而使用云助手Command的方式用户可以通过重新执行Command来修复，计算巢的继续部署功能支持修复Command执行失败。
   - 如果服务仅面向中文用户，模板中的命令、脚本可以输出中文错误信息，对用户友好。
   - 如果模板存在执行脚本的部分，建议脚本步骤里打印日志并保存到本地，以便于在出现错误时进行debug。建议对脚本执行失败进行捕获并打印用户友好的错误信息，并通过[ROS的WaitConditionHandle通信机制](https://help.aliyun.com/document_detail/438170.html)返回错误信息给用户。
   - 启用bash的-e选项，在脚本出错时退出。
   - 以云助手命令形式执行的脚本中可以echo信息到stdout、stderr，打印到stdout、stderr的信息可以通过云助手控制台或OpenAPI查询到。
   - 如果脚本对资源、网络或者进程的状态有隐式的依赖，比如等待应用服务可用后才可以进行登录配置，请在脚本中进行循环检测，等待条件满足后再进行下一步；等待超时时报错。
-  - 
+  - Here document中的变量如$x，如果希望原样写入字符串不进行变量替换，第一行可以使用cat << "EOF"的写法，在分隔符上加双引号。
 
 - #### 从应用中访问云服务
   
@@ -114,10 +125,6 @@
 
 Outputs中的变量名要规范、易读。请配置输出变量的中英文描述。输出会展示在服务实例的详情页上，增加描述会提升用户的体验。
 
-### Metadata
-
-1. 建议配置参数分组，参考[使用Metadata为参数分组](https://help.aliyun.com/document_detail/211198.html)。参数分组会提升用户的部署体验，让部署参数看起来更有条理。
-2. ParameterGroup支持两种样式，指定GroupType为Table时使用表格样式，不指定时使用普通平铺表单样式，可以根据喜好选择。
 
 ## 编写Terraform模板
 

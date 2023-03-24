@@ -1,7 +1,7 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: scaling-ecs
-  zh-cn: ecs部署，支持弹性功能
+  en: ecs + mongodb 部署
+  zh-cn: ecs + mongodb 部署
 # 参数配置
 Parameters:
   PayType:
@@ -100,29 +100,70 @@ Parameters:
     NoEcho: true
     Type: String
     Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
-      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
     Label:
       en: Instance Password
       zh-cn: 实例密码
     ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
-      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
-    AssociationProperty: ALIYUN::ECS::Instance::Password
-    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     MinLength: 8
     MaxLength: 30
-  InstanceCount:
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  # 实例规格
+  DBInstanceClass:
+    Type: String
+    Description:
+      en: The DDS Instance type
+      zh-cn: 实例规格
+    Label:
+      en: The Instance type
+      zh-cn: 实例规格
+    Default: dds.mongo.mid
+    AllowedValues:
+      - dds.mongo.mid
+      - dds.mongo.standard
+      - dds.mongo.large
+      - dds.mongo.xlarge
+      - dds.mongo.2xlarge
+      - dds.mongo.4xlarge
+  # 实例存储空间
+  DBInstanceStorage:
     Type: Number
     Description:
-      en: ECS Instance Count
-      zh-cn: ECS实例数量
+      en: The storage space
+      zh-cn: 实例存储空间
+    ConstraintDescription:
+      en: The storage space. Incrementing in every 5G.
+      zh-cn: 存储空间。每 5G 增加一次。
     Label:
-      en: Instance Count
-      zh-cn: 实例数量
-    Default: 1
+      zh-cn: 存储空间
+      en: DB Instance Storage
+    Default: 10
+    MaxValue: 1000
+    MinValue: 5
 # 资源配置
 Resources:
+  MongoDB:
+    Type: ALIYUN::MONGODB::Instance
+    Properties:
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      SecurityIPArray: '0.0.0.0/0'
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      StorageEngine: 'WiredTiger'
+      NetworkType: 'VPC'
+      # 版本不能使用默认的3.4，否则可能会导致资源创建失败
+      EngineVersion: '4.0'
   EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
@@ -132,7 +173,7 @@ Resources:
         Ref: VpcId
       # 安全组入端口
       SecurityGroupIngress:
-        - PortRange: 8080/8080
+        - PortRange: 80/80
           Priority: 1
           SourceCidrIp: 0.0.0.0/0
           IpProtocol: tcp
@@ -178,8 +219,10 @@ Resources:
       # 磁盘类型和大小
       SystemDiskCategory: cloud_essd
       SystemDiskSize: 200
-      MaxAmount:
-        Ref: InstanceCount
+      DiskMappings:
+        - Category: cloud_essd
+          Size: 200
+      MaxAmount: 1
       # 镜像
       ImageId: centos_7
       # 实例类型
@@ -187,70 +230,54 @@ Resources:
         Ref: EcsInstanceType
       Password:
         Ref: InstancePassword
-      # 公网关闭
-      AllocatePublicIP: false
+      # 公网开启
+      AllocatePublicIP: true
+      # 公网带宽
+      InternetMaxBandwidthOut: 100
       # 启动脚本
-      UserData: |-
-        #!/bin/bash
-  EssInstanceScalingGroupEnable:
-    Type: 'ALIYUN::ESS::ScalingGroupEnable'
-    Properties:
-      ScalingRuleArisExecuteVersion: '1'
-      ScalingConfigurationId:
-        Ref: EcsInstanceScalingConfiguration
-      InstanceIds:
-        'Fn::GetAtt':
-          - EcsInstanceGroup
-          - InstanceIds
-      ScalingGroupId:
-        Ref: EssInstanceScalingGroup
-    DependsOn:
-      - EcsInstanceScalingConfiguration
-      - EssInstanceScalingGroup
-  EcsInstanceScalingConfiguration:
-    Type: 'ALIYUN::ESS::ScalingConfiguration'
-    Properties:
-      # 网络配置
-      SecurityGroupId:
-        Ref: EcsSecurityGroup
-      # 伸缩组
-      ScalingGroupId:
-        Ref: EssInstanceScalingGroup
-      ScalingConfigurationName:
-        Fn::Join:
-          - '-'
-          - - 'sc'
-            - Ref: ALIYUN::StackName
-      # 实例类型
-      InstanceType:
-        Ref: EcsInstanceType
-      # 磁盘配置
-      SystemDiskCategory: cloud_essd
-      SystemDiskSize: 200
-      ImageId: centos_7_9_x64_20G_alibase_20220727.vhd
-      InstanceName:
-        Fn::Join:
-          - '-'
-          - - Ref: ALIYUN::StackName
-            - '[1,4]'
-      UserData: |-
-        #!/bin/bash
-  EssInstanceScalingGroup:
-    Type: 'ALIYUN::ESS::ScalingGroup'
-    Properties:
-      ScalingGroupName:
-        Fn::Join:
-          - '-'
-          - - 'scg'
-            - Ref: ALIYUN::StackName
-      RemovalPolicys:
-        - NewestInstance
-      MinSize:
-        Ref: InstanceCount
-      MaxSize: 50
-      VSwitchId:
-        Ref: VSwitchId
-      DefaultCooldown: 300
+      # cloud-init执行用户命令
+      # /var/log/cloud-init.log /var/log/cloud-init-output.log 可以看到执行日志
+      # /var/lib/cloud/instance/scripts/part-001 为具体的脚本 可以sh 执行来排查问题
+      UserData:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            cat >> /root/conf.txt << "EOF"
+            DBConnectString=${DBConnectString}
+            EOF
+            # 安装mongoDB 
+            # 1.wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.9.tgz
+            # 2.tar -zxvf mongodb-linux-x86_64-4.0.9.tgz
+            # 3.mv mongodb-linux-x86_64-4.0.9 /usr/local/mongodb
+            # 4.cd /usr/local/mongodb
+            # 5.vim /etc/profile
+            # 6.source /etc/profile
+            # 7.echo $PATH
+            
+            # 在安装有MongoDB的客户端（本地服务器或ECS服务器）上连接云数据库MongoDB单节点实例
+            # mongo --host <host> --port <port> -u <username> -p --authenticationDatabase <authenticationDatabase>
+            # 例子：mongo --host dds-bp1ea17b41abecf43****.mongodb.rds.aliyuncs.com --port 3717 -u test -p --authenticationDatabase admin
+            # 返回：MongoDB shell version v4.0.9
+          - DBConnectString:
+              Fn::GetAtt:
+                - MongoDB
+                - ConnectionURI
+# 定义输出
+Outputs:
+  # 将公网ip做为http返回的地址显示在控制台
+  Endpoint:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                 - EcsInstanceGroup
+                 - PublicIps
 Metadata:
   ALIYUN::ROS::Interface:
     # 分组信息
@@ -279,8 +306,14 @@ Metadata:
       - Parameters:
           - EcsInstanceType
           - InstancePassword
-          - InstanceCount
         Label:
           default:
-            en: Instance
+            en: Instance Configuration
             zh-cn: ECS实例配置
+      - Parameters:
+          - DBInstanceClass
+          - DBInstanceStorage
+        Label:
+          default:
+            en: Mongodb Configuration
+            zh-cn: Mongodb配置

@@ -70,11 +70,10 @@ Parameters:
     AllowedValues:
       - cloud_efficiency        # 高效云盘
       - cloud_ssd               # SSD云盘
-      - cloud                   # 普通云盘
       - cloud_essd              # ESSD云盘
-    Default: cloud_efficiency
+    Default: cloud_essd
     Label:
-      en: Disk Type
+      en: Data Disk Type
       zh-cn: 数据盘类型
     AssociationPropertyMetadata:
       LocaleKey: DiskCategory
@@ -87,24 +86,6 @@ Parameters:
     MinValue: 20
     MaxValue: 500
     Default: 40
-  # 数据库root账户密码
-  Password:
-    # 查询该参数时只输出星号（*）
-    NoEcho: true
-    Type: String
-    Description:
-      en: 'Database root account password, 8-32 characters, including uppercase and lowercase letters, numbers and special symbols (including: !@#$%^&*-+=_).'
-      zh-cn: 数据库root账户密码，长度8-32个字符，可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
-    Label:
-      en: Root Account Password
-      zh-cn: 数据库root账户密码
-    ConstraintDescription:
-      en: '8-32 characters, including uppercase and lowercase letters, numbers and special symbols (including: !@#$%^&*-+=_)'
-      zh-cn: 8-32个字符，可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）
-    AssociationProperty: ALIYUN::ECS::Instance::Password
-    AllowedPattern: '^[a-zA-Z0-9-\!\@\#\$\%\^\&\*\-\+\=\_]*$'
-    MinLength: 8
-    MaxLength: 30
   # 专有网络VPC实例ID
   VpcId:
     AssociationProperty: ALIYUN::ECS::VPC::VPCId
@@ -123,12 +104,142 @@ Parameters:
       en: VSwitch ID
       zh-cn: 交换机实例ID
   # Ecs实例类型
+  AutoCreateSecurityGroup:
+    Type: Boolean
+    Default: true
+    Label:
+      zh-cn: 自动创建安全组
+      en: auto create security group
+  SecurityGroupId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AutoCreateSecurityGroup}
+            - false
+    Default: ''
+    Description:
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network & Security
+      zh-cn: 现有业务安全组的实例ID
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
   EcsInstanceType:
     Type: String
     Label:
       en: Instance Type
-      zh-cn: Ecs实例类型
+      zh-cn: 实例类型
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    MinLength: 8
+    MaxLength: 30
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  SystemDiskCategory:
+    Type: String
+    AllowedValues:
+      - cloud_efficiency        # 高效云盘
+      - cloud_ssd               # SSD云盘
+      - cloud_essd              # ESSD云盘
+    Default: cloud_essd
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+  SystemDiskSize:
+    Default: 40
+    Type: Number
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    MinValue: 40
+    MaxValue: 500
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+  AllocatePublicIp:
+    Default: false
+    Type: Boolean
+    Label:
+      zh-cn: 开启公网IP
+      en: allocate public ip
+  InternetMaxBandwidthOut:
+    Default: 0
+    Type: Number
+    Label:
+      zh-cn: 流量公网带宽
+      en: Internet Max Bandwidth Out
+    MinValue: 0
+    MaxValue: 100
+    Description:
+      zh-cn: 取值范围0-100, 0为不开公网ip
+      en: no public ip if zero
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AllocatePublicIp}
+            - true
+  InternetChargeType:
+    Default: PayByTraffic
+    Type: String
+    Label:
+      zh-cn: 流量付费类型
+      en: Internet Charge Type
+    AllowedValues:
+      - PayByBandwidth
+      - PayByTraffic
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AllocatePublicIp}
+            - true
+  # 数据库root账户密码
+  MySQLPassword:
+    # 查询该参数时只输出星号（*）
+    NoEcho: true
+    Type: String
+    Description:
+      en: 'Database root account passwor, 8-32 characters, including uppercase and lowercase letters, numbers and special symbols (including: !@#$%^&*-+=_).'
+      zh-cn: 数据库root账户密码，长度8-32个字符，可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    Label:
+      en: Root Account Password
+      zh-cn: 数据库root账户密码
+    ConstraintDescription:
+      en: '8-32 characters, including uppercase and lowercase letters, numbers and special symbols (including: !@#$%^&*-+=_).'
+      zh-cn: 8-32个字符，可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    MinLength: '8'
+    MaxLength: '32'
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+Conditions:
+  IfAutoCreateSecurityGroup:
+    Fn::Equals:
+      - Ref: AutoCreateSecurityGroup
+      - true
+  IfAllocatePublicIp:
+    Fn::Equals:
+      - Ref: AllocatePublicIp
+      - true
 # 定义资源
 Resources:
   # 定义WaitCondition和WaitConditionHandle来等待命令在Ecs中执行完毕部署成功
@@ -149,7 +260,7 @@ Resources:
       SecurityGroupIngress:
         - Priority: 1
           PortRange: 3306/3306
-          NicType: intranet
+          NicType: internet
           SourceCidrIp: 0.0.0.0/0
           IpProtocol: tcp
       VpcId:
@@ -158,9 +269,8 @@ Resources:
   EcsInstance:
     Type: ALIYUN::ECS::Instance
     Properties:
-      # 实例名称
-      InstanceName:
-        Ref: ALIYUN::StackName
+      ZoneId:
+        Ref: ZoneId
       # I/O优化实例
       IoOptimized: optimized
       DiskMappings:
@@ -169,7 +279,8 @@ Resources:
           Device: /dev/xvdb
           Size:
             Ref: DataDiskSize
-      SystemDiskSize: 40
+      SystemDiskSize:
+        Ref: SystemDiskSize
       # cloud-init执行用户命令
       # /var/log/cloud-init.log /var/log/cloud-init-output.log 可以看到执行日志
       # /var/lib/cloud/instance/scripts/part-001 为具体的脚本 可以sh 执行来排查问题
@@ -198,20 +309,15 @@ Resources:
             # 在新分区上创建文件系统
             mkfs.ext4 /dev/vdb1
             # 创建目录，MySQL将安装在该目录下
-            mkdir /data1
+            mkdir /data
             # 挂载文件系统
-            mount /dev/vdb1 /data1
+            mount /dev/vdb1 /data
             # 向 /etc/fstab 写入新分区信息
-            echo /dev/vdb1 /data1 ext4 defaults,nodelalloc,noatime 0 2 >> /etc/fstab
-            cd /data1/
-
-            # 安装社区版MySQL
-            wget http://repo.mysql.com/mysql-community-release-el6-5.noarch.rpm
-            rpm -ivh mysql-community-release-el6-5.noarch.rpm
-            yum repolist all | grep mysql
-            yum install mysql-community-server -y
+            echo /dev/vdb1 /data ext4 defaults,nodelalloc,noatime 0 2 >> /etc/fstab
+            cd /data/
 
             # 启动MySQL服务
+            rm -f mysql-community-release-el6-5.noarch.rpm
             service mysqld start
 
             # 以超级用户身份登入，创建admin用户，并允许admin用户以Password为密码远程登录
@@ -220,16 +326,16 @@ Resources:
             echo "CREATE USER 'admin'@'%' IDENTIFIED BY '${Password}';" >> ./test.sql
             echo "GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' WITH GRANT OPTION;" >> ./test.sql
             mysql -u root -p'${Password}' < ./test.sql
-
+            rm ./test.sql
             # 将MySQL的配置和数据路径移动到数据盘上
             systemctl stop mysqld
-            rsync -av /var/lib/mysql /data1
+            rsync -av /var/lib/mysql /data
             # 修改配置文件
-            sed -i 's/\/var\/lib/\/data1/g' /etc/my.cnf
+            sed -i 's/\/var\/lib/\/data/g' /etc/my.cnf
             echo -e '\n' >> /etc/my.cnf
             echo '[client]' >> /etc/my.cnf
             echo 'port=3306' >> /etc/my.cnf
-            echo 'socket=/data1/mysql/mysql.sock' >> /etc/my.cnf
+            echo 'socket=/data/mysql/mysql.sock' >> /etc/my.cnf
             # 重启MySQL
             systemctl start mysqld
 
@@ -243,7 +349,7 @@ Resources:
                 - CurlCli
             # 数据库root账户密码
             Password:
-              Ref: Password
+              Ref: MySQLPassword
       # 付费方式：按量付费
       InstanceChargeType:
         Ref: PayType
@@ -251,35 +357,40 @@ Resources:
         Ref: PayPeriodUnit
       Period:
         Ref: PayPeriod
-      # 系统盘类型：高效云盘
-      SystemDiskCategory: cloud_efficiency
-      # 实例名称
+      # 系统盘类型
+      SystemDiskCategory: cloud_essd
+      # 实例名
       InstanceName:
-        Fn::Join:
-          - '-'
-          - - mysql
-            - Ref: ALIYUN::StackName
+        Ref: ALIYUN::StackName
       VpcId:
         Ref: VpcId
       SecurityGroupId:
-        Ref: EcsSecurityGroup
+        Fn::If:
+          - IfAutoCreateSecurityGroup
+          - Ref: EcsSecurityGroup
+          - Ref: SecurityGroupId
       VSwitchId:
         Ref: VSwitchId
       # 指定CentOS 7.9镜像，如果修改镜像，UserData脚本需要进行适配
-      ImageId: "centos_7_9_x64_20G_alibase_20220727.vhd"
+      ImageId: centos_7
       InstanceType:
         Ref: EcsInstanceType
-      # 主机名
-      HostName: mysql-public-ip
       # Ecs登录密码
       Password:
-        Ref: Password
+        Ref: InstancePassword
       # 是否为实例分配公网IP
-      AllocatePublicIP: true
+      AllocatePublicIP:
+        Ref: AllocatePublicIp
+      InternetMaxBandwidthOut:
+        Fn::If:
+          - IfAllocatePublicIp
+          - Ref: InternetMaxBandwidthOut
+          - 0
 # 定义输出
 Outputs:
   # 将数据库连接地址显示在控制台
-  DBConnectionAddress:
+  DBConnectionPublicAddress:
+    Condition: IfAllocatePublicIp
     Value:
       # 将Ecs的公网IP拼接成数据库连接地址
       Fn::Sub:
@@ -288,6 +399,17 @@ Outputs:
             Fn::GetAtt:
               - EcsInstance
               - PublicIp
+  # 将数据库连接地址显示在控制台
+  DBConnectionPrivateAddress:
+    Condition: IfAllocatePublicIp
+    Value:
+      # 将Ecs的公网IP拼接成数据库连接地址
+      Fn::Sub:
+        - mysql://${Domain}:3306
+        - Domain:
+            Fn::GetAtt:
+              - EcsInstance
+              - PrivateIp
 # 定义元数据
 Metadata:
   ALIYUN::ROS::Interface:
@@ -307,19 +429,37 @@ Metadata:
           en: PayType Configuration
           zh-cn: 付费类型配置
       - Parameters:
-          - EcsInstanceType
-        Label:
-          en: Instance Type
-          zh-cn: 实例规格
-      - Parameters:
-          - DataDiskCategory
-          - DataDiskSize
-        Label:
-          en: Data Disk Configuration
-          zh-cn: 数据盘配置
-      - Parameters:
           - VpcId
           - VSwitchId
+          - AutoCreateSecurityGroup
+          - SecurityGroupId
         Label:
-          en: Network Configuration
-          zh-cn: 网络配置
+          default:
+            zh-cn: 选择已有基础资源配置
+            en: Choose existing Infrastructure Configuration
+      - Parameters:
+          - EcsInstanceType
+          - SystemDiskCategory
+          - SystemDiskSize
+          - DataDiskCategory
+          - DataDiskSize
+          - InstanceCount
+          - InstancePassword
+        Label:
+          default:
+            en: Instance
+            zh-cn: ECS实例配置
+      - Parameters:
+          - AllocatePublicIp
+          - InternetChargeType
+          - InternetMaxBandwidthOut
+        Label:
+          default:
+            en: Network Configurate
+            zh-cn: ECS网络配置
+      - Parameters:
+          - MySQLPassword
+        Label:
+          default:
+            en: MYSQL Configuration
+            zh-cn: MYSQL配置

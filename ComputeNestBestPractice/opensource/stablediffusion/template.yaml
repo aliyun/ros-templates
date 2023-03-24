@@ -1,0 +1,524 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: ecs部署nginx
+  zh-cn: ecs部署nginx
+# 参数配置
+Parameters:
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  PayPeriod:
+    Type: Number
+    Description:
+      en: When the resource purchase duration is Month, the value of Period ranges from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+  # 新建ack所在的vpc的网段
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR IPv4 Block
+      zh-cn: 专有网络IPv4网段
+    Description:
+      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    Default: 192.168.0.0/16
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+  # 新建ack所在的交换机的网段
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    Default: 192.168.1.0/24
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: VpcCidrBlock
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+    AllowedValues:
+      - ecs.gn7e-c16g1.4xlarge
+      - ecs.gn7e-c16g1.16xlarge
+      - ecs.gn7e-c16g1.32xlarge
+      - ecs.gn7i-c8g1.2xlarge
+      - ecs.gn7i-c16g1.4xlarge
+      - ecs.gn7i-c32g1.8xlarge
+      - ecs.gn6v-c8g1.2xlarge
+      - ecs.gn6v-c8g1.8xlarge
+      - ecs.gn6v-c8g1.16xlarge
+      - ecs.gn6v-c10g1.20xlarge
+      - ecs.gn6i-c4g1.xlarge
+      - ecs.gn6i-c8g1.2xlarge
+      - ecs.gn6i-c16g1.4xlarge
+      - ecs.gn6i-c24g1.6xlarge
+      - ecs.gn6i-c40g1.10xlarge
+      - ecs.gn6i-c24g1.12xlarge
+      - ecs.gn6i-c24g1.24xlarge
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    MinLength: 8
+    MaxLength: 30
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  EnableRdsStoragePlugin:
+    Label:
+      en: Enable RDS Storage Plugin
+      zh-cn: 开启RDS插件
+    Description:
+      en: Suggest open RDS storge plugin to store images and prompt
+      zh-cn: 建议开启RDS存储插件以保留图片和prompt
+    Default: false
+    Type: Boolean
+  DBInstanceClass:
+    Label:
+      zh-cn: 实例规格
+      en: DB Instance Class
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      Engine: MySQL
+      EngineVersion: 5.7
+      Category: Basic
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${EnableRdsStoragePlugin}
+            - true
+    Default: 'mysql.n2.medium.1'
+    AllowedValues:
+      - mysql.n2.medium.1
+      - mysql.n4.medium.1
+      - mysql.n2.large.1
+    Type: String
+    Description:
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html' target='_blank'><b><font color='blue'>实例规格表</font></b></a>
+      en: 'Select the instance specification based on the type of database engine and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.html'' target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+  DBInstanceStorage:
+    Label:
+      zh-cn: 实例存储
+      en: Storage
+    Type: Number
+    Description:
+      zh-cn: RDS实例大小范围为20-2000，每5个增量，单位为GB
+      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
+    MinValue: 20
+    MaxValue: 2000
+    ConstraintDescription:
+      zh-cn: RDS实例大小范围为20-2000，每5个增量，单位为GB
+      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
+    Default: 50
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${EnableRdsStoragePlugin}
+            - true
+  DBMasterUsername:
+    Type: String
+    Description:
+      en: Primary account name of the database instance.
+      zh-cn: 数据库实例的主账号名称。
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin with a letter and be end with an alphanumeric character
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾
+    Label:
+      zh-cn: 数据库账号名称
+      en: DB Username
+    Default: rdsuser
+    MaxLength: 16
+    MinLength: 2
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${EnableRdsStoragePlugin}
+            - true
+  DBMasterPassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+    MinLength: 8
+    MaxLength: 30
+    Default: 'pleasechangeThis'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${EnableRdsStoragePlugin}
+            - true
+  UserName:
+    Type: String
+    Label:
+      en: User Name
+      zh-cn: 软件登录名
+    Default: admin
+  Password:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Software login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 软件登录密码
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    Label:
+      en: Software Login Password
+      zh-cn: 软件登录密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    MinLength: 8
+    MaxLength: 30
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+Conditions:
+  UseRDSPlugin:
+    Fn::Equals:
+      - Ref: EnableRdsStoragePlugin
+      - true
+Resources:
+  # 新建vpc
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: ALIYUN::StackName
+      CidrBlock:
+        Ref: VpcCidrBlock
+  # 新建vswitch
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName:
+        Ref: ALIYUN::StackName
+      VpcId:
+        Ref: EcsVpc
+      ZoneId:
+        Ref: ZoneId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      VpcId:
+        Ref: EcsVpc
+      # 安全组入端口
+      SecurityGroupIngress:
+        - PortRange: 8080/8080
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+      # 安全组出端口
+      SecurityGroupEgress:
+        - PortRange: '-1/-1'
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: internet
+        - PortRange: '-1/-1'
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+  # 定义waitCondition和waitConditionHandle来等待跳板机命令执行完毕部署成功
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 300
+    DependsOn:
+      - Database
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      # 实例名
+      InstanceName:
+        Fn::Join:
+          - '-'
+          - - Ref: ALIYUN::StackName
+            - '[1,4]'
+      IoOptimized: optimized
+      # 付费类型
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      # 网络配置
+      VpcId:
+        Ref: EcsVpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      # 磁盘类型和大小
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 200
+      MaxAmount: 1
+      # 镜像
+      ImageId: centos_7
+      # 实例类型
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      # 公网开启
+      AllocatePublicIP: true
+      # 公网带宽
+      InternetMaxBandwidthOut: 20
+  Database:
+    Condition: UseRDSPlugin
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      Engine: MySQL
+      EngineVersion: '5.7'
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBInstanceStorageType: cloud_essd
+      Category: Basic
+      DBInstanceNetType: Intranet
+      MasterUserType: Super
+      MasterUserPassword:
+        Ref: DBMasterPassword
+      MasterUsername:
+        Ref: DBMasterUsername
+      PayType:
+        Ref: PayType
+      PeriodType:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      SecurityIPList:
+        Fn::Join:
+          - ','
+          - Fn::GetAtt:
+              - EcsInstanceGroup
+              - PrivateIps
+  # 到机器上执行命令
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      Sync: true
+      CommandContent:
+        Fn::Sub:
+          # 将master的ip输入到/root/conf.txt
+          # 可以在后续的步骤中通过conf.txt里的内容完成slave的初始化
+          - |
+            #!/bin/bash
+            docker stop `docker ps |grep aigc|awk -F' ' '{print $1}'`
+            echo "docker run -d --gpus all -p8081:7860 -v /home/models:/workspace/stable-diffusion-webui/models -v /home/extensions:/workspace/stable-diffusion-webui/extensions -e DB_HOST=${DBConnectString} -e DB_USER=${DBMasterUsername} -e DB_PASSWORD='${DBMasterPassword}' -e DB_PORT=3306 registry.cn-shanghai.aliyuncs.com/tcc_public/aigc:stable-diffusion-v3 sh -c '/opt/conda/bin/python /opt/conda/bin/conda run -n stabel python3 launch.py --listen --api --enable-insecure-extension-access' "> /etc/init.d/start_sd_docker.sh
+            /etc/init.d/start_sd_docker.sh
+            # 执行成功回调WaitCondition结束waitCondition的等待
+            sleep 30
+            htpasswd -bc /etc/nginx/password ${UserName} '${Password}'
+            systemctl start nginx
+            systemctl status nginx
+            systemctl enable nginx
+            # 执行成功回调WaitCondition结束waitCondition的等待
+            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+          - DBMasterUsername:
+              Ref: DBMasterUsername
+            # 从用户输入中拿到用户名和密码
+            DBMasterPassword:
+              Ref: DBMasterPassword
+            # 从Database的Output中拿到内网连接串
+            DBConnectString:
+              Fn::If:
+                - UseRDSPlugin
+                - Fn::GetAtt:
+                    - Database
+                    - InnerConnectionString
+                - ''
+            UserName:
+              Ref: UserName
+            Password:
+              Ref: Password
+            # 获取到waitConditionHandle的地址放到 ${CurlCli}变量里
+            CurlCli:
+              Fn::GetAtt:
+                - WaitConditionHandle
+                - CurlCli
+      Type: RunShellScript
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      # 超时时间
+      Timeout: '300'
+# 定义输出
+Outputs:
+  # 将公网ip做为http返回的地址显示在控制台
+  Endpoint:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}:8080
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                 - EcsInstanceGroup
+                 - PublicIps
+  PrivateEndpoint:
+    Description:
+      zh-cn: 内网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}:8080
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - PrivateIps
+
+Metadata:
+  ALIYUN::ROS::Interface:
+    # 分组信息
+    ParameterGroups:
+      - Parameters:
+          - PayType
+          - PayPeriodUnit
+          - PayPeriod
+        Label:
+          default:
+            en: PayType Configuration
+            zh-cn: 付费类型配置
+      - Parameters:
+          - EcsInstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: Instance
+            zh-cn: ECS实例配置
+      - Parameters:
+          - UserName
+          - Password
+        Label:
+          default:
+            en: Login Information
+            zh-cn: 登录信息
+      - Parameters:
+          - EnableRdsStoragePlugin
+          - DBInstanceClass
+          - DBInstanceStorage
+          - DBInstanceStorageType
+          - DBMasterUsername
+          - DBMasterPassword
+        Label:
+          default:
+            en: Database
+            zh-cn: RDS插件配置
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            zh-cn: 可用区配置
+            en: Zone Configuration
+      - Parameters:
+          - VpcCidrBlock
+          - VSwitchCidrBlock
+        Label:
+          default:
+            zh-cn: 选择网络配置
+            en: Choose existing Infrastructure Configuration
+

@@ -15,11 +15,14 @@
 * vpc-natgateway-eip nat网关绑定eip部署场景
 * ecs-slb ecs+slb+eip的部署架构
 * ecs-ramrole-oss ecs+ramrole免密访问oss场景
+* ecs-jenkins 部署ecs创建jenkins
+* existing-ecs-nginx 现存ecs部署nginx
 ### 进阶版
 
 * scaling-ecs ecs部署带有弹性伸缩
 * ecs-mysql-deploy ecs单机部署MySQL
 * ehpc-demo 部署ecs和ehpc,使用cluster弹性高性能计算集群，nas新建文件系统和挂载点
 * managed-reverse-vpc-connection 托管版vpc私网反向访问
+* ecs-mongoDB 部署ecs和mongoDB，并使用mongodb shell连接到mongoDB数据库
 
 ## [模版规范和注意事项](./TemplateBestPractice.md)

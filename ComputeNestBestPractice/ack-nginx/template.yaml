@@ -101,17 +101,18 @@ Parameters:
     NoEcho: true
     Type: String
     Description:
-      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols, including:! @ # $ % ^ & * ( ) _ + - ='
-      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
-    AssociationProperty: ALIYUN::ECS::Instance::Password
     ConstraintDescription:
-      en: '8-32 characters, can contain size letters, Numbers and special symbols, including:! @ # $ % ^ & * ( ) _ + - ='
-      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
     MinLength: 8
-    MaxLength: 32
+    MaxLength: 30
   # ack worker的实例类型
   WorkerInstanceType:
     Type: String
@@ -144,6 +145,28 @@ Parameters:
       zh-cn: Worker节点系统盘大小(GB)
     MinValue: 1
     Default: 120
+  # ack Pod网络CIDR,仅网络模式为flannel时需要该参数
+  PodCidr:
+    Type: String
+    Description:
+      zh-cn: 请填写有效的私有网段，即以下网段及其子网：10.0.0.0/8，172.16-31.0.0/12-16，192.168.0.0/16<br>不能与 VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
+      en: 'Please fill in a valid private segment, i.e. the following segments and their subnets: 10.0.0.0/8, 172.16-31.0.0/12-16, 192.168.0.0/16<br> which cannot duplicate the network segments already used by clusters in VPC and VPC Kunetberes. <font color=''blue''><b>Cannot be modified after successful creation</b></font>'
+    Label:
+      zh-cn: Pod 网络 CIDR
+      en: Pod Network CIDR
+    AssociationProperty: ALIYUN::CS::ManagedKubernetesCluster::PodCidr
+    Default: 10.0.0.0/16
+  # ServiceCIDR
+  ServiceCidr:
+    Type: String
+    Description:
+      zh-cn: 可选范围：10.0.0.0/16-24，172.16-31.0.0/16-24，192.168.0.0/16-24<br>不能与 VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
+      en: 'Optional range: 10.0.0.0/16-24, 172.16-31.0.0/16-24, 192.168.0.0/16-24<br> cannot duplicate segments already used by existing Kubernetes clusters in VPC and VPC.<font color=''blue''><b>Cannot be modified after successful creation</b></font>'
+    Label:
+      zh-cn: Service CIDR
+      en: Service CIDR
+    AssociationProperty: ALIYUN::CS::ManagedKubernetesCluster::ServiceCidr
+    Default: 172.16.0.0/16
   EcsInstanceType:
     Type: String
     Label:
@@ -239,11 +262,13 @@ Resources:
       NumOfNodes: 3
       ClusterSpec: ack.pro.small
       # flannel 模式指定
-      ContainerCidr: 172.20.0.0/16
+      ContainerCidr:
+        Ref: PodCidr
       # terway 模式指定
       # PodVswitchIds:
       #  - Ref: EcsVSwitch
-      ServiceCidr: 172.21.0.0/20
+      ServiceCidr:
+        Ref: ServiceCidr
       ZoneIds:
         - Ref: ZoneId
       SecurityGroupId:
@@ -340,6 +365,8 @@ Resources:
         Ref: EcsInstanceType
       VpcId:
         Ref: EcsVpc
+      ZoneId:
+        Ref: ZoneId
       VSwitchId:
         Ref: EcsVSwitch
       SecurityGroupId:
@@ -471,6 +498,8 @@ Metadata:
           - WorkerInstanceType
           - WorkerSystemDiskCategory
           - WorkerSystemDiskSize
+          - ServiceCidr
+          - PodCidr
         Label:
           en: Kubernetes配置
           zh-cn: KUBERNETES

@@ -97,30 +97,18 @@ Parameters:
     NoEcho: true
     Type: String
     Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
-      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
-    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
-    AssociationProperty: ALIYUN::ECS::Instance::Password
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
     ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
-      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
     MinLength: 8
     MaxLength: 30
-  InstanceClass:
-    Type: String
-    Description:
-      en: Instance specifications, please refer to：<a
-        href='https://www.alibabacloud.com/help/en/doc-detail/26350.html'
-        target='_blank'><b><font color='blue'>View specifications</font></b></a>
-      zh-cn: 实例规格，请参考：<a href='https://help.aliyun.com/document_detail/26350.html'
-        target='_blank'><b><font color='blue'>查看规格信息</font></b></a>
-    Default: redis.master.small.default
-    Label:
-      zh-cn: 实例规格
-      en: Instance Type
 Resources:
   # 安全组
   EcsSecurityGroup:
@@ -170,6 +158,8 @@ Resources:
       SystemDiskSize: 100
       VpcId:
         Ref: VpcId
+      ZoneId:
+        Ref: ZoneId
       ImageId: centos_7
       InstanceType:
         Ref: EcsInstanceType
@@ -181,23 +171,23 @@ Resources:
         Fn::Sub:
           - |
             #!/bin/bash
-            cat >> /root/conf.txt << EOF
+            cat >> /root/conf.txt << "EOF"
             DBConnectString=${DBConnectString}
             EOF
           - DBConnectString:
               Fn::GetAtt:
                 - RedisInstance
-                - InnerConnectionString
+                - ConnectionDomain
   # redis 实例配置
   RedisInstance:
-    Type: 'ALIYUN::REDIS::Instance'
+    Type: ALIYUN::REDIS::Instance
     Properties:
       VpcId:
         Ref: VpcId
       VSwitchId:
         Ref: VSwitchId
-      InstanceClass:
-        Ref: InstanceClass
+      InstanceClass: redis.master.small.default
+      EngineVersion: '6.0'
       EvictionPolicy: 'noeviction'
       ZoneId:
         Ref: ZoneId
@@ -205,13 +195,19 @@ Resources:
         Ref: ALIYUN::StackName
       Password:
         Ref: InstancePassword
-      # 数据库白名单
-      SecurityIPList:
+  Whitelist:
+    Type: ALIYUN::REDIS::Whitelist
+    Properties:
+      InstanceId:
+        Fn::GetAtt:
+          - RedisInstance
+          - InstanceId
+      SecurityIps:
         Fn::Join:
           - ','
           - Fn::GetAtt:
-            - EcsInstanceGroup
-            - PrivateIps
+              - EcsInstanceGroup
+              - PrivateIps
 Metadata:
   'ALIYUN::ROS::Interface':
     ParameterGroups:
