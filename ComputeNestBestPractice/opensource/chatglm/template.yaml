@@ -130,101 +130,6 @@ Parameters:
     MinLength: 8
     MaxLength: 30
     AssociationProperty: ALIYUN::ECS::Instance::Password
-  EnableRdsStoragePlugin:
-    Label:
-      en: Enable RDS Storage Plugin
-      zh-cn: 开启RDS插件
-    Description:
-      en: Suggest open RDS storge plugin to store images and prompt
-      zh-cn: 建议开启RDS存储插件以保留图片和prompt
-    Default: true
-    Type: Boolean
-  DBInstanceClass:
-    Label:
-      zh-cn: 实例规格
-      en: DB Instance Class
-    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
-    AssociationPropertyMetadata:
-      Engine: MySQL
-      EngineVersion: 5.7
-      Category: Basic
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${EnableRdsStoragePlugin}
-            - true
-    Default: 'mysql.n2.medium.1'
-    AllowedValues:
-      - mysql.n2.medium.1
-      - mysql.n4.medium.1
-      - mysql.n2.large.1
-    Type: String
-    Description:
-      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br><font color='red'>RDS新客首购2核4G-20GB首月只需8.8元/月</font>
-      en: 'Select the instance specification based on the type of database engine and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.html'' target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
-  DBInstanceStorage:
-    Label:
-      zh-cn: 实例存储
-      en: Storage
-    Type: Number
-    Description:
-      zh-cn: RDS实例大小范围为20-2000，每5个增量，单位为GB
-      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
-    MinValue: 20
-    MaxValue: 2000
-    ConstraintDescription:
-      zh-cn: RDS实例大小范围为20-2000，每5个增量，单位为GB
-      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
-    Default: 20
-    AssociationPropertyMetadata:
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${EnableRdsStoragePlugin}
-            - true
-  DBMasterUsername:
-    Type: String
-    Description:
-      en: Primary account name of the database instance.The length cannot exceed 16 characters. Start with an English letter and can contain English letters, numbers and underscores (_).
-      zh-cn: 数据库实例的主账号名称。长度不超过16个字符。以英文字母开头，可包含英文字母、数字和下划线（_）。
-    ConstraintDescription:
-      en: The length cannot exceed 16 characters. Start with an English letter and can contain English letters, numbers and underscores (_)
-      zh-cn: 长度不超过16个字符。以英文字母开头，可包含英文字母、数字和下划线（_）
-    Label:
-      zh-cn: 数据库账号名称
-      en: DB Username
-    Default: rdsuser
-    AllowedPattern: '^[a-zA-Z0-9\_]*$'
-    MaxLength: 16
-    MinLength: 2
-    AssociationPropertyMetadata:
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${EnableRdsStoragePlugin}
-            - true
-  DBMasterPassword:
-    NoEcho: true
-    Type: String
-    Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
-      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
-    Label:
-      en: Instance Password
-      zh-cn: 实例密码
-    ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
-      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
-    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
-    MinLength: 8
-    MaxLength: 30
-    Default: pleaseChangeThis
-    AssociationPropertyMetadata:
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${EnableRdsStoragePlugin}
-            - true
   UserName:
     Type: String
     Label:
@@ -247,11 +152,6 @@ Parameters:
     MinLength: 8
     MaxLength: 30
     AssociationProperty: ALIYUN::ECS::Instance::Password
-Conditions:
-  UseRDSPlugin:
-    Fn::Equals:
-      - Ref: EnableRdsStoragePlugin
-      - true
 Resources:
   # 新建vpc
   EcsVpc:
@@ -282,7 +182,7 @@ Resources:
         Ref: EcsVpc
       # 安全组入端口
       SecurityGroupIngress:
-        - PortRange: 8080/8080
+        - PortRange: 50000/50000
           Priority: 1
           SourceCidrIp: 0.0.0.0/0
           IpProtocol: tcp
@@ -306,9 +206,7 @@ Resources:
       Count: 1
       Handle:
         Ref: WaitConditionHandle
-      Timeout: 300
-    DependsOn:
-      - Database
+      Timeout: 3600
   WaitConditionHandle:
     Type: ALIYUN::ROS::WaitConditionHandle
   EcsInstanceGroup:
@@ -339,7 +237,7 @@ Resources:
         Ref: EcsSecurityGroup
       # 磁盘类型和大小
       SystemDiskCategory: cloud_essd
-      SystemDiskSize: 200
+      SystemDiskSize: 500
       MaxAmount: 1
       # 镜像
       ImageId: centos_7
@@ -351,43 +249,7 @@ Resources:
       # 公网开启
       AllocatePublicIP: true
       # 公网带宽
-      InternetMaxBandwidthOut: 20
-  Database:
-    Condition: UseRDSPlugin
-    Type: ALIYUN::RDS::DBInstance
-    Properties:
-      ZoneId:
-        Ref: ZoneId
-      VpcId:
-        Ref: EcsVpc
-      VSwitchId:
-        Ref: EcsVSwitch
-      Engine: MySQL
-      EngineVersion: '5.7'
-      DBInstanceClass:
-        Ref: DBInstanceClass
-      DBInstanceStorage:
-        Ref: DBInstanceStorage
-      DBInstanceStorageType: cloud_essd
-      Category: Basic
-      DBInstanceNetType: Intranet
-      MasterUserType: Super
-      MasterUserPassword:
-        Ref: DBMasterPassword
-      MasterUsername:
-        Ref: DBMasterUsername
-      PayType:
-        Ref: PayType
-      PeriodType:
-        Ref: PayPeriodUnit
-      Period:
-        Ref: PayPeriod
-      SecurityIPList:
-        Fn::Join:
-          - ','
-          - Fn::GetAtt:
-              - EcsInstanceGroup
-              - PrivateIps
+      InternetMaxBandwidthOut: 100
   # 到机器上执行命令
   InstanceRunCommand:
     Type: ALIYUN::ECS::RunCommand
@@ -399,12 +261,13 @@ Resources:
           # 可以在后续的步骤中通过conf.txt里的内容完成slave的初始化
           - |
             #!/bin/bash
-            docker stop `docker ps |grep aigc|awk -F' ' '{print $1}'`
-            echo "docker run -d --gpus all -p8081:7860 -v /home/models:/workspace/stable-diffusion-webui/models -v /home/extensions:/workspace/stable-diffusion-webui/extensions -v /home/embeddings:/workspace/stable-diffusion-webui/embeddings -v /home/aesthetic_embeddings:/workspace/stable-diffusion-webui/aesthetic_embeddings -e DB_HOST=${DBConnectString} -e DB_USER=${DBMasterUsername} -e DB_PASSWORD='${DBMasterPassword}' -e DB_PORT=3306 registry.cn-shanghai.aliyuncs.com/tcc_public/aigc:stable-diffusion-v9 sh -c '/opt/conda/bin/python /opt/conda/bin/conda run --no-capture-output -n stabel python3 launch.py --listen --api --enable-insecure-extension-access' "> /etc/init.d/start_sd_docker.sh
-            /etc/init.d/start_sd_docker.sh
+            cd /root/chatglm
+            git-lfs clone https://huggingface.co/THUDM/chatglm-6b
+            cd /root/chatglm/ChatGLM-6B
+            /workspace/miniconda/bin/streamlit run web_demo2.py --server.port 50001 &
             for ((i=0;i<100;i++))
             do
-               curl 127.0.0.1:8081
+               curl 127.0.0.1:50001
                if [ "$?" == 0 ]
                then
                  break
@@ -417,20 +280,7 @@ Resources:
             systemctl enable nginx
             # 执行成功回调WaitCondition结束waitCondition的等待
             ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
-          - DBMasterUsername:
-              Ref: DBMasterUsername
-            # 从用户输入中拿到用户名和密码
-            DBMasterPassword:
-              Ref: DBMasterPassword
-            # 从Database的Output中拿到内网连接串
-            DBConnectString:
-              Fn::If:
-                - UseRDSPlugin
-                - Fn::GetAtt:
-                    - Database
-                    - InnerConnectionString
-                - ''
-            UserName:
+          - UserName:
               Ref: UserName
             Password:
               Ref: Password
@@ -445,7 +295,7 @@ Resources:
           - EcsInstanceGroup
           - InstanceIds
       # 超时时间
-      Timeout: '300'
+      Timeout: '3600'
 # 定义输出
 Outputs:
   # 将公网ip做为http返回的地址显示在控制台
@@ -455,7 +305,7 @@ Outputs:
       en: Public IP Addresses
     Value:
       Fn::Sub:
-        - http://${ServerAddress}:8080
+        - http://${ServerAddress}:50000
         - ServerAddress:
             Fn::Select:
               - 0
@@ -468,7 +318,7 @@ Outputs:
       en: Public IP Addresses
     Value:
       Fn::Sub:
-        - http://${ServerAddress}:8080
+        - http://${ServerAddress}:50000
         - ServerAddress:
             Fn::Select:
               - 0
@@ -479,7 +329,7 @@ Outputs:
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-      - 'acs:integrate:计算巢:StableDiffusion'
+      - 'acs:integrate:计算巢:ChatGLM'
     # 分组信息
     ParameterGroups:
       - Parameters:
@@ -504,17 +354,6 @@ Metadata:
           default:
             en: Login Information
             zh-cn: 登录信息
-      - Parameters:
-          - EnableRdsStoragePlugin
-          - DBInstanceClass
-          - DBInstanceStorage
-          - DBInstanceStorageType
-          - DBMasterUsername
-          - DBMasterPassword
-        Label:
-          default:
-            en: Database
-            zh-cn: RDS插件配置
       - Parameters:
           - ZoneId
         Label:
