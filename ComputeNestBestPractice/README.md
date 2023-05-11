@@ -17,6 +17,7 @@
 * ecs-ramrole-oss ecs+ramrole免密访问oss场景
 * ecs-jenkins 部署ecs创建jenkins
 * existing-ecs-nginx 现存ecs部署nginx
+* ecs-adbpg 创建ecs和云原生数据仓库 AnalyticDB PostgreSQL版
 ### 进阶版
 
 * scaling-ecs ecs部署带有弹性伸缩

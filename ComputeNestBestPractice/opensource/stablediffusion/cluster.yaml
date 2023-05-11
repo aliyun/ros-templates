@@ -138,6 +138,101 @@ Parameters:
     Default: 1
     MinValue: 1
     MaxValue: 100
+  EnableRdsStoragePlugin:
+    Label:
+      en: Enable RDS Storage Plugin
+      zh-cn: 开启RDS插件
+    Description:
+      en: Suggest open RDS storge plugin to store images and prompt
+      zh-cn: 建议开启RDS存储插件以保留图片和prompt
+    Default: true
+    Type: Boolean
+  DBInstanceClass:
+    Label:
+      zh-cn: 实例规格
+      en: DB Instance Class
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      Engine: MySQL
+      EngineVersion: 5.7
+      Category: Basic
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${EnableRdsStoragePlugin}
+            - true
+    Default: 'mysql.n2.medium.1'
+    AllowedValues:
+      - mysql.n2.medium.1
+      - mysql.n4.medium.1
+      - mysql.n2.large.1
+    Type: String
+    Description:
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br><font color='red'>RDS新客首购2核4G-20GB首月只需8.8元/月</font>
+      en: 'Select the instance specification based on the type of database engine and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.html'' target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+  DBInstanceStorage:
+    Label:
+      zh-cn: 实例存储
+      en: Storage
+    Type: Number
+    Description:
+      zh-cn: RDS实例大小范围为20-2000，每5个增量，单位为GB
+      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
+    MinValue: 20
+    MaxValue: 2000
+    ConstraintDescription:
+      zh-cn: RDS实例大小范围为20-2000，每5个增量，单位为GB
+      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
+    Default: 20
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${EnableRdsStoragePlugin}
+            - true
+  DBMasterUsername:
+    Type: String
+    Description:
+      en: Primary account name of the database instance.The length cannot exceed 16 characters. Start with an English letter and can contain English letters, numbers and underscores (_).
+      zh-cn: 数据库实例的主账号名称。长度不超过16个字符。以英文字母开头，可包含英文字母、数字和下划线（_）。
+    ConstraintDescription:
+      en: The length cannot exceed 16 characters. Start with an English letter and can contain English letters, numbers and underscores (_)
+      zh-cn: 长度不超过16个字符。以英文字母开头，可包含英文字母、数字和下划线（_）
+    Label:
+      zh-cn: 数据库账号名称
+      en: DB Username
+    Default: rdsuser
+    AllowedPattern: '^[a-zA-Z0-9\_]*$'
+    MaxLength: 16
+    MinLength: 2
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${EnableRdsStoragePlugin}
+            - true
+  DBMasterPassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+    MinLength: 8
+    MaxLength: 30
+    Default: pleaseChangeThis
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${EnableRdsStoragePlugin}
+            - true
   LoadBalancerSpec:
     Type: String
     AssociationProperty: ALIYUN::SLB::Instance::InstanceType
@@ -146,6 +241,17 @@ Parameters:
       zh-cn: 负载均衡实例规格
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
+  LoadBalancerPersistenceTimeout:
+    Type: Number
+    Label:
+      en: Persistence Timeout
+      zh-cn: 会话保持超时时间
+    Description:
+      en: Persistence Timeout 0 means close persistence
+      zh-cn: 用户web使用建议开启会话保持(配置600-3600)，API调用建议关闭会话保持(配置成0)
+    Default: 600
+    MinValue: 0
+    MaxValue: 3600
   UserName:
     Type: String
     Label:
@@ -168,6 +274,11 @@ Parameters:
     MinLength: 8
     MaxLength: 30
     AssociationProperty: ALIYUN::ECS::Instance::Password
+Conditions:
+  UseRDSPlugin:
+    Fn::Equals:
+      - Ref: EnableRdsStoragePlugin
+      - true
 Resources:
   # 新建vpc
   EcsVpc:
@@ -332,6 +443,38 @@ Resources:
       Timeout: 2400
   WaitConditionHandle:
     Type: ALIYUN::ROS::WaitConditionHandle
+  Database:
+    Condition: UseRDSPlugin
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      Engine: MySQL
+      EngineVersion: '5.7'
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBInstanceStorageType: cloud_essd
+      Category: Basic
+      DBInstanceNetType: Intranet
+      MasterUserType: Super
+      MasterUserPassword:
+        Ref: DBMasterPassword
+      MasterUsername:
+        Ref: DBMasterUsername
+      PayType:
+        Ref: PayType
+      PeriodType:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      SecurityIPList:
+        Ref: VSwitchCidrBlock
   EcsInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
@@ -422,11 +565,19 @@ Resources:
             systemctl enable nginx
             # 执行成功回调WaitCondition结束waitCondition的等待
             ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
-          - DBMasterUsername: ''
+          - DBMasterUsername:
+              Ref: DBMasterUsername
             # 从用户输入中拿到用户名和密码
-            DBMasterPassword: ''
+            DBMasterPassword:
+              Ref: DBMasterPassword
             # 从Database的Output中拿到内网连接串
-            DBConnectString: ''
+            DBConnectString:
+              Fn::If:
+                - UseRDSPlugin
+                - Fn::GetAtt:
+                    - Database
+                    - InnerConnectionString
+                - ''
             UserName:
               Ref: UserName
             Password:
@@ -502,7 +653,8 @@ Resources:
       Persistence:
         CookieTimeout: 60
         StickySession: 'on'
-        PersistenceTimeout: 600
+        PersistenceTimeout:
+          Ref: LoadBalancerPersistenceTimeout
         XForwardedFor: 'off'
         StickySessionType: insert
       ListenerPort: 8080
@@ -602,11 +754,19 @@ Resources:
             systemctl status nginx
             systemctl enable nginx
             # 执行成功回调WaitCondition结束waitCondition的等待
-          - DBMasterUsername: ''
+          - DBMasterUsername:
+              Ref: DBMasterUsername
             # 从用户输入中拿到用户名和密码
-            DBMasterPassword: ''
+            DBMasterPassword:
+              Ref: DBMasterPassword
             # 从Database的Output中拿到内网连接串
-            DBConnectString: ''
+            DBConnectString:
+              Fn::If:
+                - UseRDSPlugin
+                - Fn::GetAtt:
+                    - Database
+                    - InnerConnectionString
+                - ''
             RegionId:
               Ref: ALIYUN::Region
             UserName:
@@ -678,6 +838,7 @@ Metadata:
             zh-cn: ECS实例配置
       - Parameters:
           - LoadBalancerSpec
+          - LoadBalancerPersistenceTimeout
         Label:
           default:
             en: SLB Configure
@@ -689,6 +850,17 @@ Metadata:
           default:
             en: Login Information
             zh-cn: 登录信息
+      - Parameters:
+          - EnableRdsStoragePlugin
+          - DBInstanceClass
+          - DBInstanceStorage
+          - DBInstanceStorageType
+          - DBMasterUsername
+          - DBMasterPassword
+        Label:
+          default:
+            en: Database
+            zh-cn: RDS插件配置
       - Parameters:
           - ZoneId
         Label:
