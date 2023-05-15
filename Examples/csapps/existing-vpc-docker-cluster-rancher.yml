@@ -1,0 +1,999 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 使用三台阿里云服务器ECS实现Rancher高可用集群安装，在Kubernetes集群中安装Rancher并使用DNS域名解析绑定SLB四层负载均衡对外提供服务，外部访问时请在安全组中添加80,443入方向的访问规则，Rancher是一个开源的企业级多集群Kubernetes管理平台，实现了Kubernetes集群在混合云+本地数据中心的集中部署与管理，以确保集群的安全性，加速企业数字化转型。
+  en: Using three Alibaba cloud server ECS to implement Rancher high-availability
+    cluster installation, install Rancher in Kubernetes cluster and use DNS domain
+    name resolution binding SLB four-tier load balancing external service, external
+    access to the security group to add 80,443 access rules, Rancher is an open source
+    enterprise-class multi-cluster Kubernetes management platform, the kubernetes
+    cluster in the hybrid cloud plus Central deployment and management of on-premises
+    data centers to ensure cluster security and accelerate enterprise digital transformation.
+Parameters:
+  VSwitchZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VPC:
+    Type: String
+    Label:
+      zh-cn: 现有VPC的实例ID
+      en: Existing VPC Instance ID
+    Description:
+      zh-cn: 现有虚拟专有网络的实例ID,控制台-VPC-专有网络下查询
+      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitch:
+    Type: String
+    Label:
+      zh-cn: 网络交换机ID
+      en: Existing VSwitch ID
+    Description:
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VPC
+      ZoneId: VSwitchZoneId
+  SecurityGroup:
+    Type: String
+    Label:
+      zh-cn: 业务安全组ID
+      en: Business Security Group ID
+    Description:
+      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VPC
+  InstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font>]<br><font color='blue'><b>2.List of optional
+        models</font>]<br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB
+        Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPSS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  SystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[20, 500], 单位：GB。
+      en: 'System disk size, range of values: 20-500, units: GB.'
+    Default: 20
+  Password:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Specification
+    Description:
+      zh-cn: 实例规格，详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+      en: Instance specifications, see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance support type</b></font></a>
+    Default: slb.s1.small
+    AllowedValues:
+    - slb.s1.small
+    - slb.s2.small
+    - slb.s2.medium
+    - slb.s3.small
+    - slb.s3.medium
+    - slb.s3.large
+  Bandwidth:
+    Type: Number
+    Label:
+      zh-cn: 弹性公网IP带宽
+      en: SLB Elastic IP Bandwidth
+    Description:
+      zh-cn: 取值范围：[0, 1000]，单位：Mbps。
+      en: 'Value range: [0, 1000], Unit: Mbps.'
+    Default: 10
+    MinValue: 1
+    MaxValue: 1000
+  DomainName:
+    Type: String
+    Label:
+      en: Domain Name
+      zh-cn: 域名
+    Description:
+      en: Domain Name,fill in the applied domain name.
+      zh-cn: 域名,填入已申请的域名名称。
+  RR:
+    Type: String
+    Label:
+      en: Host Record
+      zh-cn: 主机记录
+    Description:
+      en: Host record, if you want to resolve @.exmaple.com, the host record should
+        fill in "@" instead of empty</font>
+      zh-cn: 主机记录，如果你想解析@.exmaple.com，主机记录应该填写“@”而不是“空”</font>
+Resources:
+  MasterK8sWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e73a4061-c63b-463a-a76e-a1ec825425a4
+  MasterK8sWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: MasterK8sWaitConditionHandle
+      Timeout: 3600
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 41826b98-5d09-4ccc-bda4-ab6e6b1ca746
+  SlaveK8sWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1ddb81a0-d692-4082-90f7-1c5c850a5c66
+  SlaveK8sWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 2
+      Handle:
+        Ref: SlaveK8sWaitConditionHandle
+      Timeout: 3600
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ec897796-aea2-427a-839f-f55f4e0786a4
+  SlaveK8sServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7_04
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - SlaveK8sWaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - " \n"
+            - "CreateUser() { \n"
+            - "    groupadd docker \n"
+            - "    useradd rancher -G docker \n"
+            - "    echo \"123456\" | passwd --stdin rancher \n"
+            - "} \n"
+            - '
+
+              '
+            - "InstallDocker() { \n"
+            - "    yum install -y yum-utils \n"
+            - "    yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo\
+              \ \n"
+            - "    yum makecache fast \n"
+            - "    yum -y install docker-ce \n"
+            - "    systemctl enable docker \n"
+            - "    systemctl start docker \n"
+            - "} \n"
+            - '
+
+              '
+            - "SetDockerRegistry() { \n"
+            - "    echo \"{\" >> /etc/docker/daemon.json \n"
+            - "    echo '     \"registry-mirrors\": [\"https://ly7y5sh7.mirror.aliyuncs.com\"\
+              ]' >> /etc/docker/daemon.json \n"
+            - "    echo \"}\" >> /etc/docker/daemon.json \n"
+            - "    systemctl daemon-reload \n"
+            - "    systemctl restart docker \n"
+            - "} \n"
+            - '
+
+              '
+            - "main() { \n"
+            - "    CreateUser \n"
+            - "    InstallDocker \n"
+            - "    SetDockerRegistry \n"
+            - "} \n"
+            - '
+
+              '
+            - "main \n"
+            - "ros-notify \n"
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      AllocatePublicIP: true
+      Password:
+        Ref: Password
+      InstanceName: RancherSlaveServer
+      InstanceType:
+        Ref: InstanceType
+      MaxAmount: 2
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5c306946-b01f-4689-a43f-d0641021a00a
+  MasterK8sServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7_04
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - MasterK8sWaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - " \n"
+            - DomainName=
+            - Ref: DomainName
+            - '
+
+              '
+            - RR=
+            - Ref: RR
+            - '
+
+              '
+            - RootPassword=
+            - Ref: Password
+            - '
+
+              '
+            - 'MasterK8sIP=`ifconfig eth0 | awk ''/inet /{print $2}''`
+
+              '
+            - Slave1K8sIP=
+            - Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                - SlaveK8sServer
+                - PrivateIps
+            - '
+
+              '
+            - Slave2K8sIP=
+            - Fn::Select:
+              - '1'
+              - Fn::GetAtt:
+                - SlaveK8sServer
+                - PrivateIps
+            - '
+
+              '
+            - "CreateUser() { \n"
+            - "   mkdir -p /tmp/rancher \n"
+            - "   yum install -y expect \n"
+            - "   groupadd docker \n"
+            - "   useradd rancher -G docker \n"
+            - "   echo \"123456\" | passwd --stdin rancher \n"
+            - "} \n"
+            - '
+
+              '
+            - "SSHConfig() { \n"
+            - "   echo '[ ! -f /home/rancher/.ssh/id_rsa.pub ] && ssh-keygen -t rsa\
+              \ -P \"\" -f ~/.ssh/id_rsa &>/dev/null' >> /tmp/auto_ssh.sh  \n"
+            - '   echo ''while read line;do'' >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''        ip=`echo $line | cut -d " " -f1`'' >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''        user_name=`echo $line | cut -d " " -f2`'' >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''        pass_word=`echo $line | cut -d " " -f3`'' >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''expect <<EOF'' >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''        spawn ssh-copy-id -i /home/rancher/.ssh/id_rsa.pub
+              $user_name@$ip'' >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''        expect {'' >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''                  "yes/no" { send "yes\n";exp_continue}''
+              >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''                  "password" { send "$pass_word\n"}'' >>
+              /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''        }'' >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''        expect eof'' >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''EOF'' >> /tmp/auto_ssh.sh
+
+              '
+            - '   echo ''done < /tmp/host_ip.txt'' >> /tmp/auto_ssh.sh
+
+              '
+            - "} \n"
+            - '
+
+              '
+            - "SetHostsConfig() { \n"
+            - "   echo \"${MasterK8sIP} rancher 123456\" >> /tmp/host_ip.txt \n"
+            - "   echo \"${Slave1K8sIP} rancher 123456\" >> /tmp/host_ip.txt \n"
+            - "   echo \"${Slave2K8sIP} rancher 123456\" >> /tmp/host_ip.txt \n"
+            - '   su - rancher -c "sh /tmp/auto_ssh.sh"
+
+              '
+            - "} \n"
+            - '
+
+              '
+            - "InstallDocker() { \n"
+            - "    yum install -y yum-utils \n"
+            - "    yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo\
+              \ stable-19.03 \n"
+            - "    yum makecache fast \n"
+            - "    yum -y install docker-ce-19.03.8 \n"
+            - "    systemctl enable docker \n"
+            - "    systemctl start docker \n"
+            - "} \n"
+            - '
+
+              '
+            - "SetDockerRegistry() { \n"
+            - "    echo \"{\" >> /etc/docker/daemon.json \n"
+            - "    echo '     \"registry-mirrors\": [\"https://ly7y5sh7.mirror.aliyuncs.com\"\
+              ]' >> /etc/docker/daemon.json \n"
+            - "    echo \"}\" >> /etc/docker/daemon.json \n"
+            - "    systemctl daemon-reload \n"
+            - "    systemctl restart docker \n"
+            - "} \n"
+            - '
+
+              '
+            - "InstallKubectl() { \n"
+            - "   cd /tmp/rancher \n"
+            - "   wget http://rancher-mirror.cnrancher.com/kubectl/v1.9.11/linux-amd64-v1.9.11-kubectl\
+              \ \n"
+            - "   mv linux-amd64-v1.9.11-kubectl kubectl \n"
+            - "   chmod +x kubectl \n"
+            - "   mv kubectl /usr/local/bin/kubectl \n"
+            - "} \n"
+            - '
+
+              '
+            - "InstallRKE() { \n"
+            - "   cd /tmp/rancher \n"
+            - "   wget http://rancher-mirror.cnrancher.com/rke/v1.1.4/rke_linux-amd64\
+              \ \n"
+            - "   mv rke_linux-amd64 rke \n"
+            - "   chmod +x rke \n"
+            - "   mv rke /usr/local/bin/rke \n"
+            - "} \n"
+            - '
+
+              '
+            - "InstallHelm() { \n"
+            - "   cd /tmp/rancher \n"
+            - "   wget http://rancher-mirror.cnrancher.com/helm/v3.3.0/helm-v3.3.0-linux-amd64.tar.gz\
+              \ \n"
+            - "   tar -zxvf helm-v3.3.0-linux-amd64.tar.gz \n"
+            - "   chmod +x linux-amd64/helm \n"
+            - "   mv linux-amd64/helm /usr/local/bin/helm \n"
+            - "} \n"
+            - '
+
+              '
+            - "SetK8sConfig() { \n"
+            - "    cd /tmp/rancher \n"
+            - '    echo ''nodes:'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo "  - address: ${MasterK8sIP}" >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo "    internal_address: ${MasterK8sIP}" >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''    user: rancher'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''    role: [controlplane,worker,etcd]'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo "  - address: ${Slave1K8sIP}" >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo "    internal_address: ${Slave1K8sIP}" >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''    user: rancher'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''    role: [controlplane,worker,etcd]'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo "  - address: ${Slave2K8sIP}" >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo "    internal_address: ${Slave2K8sIP}" >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''    user: rancher'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''    role: [controlplane,worker,etcd]'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''services:'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''  etcd:'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''    snapshot: true'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''    creation: 6h'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - '    echo ''    retention: 24h'' >> /tmp/rancher/rancher-cluster.yml
+
+              '
+            - "} \n"
+            - '
+
+              '
+            - "StartK8sCluster() { \n"
+            - "    chown rancher:rancher -R /tmp/rancher \n"
+            - '    su - rancher -c "rke up --config /tmp/rancher/rancher-cluster.yml"
+
+              '
+            - "} \n"
+            - '
+
+              '
+            - "SetKubectlEnv() { \n"
+            - "    echo \"export KUBECONFIG=/tmp/rancher/kube_config_rancher-cluster.yml\"\
+              \ >> /etc/profile \n"
+            - "    source /etc/profile \n"
+            - "    su - \n"
+            - "} \n"
+            - '
+
+              '
+            - "CheckK8sStatus() { \n"
+            - '    k8s_state=`kubectl get pods --all-namespaces | awk ''{print$3}''
+              |grep 0`
+
+              '
+            - "    echo \"${k8s_state}\" >> /tmp/CheckK8sStatus.log \n"
+            - "    while [[ $k8s_state =~ 0 ]] \n"
+            - '    do
+
+              '
+            - '        sleep 30
+
+              '
+            - '        k8s_state=`kubectl get pods --all-namespaces | awk ''{print$3}''
+              |grep 0`
+
+              '
+            - "        echo \"${k8s_state}\" >> /tmp/CheckK8sStatus.log \n"
+            - '    done
+
+              '
+            - "} \n"
+            - '
+
+              '
+            - "CheckHelmStatus() { \n"
+            - '    helm_state=`kubectl get pods --namespace cert-manager |awk ''{print$2}''|grep
+              0`
+
+              '
+            - "    echo \"${helm_state}\" >> /tmp/CheckHelmStatus.log \n"
+            - "    while [[ $helm_state =~ 0 ]] \n"
+            - '    do
+
+              '
+            - '        sleep 30
+
+              '
+            - '        helm_state=`kubectl get pods --namespace cert-manager |awk
+              ''{print$2}''|grep 0`
+
+              '
+            - "        echo \"${helm_state}\" >> /tmp/CheckHelmStatus.log \n"
+            - '    done
+
+              '
+            - "} \n"
+            - '
+
+              '
+            - "SetHelm() { \n"
+            - "    su - rancher -c \"helm repo add rancher-stable http://rancher-mirror.oss-cn-beijing.aliyuncs.com/server-charts/stable\"\
+              \ \n"
+            - "    su - rancher -c \"kubectl create namespace cattle-system\" \n"
+            - "    su - rancher -c \"kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.15.0/cert-manager.crds.yaml\"\
+              \  \n"
+            - "    su - rancher -c \"kubectl create namespace cert-manager\" \n"
+            - "    su - rancher -c \"helm repo add jetstack https://charts.jetstack.io\"\
+              \ \n"
+            - "    su - rancher -c \"helm repo update\" \n"
+            - "    su - rancher -c \"helm install cert-manager jetstack/cert-manager\
+              \ --namespace cert-manager --version v0.15.0\" \n"
+            - "} \n"
+            - '
+
+              '
+            - "StartRancherCluster() { \n"
+            - "    su - rancher -c \"helm install rancher rancher-stable/rancher --namespace\
+              \ cattle-system  --set hostname=${RR}.${DomainName}\" \n"
+            - "} \n"
+            - '
+
+              '
+            - "CheckRancherStatus() { \n"
+            - '    rancher_state=`kubectl get pods --all-namespaces | grep rancher
+              | awk ''{print$3}'' | grep 0`
+
+              '
+            - "    echo \"${rancher_state}\" >> /tmp/CheckRancherStatus.log \n"
+            - "    while [[ $rancher_state =~ 0 ]] \n"
+            - '    do
+
+              '
+            - '        sleep 30
+
+              '
+            - '        rancher_state=`kubectl get pods --all-namespaces | grep rancher
+              | awk ''{print$3}'' | grep 0`
+
+              '
+            - "        echo \"${rancher_state}\" >> /tmp/CheckRancherStatus.log \n"
+            - '    done
+
+              '
+            - "} \n"
+            - "main() { \n"
+            - "    CreateUser \n"
+            - "    InstallDocker  \n"
+            - "    SetDockerRegistry \n"
+            - "    InstallKubectl \n"
+            - "    InstallRKE \n"
+            - "    InstallHelm \n"
+            - "    SetK8sConfig \n"
+            - "    SSHConfig \n"
+            - "    SetHostsConfig \n"
+            - "    StartK8sCluster \n"
+            - "    SetKubectlEnv \n"
+            - "    CheckK8sStatus  \n"
+            - "    SetHelm \n"
+            - "    CheckHelmStatus \n"
+            - "    StartRancherCluster \n"
+            - "    CheckRancherStatus  \n"
+            - "} \n"
+            - "main \n"
+            - "ros-notify \n"
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      AllocatePublicIP: true
+      Password:
+        Ref: Password
+      InstanceName: RancherMasterServer
+      InstanceType:
+        Ref: InstanceType
+      MaxAmount: 1
+    DependsOn: SlaveK8sServer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 12ce92e8-8dfc-4d00-93e8-cbc0366f0ade
+  SlbLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      AddressType: intranet
+      LoadBalancerName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      InternetChargeType: paybytraffic
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      MasterZoneId:
+        Ref: VSwitchZoneId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 97487a68-bb05-426b-a0af-448696b2a282
+  VpcEip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth:
+        Ref: Bandwidth
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8cae8a90-10ad-4266-ad5c-a4704c8cb0e8
+  EIPAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: SlbLoadBalancer
+      AllocationId:
+        Ref: VpcEip
+    DependsOn:
+    - SlbLoadBalancer
+    - VpcEip
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2ee93f49-991c-4713-8a40-aa3938e5b0bb
+  SlbListener80:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Protocol: tcp
+      HealthCheck:
+        HealthyThreshold: 3
+        UnhealthyThreshold: 3
+        Interval: 2
+        Timeout: 5
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+      ListenerPort: 80
+      Bandwidth: -1
+      BackendServerPort: 80
+      Scheduler: wrr
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e94a9033-f19e-4d46-bdb2-0773f73e08aa
+  SlbListener443:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Protocol: tcp
+      HealthCheck:
+        HealthyThreshold: 3
+        UnhealthyThreshold: 3
+        Interval: 2
+        Timeout: 5
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+      ListenerPort: 443
+      Bandwidth: -1
+      BackendServerPort: 443
+      Scheduler: wrr
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: de573d9e-5e03-4aa1-900a-6bac3b6c3067
+  SlbBackendServerAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::ListMerge:
+        - Fn::GetAtt:
+          - MasterK8sServer
+          - InstanceIds
+        - Fn::GetAtt:
+          - SlaveK8sServer
+          - InstanceIds
+      BackendServerWeightList:
+      - 100
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+    DependsOn:
+    - MasterK8sServer
+    - SlaveK8sServer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c5b5bf81-ed69-444a-ad5e-181b7832905c
+  DomainRecord:
+    Type: ALIYUN::DNS::DomainRecord
+    Properties:
+      RR:
+        Ref: RR
+      DomainName:
+        Ref: DomainName
+      Value:
+        Fn::GetAtt:
+        - VpcEip
+        - EipAddress
+      Type: A
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e7491381-8f1a-43eb-9629-025d16242774
+Outputs:
+  RancherServerWebUrl:
+    Value:
+      Fn::Sub:
+      - http://${RR}.${DomainName}
+      - RR:
+          Ref: RR
+        DomainName:
+          Ref: DomainName
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VSwitchZoneId
+      - VPC
+      - VSwitch
+      - SecurityGroup
+      Label:
+        default:
+          zh-cn: 基础资源配置（必填）
+          en: Infrastructure Configuration
+    - Parameters:
+      - InstanceType
+      - SystemDiskCategory
+      - SystemDiskSize
+      - Password
+      Label:
+        default:
+          zh-cn: Rancher 配置
+          en: Rancher Configuration
+    - Parameters:
+      - LoadBalancerSpec
+      - Bandwidth
+      - DomainName
+      - RR
+      Label:
+        default:
+          zh-cn: 负载均衡配置
+          en: SLB Configuration
+    TemplateTags:
+    - acs:solution:容器:Rancher集群版(已有VPC)
+  ALIYUN::ROS::Designer:
+    41826b98-5d09-4ccc-bda4-ab6e6b1ca746:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 558
+        y: 315
+      z: 0
+    e73a4061-c63b-463a-a76e-a1ec825425a4:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 558
+        y: 196
+      z: 0
+    ec897796-aea2-427a-839f-f55f4e0786a4:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 959
+        y: 312
+      z: 0
+    1ddb81a0-d692-4082-90f7-1c5c850a5c66:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 959
+        y: 195
+      z: 0
+    12ce92e8-8dfc-4d00-93e8-cbc0366f0ade:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 688
+        y: 266
+      z: 0
+    5c306946-b01f-4689-a43f-d0641021a00a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 818
+        y: 265
+      z: 0
+    97487a68-bb05-426b-a0af-448696b2a282:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 743
+        y: -98
+      z: 0
+    8cae8a90-10ad-4266-ad5c-a4704c8cb0e8:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 407
+        y: -152
+      z: 0
+    2ee93f49-991c-4713-8a40-aa3938e5b0bb:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 493
+        y: 42
+      z: 0
+    e94a9033-f19e-4d46-bdb2-0773f73e08aa:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 927
+        y: -168
+      z: 0
+    de573d9e-5e03-4aa1-900a-6bac3b6c3067:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 926
+        y: -14
+      z: 0
+    c5b5bf81-ed69-444a-ad5e-181b7832905c:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 743
+        y: 47
+      z: 0
+    e7491381-8f1a-43eb-9629-025d16242774:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 331
+        y: 41
+      z: 0
+    448cb0ce-2438-4d61-a31c-b5380a024b61:
+      source:
+        id: 41826b98-5d09-4ccc-bda4-ab6e6b1ca746
+      target:
+        id: e73a4061-c63b-463a-a76e-a1ec825425a4
+      z: 1
+    ea255a1d-3b68-4879-b9e8-200ca895e7aa:
+      source:
+        id: ec897796-aea2-427a-839f-f55f4e0786a4
+      target:
+        id: 1ddb81a0-d692-4082-90f7-1c5c850a5c66
+      z: 1
+    5a1193df-ae11-4e92-9356-dbcab46293cc:
+      source:
+        id: 2ee93f49-991c-4713-8a40-aa3938e5b0bb
+      target:
+        id: 97487a68-bb05-426b-a0af-448696b2a282
+      z: 1
+    cddb08a2-30d9-42ff-b4b2-7ed6c99a31f4:
+      source:
+        id: 2ee93f49-991c-4713-8a40-aa3938e5b0bb
+      target:
+        id: 8cae8a90-10ad-4266-ad5c-a4704c8cb0e8
+      z: 1
+    7fd08512-b9d8-4373-96ea-ac08265dde5e:
+      source:
+        id: e94a9033-f19e-4d46-bdb2-0773f73e08aa
+      target:
+        id: 97487a68-bb05-426b-a0af-448696b2a282
+      z: 1
+    7474407f-8af5-45ac-9a5a-deaf3aeb53ea:
+      source:
+        id: de573d9e-5e03-4aa1-900a-6bac3b6c3067
+      target:
+        id: 97487a68-bb05-426b-a0af-448696b2a282
+      z: 1
+    1b5ff582-fc8a-4a9b-8179-ddf5f025c0fa:
+      source:
+        id: c5b5bf81-ed69-444a-ad5e-181b7832905c
+      target:
+        id: 97487a68-bb05-426b-a0af-448696b2a282
+      z: 1
+    8bac569a-608d-43b5-af90-d93822cdc730:
+      source:
+        id: e7491381-8f1a-43eb-9629-025d16242774
+      target:
+        id: 8cae8a90-10ad-4266-ad5c-a4704c8cb0e8
+      z: 1
+    b26f596f-d44a-4176-adfc-359b81b61cea:
+      source:
+        id: 12ce92e8-8dfc-4d00-93e8-cbc0366f0ade
+      target:
+        id: c5b5bf81-ed69-444a-ad5e-181b7832905c
+      z: 1
+    4c98113e-9046-4b52-91ac-03740ec8cd42:
+      source:
+        id: 5c306946-b01f-4689-a43f-d0641021a00a
+      target:
+        id: c5b5bf81-ed69-444a-ad5e-181b7832905c
+      z: 1

@@ -1,0 +1,98 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  LoadBalancerId:
+    Type: String
+    Label:
+      en: ALB Instance ID
+      zh-cn: ALB实例ID
+    AssociationProperty: ALIYUN::ALB::LoadBalancer::LoadBalancerId
+  EcsInstanceIds:
+    Type: CommaDelimitedList
+    Label:
+      en: ECS Instance ID List
+      zh-cn: ECS实例ID列表
+    Description:
+      en: The ECS instance where the application service has been deployed, <span
+        style="background:#E7E9EB;"><b>the ECS instance and the ALB instance need
+        to be under the same VPC</b></span>.
+      zh-cn: 已部署应用服务的ECS实例，<span style="background:#E7E9EB;"><b>ECS实例和ALB实例需要在同一个VPC下</b></span>。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    MinLength: 2
+    MaxLength: 2
+Resources:
+  DS_LoadBalancers:
+    Type: DATASOURCE::ALB::LoadBalancers
+    Properties:
+      LoadBalancerIds:
+      - Ref: LoadBalancerId
+  ServerGroup:
+    Type: ALIYUN::ALB::ServerGroup
+    Properties:
+      VpcId:
+        Fn::Jq:
+        - First
+        - .[0].VpcId
+        - Fn::GetAtt:
+          - DS_LoadBalancers
+          - LoadBalancers
+      ServerGroupType: Instance
+      Protocol: HTTP
+      ServerGroupName: TrialTutorial
+      Scheduler: Wrr
+      HealthCheckConfig:
+        HealthCheckEnabled: true
+      StickySessionConfig:
+        StickySessionEnabled: false
+  BackendServerAttachment:
+    Type: ALIYUN::ALB::BackendServerAttachment
+    Properties:
+      ServerGroupId:
+        Ref: ServerGroup
+      Servers:
+      - ServerType: Ecs
+        ServerId:
+          Fn::Select:
+          - 0
+          - Ref: EcsInstanceIds
+        Port: 80
+        Weight: 100
+      - ServerType: Ecs
+        ServerId:
+          Fn::Select:
+          - 1
+          - Ref: EcsInstanceIds
+        Port: 80
+        Weight: 100
+  Listener:
+    Type: ALIYUN::ALB::Listener
+    Properties:
+      DefaultActions:
+      - Type: ForwardGroup
+        ForwardGroupConfig:
+          ServerGroupTuples:
+          - ServerGroupId:
+              Ref: ServerGroup
+      LoadBalancerId:
+        Ref: LoadBalancerId
+      ListenerProtocol: HTTP
+      ListenerPort: 80
+Outputs:
+  AlbDnsName:
+    Description:
+      en: DNS name of the ALB instance.
+      zh-cn: ALB实例的DNS名称。
+    Value:
+      Fn::Jq:
+      - First
+      - .[0].DNSName
+      - Fn::GetAtt:
+        - DS_LoadBalancers
+        - LoadBalancers
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - LoadBalancerId
+      - EcsInstanceIds
+    TemplateTags:
+    - acs:document:试用教程:实现IPv4服务的七层负载均衡

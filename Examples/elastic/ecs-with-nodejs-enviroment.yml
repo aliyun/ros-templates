@@ -1,0 +1,228 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: This template show how to deploy a Node.js environment and do a test
+  based on a new ECS instance. ***WARNING***, this template only supports CentOS.
+Parameters:
+  IoOptimized:
+    Type: String
+    Label: Io Optimized
+    Description: The 'optimized' instance can provide better IO performance. Support
+      'none' and 'optimized' only, default is 'optimized'.
+    Default: optimized
+    AllowedValues:
+    - none
+    - optimized
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  VpcName:
+    Type: String
+    Label: Vpc Name
+    Description: Name of VPC
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    MinLength: 2
+    MaxLength: 128
+  VpcCidrBlock:
+    Type: String
+    Label: Vpc Cidr Block
+    Description: |-
+      The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:
+      10.0.0.0/8
+      172.16.0.0/12 (Default)
+      192.168.0.0/16
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  InstancePassword:
+    Type: String
+    Label: ECS Instance Password
+    Description: The root password of ECS instance. The password is a string of 8
+      to 41 characters and must contain uppercase/lowercase letters, numbers.
+    ConstraintDescription: Consist of 8 to 30 alphanumeric.
+    AllowedPattern: '[a-zA-Z0-9]*'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+    Confirm: true
+  ZoneId:
+    Type: String
+    Label: ECS Zone Id
+    Description: Ecs Available Zone Id, <a href='#/product/cn-beijing/list/zoneList'
+      target='_blank'>View zoneid info</a>
+  SystemDiskCategory:
+    Type: String
+    Label: Instance System Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  NodejsUrl:
+    Type: String
+    Label: Node js Url
+    Description: The official download path of .tar.gz
+    Default: https://nodejs.org/dist/v6.9.5/node-v6.9.5-linux-x64.tar.xz
+  InstanceName:
+    Type: String
+    Label: ECS Instance Name
+    Description: The name of ECS instance
+    Default: ecsinstance
+  VSwitchCidrBlock:
+    Type: String
+    Label: VSwitch Cidr Block
+    Description: Cidr Block of created VSwitch
+    Default: 192.168.1.0/24
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: VpcName
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupEgress:
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      IoOptimized:
+        Ref: IoOptimized
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WebServerConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/bash \n"
+            - NodejsUrl=
+            - Ref: NodejsUrl
+            - '
+
+              '
+            - "cd /root \n"
+            - "yum -y install aria2 \n"
+            - "aria2c $NodejsUrl \n"
+            - "tar xvf node-v6.9.5-linux-x64.tar.xz \n"
+            - "ln -s /root/node-v6.9.5-linux-x64/bin/node /usr/local/bin/node \n"
+            - "ln -s /root/node-v6.9.5-linux-x64/bin/npm /usr/local/bin/npm \n"
+            - " \n"
+            - "yum -y install git \n"
+            - "git clone https://github.com/cnpm/nvm.git ~/.nvm && cd ~/.nvm && git\
+              \ checkout `git describe --abbrev=0 --tags` \n"
+            - " \n"
+            - "echo \". ~/.nvm/nvm.sh\" >> /etc/profile \n"
+            - "source /etc/profile \n"
+            - " \n"
+            - "nvm list-remote \n"
+            - "nvm install v6.9.5 \n"
+            - "nvm install v7.4.0 \n"
+            - " \n"
+            - "nvm ls \n"
+            - "nvm use v7.4.0 \n"
+            - " \n"
+            - "cd /root \n"
+            - "touch example.js \n"
+            - "Hostname=`hostname` \n"
+            - "Port=3000 \n"
+            - "echo \"const http = require('http');\" >> example.js \n"
+            - "echo \"const hostname = '$Hostname';\" >> example.js \n"
+            - "echo \"const port = '$Port';\" >> example.js \n"
+            - "echo \"const server = http.createServer((req, res) => {\"  >> example.js\
+              \ \n"
+            - "echo \"res.statusCode = 200;\" >> example.js \n"
+            - "echo \"res.setHeader('Content-Type', 'text/plain');\" >> example.js\
+              \ \n"
+            - "echo \"res.end('Hello World');\" >> example.js \n"
+            - "echo \"});\" >> example.js \n"
+            - "echo \"server.listen(port, hostname, () => {\" >> example.js \n"
+            - "echo \"});\"  >> example.js \n"
+            - " \n"
+            - "node /root/example.js & \n"
+            - 'ros-notify -d ''{"data" : "Install Node.js."}''
+
+              '
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+  WebServerConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WebServerGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: WebServerConditionHandle
+      Timeout: 3600
+      Count: 1
+    DependsOn: WebServer
+Outputs:
+  WebsiteURL:
+    Description: URL for newly created testing Node.js program.
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - WebServer
+          - PublicIp
+        - :3000

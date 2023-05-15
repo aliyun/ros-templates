@@ -1,0 +1,150 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ECS Route、AssignIpv6Addresses
+Parameters:
+  VpcName:
+    Type: String
+    Description: VPC Name.
+  ZoneId:
+    Type: String
+    Description: Zone Id.
+  VSwitchName:
+    Type: String
+    Description: SW Name.
+  SecurityGroupName:
+    Type: String
+    Description: SG Name.
+  InstanceType:
+    Type: String
+    Description: Ecs instance Type.
+    Default: ecs.c5.large
+  SystemDiskCategory:
+    Type: String
+    Description: Category of system disk. Default is cloud_efficiency. support cloud|cloud_efficiency|cloud_ssd|cloud_essd|ephemeral_ssd.Old
+      instances will not be changed.
+    Default: cloud_essd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+    - ephemeral_ssd
+  InstancePassword:
+    Type: String
+    Description: Ecs instance password.
+  ImageId:
+    Type: String
+    Description: Image Id.
+    Default: centos_7
+  Ipv6AddressCount:
+    Type: Number
+    Description: |-
+      IPv6 addresses specified number of randomly generated interfaces elasticity.
+      Note You cannot specify the parameters Ipv6Addresses and Ipv6AddressCount at the same time.
+    Default: 1
+    MinValue: 0
+  Ipv6Addresses:
+    Type: CommaDelimitedList
+    Description: |-
+      Specify one or more IPv6 addresses for the elastic NIC. Currently, the maximum list size is 1. Example value: 2001:db8:1234:1a00::*** .
+      Note You cannot specify the parameters Ipv6Addresses and Ipv6AddressCount at the same time.
+    Default: null
+    MaxLength: 1
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: VpcName
+      CidrBlock: 192.168.0.0/16
+      EnableIpv6: true
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Ref: SecurityGroupName
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Ref: VSwitchName
+      Ipv6CidrBlock: 1
+      CidrBlock: 192.168.0.0/16
+  Ecs:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Fn::GetAtt:
+        - SecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InternetMaxBandwidthOut: 2
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+  NetworkInterface:
+    Type: ALIYUN::ECS::NetworkInterface
+    Properties:
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+  AssignIpv6Addresses:
+    Type: ALIYUN::ECS::AssignIpv6Addresses
+    Properties:
+      NetworkInterfaceId:
+        Ref: NetworkInterface
+      Ipv6AddressCount:
+        Ref: Ipv6AddressCount
+      Ipv6Addresses:
+        Ref: Ipv6Addresses
+  RouteEntry:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      NextHopId:
+        Fn::GetAtt:
+        - Ecs
+        - InstanceId
+      RouteId:
+        Fn::GetAtt:
+        - Vpc
+        - VRouterId
+      RouteTableId:
+        Fn::GetAtt:
+        - Vpc
+        - RouteTableId
+      DestinationCidrBlock: 0.0.0.0/0
+Outputs:
+  Ipv6AddressIds:
+    Description: Assigned IPv6 address IDs.
+    Value:
+      Fn::GetAtt:
+      - AssignIpv6Addresses
+      - Ipv6AddressIds
+  Ipv6Addresses:
+    Description: Assigned IPv6 addresses.
+    Value:
+      Fn::GetAtt:
+      - AssignIpv6Addresses
+      - Ipv6Addresses
+  NetworkInterfaceId:
+    Description: Elastic network interface ID.
+    Value:
+      Fn::GetAtt:
+      - AssignIpv6Addresses
+      - NetworkInterfaceId

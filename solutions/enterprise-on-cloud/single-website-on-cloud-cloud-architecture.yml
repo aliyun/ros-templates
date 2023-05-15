@@ -1,0 +1,788 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 单机网站上云，架构云化最佳实践-云化部署架构(使用给定的ECS Instance的镜像创建ECS, 将本次创建的ECS与给定的ECS Instance
+  加入SLB 后端服务器等)
+Parameters:
+  RdsWhiteList:
+    Type: String
+    Label:
+      en: Relational Database Whitelist
+      zh-cn: 关系型数据库白名单
+    Description:
+      en: Relational database (RDS) whitelist, which defaults to the default value
+        of the previous template.
+      zh-cn: 关系型数据库（RDS）白名单, 默认为上个模版的默认值专有网络网段。
+    Default: 192.168.0.0/16
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络实例ID
+    Description:
+      en: VPC ID (existing) for newly created ECS, RDS, SLB resources
+      zh-cn: 新创建ECS、RDS、SLB资源所处的VPC ID(已存在的)
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    MinLength: '5'
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch Instance ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: VSwitch ID (existing) for newly created ECS, RDS, SLB resources
+      zh-cn: 新创建ECS、RDS、SLB资源所处的VSwitch ID(已存在的)
+    MinLength: '5'
+  SecurityGroupId:
+    Type: String
+    Label:
+      en: Security Group ID
+      zh-cn: 安全组ID
+    Description:
+      en: Security Group ID (existing) where the newly created ECS resource is
+      zh-cn: 新创建ECS资源所处的安全组ID(已存在的)
+    MinLength: '5'
+  InstanceIds:
+    Type: String
+    Label:
+      en: ECS Instances ID
+      zh-cn: 服务器实例ID
+    Description:
+      en: Specify the existing server instance ID, or multiple, separated by commas,
+        requiring a custom mirror and changing the default application configuration.
+      zh-cn: 指定已存在的服务器实例ID，也可以多个，多个以英文逗号分离，需要自定义镜像并更改默认应用配置。
+    MinLength: '5'
+  Ecs2GroupInstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      zh-cn: 填写已存在的VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in specifications that can be used under the existing VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  Ecs2GroupSystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  Ecs2GroupSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 40
+  Ecs2GroupMaxAmount:
+    Type: Number
+    Label:
+      en: Amount
+      zh-cn: 实例数量
+    Description:
+      en: 'Number of instances，value range: 1~100.'
+      zh-cn: 实例数量,取值范围：1~100。
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  Ecs2GroupPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 登录密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 _-&:;'<>,=%`~!@#()$^*+|{}[].?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        _-&:;'<>,=%`~!@#()$^*+|{}[].?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+  Ecs2GroupName:
+    Type: String
+    Label:
+      en: Instance/Host Name Prefix
+      zh-cn: 实例名/主机名名称前缀
+    Description:
+      en: 'Server name prefix, such as: WP002, will eventually display [wp002-000,
+        wp002-001...].'
+      zh-cn: 服务器名称前缀，如：WP002, 最终会显示[WP002-000, WP002-001...]。
+    Default: WP002
+  DataDiskCategory:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 数据盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  DataDiskSize:
+    Type: Number
+    Label:
+      en: Instance Disk Size
+      zh-cn: 实例数据盘大小
+    Description:
+      en: 'Instance disk size, range of values: 20-32768, units: GB.'
+      zh-cn: 实例数据盘大小，单位为GiB。取值范围：20~32768。
+    Default: 40
+    MinValue: 20
+    MaxValue: 32768
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      en: Instance specifications, see detail：</b><a href='https://www.alibabacloud.com/help/en/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance support type</b></font></a>
+      zh-cn: 实例规格，详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    Default: slb.s1.small
+    AllowedValues:
+    - slb.s1.small
+    - slb.s2.small
+    - slb.s2.medium
+    - slb.s3.small
+    - slb.s3.medium
+    - slb.s3.large
+  SlbListenerPort:
+    Type: Number
+    Label:
+      en: Listening Port
+      zh-cn: 监听端口
+    Description:
+      en: 'SLB externally provided ports.Default: 80,range of values：1~65535'
+      zh-cn: 前端使用的端口。默认值：80, 取值：1~65535。
+    Default: 80
+  SlbListenerBackendServerPort:
+    Type: Number
+    Label:
+      en: Port of The Backend Server
+      zh-cn: 后端服务器的端口
+    Description:
+      en: 'Ports used by load balanced backend servers. value range: 1-65535.'
+      zh-cn: 负载均衡后端服务器使用的端口。取值范围1-65535。
+    Default: 80
+    MinValue: 1
+    MaxValue: 65535
+  RdsDBInstanceClass:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html'
+        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
+      en: 'Select the instance specification based on the type of database engine
+        and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/26312.html''
+        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+    Default: rds.mysql.s3.large
+    AllowedValues:
+    - rds.mysql.s2.large
+    - rds.mysql.s2.xlarge
+    - rds.mysql.s3.large
+    - rds.mysql.m1.medium
+    - rds.mysql.c1.large
+    - rds.mysql.c1.xlarge
+  RdsDBInstanceStorage:
+    Type: Number
+    Label:
+      en: Storage Space
+      zh-cn: 存储空间
+    Description:
+      en: 'Database storage space, units: GB, per 5GB increment, value range: 20-1000.'
+      zh-cn: 数据库存储空间, 单位：GB, 每5GB进行递增，取值范围：20-1000。
+    Default: 20
+    MinValue: 20
+    MaxValue: 1000
+  RdsDBName:
+    Type: String
+    Label:
+      en: Database Name
+      zh-cn: 数据库（DB）名称
+    Description:
+      en: The database name created by the instance, consisting of lowercase letters,
+        numbers, underscores, and middle lines, beginning with letters, ending with
+        letters or numbers, up to 64 characters.
+      zh-cn: 实例创建的数据库名称，由小写字母、数字、下划线、中划线组成，以字母开头，字母或数字结尾，最多64个字符。
+    Default: db_wordpress
+  DBCharacterSetName:
+    Type: String
+    Label:
+      en: Database Character Set
+      zh-cn: 数据库字符集
+    Description:
+      en: See details： <a href= 'https://www.alibabacloud.com/help/en/doc-detail/99716.html'
+        target='_blank' ><b><font color='blue'>Set the table</font></b></a>
+      zh-cn: 详见： <a href= 'https://help.aliyun.com/document_detail/99716.html' target='_blank'
+        ><b><font color='blue'>字符集表</font></b></a>
+    Default: utf8
+  RdsAccountName:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库帐号
+    Description:
+      en: Maximum 16 characters,Consists of a lowercase letter, a number, an underscore,
+        a letter beginning, a letter or a number ending.<br><b>note： <font color='blue'>Keywords
+        cannot be used, e.g. admin/root</font></b>
+      zh-cn: 最长16个字符, 由小写字母，数字、下划线组成、字母开头，字母或数字结尾。<br><b>注： <font color='blue'>关键字不能用，如：admin/root</font></b>
+    Default: user_wordpress
+  RdsAccountPwd:
+    Type: String
+    Label:
+      en: Database Account Password
+      zh-cn: 数据库帐号密码
+    Description:
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    ConstraintDescription:
+      en: '8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    MinLength: '8'
+    MaxLength: '32'
+    NoEcho: true
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: Type And Version
+      zh-cn: 类型与版本号
+    Description:
+      en: Database type and version number.
+      zh-cn: 数据库类型与版本号。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.5
+    - MySQL-5.6
+    - MySQL-5.7
+    - MySQL-8.0
+  ImageName:
+    Type: String
+    Label:
+      en: Custom Image Name
+      zh-cn: 自定义镜像名称
+    Description:
+      en: Custom image name.
+      zh-cn: 自定义镜像名称。
+    Default: WP镜像
+  ImageDescription:
+    Type: String
+    Label:
+      en: 'Custom image description '
+      zh-cn: 自定义镜像描述
+    Description:
+      en: 'Custom image description,Default: WP image.'
+      zh-cn: 自定义镜像描述。默认：WP镜像。
+    Default: WP镜像
+Resources:
+  Rds:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceClass:
+        Ref: RdsDBInstanceClass
+      SecurityIPList:
+        Ref: RdsWhiteList
+      DBInstanceStorage:
+        Ref: RdsDBInstanceStorage
+      DBMappings:
+      - CharacterSetName:
+          Ref: DBCharacterSetName
+        DBName:
+          Ref: RdsDBName
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      Tags:
+        Key: best_practice
+        Value: 096
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 900
+      Count: 2
+      Handle:
+        Ref: WaitConditionHandle
+  CustomImage:
+    Type: ALIYUN::ECS::CustomImage
+    Properties:
+      InstanceId:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - ','
+          - Ref: InstanceIds
+      ImageName:
+        Fn::Join:
+        - '-'
+        - - Ref: ImageName
+          - Ref: ALIYUN::StackName
+      Description:
+        Ref: ImageDescription
+      Tag:
+      - Key: best_practice
+        Value: 096
+  Ecs2Group:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: CustomImage
+      IoOptimized: optimized
+      DiskMappings:
+      - Category:
+          Ref: DataDiskCategory
+        Device: /dev/xvdb
+        Size:
+          Ref: DataDiskSize
+      SystemDiskSize:
+        Ref: Ecs2GroupSystemDiskSize
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/sh \n"
+            - db_wordpress=
+            - Ref: RdsDBName
+            - " \n"
+            - user_wordpress=
+            - Ref: RdsAccountName
+            - " \n"
+            - pwd_wordpress=
+            - Ref: RdsAccountPwd
+            - " \n"
+            - host=
+            - Fn::GetAtt:
+              - Rds
+              - InnerConnectionString
+            - " \n"
+            - "cd /var/www/html \n"
+            - "mv backup-wp-config.php wp-config.php \n"
+            - "sed -i \"s%database_name_here%$db_wordpress%\" /var/www/html/wp-config.php\
+              \ \n"
+            - "sed -i \"s%username_here%$user_wordpress%\" /var/www/html/wp-config.php\
+              \ \n"
+            - "sed -i \"s%password_here%$pwd_wordpress%\" /var/www/html/wp-config.php\
+              \ \n"
+            - "sed -i \"s%utf8%utf8%\" /var/www/html/wp-config.php \n"
+            - "sed -i \"s%localhost%$host%\" /var/www/html/wp-config.php \n"
+            - "echo \"change config finished\" > /tmp/report.log \n"
+            - "service httpd stop \n"
+            - "sleep 5 \n"
+            - "service httpd start \n"
+            - "ros-notify -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"Status\\\" : \\\
+              \"Success\\\"}\" \n"
+      InstanceChargeType: PostPaid
+      MaxAmount:
+        Ref: Ecs2GroupMaxAmount
+      SystemDiskCategory:
+        Ref: Ecs2GroupSystemDiskCategory
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - Ref: Ecs2GroupName
+          - -[0,3]
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: Ecs2GroupInstanceType
+      HostName:
+        Fn::Join:
+        - ''
+        - - Ref: Ecs2GroupName
+          - -[0,3]
+      Password:
+        Ref: Ecs2GroupPassword
+      Tags:
+      - Key: best_practice
+        Value: 096
+    DependsOn:
+    - CustomImage
+    - Rds
+  RdsAccount:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: Rds
+      AccountType: Normal
+      AccountPassword:
+        Ref: RdsAccountPwd
+      AccountName:
+        Ref: RdsAccountName
+    DependsOn: Rds
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      DBInstanceId:
+        Ref: Rds
+      AccountPrivilege: ReadWrite
+      DBName:
+        Ref: RdsDBName
+      AccountName:
+        Ref: RdsAccountName
+    DependsOn: RdsAccount
+  Slb:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      LoadBalancerName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      PayType: PayOnDemand
+      AddressType: intranet
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      Tags:
+      - Key: best_practice
+        Value: 096
+  SlbListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        CookieTimeout: 60
+        StickySession: 'on'
+        PersistenceTimeout: 180
+        XForwardedFor: 'off'
+        StickySessionType: insert
+      ListenerPort:
+        Ref: SlbListenerPort
+      Bandwidth: -1
+      HealthCheck:
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+        UnhealthyThreshold: 3
+        Timeout: 5
+        HealthyThreshold: 3
+        Port: 80
+        URI: /
+        Interval: 2
+      LoadBalancerId:
+        Ref: Slb
+      BackendServerPort:
+        Ref: SlbListenerBackendServerPort
+      Protocol: http
+    DependsOn: Slb
+  Ecs1Command:
+    Type: ALIYUN::ECS::Command
+    Properties:
+      CommandContent:
+        Fn::Base64Encode:
+          Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - WaitConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - "#!/bin/sh \n"
+              - db_wordpress=
+              - Ref: RdsDBName
+              - " \n"
+              - user_wordpress=
+              - Ref: RdsAccountName
+              - " \n"
+              - pwd_wordpress=
+              - Ref: RdsAccountPwd
+              - " \n"
+              - host=
+              - Fn::GetAtt:
+                - Rds
+                - InnerConnectionString
+              - " \n"
+              - "cd /var/www/html \n"
+              - "mv backup-wp-config.php wp-config.php \n"
+              - "sed -i \"s%database_name_here%$db_wordpress%\" /var/www/html/wp-config.php\
+                \ \n"
+              - "sed -i \"s%username_here%$user_wordpress%\" /var/www/html/wp-config.php\
+                \ \n"
+              - "sed -i \"s%password_here%$pwd_wordpress%\" /var/www/html/wp-config.php\
+                \ \n"
+              - "sed -i \"s%localhost%$host%\" /var/www/html/wp-config.php \n"
+              - "ros-notify -d \"{\\\"Data\\\" : \\\"SUCCESS\\\", \\\"Status\\\" :\
+                \ \\\"SUCCESS\\\"}\" \n"
+      Type: RunShellScript
+      Name: my-command
+  Ecs1Invocation:
+    Type: ALIYUN::ECS::Invocation
+    Properties:
+      InstanceIds:
+        Fn::Split:
+        - ','
+        - Ref: InstanceIds
+      Timed: false
+      CommandId:
+        Ref: Ecs1Command
+    DependsOn:
+    - Ecs1Command
+  SlbBackendServerAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::ListMerge:
+        - Fn::GetAtt:
+          - Ecs2Group
+          - InstanceIds
+        - Fn::Split:
+          - ','
+          - Ref: InstanceIds
+      LoadBalancerId:
+        Ref: Slb
+      BackendServerWeightList:
+      - 100
+    DependsOn:
+    - Ecs2Group
+Outputs:
+  RdsNormalAccountName:
+    Description:
+      en: Database ordinary account name
+      zh-cn: 数据库普通账号名称
+    Value:
+      Fn::GetAtt:
+      - RdsAccount
+      - AccountName
+  RdsInnerPort:
+    Description:
+      en: Intranet port for the database instance
+      zh-cn: 数据库实例的内网端口。
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - InnerPort
+  RdsPublicPort:
+    Description:
+      en: Database instance public network port
+      zh-cn: 数据库实例公网端口。
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - PublicPort
+  RdsPublicConnectionString:
+    Description:
+      en: Database public network connection string
+      zh-cn: 数据库公网连接串。
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - PublicConnectionString
+  SlbAddressType:
+    Description:
+      en: SLB IP Address
+      zh-cn: 负载均衡IP地址
+    Value:
+      Fn::GetAtt:
+      - Slb
+      - AddressType
+  RdsPublicIPAddress:
+    Description:
+      en: Database instance public network address
+      zh-cn: 数据库实例公网地址
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - PublicIPAddress
+  SlbListenerPortsAndProtocol:
+    Description:
+      en: SLB ports and protocols
+      zh-cn: 负载均衡端口和协议
+    Value:
+      Fn::GetAtt:
+      - SlbListener
+      - ListenerPortsAndProtocol
+  Ecs2PrivateIps:
+    Description:
+      en: Server private network IP list
+      zh-cn: 服务器私网IP列表。
+    Value:
+      Fn::GetAtt:
+      - Ecs2Group
+      - PrivateIps
+  SlbIpAddress:
+    Description:
+      en: SLB IP Address
+      zh-cn: 负载均衡IP地址
+    Value:
+      Fn::GetAtt:
+      - Slb
+      - IpAddress
+  RdsInnerIPAddress:
+    Description:
+      en: Database instance Intranet IP
+      zh-cn: 数据库实例内网IP。
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - InnerIPAddress
+  RdsDBInstanceId:
+    Description:
+      en: RDS DB Instance ID
+      zh-cn: 数据库实例ID。
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - DBInstanceId
+  SlbBackendServers:
+    Description:
+      en: SLB Backend Servers
+      zh-cn: 负载均衡后端服务器组。
+    Value:
+      Fn::GetAtt:
+      - SlbBackendServerAttachment
+      - BackendServers
+  Ecs2InstanceIds:
+    Description:
+      en: List of server instance IDs
+      zh-cn: 服务器实例ID列表。
+    Value:
+      Fn::GetAtt:
+      - Ecs2Group
+      - InstanceIds
+  Ecs2HostNames:
+    Description:
+      en: List of host names for the server
+      zh-cn: 服务器的主机名称列表。
+    Value:
+      Fn::GetAtt:
+      - Ecs2Group
+      - HostNames
+  SLbNetworkType:
+    Description:
+      en: SLB Network Type
+      zh-cn: 负载均衡网络类型。
+    Value:
+      Fn::GetAtt:
+      - Slb
+      - NetworkType
+  RdsInnerConnectionString:
+    Description:
+      en: Database instance Intranet connection string
+      zh-cn: 数据库实例内网连接串。
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - InnerConnectionString
+  Ecs2ZoneIds:
+    Description:
+      en: The available zone ID of the server
+      zh-cn: 服务器的可用区ID。
+    Value:
+      Fn::GetAtt:
+      - Ecs2Group
+      - ZoneIds
+  SlbInstanceId:
+    Description:
+      en: SLB Instance ID
+      zh-cn: 负载均衡实例ID。
+    Value:
+      Fn::GetAtt:
+      - Slb
+      - LoadBalancerId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - RdsWhiteList
+      - VpcId
+      - VSwitchId
+      - SecurityGroupId
+      - InstanceIds
+      Label:
+        default:
+          zh-cn: 所需信息
+          en: Information Required
+    - Parameters:
+      - Ecs2GroupInstanceType
+      - Ecs2GroupSystemDiskCategory
+      - Ecs2GroupSystemDiskSize
+      - Ecs2GroupMaxAmount
+      - Ecs2GroupPassword
+      - Ecs2GroupName
+      - DataDiskCategory
+      - DataDiskSize
+      Label:
+        default: ECS
+    - Parameters:
+      - LoadBalancerSpec
+      - SlbListenerPort
+      - SlbListenerBackendServerPort
+      Label:
+        default: SLB
+    - Parameters:
+      - RdsDBInstanceClass
+      - RdsDBInstanceStorage
+      - RdsDBName
+      - DBCharacterSetName
+      - RdsAccountName
+      - RdsAccountPwd
+      Label:
+        default: RDS
+    TemplateTags:
+    - acs:solution:业务上云:单机网站上云架构云化-云化部署架构

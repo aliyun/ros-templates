@@ -1,0 +1,468 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 计算巢虚拟互联网云下服务上云(SAG版本)
+Parameters:
+  DMZCidrBlock:
+    Type: String
+    Label:
+      zh-cn: 企业内部网络网段
+      en: VPC network segment
+    Description:
+      zh-cn: 企业云下网络ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the enterprise in the CidrBlock form; <br>You can
+        use the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    Default: 10.1.0.0/16
+  Server:
+    Type: Json
+    Label:
+      zh-cn: 云下服务信息
+      en: Cloud service information
+    Description:
+      zh-cn: 云下服务列表需要输入配置ServerId(服务IP)，服务类型ServerType(IP)，端口(Port)，IP和ID与实际云下IP一致，参照模板复制粘贴修改IP和ID即可完成配置，其他参数不变
+      en: The cloud service list needs to enter the configuration ServerId (service
+        IP),  service type ServerType (IP), port (Port)
+    Default:
+    - ServerId: 10.1.1.102
+      ServerIp: 10.1.1.102
+      Port: 80
+      Weight: 100
+      ServerType: Ip
+  VpcCidrBlock:
+    Type: String
+    Label:
+      zh-cn: 专有网络网段
+      en: VPC network segment
+    Description:
+      zh-cn: 专有网络ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use
+        the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    Default: 192.168.0.0/16
+  VSwitchZone1:
+    Type: String
+    Label:
+      zh-cn: 交换机1可用区
+      en: VSwitch 1 availability zone
+    Description:
+      zh-cn: 可用区Id。<br><b>注： <font color='blue'>华东1（杭州）和华北2（北京）推荐选择可用区J，K即可完成NLB配置，华南1（深圳）和华东2（上海）推荐可用区D，E。（两个可用区不重复即可）</font></b>
+      en: Availability zone id.<br><b>note：<font color='blue'>East China 1 (Hangzhou)
+        and North China 2 (Beijing) are recommended to select Availability Zones J
+        and K to complete the NLB configuration, and Availability Zones D and E are
+        recommended for South China 1 (Shenzhen) and East China 2 (Shanghai) (the
+        two Availability Zones should not be duplicated)</font></b>
+    AssociationProperty: ALIYUN::NLB::Zone::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - VSwitchZone2
+  VSwitchCidrBlock1:
+    Type: String
+    Label:
+      zh-cn: 交换机1网段
+      en: VSwitch 1 network segment
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+    Default: 192.168.3.0/24
+  VSwitchZone2:
+    Type: String
+    Label:
+      zh-cn: 交换机2可用区
+      en: VSwitch 2 availability zone
+    Description:
+      zh-cn: 请选择与交换机1不同的可用区，<br><b>注： <font color='blue'>华东1（杭州）和华北2（北京）推荐选择可用区J，K即可完成NLB配置，华南1（深圳）和华东2（上海）推荐可用区D，E（两个可用区不重复即可）</font></b>
+      en: Please select a different availability area than v-switch 1,<br><b>note：
+        <font color='blue'>East China 1 (Hangzhou) and North China 2 (Beijing) are
+        recommended to select Availability Zones J and K to complete the NLB configuration,
+        and Availability Zones D and E are recommended for South China 1 (Shenzhen)
+        and East China 2 (Shanghai) (the two Availability Zones should not be duplicated)</font></b>
+    AssociationProperty: ALIYUN::NLB::Zone::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - VSwitchZone1
+  VSwitchCidrBlock2:
+    Type: String
+    Label:
+      zh-cn: 交换机1网段
+      en: VSwitch 1 network segment
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+    Default: 192.168.4.0/24
+  PrivateLinkServerName:
+    Type: String
+    Label:
+      en: Service Name
+      zh-cn: 终端节点服务名称
+    Description:
+      en: Name of the server resource.
+      zh-cn: 服务端资源名称
+    Default: private_link_service
+  ReceiverCountry:
+    Type: String
+    Description: The country of the recipient address.
+    Default: 中国
+  ReceiverZip:
+    Type: String
+    Description: The postcode of the recipient address.
+    Default: '310000'
+  HaType:
+    Type: String
+    Description: |-
+      The deployment mode. Valid values:
+      no_backup: You buy only one SAG device to connect private networks to Alibaba Cloud.
+      cold_backup: You buy two SAG devices in active-standby mode. One SAG device serves as an active
+      device and the other serves as a standby device. Only the active device is connected
+      to Alibaba Cloud. If the active device is not working as expected, you must manually
+      perform a switchover.
+      warm_backup: You buy two SAG devices in active-active mode. Both SAG devices are connected to
+      Alibaba Cloud. If an active device is not working as expected, a failover is automatically
+      performed.
+      Note If you want to create an SAG vCPE instance, set the value to warm_backup.
+    Default: warm_backup
+    AllowedValues:
+    - cold_backup
+    - no_backup
+    - warm_backup
+  Period:
+    Type: Number
+    Description: |-
+      The subscription period of the SAG instance. Unit: months.
+      Valid values: 1 to 9, 12, 24, and 36.
+    Default: 12
+  MaxBandWidth:
+    Type: Number
+    Description: |-
+      The bandwidth of the SAG instance.
+      If you want to create an SAG CPE instance and the model is sag-100wm, valid values of this parameter are 2 to 50. Unit: Mbit/s.
+      If you want to create an SAG CPE instance and the model is sag-1000, valid values of this parameter are 10 to 500. Unit: Mbit/s.
+      If you want to create an SAG vCPE instance, valid values of this parameter are 10 to 1000. Unit: Mbit/s.
+    Default: 15
+  AutoPay:
+    Type: Boolean
+    Description: |-
+      Specifies whether to enable auto-payment for the instance. Valid values:
+      true: yes
+      false: no
+      If you set the parameter to false, go to Billing Management to complete the payment
+      after you call this operation. After you complete the payment, the instance can be
+      created.
+    Default: 'False'
+    AllowedValues:
+    - 'True'
+    - 'true'
+    - 'False'
+    - 'false'
+  ChargeType:
+    Type: String
+    Description: "The billing method of the SAG instance. \nSet the value to PREPAY,\
+      \ which specifies the subscription billing method."
+    Default: PREPAY
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      SecurityGroupIngress:
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupEgress:
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+  EcsVSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZone1
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock1
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch1
+          - StackId
+          - Ref: ALIYUN::StackId
+  EcsVSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZone2
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock2
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch1
+          - StackId
+          - Ref: ALIYUN::StackId
+  NlbLoadBalancer:
+    Type: ALIYUN::NLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      AddressType: Intranet
+      ZoneMappings:
+      - ZoneId:
+          Ref: VSwitchZone1
+        VSwitchId:
+          Ref: EcsVSwitch1
+      - ZoneId:
+          Ref: VSwitchZone2
+        VSwitchId:
+          Ref: EcsVSwitch2
+    DependsOn:
+    - EcsVpc
+  NlbServerGroup:
+    Type: ALIYUN::NLB::ServerGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      Servers:
+        Ref: Server
+      ServerGroupType: Ip
+      ServerGroupName: Test
+      HealthCheckConfig:
+        HttpCheckMethod: Get
+        HealthCheckEnabled: true
+        HealthCheckConnectTimeout: null
+      Protocol: TCP
+    DependsOn:
+    - EcsVpc
+  NlbListener:
+    Type: ALIYUN::NLB::Listener
+    Properties:
+      ListenerPort: 80
+      ServerGroupId:
+        Ref: NlbServerGroup
+      ListenerProtocol: TCP
+      LoadBalancerId:
+        Ref: NlbLoadBalancer
+    DependsOn:
+    - NlbLoadBalancer
+    - NlbServerGroup
+  CenInstance:
+    Type: ALIYUN::CEN::CenInstance
+    Properties:
+      Name:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  CenVpcAttachment:
+    Type: ALIYUN::CEN::CenInstanceAttachment
+    Properties:
+      ChildInstanceRegionId:
+        Ref: ALIYUN::Region
+      ChildInstanceType: VPC
+      ChildInstanceId:
+        Ref: EcsVpc
+      CenId:
+        Ref: CenInstance
+    DependsOn:
+    - CenInstance
+    - NlbListener
+  SagCloudConnectNetwork:
+    Type: ALIYUN::SAG::CloudConnectNetwork
+    Properties:
+      Description: CloudConnectNetwork
+      Name:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  CenCcnAttachment:
+    Type: ALIYUN::CEN::CenInstanceAttachment
+    Properties:
+      ChildInstanceRegionId: ccn-cn-shanghai
+      ChildInstanceType: CCN
+      ChildInstanceId:
+        Ref: SagCloudConnectNetwork
+      CenId:
+        Ref: CenInstance
+    DependsOn:
+    - CenVpcAttachment
+    - SagCloudConnectNetwork
+  SmartAccessGateway:
+    Type: ALIYUN::SAG::SmartAccessGateway
+    Properties:
+      ReceiverCountry:
+        Ref: ReceiverCountry
+      ReceiverZip:
+        Ref: ReceiverZip
+      BuyerMessage: Placeholder Message
+      ReceiverTown: Unknow Town
+      HardWareSpec: sag-vcpe
+      Name:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      ReceiverCity: Unknow City
+      ReceiverAddress: Unknown Address
+      HaType:
+        Ref: HaType
+      Period:
+        Ref: Period
+      MaxBandWidth:
+        Ref: MaxBandWidth
+      AutoPay:
+        Ref: AutoPay
+      ReceiverMobile: 1884085****
+      ReceiverDistrict: Unknown District
+      Activate: true
+      ChargeType:
+        Ref: ChargeType
+      CidrBlock:
+        Ref: DMZCidrBlock
+      RoutingStrategy: static
+      ReceiverState: Unknown State
+      ReceiverName: Unknown Name
+      ReceiverEmail: Unknown Email
+  SagSmartAccessGatewayBinding:
+    Type: ALIYUN::SAG::SmartAccessGatewayBinding
+    Properties:
+      SmartAGId:
+        Fn::GetAtt:
+        - SmartAccessGateway
+        - SmartAGId
+      CcnId:
+        Fn::GetAtt:
+        - SagCloudConnectNetwork
+        - CcnId
+    DependsOn:
+    - SagCloudConnectNetwork
+    - SmartAccessGateway
+  VpcEndpointService:
+    Type: ALIYUN::PrivateLink::VpcEndpointService
+    Properties:
+      ServiceDescription:
+        Ref: PrivateLinkServerName
+      Resource:
+      - ZoneId:
+          Ref: VSwitchZone1
+        ResourceId:
+          Ref: NlbLoadBalancer
+        ResourceType: nlb
+      - ZoneId:
+          Ref: VSwitchZone2
+        ResourceId:
+          Ref: NlbLoadBalancer
+        ResourceType: nlb
+      AutoAcceptEnabled: true
+      ServiceResourceType: nlb
+Outputs:
+  VpcId:
+    Value:
+      Fn::GetAtt:
+      - EcsVpc
+      - VpcId
+  CenId:
+    Value:
+      Fn::GetAtt:
+      - CenInstance
+      - CenId
+  CcnId:
+    Value:
+      Fn::GetAtt:
+      - SagCloudConnectNetwork
+      - CcnId
+  EndpointServiceId:
+    Value:
+      Fn::GetAtt:
+      - VpcEndpointService
+      - ServiceId
+  EndpointServiceDomain:
+    Value:
+      Fn::GetAtt:
+      - VpcEndpointService
+      - ServiceDomain
+  EndpointServiceName:
+    Value:
+      Fn::GetAtt:
+      - VpcEndpointService
+      - ServiceName
+  OrderId:
+    Description: The ID of the order.
+    Value:
+      Fn::GetAtt:
+      - SmartAccessGateway
+      - OrderId
+  SmartAGId:
+    Description: The ID of the SAG instance.
+    Value:
+      Fn::GetAtt:
+      - SmartAccessGateway
+      - SmartAGId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - DMZCidrBlock
+      - Server
+      Label:
+        default: 云下网络配置
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchZone1
+      - VSwitchCidrBlock1
+      - VSwitchZone2
+      - VSwitchCidrBlock2
+      Label:
+        default: VPC
+    - Parameters:
+      - PrivateLinkServerName
+      Label:
+        default: PrivateLink
+    - Parameters:
+      - ReceiverCountry
+      - ReceiverZip
+      - HaType
+      - Period
+      - MaxBandWidth
+      - AutoPay
+      - ChargeType
+      Label:
+        default: SAG
+    TemplateTags:
+    - acs:solution:计算巢虚拟互联网云下服务上云(SAG版本)

@@ -1,0 +1,576 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: SpringCloud应用托管到ACK服务
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      zh-cn: 专有网络网段
+      en: VPC CIDR Block
+    Description:
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[192.168.0.0/16]</font>
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[192.168.0.0/16]</font>'
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 10.0.0.0/8
+  VSwitch1CidrBlock:
+    Type: String
+    Label:
+      zh-cn: 交换机1网段
+      en: VSwitch 1 CIDR Block
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+    Default: 192.168.1.0/24
+  VSwitch1ZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机1可用区
+      en: VSwitch 1 Availability Zone
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitch2CidrBlock:
+    Type: String
+    Label:
+      zh-cn: 交换机2网段
+      en: VSwitch 2 CIDR Block
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+    Default: 192.168.2.0/24
+  VSwitch2ZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机2可用区
+      en: VSwitch 2 Availability Zone
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitch3CidrBlock:
+    Type: String
+    Label:
+      zh-cn: 交换机3网段
+      en: VSwitch 3 CIDR Block
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+    Default: 192.168.3.0/24
+  VSwitch3ZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机3可用区
+      en: VSwitch 3 Availability Zone
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  EipBandwidth:
+    Type: Number
+    Label:
+      zh-cn: 弹性IP带宽峰值
+      en: EIP Bandwidth
+    Description:
+      zh-cn: '取值范围: [1, 1000]，单位：Mbps。'
+      en: 'Value range: [1, 1000], unit: Mbps.'
+    ConstraintDescription:
+      zh-cn: '取值范围: [1, 1000]，单位：Mbps。'
+      en: 'Value range: [1, 1000], unit: Mbps.'
+    Default: 10
+    MinValue: 1
+    MaxValue: 1000
+  EipInternetChargeType:
+    Type: String
+    Label:
+      zh-cn: 弹性公网IP计费类型
+      en: EIP Billing Method
+    Description:
+      zh-cn: '计费类型。<br><font color=''blue''><b>可选值：</b></font><br>[PayByBandwidth:
+        <font color=''green''>按带宽计费</font>]<br>[PayByTraffic: <font color=''green''>按流量计费</font>]</a>'
+      en: 'Billing method. <br><font color=''blue''><b>Optional values：</b></font><br>[PayByBandwidth:
+        <font color=''green''>Pay-by-bandwidth</font>]<br>[PayByTraffic: <font color=''green''>Pay-by-data-transfer</font>]</a>'
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  ContainerCidr:
+    Type: String
+    Label:
+      zh-cn: Pod网络网段
+      en: Pod Network CIDR
+    Description:
+      zh-cn: 服务网络段不能与VPC和VPC内已有Kubernetes集群使用的网段冲突，创建后不能修改。
+      en: The service network segment cannot conflict with VPC and the network segment
+        already used by Kubernetes cluster in VPC, and cannot be modified after creation.
+    Default: 172.16.0.0/16
+  ServiceCidr:
+    Type: String
+    Label:
+      zh-cn: Service CIDR
+      en: Service CIDR
+    Description:
+      zh-cn: 服务网络段不能与VPC和VPC内已有Kubernetes集群使用的网段冲突，创建后不能修改。
+      en: The service network segment cannot conflict with VPC and the network segment
+        already used by Kubernetes cluster in VPC, and cannot be modified after creation.
+    Default: 172.19.0.0/20
+  NumOfNodes:
+    Type: Number
+    Label:
+      zh-cn: Worker节点数
+      en: Number Of Worker Nodes
+    Description:
+      zh-cn: Worker节点数,范围是[0,300]。
+      en: Number of worker nodes. The range is [0,300].
+    ConstraintDescription:
+      zh-cn: Worker节点数,范围是[0,300]。
+      en: Number of worker nodes. The range is [0,300].
+    Default: 3
+    MinValue: 0
+    MaxValue: 300
+  MasterCount:
+    Type: Number
+    Label:
+      zh-cn: Master实例个数
+      en: Master Count
+    Description:
+      zh-cn: 主实例的数量。可用值3或5。
+      en: Number of master instances. The value can be 3 or 5.
+    Default: 3
+    AllowedValues:
+    - 3
+    - 5
+  MasterInstanceTypes:
+    Type: String
+    Label:
+      zh-cn: Master节点实例规格
+      en: Master Instance Types
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格，必须填写3个ECS实例规格，ECS实例规格可以重复,以英文逗号分隔；<br>通用规格：<font
+        color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b><font color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone, Three ECS instance specifications must be filled in. ECS instance specifications
+        can be repeated,separated by commas. </b></font><br>general specifications：<font
+        color=''red''><b>ecs.c5.large</b></font><br>note: a few zones do not support
+        general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  MasterSystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: Master节点系统盘类型
+      en: Master System Disk Category
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+  MasterSystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: Master节点系统盘大小
+      en: Master System Disk Size
+    Description:
+      en: 'Worker disk system size, range of values: 40-500, units: GB.'
+      zh-cn: 工作盘系统磁盘大小, 取值范围：[40, 500], 单位：GB。
+    ConstraintDescription:
+      en: 'Worker disk system size, range of values: 40-500, units: GB.'
+      zh-cn: 工作盘系统磁盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 120
+    MinValue: 40
+    MaxValue: 500
+  WorkerSystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: Worker节点系统盘类型
+      en: Worker System Disk Category
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+  WorkerSystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: Worker节点系统盘大小
+      en: Worker System Disk Size
+    Description:
+      zh-cn: 工作盘系统磁盘大小，取值范围：[40, 500], 单位是GiB。
+      en: 'Worker disk system disk size, range of values: 40-500, the unit is GiB.'
+    ConstraintDescription:
+      zh-cn: 工作盘系统磁盘大小，取值范围：[40, 500], 单位是GiB。
+      en: 'Worker disk system disk size, range of values: 40-500, the unit is GiB.'
+    Default: 120
+    MinValue: 40
+    MaxValue: 500
+  WorkerInstanceTypes:
+    Type: String
+    Label:
+      zh-cn: Worker节点实例规格
+      en: Worker Instance Types
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格，必须填写至少2个ECS实例规格，ECS实例规格可以重复,以英文逗号分隔；<br>通用规格：<font
+        color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b><font color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone, at least 2 ECS instance specifications must be filled in. ECS instance
+        specifications can be repeated,separated by commas. </b></font><br>general
+        specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note: a few
+        zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  SshFlags:
+    Type: Boolean
+    Label:
+      zh-cn: SSH登录
+      en: SSH Login
+    Description:
+      zh-cn: '是否启用公共网络SSH登录:<br>[勾选: <font color=''green''>启用</font>]<br>[不勾选: <font
+        color=''green''>不启用</font>]'
+      en: 'Whether to enable public network SSH login:<br>[check: <font color=''green''>open</font>]<br>[uncheck:
+        <font color=''green''>not open</font>]'
+    Default: true
+    AllowedValues:
+    - 'true'
+    - 'false'
+  SnatEntry:
+    Type: Boolean
+    Label:
+      zh-cn: 是否为网络配置SNAT
+      en: Snat Entry
+    Description:
+      zh-cn: '是否为网络配置SNAT。当VPC可以访问公共网络环境时，将其设置为false。当现有的VPC无法访问公共网络环境时:<br>[勾选: <font
+        color=''green''>配置SNAT，此时可以访问公共网络环境</font>]<br>[不勾选: <font color=''green''>则表示没有配置SNAT，此时不能访问公共网络环境</font>]'
+      en: 'Whether to configure SNAT for the network.When a VPC can access the public
+        network environment, set it to false.When an existing VPC cannot access the
+        public network environment:<br>[check: <font color=''green''>SNAT is configured
+        and the public network environment can be accessed at this time</font>]<br>[uncheck:
+        <font color=''green''>it means that SNAT is not configured and the public
+        network environment cannot be accessed at this time</font>]'
+    Default: true
+    AllowedValues:
+    - true
+    - false
+  KubernetesVersion:
+    Type: String
+    Label:
+      zh-cn: 版本
+      en: Version
+    Description:
+      zh-cn: 取值范围：1.12.6-aliyun.1，1.14.8-aliyun.1
+      en: 'Value range: 1.12.6-aliyun1, 1.14.8-aliyun1'
+    Default: 1.12.6-aliyun.1
+    AllowedValues:
+    - 1.12.6-aliyun.1
+    - 1.14.8-aliyun.1
+  EndpointPublicAccess:
+    Type: Boolean
+    Label:
+      zh-cn: 是否开启公网APIServer
+      en: Endpoint Public Access
+    Description:
+      zh-cn: '是否启用公共网络API服务器:<br>[勾选: <font color=''green''>表示公共网络API服务器是打开的</font>]<br>[不勾选:
+        <font color=''green''>将不创建公共网络上的API服务器，只创建私有网络上的API服务器</font>]'
+      en: 'Whether to enable the public network API Server:<br>[check: <font color=''green''>which
+        means that the public network API Server is open</font>]<br>[uncheck: <font
+        color=''green''>the API server on the public network will not be created,
+        only the API server on the private network will be created</font>]'
+    Default: true
+    AllowedValues:
+    - 'true'
+    - 'false'
+  LoginPassword:
+    Type: String
+    Label:
+      zh-cn: 登录密码
+      en: Login Password
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VpcCidrBlock
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitch1ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch1
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VSwitch1CidrBlock
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitch2ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch2
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VSwitch2CidrBlock
+  VSwitch3:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitch3ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch3
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VSwitch3CidrBlock
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch1
+      NatGatewayName:
+        Fn::Join:
+        - '-'
+        - - VSwitch1
+          - StackId
+          - Ref: ALIYUN::StackId
+      DeletionForce: true
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType:
+        Ref: EipInternetChargeType
+      Bandwidth:
+        Ref: EipBandwidth
+  VpcEipAssociationNatGateway:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: Eip
+      Mode: NAT
+    DependsOn:
+    - NatGateway
+    - Vpc
+  SNatEntry1:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SNatIp:
+        Fn::GetAtt:
+        - Eip
+        - EipAddress
+      SourceVSwitchId:
+        Fn::GetAtt:
+        - VSwitch1
+        - VSwitchId
+    DependsOn:
+    - Eip
+    - VSwitch1
+    - VpcEipAssociationNatGateway
+  SNatEntry2:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SNatIp:
+        Fn::GetAtt:
+        - Eip
+        - EipAddress
+      SourceVSwitchId:
+        Fn::GetAtt:
+        - VSwitch2
+        - VSwitchId
+    DependsOn: SNatEntry1
+  SNatEntry3:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SNatIp:
+        Fn::GetAtt:
+        - Eip
+        - EipAddress
+      SourceVSwitchId:
+        Fn::GetAtt:
+        - VSwitch3
+        - VSwitchId
+    DependsOn: SNatEntry2
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      Tags:
+      - Value: '044'
+        Key: best_practice
+  Cluster:
+    Type: ALIYUN::CS::KubernetesCluster
+    Properties:
+      VpcId:
+        Ref: Vpc
+      MasterVSwitchIds:
+      - Ref: VSwitch1
+      - Ref: VSwitch2
+      - Ref: VSwitch3
+      WorkerVSwitchIds:
+      - Ref: VSwitch1
+      - Ref: VSwitch2
+      - Ref: VSwitch3
+      SecurityGroupId:
+        Ref: SecurityGroup
+      NumOfNodes:
+        Ref: NumOfNodes
+      ServiceCidr:
+        Ref: ServiceCidr
+      Name:
+        Fn::Join:
+        - '-'
+        - - KubernetesCluster
+          - Ref: ALIYUN::StackId
+      MasterInstanceTypes:
+        Fn::Split:
+        - ','
+        - Ref: MasterInstanceTypes
+      SshFlags:
+        Ref: SshFlags
+      WorkerInstanceTypes:
+        Fn::Split:
+        - ','
+        - Ref: WorkerInstanceTypes
+      KubernetesVersion:
+        Ref: KubernetesVersion
+      MasterCount:
+        Ref: MasterCount
+      MasterSystemDiskSize:
+        Ref: MasterSystemDiskSize
+      MasterSystemDiskCategory:
+        Ref: MasterSystemDiskCategory
+      WorkerSystemDiskSize:
+        Ref: WorkerSystemDiskSize
+      WorkerSystemDiskCategory:
+        Ref: WorkerSystemDiskCategory
+      LoginPassword:
+        Ref: LoginPassword
+      ContainerCidr:
+        Ref: ContainerCidr
+      SnatEntry:
+        Ref: SnatEntry
+      Tags:
+      - Value: '044'
+        Key: best_practice
+    DependsOn:
+    - SNatEntry3
+    - VpcEipAssociationNatGateway
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitch1CidrBlock
+      - VSwitch1ZoneId
+      - VSwitch2CidrBlock
+      - VSwitch2ZoneId
+      - VSwitch3CidrBlock
+      - VSwitch3ZoneId
+      - EipBandwidth
+      - EipInternetChargeType
+      Label:
+        default: VPC
+    - Parameters:
+      - ContainerCidr
+      - ServiceCidr
+      - NumOfNodes
+      - MasterCount
+      - MasterInstanceTypes
+      - MasterSystemDiskCategory
+      - MasterSystemDiskSize
+      - WorkerSystemDiskCategory
+      - WorkerSystemDiskSize
+      - WorkerInstanceTypes
+      - SshFlags
+      - SnatEntry
+      - KubernetesVersion
+      - EndpointPublicAccess
+      - LoginPassword
+      Label:
+        default: Kubernetes
+    TemplateTags:
+    - acs:solution:容器&微服务:SpringCloud应用托管到ACK服务

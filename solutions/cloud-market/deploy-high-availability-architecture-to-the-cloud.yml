@@ -1,0 +1,1129 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 通用产品上云部署架构（高可用）
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  VSwitchCidrBlock1:
+    Type: String
+    Label:
+      en: VSwitch 1 CIDR Block
+      zh-cn: 交换机1网段
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: ${VpcCidrBlock}
+    Default: 192.168.0.0/24
+  VSwitchZoneId1:
+    Type: String
+    Label:
+      en: VSwitch 1 Available Zone
+      zh-cn: 交换机1可用区
+    AssociationProperty: ALIYUN::ECS::ZoneId
+  VSwitchCidrBlock2:
+    Type: String
+    Label:
+      en: VSwitch 2 CIDR Block
+      zh-cn: 交换机2网段
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: ${VpcCidrBlock}
+    Default: 192.168.1.0/24
+  VSwitchZoneId2:
+    Type: String
+    Label:
+      en: VSwitch 2 Available Zone
+      zh-cn: 交换机2可用区
+    AssociationProperty: ALIYUN::ECS::ZoneId
+  EcsInstanceChargeType:
+    Type: String
+    Label:
+      en: Payment Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    Default: PostPaid
+  ECSPeriodUnit:
+    Type: String
+    Label:
+      zh-cn: 云服务器预付费资源的购买周期
+      en: ECS Purchase duration of prepaid resources.
+    Description:
+      zh-cn: 云服务器预付费资源的购买时长周期，取值：[Week（周）, Month（月）]
+      en: 'ECS Purchase time and period of prepaid resource, value: [Week, Month].'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${EcsInstanceChargeType}
+            - PostPaid
+    Default: Week
+    AllowedValues:
+    - Week
+    - Month
+  ECSPeriod:
+    Type: Number
+    Label:
+      zh-cn: 云服务器预付费资源的购买时长
+      en: ECS Purchase time of prepaid resources.
+    Description:
+      zh-cn: 云服务器预付费资源的购买时长，当预付费资源的购买周期为Week时，取值范围：[1，2，3，4]; 当预付费资源的购买周期为Month时，取值：[1，2，3，4，5，6，7，8，9，12，24，36，48，60]。
+      en: 'When the purchase cycle of prepaid resource is week, the value range is:
+        [1,2,3,4]; when the purchase cycle of prepaid resource is month, the value
+        is: [1,2,3,4,5,6,7,8,9,12,24,36,48,60].'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${EcsInstanceChargeType}
+            - PostPaid
+    Default: 1
+    MinValue: 1
+    MaxValue: 60
+  InstanceGroupInstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: ${EcsInstanceChargeType}
+  EcsSystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceGroupInstanceType}
+  InstanceGroupSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  EcsImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceGroupInstanceType}
+  EcsPassword:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=| {}[]:;' <>,.? / Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    NoEcho: true
+  InstanceGroup1MaxAmount:
+    Type: Number
+    Label:
+      en: The number of ECS instances created under VSwitch1
+      zh-cn: 交换机1下创建的ECS实例数量
+    Description:
+      en: 'Number of the servers, value range: [1, 100].'
+      zh-cn: '创建服务器的数量，取值范围: [1, 100]。'
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  InstanceGroup2MaxAmount:
+    Type: Number
+    Label:
+      en: The number of ECS instances created under VSwitch2
+      zh-cn: 交换机2下创建的ECS实例数量
+    Description:
+      en: 'Number of the servers, value range: [1, 100].'
+      zh-cn: '创建服务器的数量，取值范围: [1, 100]。'
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  LoadbalancerPayType:
+    Type: String
+    Label:
+      en: Payment Type
+      zh-cn: 付费类型
+    Description:
+      en: '<font color=''blue''><b>Optional values: </b></font><br>[PayOnDemand：<font
+        color=''green''>pay-as-you-go</font>]<br>[PrePay：<font color=''green''>prepayment，monthly
+        or annual</font>]<br><font color=''blue''></a>'
+      zh-cn: '<font color=''blue''><b>可选值: </b></font><br>[PayOnDemand：<font color=''green''>按量付费</font>]<br>[PrePay：<font
+        color=''green''>预付费，包月</font>]<br><font color=''blue''></a>'
+    Default: PayOnDemand
+    AllowedValues:
+    - PayOnDemand
+    - PrePay
+  SLBPeriodUnit:
+    Type: String
+    Label:
+      zh-cn: 负载均衡实例预付费资源的购买周期
+      en: SLB Purchase duration of prepaid resources.
+    Description:
+      zh-cn: 负载均衡实例预付费资源的购买时长周期，取值：[month（月），year（年）]
+      en: 'SLB Purchase time and period of prepaid resource, value: [month，year].'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${LoadbalancerPayType}
+            - PayOnDemand
+    Default: month
+    AllowedValues:
+    - month
+    - year
+  SLBPeriod:
+    Type: Number
+    Label:
+      zh-cn: 负载均衡实例预付费资源的购买时长
+      en: SLB Purchase time of prepaid resources.
+    Description:
+      zh-cn: 负载均衡实例预付费资源的购买时长，当预付费资源的购买周期为Year时，取值范围：[1，2，3]; 当预付费资源的购买周期为Month时，取值：[1，2，3，4，5，6，7，8，9]。
+      en: 'When the purchase cycle of prepaid resource is Year, the value range is:
+        [1,2,3]; when the purchase cycle of prepaid resource is month, the value is:
+        [1,2,3,4,5,6,7,8,9].'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${LoadbalancerPayType}
+            - PayOnDemand
+    Default: 1
+    MinValue: 1
+    MaxValue: 9
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      en: Instance specifications,see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance support type</b></font></a>
+      zh-cn: 实例规格，详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${VSwitchZoneId1}
+  RdsDBInstancePayType:
+    Type: String
+    Label:
+      en: Payment Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    Default: PostPaid
+  RDSPeriodUnit:
+    Type: String
+    Label:
+      zh-cn: 云服务器预付费资源的购买周期
+      en: RDS Purchase duration of prepaid resources.
+    Description:
+      zh-cn: 云数据库预付费资源的购买时长周期，取值：[Month（月），Year（年）]
+      en: 'RDS Purchase time and period of prepaid resource, value: [Month，Year].'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${RdsDBInstancePayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  RDSPeriod:
+    Type: Number
+    Label:
+      zh-cn: 云数据库预付费资源的购买时长
+      en: RDS Purchase time of prepaid resources.
+    Description:
+      zh-cn: 云数据库预付费资源的购买时长，当预付费资源的购买周期为Year时，取值范围：[1，2，3]; 当预付费资源的购买周期为Month时，取值：[1，2，3，4，5，6，7，8，9]。
+      en: 'When the purchase cycle of prepaid resource is Year, the value range is:
+        [1,2,3]; when the purchase cycle of prepaid resource is month, the value is:
+        [1,2,3,4,5,6,7,8,9].'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${RdsDBInstancePayType}
+            - PostPaid
+    Default: 1
+    MinValue: 1
+    MaxValue: 9
+  RDSEngine:
+    Type: String
+    Label:
+      en: RDS Engine Type
+      zh-cn: 数据库类型
+    AssociationProperty: ALIYUN::RDS::Engine::EngineId
+  RDSEngineVersion:
+    Type: String
+    Label:
+      en: RDS Engine Version
+      zh-cn: 数据库版本号
+    AssociationProperty: ALIYUN::RDS::Engine::EngineVersion
+    AssociationPropertyMetadata:
+      Engine: ${RDSEngine}
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: The instance specification
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${VSwitchZoneId1}
+      Engine: ${RDSEngine}
+  DBInstanceDbName:
+    Type: String
+    Label:
+      en: Database name
+      zh-cn: 数据库名称
+    Description:
+      en: The database name created by the instance, consisting of lowercase letters,
+        numbers, underscores, and middle lines, beginning with letters, ending with
+        letters or numbers, up to 64 characters.
+      zh-cn: 实例创建的数据库名称，由小写字母、数字、下划线、中划线组成，以字母开头，字母或数字结尾，最多64个字符。
+    Default: small_frame
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: Storage Space
+      zh-cn: 存储空间
+    Description:
+      en: 'Database storage space, units: GB, per 5GB increment, value range: 5-1000.'
+      zh-cn: 数据库存储空间, 单位：GB, 每5GB进行递增，取值范围：5-1000。
+    Default: 50
+    MinValue: 5
+    MaxValue: 1000
+  AccountName:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库帐号
+    Description:
+      en: Maximum 16 characters,Consists of a lowercase letter, a number, an underscore,
+        a letter beginning, a letter or a number ending.<br><b>note： <font color='blue'>keywords
+        can not be used, e.g.:admin/root。</font></b>
+      zh-cn: 最长16个字符, 由小写字母，数字、下划线组成、字母开头，字母或数字结尾。<br><b>注： <font color='blue'>关键字不能用，如：admin/root。</font></b>
+    Default: small_admin
+    MaxLength: 16
+  AccountPassword:
+    Type: String
+    Label:
+      en: Account Password
+      zh-cn: 数据库帐号密码
+    Description:
+      en: Length 8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@#$%^&*-+=_).
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    ConstraintDescription:
+      en: Length 8-32, can contain size letters, Numbers and special symbols (including:!@#$%^&*-+=_).
+      zh-cn: 长度8-32,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  RedisInstanceChargeType:
+    Type: String
+    Label:
+      en: Payment Type
+      zh-cn: 付费类型
+    Description:
+      en: '<font color=''blue''><b>Optional values: </b></font><br>[PayOnDemand：<font
+        color=''green''>pay-as-you-go</font>]<br>[PrePay：<font color=''green''>prepayment，monthly
+        or annual</font>]<br><font color=''blue''>The monthly instance can not create
+        a database (db) and an account.'
+      zh-cn: '<font color=''blue''><b>付费类型；可选值: </b></font><br>[Postpaid：<font color=''green''>按量付费</font>]<br>[Prepaid：<font
+        color=''green''>预付费，包月</font>]<br>预付费，包月实例不创建数据库（db）和帐号。'
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  RedisPeriodUnit:
+    Type: String
+    Label:
+      zh-cn: Redis实例预付费资源的购买周期
+      en: Redis Purchase duration of prepaid resources.
+    Description:
+      zh-cn: Redis实例预付费资源的购买时长周期，取值：[Month（月），Year（年）]
+      en: 'Redis Purchase time and period of prepaid resource, value: [Month，Year].'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${RedisInstanceChargeType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  RedisPeriod:
+    Type: Number
+    Label:
+      zh-cn: Redis实例预付费资源的购买时长
+      en: Redis Purchase time of prepaid resources.
+    Description:
+      zh-cn: Redis实例预付费资源的购买时长，当预付费资源的购买周期为Year时，取值范围：[1，2，3]; 当预付费资源的购买周期为Month时，取值：[1，2，3，4，5，6，7，8，9，12，24，36，48，60]。
+      en: 'When the purchase cycle of prepaid resource is Year, the value range is:
+        [1,2,3]; when the purchase cycle of prepaid resource is month, the value is:
+        [1，2，3，4，5，6，7，8，9，12，24，36，48，60].'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${RedisInstanceChargeType}
+            - PostPaid
+    Default: 1
+    MinValue: 1
+    MaxValue: 60
+  RedisInstanceClass:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    AssociationProperty: ALIYUN::Redis::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${VSwitchZoneId1}
+  RedisEngineVersion:
+    Type: String
+    Label:
+      en: Database Version
+      zh-cn: 数据库版本
+    Description:
+      en: 'Redis database version.Default: 4.0.'
+      zh-cn: Redis数据库版本。默认值：4.0。
+    Default: '4.0'
+    AllowedValues:
+    - '2.8'
+    - '4.0'
+    - '5.0'
+  RedisInstancePassword:
+    Type: String
+    Label:
+      en: Database Password
+      zh-cn: Redis数据库密码
+    Description:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+Resources:
+  VPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7744dc6a-5b2a-48ec-a6ae-20a79402aeb3
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId1
+      VpcId:
+        Ref: VPC
+      CidrBlock:
+        Ref: VSwitchCidrBlock1
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch1
+          - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: b9ccaabc-2a0f-4be5-b423-dd23258aeaae
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId2
+      VpcId:
+        Ref: VPC
+      CidrBlock:
+        Ref: VSwitchCidrBlock2
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch2
+          - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2a9ab31e-b135-401e-b7e2-49fd78272f82
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f07b1f2e-6b17-410d-bd44-7a0588008299
+  InstanceGroup1ConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: db0a74c9-67bb-49e1-9aa5-bc8b2c308d3d
+  EcsInstanceGroup1:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch1
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: EcsImageId
+      UserData:
+        Fn::Join:
+        - '
+
+          '
+        - - '#!/bin/bash'
+          - yum install -y nginx
+          - mkdir -p /data/nginx
+          - echo "This is service client from ecs." > /data/nginx/index.html
+          - cat > /etc/nginx/conf.d/server.conf <<EOF
+          - server {
+          - '    listen 80;'
+          - '    server_name _;'
+          - '    index index.html;'
+          - '    root /data/nginx;'
+          - '}'
+          - EOF
+          - systemctl stop nginx
+          - systemctl start nginx
+          - systemctl enable nginx
+          - Fn::Sub: '${InstanceGroup1ConditionHandle.CurlCli} -d ''{"data" : "InstanceGroup1
+              install nginx web success."}'''
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceGroupInstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: EcsPassword
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      MaxAmount:
+        Ref: InstanceGroup1MaxAmount
+      SystemDiskSize:
+        Ref: InstanceGroupSystemDiskSize
+      InstanceChargeType:
+        Ref: EcsInstanceChargeType
+      PeriodUnit:
+        Ref: ECSPeriodUnit
+      Period:
+        Ref: ECSPeriod
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 694e279c-cc9a-4ee8-8d0a-fa54c0d61fef
+  InstanceGroup1WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 1800
+      Count:
+        Ref: InstanceGroup1MaxAmount
+      Handle:
+        Ref: InstanceGroup1ConditionHandle
+    DependsOn: EcsInstanceGroup1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 086e4b90-075d-4f47-b994-5996edaf05fa
+  InstanceGroup2ConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 492443ed-87d9-46f2-a992-c2aadcc78b58
+  EcsInstanceGroup2:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch2
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: EcsImageId
+      UserData:
+        Fn::Join:
+        - '
+
+          '
+        - - '#!/bin/bash'
+          - yum install -y nginx
+          - mkdir -p /data/nginx
+          - echo "This is service client from ecs." > /data/nginx/index.html
+          - cat > /etc/nginx/conf.d/server.conf <<EOF
+          - server {
+          - '    listen 80;'
+          - '    server_name _;'
+          - '    index index.html;'
+          - '    root /data/nginx;'
+          - '}'
+          - EOF
+          - systemctl stop nginx
+          - systemctl start nginx
+          - systemctl enable nginx
+          - Fn::Sub: '${InstanceGroup2ConditionHandle.CurlCli} -d ''{"data" : "InstanceGroup2
+              install nginx web success."}'''
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceGroupInstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: EcsPassword
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      MaxAmount:
+        Ref: InstanceGroup2MaxAmount
+      SystemDiskSize:
+        Ref: InstanceGroupSystemDiskSize
+      InstanceChargeType:
+        Ref: EcsInstanceChargeType
+      PeriodUnit:
+        Ref: ECSPeriodUnit
+      Period:
+        Ref: ECSPeriod
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: fbec0150-9bfb-48bb-9b94-37dbd4d0908a
+  InstanceGroup2WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 1800
+      Count:
+        Ref: InstanceGroup2MaxAmount
+      Handle:
+        Ref: InstanceGroup2ConditionHandle
+    DependsOn: EcsInstanceGroup2
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3c3a27ea-d564-44da-a601-cb8637ff60a9
+  SlbLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      PayType:
+        Ref: LoadbalancerPayType
+      AddressType: internet
+      MasterZoneId:
+        Ref: VSwitchZoneId1
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      InternetChargeType: paybybandwidth
+      PricingCycle:
+        Ref: SLBPeriodUnit
+      Duration:
+        Ref: SLBPeriod
+      Bandwidth: 5
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: bb743e5e-8271-4e68-90fc-31c028226c76
+  SlbListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Protocol: tcp
+      HealthCheck:
+        HealthyThreshold: 3
+        UnhealthyThreshold: 3
+        Interval: 2
+        Timeout: 5
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+      ListenerPort: 80
+      Bandwidth: 5
+      BackendServerPort: 80
+      Scheduler: wrr
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f256a7cd-0a42-4f54-9fb1-99a6e0890bfd
+  SlbBackendServerAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::ListMerge:
+        - Fn::GetAtt:
+          - EcsInstanceGroup1
+          - InstanceIds
+        - Fn::GetAtt:
+          - EcsInstanceGroup2
+          - InstanceIds
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+      BackendServerWeightList:
+      - 100
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 62342323-7c86-4614-83b3-c9cf269a54db
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch1
+      EngineVersion:
+        Ref: RDSEngineVersion
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList:
+        Ref: VpcCidrBlock
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBMappings:
+      - CharacterSetName: utf8
+        DBName:
+          Ref: DBInstanceDbName
+      Engine:
+        Ref: RDSEngine
+      PayType:
+        Ref: RdsDBInstancePayType
+      Period:
+        Ref: RDSPeriod
+      PeriodType:
+        Ref: RDSPeriodUnit
+      MasterUserType: Normal
+      MasterUsername:
+        Ref: AccountName
+      MasterUserPassword:
+        Ref: AccountPassword
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: fac19315-c387-48a6-b36f-c72318e8dde8
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Fn::GetAtt:
+        - RdsDBInstance
+        - DBInstanceId
+      DBName:
+        Ref: DBInstanceDbName
+      AccountName:
+        Ref: AccountName
+    DependsOn:
+    - RdsDBInstance
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f5757b30-d0c1-40ac-8b37-7f69cb70ba8a
+  RedisInstance:
+    Type: ALIYUN::REDIS::Instance
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId1
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch1
+      ChargeType:
+        Ref: RedisInstanceChargeType
+      Period:
+        Ref: RedisPeriod
+      PeriodUnit:
+        Ref: RedisPeriodUnit
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      EngineVersion:
+        Ref: RedisEngineVersion
+      InstanceClass:
+        Ref: RedisInstanceClass
+      Password:
+        Ref: RedisInstancePassword
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2e0f3501-d9fb-4989-bebd-a19fdafdccf7
+Outputs:
+  SLBServerAddress:
+    Description:
+      en: SLB instance server address
+      zh-cn: 负载均衡实例的服务地址
+    Value:
+      Fn::Sub:
+      - http://${SLBIpAddress}
+      - SLBIpAddress:
+          Fn::GetAtt:
+          - SlbLoadBalancer
+          - IpAddress
+  RdsInnerConnectionString:
+    Description:
+      en: Relational database Intranet connection strings
+      zh-cn: 关系型数据库内网连接串
+    Value:
+      Fn::GetAtt:
+      - RdsDBInstance
+      - InnerConnectionString
+  RedisInstanceConnectionDomain:
+    Description:
+      en: The Intranet connection address of the Redis instance
+      zh-cn: Redis实例的内网连接地址
+    Value:
+      Fn::GetAtt:
+      - RedisInstance
+      - ConnectionDomain
+  EcsGroup1PrivateIps:
+    Description:
+      en: Private network IP list for the first set of server instances
+      zh-cn: 一组服务器实例的私网IP列表
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup1
+      - PrivateIps
+  EcsGroup1InstanceIds:
+    Description:
+      en: The first set of server instance IDs
+      zh-cn: 一组服务器实例ID列表
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup1
+      - InstanceIds
+  EcsGroup2PrivateIps:
+    Description:
+      en: Private network IP list for the second set of server instances
+      zh-cn: 二组服务器实例的私网IP列表
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup2
+      - PrivateIps
+  EcsGroup2InstanceIds:
+    Description:
+      en: The second set of server instance IDs
+      zh-cn: 二组服务器实例ID列表
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup2
+      - InstanceIds
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchCidrBlock1
+      - VSwitchZoneId1
+      - VSwitchCidrBlock2
+      - VSwitchZoneId2
+      Label:
+        en: Infrastructure Configuration
+        zh-cn: 基础资源配置
+    - Parameters:
+      - EcsInstanceChargeType
+      - ECSPeriodUnit
+      - ECSPeriod
+      - InstanceGroupInstanceType
+      - EcsSystemDiskCategory
+      - InstanceGroupSystemDiskSize
+      - EcsImageId
+      - EcsPassword
+      - InstanceGroup1MaxAmount
+      - InstanceGroup2MaxAmount
+      Label:
+        en: ECS Configuration
+        zh-cn: ECS配置
+    - Parameters:
+      - LoadbalancerPayType
+      - SLBPeriodUnit
+      - SLBPeriod
+      - LoadBalancerSpec
+      Label:
+        en: SLB Configuration
+        zh-cn: SLB配置
+    - Parameters:
+      - RdsDBInstancePayType
+      - RDSPeriodUnit
+      - RDSPeriod
+      - RDSEngine
+      - RDSEngineVersion
+      - DBInstanceClass
+      - DBInstanceDbName
+      - DBInstanceStorage
+      - AccountName
+      - AccountPassword
+      Label:
+        en: RDS Configuration
+        zh-cn: RDS配置
+    - Parameters:
+      - RedisInstanceChargeType
+      - RedisPeriodUnit
+      - RedisPeriod
+      - RedisInstanceClass
+      - RedisEngineVersion
+      - RedisInstancePassword
+      Label:
+        en: Redis Configuration
+        zh-cn: Redis配置
+    TemplateTags:
+    - acs:solution:云市场:通用产品上云部署架构（高可用）
+  ALIYUN::ROS::Designer:
+    7744dc6a-5b2a-48ec-a6ae-20a79402aeb3:
+      size:
+        width: 1322
+        height: 988
+      position:
+        x: -40
+        y: -184
+      z: 0
+      embeds:
+      - b9ccaabc-2a0f-4be5-b423-dd23258aeaae
+      - 2a9ab31e-b135-401e-b7e2-49fd78272f82
+      - fac19315-c387-48a6-b36f-c72318e8dde8
+      - 2e0f3501-d9fb-4989-bebd-a19fdafdccf7
+      - bb743e5e-8271-4e68-90fc-31c028226c76
+      - f5757b30-d0c1-40ac-8b37-7f69cb70ba8a
+      - f07b1f2e-6b17-410d-bd44-7a0588008299
+      - f256a7cd-0a42-4f54-9fb1-99a6e0890bfd
+      - 62342323-7c86-4614-83b3-c9cf269a54db
+    b9ccaabc-2a0f-4be5-b423-dd23258aeaae:
+      size:
+        width: 515
+        height: 632
+      position:
+        x: 14
+        y: 57
+      z: 1
+      embeds:
+      - 694e279c-cc9a-4ee8-8d0a-fa54c0d61fef
+      - db0a74c9-67bb-49e1-9aa5-bc8b2c308d3d
+      - 086e4b90-075d-4f47-b994-5996edaf05fa
+    2a9ab31e-b135-401e-b7e2-49fd78272f82:
+      size:
+        width: 549
+        height: 629
+      position:
+        x: 674
+        y: 59
+      z: 1
+      embeds:
+      - fbec0150-9bfb-48bb-9b94-37dbd4d0908a
+      - 3c3a27ea-d564-44da-a601-cb8637ff60a9
+      - 492443ed-87d9-46f2-a992-c2aadcc78b58
+    f07b1f2e-6b17-410d-bd44-7a0588008299:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 81
+        y: -134
+      z: 1
+    db0a74c9-67bb-49e1-9aa5-bc8b2c308d3d:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 87
+        y: 102
+      z: 2
+    086e4b90-075d-4f47-b994-5996edaf05fa:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 87
+        y: 366
+      z: 2
+    694e279c-cc9a-4ee8-8d0a-fa54c0d61fef:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 228
+        y: 193
+      z: 2
+    492443ed-87d9-46f2-a992-c2aadcc78b58:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1088
+        y: 108
+      z: 2
+    3c3a27ea-d564-44da-a601-cb8637ff60a9:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1088
+        y: 359
+      z: 2
+    fbec0150-9bfb-48bb-9b94-37dbd4d0908a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 914
+        y: 191
+      z: 2
+    bb743e5e-8271-4e68-90fc-31c028226c76:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 578
+        y: -53
+      z: 1
+    f256a7cd-0a42-4f54-9fb1-99a6e0890bfd:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 578
+        y: -169
+      z: 1
+    62342323-7c86-4614-83b3-c9cf269a54db:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 578
+        y: 89
+      z: 1
+    fac19315-c387-48a6-b36f-c72318e8dde8:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 575
+        y: 541
+      z: 1
+    f5757b30-d0c1-40ac-8b37-7f69cb70ba8a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 575
+        y: 708
+      z: 1
+    2e0f3501-d9fb-4989-bebd-a19fdafdccf7:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 573
+        y: 253
+      z: 1
+    ed9164b8-c4e6-427b-a60f-da0a6183c392:
+      source:
+        id: 086e4b90-075d-4f47-b994-5996edaf05fa
+      target:
+        id: db0a74c9-67bb-49e1-9aa5-bc8b2c308d3d
+      z: 1
+    dc6ed172-43eb-4f6c-8b26-66f05c3168ef:
+      source:
+        id: 3c3a27ea-d564-44da-a601-cb8637ff60a9
+      target:
+        id: 492443ed-87d9-46f2-a992-c2aadcc78b58
+      z: 1
+    f9d1a0ff-29c5-4379-956b-9872985b209d:
+      source:
+        id: f5757b30-d0c1-40ac-8b37-7f69cb70ba8a
+      target:
+        id: fac19315-c387-48a6-b36f-c72318e8dde8
+      z: 1
+    457fc7e8-5117-427b-ba89-32f337da9b3b:
+      source:
+        id: 62342323-7c86-4614-83b3-c9cf269a54db
+      target:
+        id: 694e279c-cc9a-4ee8-8d0a-fa54c0d61fef
+      z: 1
+    3bdda3ab-f3d4-4972-8a91-1e85c4de2e21:
+      source:
+        id: 62342323-7c86-4614-83b3-c9cf269a54db
+      target:
+        id: fbec0150-9bfb-48bb-9b94-37dbd4d0908a
+      z: 1
+    43c602ee-7b62-4350-8989-8e9b12eb68c5:
+      source:
+        id: 62342323-7c86-4614-83b3-c9cf269a54db
+      target:
+        id: bb743e5e-8271-4e68-90fc-31c028226c76
+      z: 1
+    2e7b5fac-7900-4b7a-90e9-90af79fe4ea5:
+      source:
+        id: bb743e5e-8271-4e68-90fc-31c028226c76
+      target:
+        id: f256a7cd-0a42-4f54-9fb1-99a6e0890bfd
+      z: 1
+    f0e744c2-c3e1-4545-b067-5a61a1b70bb5:
+      source:
+        id: 694e279c-cc9a-4ee8-8d0a-fa54c0d61fef
+      target:
+        id: 2e0f3501-d9fb-4989-bebd-a19fdafdccf7
+      z: 1
+    d0c6c5d7-ba6c-47a8-8b8b-7dbc87d0f1e5:
+      source:
+        id: fbec0150-9bfb-48bb-9b94-37dbd4d0908a
+      target:
+        id: 2e0f3501-d9fb-4989-bebd-a19fdafdccf7
+      z: 1
+    93a89071-1b9d-4ead-a759-86bba3903e3f:
+      source:
+        id: 694e279c-cc9a-4ee8-8d0a-fa54c0d61fef
+      target:
+        id: fac19315-c387-48a6-b36f-c72318e8dde8
+      z: 1
+    a96bb6f9-e5f3-4412-a69c-0edbfafc560d:
+      source:
+        id: fbec0150-9bfb-48bb-9b94-37dbd4d0908a
+      target:
+        id: fac19315-c387-48a6-b36f-c72318e8dde8
+      z: 1

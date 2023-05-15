@@ -1,0 +1,98 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ECS NatGateway、BandwidthPackage
+Parameters:
+  NatGatewayName:
+    Type: String
+    Default: mytest
+  VpcName:
+    Type: String
+    Description: Vpc Name
+    Default: mytest
+  VSwitchName:
+    Type: String
+    Description: VSwitch Name
+    Default: mytest
+  ZoneId:
+    Type: String
+    Default: cn-hangzhou-i
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: VpcName
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Ref: VSwitchName
+      CidrBlock: 192.168.0.0/16
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      NatGatewayName:
+        Ref: NatGatewayName
+    DependsOn:
+    - VSwitch
+    - Vpc
+  BandwidthPackage:
+    Type: ALIYUN::VPC::CommonBandwidthPackage
+    Properties:
+      Description: Test
+      Name: fv-dsa
+      Bandwidth: 5
+      InternetChargeType: PayByBandwidth
+    DependsOn: NatGateway
+  EIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InstanceChargeType: Postpaid
+      InternetChargeType: PayByTraffic
+  EIPAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: EIP
+    DependsOn:
+    - EIP
+    - NatGateway
+  CommonBandwidthPackageIp:
+    Type: ALIYUN::VPC::CommonBandwidthPackageIp
+    Properties:
+      Eips:
+      - Bandwidth: 5
+        AllocationId:
+          Ref: EIP
+      BandwidthPackageId:
+        Ref: BandwidthPackage
+    DependsOn:
+    - BandwidthPackage
+    - EIP
+    - EIPAssociation
+Outputs:
+  NatGatewayId:
+    Value:
+      Fn::GetAtt:
+      - NatGateway
+      - NatGatewayId
+  BandwidthPackageId:
+    Value:
+      Fn::GetAtt:
+      - BandwidthPackage
+      - BandwidthPackageId
+  BandwidthPackageIps:
+    Value:
+      Fn::GetAtt:
+      - CommonBandwidthPackageIp
+      - IpAddresses

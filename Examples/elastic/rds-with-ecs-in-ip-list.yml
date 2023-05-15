@@ -1,0 +1,224 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: RDS instance + ECS instance + access for Intranet
+Conditions:
+  CreateSecurityGroup:
+    Fn::Equals:
+    - None
+    - Ref: SecurityGroupId
+Parameters:
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.n1.large
+    AllowedValues:
+    - ecs.n1.large
+    - ecs.n1.xlarge
+    - ecs.n1.3xlarge
+    - ecs.sn2.medium
+  SecurityGroupId:
+    Type: String
+    Label: Security Group Id
+    Description: The existing security group Id that the ECS instance belongs to.
+      net type is classic. default is None, new create SG.
+    Default: None
+  InstanceName:
+    Type: String
+    Label: ECS Instance Name
+    Description: The name of ECS instance
+    ConstraintDescription: '[2, 128] English or Chinese letters'
+    Default: myecsinstance
+    MinLength: 2
+    MaxLength: 128
+  Password:
+    Type: String
+    Label: ECS Password
+    Description: The login password of ECS instance
+    ConstraintDescription: The length is within [8, 30].
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+    Confirm: true
+  SystemDiskCategory:
+    Type: String
+    Label: System Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  SystemDiskDiskName:
+    Type: String
+    Label: System Disk Name
+    Description: The name of system disk
+    Default: mysystemdisk
+  SystemDiskDescription:
+    Type: String
+    Label: System Disk Description
+    Description: The description of system disk
+    Default: Description of system disks
+  Engine:
+    Type: String
+    Label: Database Engine
+    Description: Database instance engine type. Support MySQL/SQLServer/PostgreSQL/PPAS.
+    Default: MySQL
+    AllowedValues:
+    - MySQL
+    - SQLServer
+    - PostgreSQL
+    - PPAS
+  EngineVersion:
+    Type: String
+    Label: Database Engine Version
+    Description: MySQL:5.5/5.6; SQLServer:2008r2; PostgreSQL:9.4; PPAS:9.3
+    Default: '5.5'
+    AllowedValues:
+    - '5.5'
+    - '5.6'
+    - 2008r2
+    - '9.4'
+    - '9.3'
+  DBInstanceClass:
+    Type: String
+    Label: DB Instance Class
+    Description: Database instance type. Refer the RDS database instance type.<a href='https://help.aliyun.com/document_detail/26312.html'
+      target='_blank'>View RDS resources type</a>
+    Default: rds.mysql.t1.small
+    AllowedValues:
+    - rds.mysql.t1.small
+    - rds.mysql.s1.small
+    - rds.mysql.s2.large
+    - rds.mysql.s2.xlarge
+    - rds.mysql.s3.large
+    - rds.mysql.m1.medium
+    - rds.mysql.c1.large
+    - rds.mysql.c1.xlarge
+    - rds.mysql.c2.xlarge
+    - rds.mysql.c2.xlp2
+  DBInstanceStorage:
+    Type: Number
+    Label: DB Instance Storage
+    Description: 'Incrementing in every 5G, unit: GB'
+    ConstraintDescription: '[5, 2000] Incrementing in every 5G, unit: GB'
+    Default: 20
+    MinValue: 5
+    MaxValue: 2000
+  DBInstanceNetType:
+    Type: String
+    Label: DB Instance Net Type
+    Description: Database instance net type, default is Intranet.Internet for public
+      access, Intranet for private access.
+    Default: Intranet
+    AllowedValues:
+    - Intranet
+    - Internet
+Resources:
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      SecurityGroupId:
+        Fn::If:
+        - CreateSecurityGroup
+        - Fn::GetAtt:
+          - SG
+          - SecurityGroupId
+        - Ref: SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InstanceType:
+        Ref: InstanceType
+      InstanceName:
+        Ref: InstanceName
+      Password:
+        Ref: Password
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskDiskName:
+        Ref: SystemDiskDiskName
+      SystemDiskDescription:
+        Ref: SystemDiskDescription
+      DiskMappings:
+      - Category: cloud_ssd
+        Size: 20
+      - DiskName: ecs_disk
+        Size: 20
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      Engine:
+        Ref: Engine
+      EngineVersion:
+        Ref: EngineVersion
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBInstanceNetType:
+        Ref: DBInstanceNetType
+      SecurityIPList:
+        Fn::GetAtt:
+        - WebServer
+        - InnerIp
+  SG:
+    Type: ALIYUN::ECS::SecurityGroup
+    Condition: CreateSecurityGroup
+    Properties: {}
+Outputs:
+  WebServerId:
+    Description: The instance id of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - InstanceId
+  WebServerPrivateIp:
+    Description: Private IP address of created ecs instance. Only for VPC instance.
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - InnerIp
+  WebServerPublicIp:
+    Description: Public IP address of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - PublicIp
+  DBInstanceId:
+    Description: The instance id of created database instance.
+    Value:
+      Fn::GetAtt:
+      - Database
+      - DBInstanceId
+  PublicConnectionString:
+    Description: DB instance connection url by Intranet.
+    Value:
+      Fn::GetAtt:
+      - Database
+      - PublicConnectionString
+  PublicPort:
+    Description: Internet port of created DB instance.
+    Value:
+      Fn::GetAtt:
+      - Database
+      - PublicPort
+  InnerConnectionString:
+    Description: DB instance connection url by Intranet.
+    Value:
+      Fn::GetAtt:
+      - Database
+      - InnerConnectionString
+  InnerPort:
+    Description: Intranet port of created DB instance.
+    Value:
+      Fn::GetAtt:
+      - Database
+      - InnerPort

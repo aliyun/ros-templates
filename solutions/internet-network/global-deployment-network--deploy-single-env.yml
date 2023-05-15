@@ -1,0 +1,805 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 在线教育全球部署网络规划-搭建单个区域资源环境
+Conditions:
+  IsCreateManageEnv:
+    Fn::Equals:
+    - Ref: CreateManageEnv
+    - true
+Parameters:
+  CreateManageEnv:
+    Type: Boolean
+    Label:
+      en: Create Management Server And Nat Gateway
+      zh-cn: 是否创建管理服务器及Nat网关
+    Description:
+      en: '<font color=''blue''><b>Refer to the template architecture diagram for
+        the environment resources</b></font>，<br>note: check: create; Unchecked: not
+        created.'
+      zh-cn: '<font color=''blue''><b>环境资源情况请参考模板架构图</b></font>，<br>注：勾选: 创建；未勾选:
+        不创建。'
+    Default: false
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>You can use
+        the following IP address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 10.0.0.0/16
+  VSwitch1ZoneId:
+    Type: String
+    Label:
+      en: VSwitch 1 Availability Zone
+      zh-cn: 交换机1可用区
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        RDS、SLB and ECS resources.</font></b>
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建RDS、SLB及ECS资源的规格。</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitch1CidrBlock:
+    Type: String
+    Label:
+      en: VSwitch 1 CIDR Block
+      zh-cn: 交换机1子网段
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.0.10.0/24
+  VSwitch2ZoneId:
+    Type: String
+    Label:
+      en: VSwitch 2 Availability Zone
+      zh-cn: 交换机2可用区
+    Description:
+      en: Availability Zone ID, <font color='red'>please select a different available
+        area from switch 1</font> <br><b>note： <font color='blue'>Before selecting,
+        please confirm that the Availability Zone supports the specification of creating
+        ECS resources.</font></b>
+      zh-cn: 可用区ID，<font color='red'>请选择与交换机1不同的可用区</font><br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格。</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitch2CidrBlock:
+    Type: String
+    Label:
+      en: VSwitch 2 CIDR Block
+      zh-cn: 交换机2子网段
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.0.20.0/24
+  EipBandwidth:
+    Type: Number
+    Label:
+      en: EIP Bandwidth
+      zh-cn: 弹性公网IP带宽值
+    Description:
+      en: 'Elastic Public network IP bandwidth，unit: Mbps.'
+      zh-cn: 弹性公网IP带宽值，单位：Mbps。
+    Default: 5
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Instance Specification
+      zh-cn: 实例规格
+    Description:
+      en: Instance specifications, see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance support type</b></font></a>
+      zh-cn: 实例规格，详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    Default: slb.s1.small
+    AllowedValues:
+    - slb.s1.small
+    - slb.s2.small
+    - slb.s2.medium
+    - slb.s3.small
+    - slb.s3.medium
+    - slb.s3.large
+  EcsInstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.g5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.g5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  EcsImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+  EcsSystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_auto
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  EcsSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  EcsPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: Type And Version
+      zh-cn: 类型与版本号
+    Description:
+      en: Database type and version number.
+      zh-cn: 数据库类型与版本号。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.5
+    - MySQL-5.6
+    - MySQL-5.7
+    - MySQL-8.0
+    - PPAS-9.3
+    - PostgreSQL-9.4
+    - SQLServer-2008r2
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Specification
+      zh-cn: 实例规格
+    Description:
+      en: Instance specifications, see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/26312.html'
+        target='_blank'><b><font color='blue'>Performance support type</b></font></a>
+      zh-cn: 实例规格，详见：</b><a href='https://help.aliyun.com/document_detail/26312.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    Default: rds.mysql.t1.small
+    AllowedValues:
+    - rds.mysql.t1.small
+    - rds.mysql.s2.large
+    - rds.mysql.s2.xlarge
+    - rds.mysql.s3.large
+    - rds.mysql.m1.medium
+    - rds.mysql.c1.large
+    - rds.mysql.c1.xlarge
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: Storage Space
+      zh-cn: 存储空间
+    Description:
+      en: 'Database storage space, units: GB, per 5GB increment, value range: 5-1000.'
+      zh-cn: 数据库存储空间, 单位：GB, 每5GB进行递增，取值范围：5-1000。
+    Default: 5
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  EcsVSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitch1ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch1
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VSwitch1CidrBlock
+  EcsVSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitch2ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch2
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VSwitch2CidrBlock
+  EcsSecurityGroup1:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - SecurityGroup1
+          - StackId
+          - Ref: ALIYUN::StackId
+      SecurityGroupIngress:
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: 443/443
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+        NicType: intranet
+      - PortRange: -1/-1
+        Priority: 10
+        IpProtocol: all
+        SourceCidrIp: 0.0.0.0/0
+        NicType: intranet
+        Policy: drop
+  EcsSecurityGroup2:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - SecurityGroup2
+          - StackId
+          - Ref: ALIYUN::StackId
+      SecurityGroupIngress:
+      - PortRange: 1024/1024
+        Priority: 1
+        IpProtocol: tcp
+        NicType: intranet
+        SourceGroupId:
+          Ref: EcsSecurityGroup1
+      - PortRange: 2000/2048
+        Priority: 1
+        IpProtocol: udp
+        NicType: intranet
+        SourceGroupId:
+          Ref: EcsSecurityGroup1
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+        NicType: intranet
+      - PortRange: -1/-1
+        Priority: 10
+        IpProtocol: all
+        SourceCidrIp: 0.0.0.0/0
+        NicType: intranet
+        Policy: drop
+  EcsInstance1:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      SecurityGroupId:
+        Ref: EcsSecurityGroup1
+      ImageId:
+        Ref: EcsImageId
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      SystemDiskSize:
+        Ref: EcsSystemDiskSize
+      Password:
+        Ref: EcsPassword
+      AllocatePublicIP: false
+      UserData:
+        Fn::Join:
+        - ''
+        - - "#!/bin/sh \n"
+          - "sudo yum check-update \n"
+          - "sudo yum -y install httpd php \n"
+          - "cd /var/www/html \n"
+          - "echo 'hello world,This is ECS1.' > index.html \n"
+          - "service httpd start \n"
+      Tags:
+      - Value: 029
+        Key: best_practice
+  EcsInstance2:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch2
+      SecurityGroupId:
+        Ref: EcsSecurityGroup1
+      ImageId:
+        Ref: EcsImageId
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      SystemDiskSize:
+        Ref: EcsSystemDiskSize
+      Password:
+        Ref: EcsPassword
+      AllocatePublicIP: false
+      Tags:
+      - Value: 029
+        Key: best_practice
+      UserData:
+        Fn::Join:
+        - ''
+        - - "#!/bin/sh \n"
+          - "sudo yum check-update \n"
+          - "sudo yum -y install httpd php \n"
+          - "cd /var/www/html \n"
+          - "echo 'hello world,This is ECS2.' > index.html \n"
+          - "service httpd start \n"
+  EcsInstance3:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      SecurityGroupId:
+        Ref: EcsSecurityGroup2
+      ImageId:
+        Ref: EcsImageId
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      SystemDiskSize:
+        Ref: EcsSystemDiskSize
+      Password:
+        Ref: EcsPassword
+      AllocatePublicIP: false
+      UserData:
+        Fn::Join:
+        - ''
+        - - "#!/bin/sh \n"
+          - "sudo yum check-update \n"
+          - "sudo yum -y install httpd php \n"
+          - "cd /var/www/html \n"
+          - "echo 'hello world,This is ECS3.' > index.html \n"
+          - "service httpd start \n"
+      Tags:
+      - Value: 029
+        Key: best_practice
+  EcsInstance4:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch2
+      SecurityGroupId:
+        Ref: EcsSecurityGroup2
+      ImageId:
+        Ref: EcsImageId
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      SystemDiskSize:
+        Ref: EcsSystemDiskSize
+      Password:
+        Ref: EcsPassword
+      AllocatePublicIP: false
+      UserData:
+        Fn::Join:
+        - ''
+        - - "#!/bin/sh \n"
+          - "sudo yum check-update \n"
+          - "sudo yum -y install httpd php \n"
+          - "cd /var/www/html \n"
+          - "echo 'hello world,This is ECS4.' > index.html \n"
+          - "service httpd start \n"
+      Tags:
+      - Value: 029
+        Key: best_practice
+  SlbLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      AddressType: intranet
+      InternetChargeType: paybytraffic
+      LoadBalancerName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      MasterZoneId:
+        Ref: VSwitch1ZoneId
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      Tags:
+      - Key: best_practice
+        Value: 029
+  SlbListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+      ListenerPort: 80
+      BackendServerPort: 80
+      Bandwidth: 1
+      Protocol: http
+      HealthCheck:
+        HealthyThreshold: 3
+        UnhealthyThreshold: 3
+        Interval: 2
+        Timeout: 5
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+      Scheduler: wrr
+  SlbBackendServerAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+      - Ref: EcsInstance1
+      - Ref: EcsInstance2
+      - Ref: EcsInstance3
+      - Ref: EcsInstance4
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+      BackendServerWeightList:
+      - 100
+    DependsOn:
+    - EcsInstance1
+    - EcsInstance2
+    - EcsInstance3
+    - EcsInstance4
+  RdsDatabase:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBInstanceNetType: Intranet
+      SecurityIPList:
+        Ref: VpcCidrBlock
+      PayType: Postpaid
+      Tags:
+        Key: best_practice
+        Value: 029
+  VpcEip1:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth:
+        Ref: EipBandwidth
+      InternetChargeType: PayByTraffic
+  VpcEipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: SlbLoadBalancer
+      AllocationId:
+        Ref: VpcEip1
+  EcsSecurityGroup3:
+    Type: ALIYUN::ECS::SecurityGroup
+    Condition: IsCreateManageEnv
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - SecurityGroup3
+          - StackId
+          - Ref: ALIYUN::StackId
+      SecurityGroupIngress:
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+  EcsInstance5Manage:
+    Type: ALIYUN::ECS::Instance
+    Condition: IsCreateManageEnv
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      SecurityGroupId:
+        Ref: EcsSecurityGroup3
+      ImageId:
+        Ref: EcsImageId
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      SystemDiskSize:
+        Ref: EcsSystemDiskSize
+      Password:
+        Ref: EcsPassword
+      AllocatePublicIP: false
+      Tags:
+      - Value: 029
+        Key: best_practice
+  VpcNatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Condition: IsCreateManageEnv
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      NatGatewayName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  VpcEip2:
+    Type: ALIYUN::VPC::EIP
+    Condition: IsCreateManageEnv
+    Properties:
+      Bandwidth:
+        Ref: EipBandwidth
+      InternetChargeType: PayByTraffic
+  VpcEip3:
+    Type: ALIYUN::VPC::EIP
+    Condition: IsCreateManageEnv
+    Properties:
+      Bandwidth:
+        Ref: EipBandwidth
+      InternetChargeType: PayByTraffic
+  EipBindNatGatewayToSNat:
+    Type: ALIYUN::VPC::EIPAssociation
+    Condition: IsCreateManageEnv
+    Properties:
+      InstanceId:
+        Ref: VpcNatGateway
+      AllocationId:
+        Ref: VpcEip2
+  EipBindNatGatewayToDNat:
+    Type: ALIYUN::VPC::EIPAssociation
+    Condition: IsCreateManageEnv
+    Properties:
+      InstanceId:
+        Ref: VpcNatGateway
+      AllocationId:
+        Ref: VpcEip3
+  VpcSnatEntry:
+    Type: ALIYUN::VPC::SnatEntry
+    Condition: IsCreateManageEnv
+    Properties:
+      SourceVSwitchIds:
+      - Ref: EcsVSwitch1
+      SnatTableId:
+        Fn::GetAtt:
+        - VpcNatGateway
+        - SNatTableId
+      SnatIp:
+        Fn::GetAtt:
+        - VpcEip2
+        - EipAddress
+    DependsOn:
+    - EipBindNatGatewayToSNat
+    - VpcEip2
+    - VpcNatGateway
+  EcsForwardEntry:
+    Type: ALIYUN::ECS::ForwardEntry
+    Condition: IsCreateManageEnv
+    Properties:
+      ForwardTableId:
+        Fn::GetAtt:
+        - VpcNatGateway
+        - ForwardTableId
+      ExternalIp:
+        Fn::GetAtt:
+        - VpcEip3
+        - EipAddress
+      ExternalPort: '5555'
+      IpProtocol: TCP
+      InternalIp:
+        Fn::GetAtt:
+        - EcsInstance5Manage
+        - PrivateIp
+      InternalPort: '3389'
+    DependsOn:
+    - EipBindNatGatewayToDNat
+    - VpcEip3
+    - VpcNatGateway
+Outputs:
+  VpcId:
+    Description:
+      en: Proprietary network instance Id
+      zh-cn: 专有网络实例Id。
+    Value:
+      Fn::GetAtt:
+      - EcsVpc
+      - VpcId
+  VpcEip1Address:
+    Description:
+      en: Binding load balancing elastic public network IP
+      zh-cn: 绑定负载均衡弹性公网IP。
+    Value:
+      Fn::GetAtt:
+      - VpcEip1
+      - EipAddress
+  RdsDatabaseInnerConnectionString:
+    Description:
+      en: Database Intranet connection string
+      zh-cn: 数据库内网连接串。
+    Value:
+      Fn::GetAtt:
+      - RdsDatabase
+      - InnerConnectionString
+  Ecs1InstanceId:
+    Description:
+      en: Instance ID of cloud server 1
+      zh-cn: 云服务器1的实例ID。
+    Value:
+      Fn::GetAtt:
+      - EcsInstance1
+      - InstanceId
+  Ecs2InstanceId:
+    Description:
+      en: Instance ID of cloud server 2
+      zh-cn: 云服务器2的实例ID。
+    Value:
+      Fn::GetAtt:
+      - EcsInstance2
+      - InstanceId
+  Ecs3InstanceId:
+    Description:
+      en: Instance ID of cloud server 3
+      zh-cn: 云服务器3的实例ID。
+    Value:
+      Fn::GetAtt:
+      - EcsInstance3
+      - InstanceId
+  Ecs4InstanceId:
+    Description:
+      en: Instance ID of cloud server 4
+      zh-cn: 云服务器4的实例ID。
+    Value:
+      Fn::GetAtt:
+      - EcsInstance4
+      - InstanceId
+  Ecs5InstanceId:
+    Description:
+      en: Instance ID of cloud server 5
+      zh-cn: 云服务器5的实例ID。
+    Condition: IsCreateManageEnv
+    Value:
+      Fn::GetAtt:
+      - EcsInstance5Manage
+      - InstanceId
+  VpcNatGatewayId:
+    Description:
+      en: Nat gateway instance ID
+      zh-cn: Nat网关实例ID。
+    Condition: IsCreateManageEnv
+    Value:
+      Fn::GetAtt:
+      - VpcNatGateway
+      - NatGatewayId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - CreateManageEnv
+      Label:
+        default: ''
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitch1ZoneId
+      - VSwitch1CidrBlock
+      - VSwitch2ZoneId
+      - VSwitch2CidrBlock
+      - EipBandwidth
+      Label:
+        default: VPC
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        default: SLB
+    - Parameters:
+      - EcsInstanceType
+      - EcsImageId
+      - EcsSystemDiskCategory
+      - EcsSystemDiskSize
+      - EcsPassword
+      Label:
+        default: ECS
+    - Parameters:
+      - DBInstanceEngineAndVersion
+      - DBInstanceClass
+      - DBInstanceStorage
+      Label:
+        default: RDS
+    TemplateTags:
+    - acs:solution:网络组网:在线教育全球部署网络规划-搭建单个区域资源环境

@@ -1,0 +1,994 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Docker for Aliyun
+Mappings:
+  VpcCidrs:
+    pubsubnet:
+      cidr: 192.168.33.0/24
+    vpc:
+      cidr: 192.168.0.0/16
+Parameters:
+  InstancePassword:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      en: '8~30 characters, consists of uppercase letter, lowercase letter, number
+        or special characters such as ( ) ` ~ ! @ # $ % ^ & * - + = | { } [ ] : ;
+        ‘ < > , . ? / '
+      zh-cn: '长度为8~30个字符。必须同时包含三项（大、小写字母，数字和特殊符号）。<br>支持以下特殊字符：( ) ` ~ ! @ # $ % ^
+        & * - + = | { } [ ] : ; ‘ < > , . ? /。'
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      en: Instance specifications,</br>see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance Support Type</b></font></a>
+      zh-cn: 实例规格，</br>详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    Default: slb.s1.small
+  PubSubnetZoneId:
+    Type: String
+    Label:
+      zh-cn: 可用区
+      en: Pub Subnet Zone ID
+    Description:
+      en: Available Zone ID
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  ManagerInstanceType:
+    Type: String
+    Label:
+      zh-cn: Manager ECS实例规格
+      en: Manager ECS Instance Type
+    Description:
+      en: 'ECS instance type, <a href=''https://www.alibabacloud.com/help/doc-detail/25378.html''
+        target=''_blank''>View instance types</a>, please confirm the instance type
+        if in the specific zone in ECS console. '
+      zh-cn: ECS实例规格，详情请参见<a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'>实例规格族</a>。请在ECS控制台确认所选可用区下是否支持您选的规格。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: PubSubnetZoneId
+  ManagerSystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: Manager系统盘类型
+      en: Manager System Disk Category
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_auto
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  ManagerImageId:
+    Type: String
+    Label:
+      zh-cn: Manager镜像ID
+      en: Manager ECS Image ID
+    Description:
+      en: Image ID, represents the image resource to startup one ECS instance, <a
+        href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'>View
+        image resources</a>.
+      zh-cn: 镜像ID，详情请参考<a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'>公共镜像</a>。
+    Default: ubuntu_16
+  AdditionalManagerSize:
+    Type: Number
+    Label:
+      zh-cn: manager数量
+      en: Additional Manager Size
+    Description:
+      en: Number of additional Swarm manager nodes.
+      zh-cn: manager数量
+    Default: 2
+    AllowedValues:
+    - 0
+    - 2
+    - 4
+  NodeInstanceType:
+    Type: String
+    Label:
+      zh-cn: 节点实例规格
+      en: Node ECS Instance Type
+    Description:
+      en: 'Node ECS instance type, <a href=''https://www.alibabacloud.com/help/doc-detail/25378.html''
+        target=''_blank''>View instance types</a>, please confirm the instance type
+        if in the specific zone in ECS console. '
+      zh-cn: ECS实例规格，详情请参见<a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'>实例规格族</a>。请在ECS控制台确认所选可用区下是否支持您选的规格。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: PubSubnetZoneId
+  NodeSystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 节点系统盘类型
+      en: Node System Disk Category
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_auto
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  NodeImageId:
+    Type: String
+    Label:
+      zh-cn: Node镜像ID
+      en: Node ECS Image ID
+    Description:
+      en: Image ID, represents the image resource to startup one ECS instance, <a
+        href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'>View
+        image resources</a>.
+      zh-cn: 镜像ID，详情请参考<a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'>公共镜像</a>。
+    Default: ubuntu_16
+  ClusterSize:
+    Type: Number
+    Label:
+      zh-cn: node数量
+      en: Cluster Size
+    Description:
+      en: Number of worker nodes in the Swarm (1-100).
+      zh-cn: node数量
+    Default: 3
+    MinValue: '1'
+    MaxValue: '100'
+Resources:
+  ExternalLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName: ExternalLoadBalancer
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      AddressType: internet
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Fn::FindInMap:
+        - VpcCidrs
+        - vpc
+        - cidr
+  NodeVpcSG:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      Description: Node SecurityGroup
+      SecurityGroupIngress:
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+  ManagerVpcSG:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      Description: Manager SecurityGroup
+      SecurityGroupIngress:
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - SourceGroupId:
+          Fn::GetAtt:
+          - NodeVpcSG
+          - SecurityGroupId
+        PortRange: 2375/2375
+        IpProtocol: tcp
+      - SourceGroupId:
+          Fn::GetAtt:
+          - NodeVpcSG
+          - SecurityGroupId
+        PortRange: 2377/2377
+        IpProtocol: tcp
+      - SourceGroupId:
+          Fn::GetAtt:
+          - NodeVpcSG
+          - SecurityGroupId
+        PortRange: 4789/4789
+        IpProtocol: udp
+      - SourceGroupId:
+          Fn::GetAtt:
+          - NodeVpcSG
+          - SecurityGroupId
+        PortRange: 7946/7946
+        IpProtocol: tcp
+      - SourceGroupId:
+          Fn::GetAtt:
+          - NodeVpcSG
+          - SecurityGroupId
+        PortRange: 7946/7946
+        IpProtocol: udp
+  PubSubnet:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: PubSubnetZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Fn::FindInMap:
+        - VpcCidrs
+        - pubsubnet
+        - cidr
+  Master:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: PubSubnet
+      SecurityGroupId:
+        Fn::GetAtt:
+        - ManagerVpcSG
+        - SecurityGroupId
+      ImageId:
+        Ref: ManagerImageId
+      IoOptimized: optimized
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - MasterConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh
+
+              '
+            - slb_id='
+            - Fn::GetAtt:
+              - ExternalLoadBalancer
+              - LoadBalancerId
+            - '''
+
+              '
+            - ak_id='
+            - Fn::GetAtt:
+              - AccessKey
+              - AccessKeyId
+            - '''
+
+              '
+            - ak_secret='
+            - Fn::GetAtt:
+              - AccessKey
+              - AccessKeySecret
+            - '''
+
+              '
+            - 'ip_addr=`ip addr | grep eth0 | grep -o ''[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/''
+              | cut -d ''/'' -f 1`
+
+              '
+            - 'apt-get update
+
+              '
+            - 'apt-get install -y curl
+
+              '
+            - 'sed -i ''s/archive.ubuntu.com/mirrors.aliyun.com/'' /etc/apt/sources.list
+
+              '
+            - 'if [ ! -f /usr/bin/docker ]; then
+
+              '
+            - '    curl -sSL http://acs-public-mirror.oss-cn-hangzhou.aliyuncs.com/docker-engine/intranet
+              | sh -
+
+              '
+            - '    echo DOCKER_OPTS="''--registry-mirror https://6udu7vtl.mirror.aliyuncs.com''"
+              > /etc/default/docker
+
+              '
+            - '    sleep 10
+
+              '
+            - '    sudo service docker restart
+
+              '
+            - 'fi
+
+              '
+            - 'usermod -aG docker $USER
+
+              '
+            - 'docker swarm init --advertise-addr $ip_addr
+
+              '
+            - 'worker_token=`docker swarm join-token -q worker`
+
+              '
+            - 'manager_token=`docker swarm join-token -q manager`
+
+              '
+            - 'echo $worker_token, $manager_token > /tmp/tokens
+
+              '
+            - 'cmd="ros-notify -d ''{\"id\" : \"tokens\", \"data\" : [\"$worker_token\",
+              \"$manager_token\"]}''"
+
+              '
+            - 'eval $cmd
+
+              '
+            - 'mkdir -p /var/lib/docker/swarm/
+
+              '
+            - 'echo $ak_id > /var/lib/docker/swarm/access_key_id
+
+              '
+            - 'echo $ak_secret > /var/lib/docker/swarm/access_key_secret
+
+              '
+            - 'echo $slb_id > /var/lib/docker/swarm/lb_name
+
+              '
+            - 'docker run -d --restart always --name controller -p 2375:2375 -v /var/run/docker.sock:/var/run/docker.sock
+              -v /var/lib/docker/swarm/access_key_id:/var/lib/docker/swarm/access_key_id:ro
+              -v /var/lib/docker/swarm/access_key_secret:/var/lib/docker/swarm/access_key_secret:ro
+              -v /var/lib/docker/swarm/lb_name:/var/lib/docker/swarm/lb_name:ro registry.cn-hangzhou.aliyuncs.com/acs/agent:0.8
+              --log-level debug aliyun-controller
+
+              '
+            - 'echo $worker_token, $manager_token > ~/tokens
+
+              '
+            - 'cd /etc/ssh
+
+              '
+            - 'tar -czf host_keys.tar.gz ssh_host_*key*
+
+              '
+            - 'ssh_keys=`base64 -w 0 host_keys.tar.gz`
+
+              '
+            - 'cmd="ros-notify -d ''{\"id\" : \"ssh_keys\", \"data\" : \"$ssh_keys\"}''"
+
+              '
+            - 'eval $cmd
+
+              '
+            - 'echo $ssh_keys > /tmp/ssh_keys
+
+              '
+      SystemDiskCategory:
+        Ref: ManagerSystemDiskCategory
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: ManagerInstanceType
+      MaxAmount: '1'
+      Password:
+        Ref: InstancePassword
+  ExtSLBAttachmentMaster:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - Master
+        - InstanceIds
+      LoadBalancerId:
+        Ref: ExternalLoadBalancer
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: PubSubnet
+      NatGatewayName: NatGateway
+  NatGatewayEIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: 10
+  NatGatewayEIPBind:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: NatGatewayEIP
+    DependsOn:
+    - NatGateway
+    - NatGatewayEIP
+  NodeGroupConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  MasterConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  MasterWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 600
+      Count: 2
+      Handle:
+        Ref: MasterConditionHandle
+    DependsOn: Master
+  ManagerGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: PubSubnet
+      SecurityGroupId:
+        Fn::GetAtt:
+        - ManagerVpcSG
+        - SecurityGroupId
+      ImageId:
+        Ref: ManagerImageId
+      IoOptimized: optimized
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - ManagerGroupConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh
+
+              '
+            - data='
+            - Fn::GetAtt:
+              - MasterWaitCondition
+              - Data
+            - '''
+
+              '
+            - master_ip='
+            - Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                - Master
+                - PrivateIps
+            - '''
+
+              '
+            - slb_id='
+            - Fn::GetAtt:
+              - ExternalLoadBalancer
+              - LoadBalancerId
+            - '''
+
+              '
+            - ak_id='
+            - Fn::GetAtt:
+              - AccessKey
+              - AccessKeyId
+            - '''
+
+              '
+            - ak_secret='
+            - Fn::GetAtt:
+              - AccessKey
+              - AccessKeySecret
+            - '''
+
+              '
+            - 'echo $data > /tmp/tokens
+
+              '
+            - 'apt-get update
+
+              '
+            - 'apt-get install -y curl
+
+              '
+            - 'apt-get install -y jq
+
+              '
+            - 'sed -i ''s/archive.ubuntu.com/mirrors.aliyun.com/'' /etc/apt/sources.list
+
+              '
+            - 'if [ ! -f /usr/bin/docker ]; then
+
+              '
+            - "    curl -sSL http://acs-public-mirror.oss-cn-hangzhou.aliyuncs.com/docker-engine/intranet\
+              \  | sh - \n"
+            - '    echo DOCKER_OPTS="''--registry-mirror https://6udu7vtl.mirror.aliyuncs.com''"
+              > /etc/default/docker
+
+              '
+            - '    sleep 10
+
+              '
+            - "    sudo service docker restart \n"
+            - 'fi
+
+              '
+            - 'usermod -aG docker $USER
+
+              '
+            - 'token=`echo "$data" | jq ''.tokens''[1] | xargs echo `
+
+              '
+            - "echo $token > /tmp/manager_token \n"
+            - 'cmd="ros-notify -d ''{\"data\" : \"$token\"}''"
+
+              '
+            - 'eval $cmd
+
+              '
+            - 'docker swarm join --token=$token ${master_ip}:2377
+
+              '
+            - 'mkdir -p /var/lib/docker/swarm/
+
+              '
+            - 'echo $ak_id > /var/lib/docker/swarm/access_key_id
+
+              '
+            - 'echo $ak_secret > /var/lib/docker/swarm/access_key_secret
+
+              '
+            - 'echo $slb_id > /var/lib/docker/swarm/lb_name
+
+              '
+            - 'docker run -d --restart always --name controller -p 2375:2375 -v /var/run/docker.sock:/var/run/docker.sock
+              -v /var/lib/docker/swarm/access_key_id:/var/lib/docker/swarm/access_key_id:ro
+              -v /var/lib/docker/swarm/access_key_secret:/var/lib/docker/swarm/access_key_secret:ro
+              -v /var/lib/docker/swarm/lb_name:/var/lib/docker/swarm/lb_name:ro registry.cn-hangzhou.aliyuncs.com/acs/agent:0.8
+              --log-level debug aliyun-controller
+
+              '
+            - 'echo $token > ~/manager_token
+
+              '
+            - 'ssh_keys=`echo "$data" | jq ''.ssh_keys'' | xargs echo `
+
+              '
+            - 'echo $ssh_keys > /tmp/ssh_keys
+
+              '
+            - 'base64 -d /tmp/ssh_keys > /tmp/host_keys.tar.gz
+
+              '
+            - 'cd /etc/ssh
+
+              '
+            - 'mkdir backup_host_keys
+
+              '
+            - 'cp ssh_host_*key* backup_host_keys
+
+              '
+            - 'tar -xzf /tmp/host_keys.tar.gz
+
+              '
+      SystemDiskCategory:
+        Ref: ManagerSystemDiskCategory
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: ManagerInstanceType
+      MaxAmount:
+        Ref: AdditionalManagerSize
+      Password:
+        Ref: InstancePassword
+    DependsOn: Master
+  ExtSLBAttachmentManagerGroup:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - ManagerGroup
+        - InstanceIds
+      LoadBalancerId:
+        Ref: ExternalLoadBalancer
+  ManagerGroupConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  SwarmWideSG:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      Description: Wide open
+      SecurityGroupIngress:
+      - PortRange: -1/-1
+        SourceCidrIp:
+          Fn::FindInMap:
+          - VpcCidrs
+          - vpc
+          - cidr
+        IpProtocol: all
+    DependsOn: NodeVpcSG
+  MasterAddSwarmWideSG:
+    Type: ALIYUN::ECS::JoinSecurityGroup
+    Properties:
+      SecurityGroupId:
+        Ref: SwarmWideSG
+      InstanceId:
+        Ref: Master
+    DependsOn: ManagerGroup
+  NodeGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: PubSubnet
+      SecurityGroupId:
+        Fn::GetAtt:
+        - NodeVpcSG
+        - SecurityGroupId
+      ImageId:
+        Ref: NodeImageId
+      IoOptimized: optimized
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - NodeGroupConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh
+
+              '
+            - tokens='
+            - Fn::GetAtt:
+              - MasterWaitCondition
+              - Data
+            - '''
+
+              '
+            - master_ip='
+            - Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                - Master
+                - PrivateIps
+            - '''
+
+              '
+            - 'echo $tokens > /tmp/tokens
+
+              '
+            - 'apt-get update
+
+              '
+            - 'apt-get install -y curl
+
+              '
+            - 'apt-get install -y jq
+
+              '
+            - 'sed -i ''s/archive.ubuntu.com/mirrors.aliyun.com/'' /etc/apt/sources.list
+
+              '
+            - 'if [ ! -f /usr/bin/docker ]; then
+
+              '
+            - "    curl -sSL http://acs-public-mirror.oss-cn-hangzhou.aliyuncs.com/docker-engine/intranet\
+              \ | sh - \n"
+            - '    echo DOCKER_OPTS="''--registry-mirror https://6udu7vtl.mirror.aliyuncs.com''"
+              > /etc/default/docker
+
+              '
+            - '    sleep 10
+
+              '
+            - "    sudo service docker restart \n"
+            - 'fi
+
+              '
+            - '
+
+              '
+            - 'usermod -aG docker $USER
+
+              '
+            - 'token=`echo "$tokens" | jq ''.tokens''[0] | xargs echo `
+
+              '
+            - "echo $token > /tmp/worker_token \n"
+            - 'cmd="ros-notify -d ''{\"data\" : \"$token\"}''"
+
+              '
+            - 'eval $cmd
+
+              '
+            - 'docker swarm join --token=$token ${master_ip}:2377
+
+              '
+            - 'docker run -d --restart always --name controller -p 2375:2375 registry.cn-hangzhou.aliyuncs.com/acs/agent:0.8
+              --log-level debug aliyun-controller
+
+              '
+            - 'echo $token > ~/worker_token
+
+              '
+      SystemDiskCategory:
+        Ref: NodeSystemDiskCategory
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: NodeInstanceType
+      MaxAmount:
+        Ref: ClusterSize
+      Password:
+        Ref: InstancePassword
+    DependsOn: Master
+  NodeAddSwarmWideSG:
+    Type: ALIYUN::ECS::JoinSecurityGroup
+    Properties:
+      SecurityGroupId:
+        Ref: SwarmWideSG
+      InstanceIdList:
+        Fn::GetAtt:
+        - NodeGroup
+        - InstanceIds
+  ManagerGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 300
+      Count: 1
+      Handle:
+        Ref: ManagerGroupConditionHandle
+    DependsOn: ManagerGroup
+  NodeGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 300
+      Count: 1
+      Handle:
+        Ref: NodeGroupConditionHandle
+    DependsOn: NodeGroup
+  SubAccount:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Join:
+        - ''
+        - - SubAccount
+          - Ref: ALIYUN::StackId
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+        - SubAccount
+        - UserName
+  ExternalLoadBalancerListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      ListenerPort: '7'
+      Bandwidth: -1
+      HealthCheck:
+        UnhealthyThreshold: '4'
+        Timeout: '2'
+        HealthyThreshold: '2'
+        Port: '2375'
+        Interval: '5'
+      LoadBalancerId:
+        Ref: ExternalLoadBalancer
+      Protocol: tcp
+      BackendServerPort: '2375'
+    DependsOn: ExternalLoadBalancer
+  SSHLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName: SSHLoadBalancer
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      AddressType: internet
+  ExtSLBAttachmentNodeGroup:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - NodeGroup
+        - InstanceIds
+      LoadBalancerId:
+        Ref: ExternalLoadBalancer
+  SSHLoadBalancerListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 1000
+      ListenerPort: '22'
+      Bandwidth: -1
+      HealthCheck:
+        UnhealthyThreshold: '4'
+        Timeout: '2'
+        HealthyThreshold: '2'
+        Port: '22'
+        Interval: '5'
+      LoadBalancerId:
+        Ref: SSHLoadBalancer
+      Protocol: tcp
+      BackendServerPort: '22'
+    DependsOn: SSHLoadBalancer
+  ECSManagePolicy:
+    Type: ALIYUN::RAM::ManagedPolicy
+    Properties:
+      PolicyName:
+        Fn::Join:
+        - ''
+        - - ECSManagePolicy
+          - Ref: ALIYUN::StackId
+      PolicyDocument:
+        Version: '1'
+        Statement:
+        - Action:
+          - ecs:*
+          Resource:
+          - '*'
+          Effect: Allow
+        - Action:
+          - vpc:DescribeVpcs
+          - vpc:DescribeVSwitches
+          Resource:
+          - '*'
+          Effect: Allow
+      Users:
+      - Fn::GetAtt:
+        - SubAccount
+        - UserName
+  ManagerAddSwarmWideSG:
+    Type: ALIYUN::ECS::JoinSecurityGroup
+    Properties:
+      SecurityGroupId:
+        Ref: SwarmWideSG
+      InstanceIdList:
+        Fn::GetAtt:
+        - ManagerGroup
+        - InstanceIds
+    DependsOn: ManagerGroup
+  SSHSLBAttachmentMaster:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - Master
+        - InstanceIds
+      LoadBalancerId:
+        Ref: SSHLoadBalancer
+  SLBManagePolicy:
+    Type: ALIYUN::RAM::ManagedPolicy
+    Properties:
+      PolicyName:
+        Fn::Join:
+        - ''
+        - - SLBManagePolicy
+          - Ref: ALIYUN::StackId
+      PolicyDocument:
+        Version: '1'
+        Statement:
+        - Action:
+          - slb:*
+          Resource:
+          - '*'
+          Effect: Allow
+        - Action:
+          - ecs:DescribeInstances
+          Resource:
+          - '*'
+          Effect: Allow
+        - Action:
+          - cms:QueryMetric
+          Resource:
+          - '*'
+          Effect: Allow
+      Users:
+      - Fn::GetAtt:
+        - SubAccount
+        - UserName
+  SSHSLBAttachmentManagerGroup:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - ManagerGroup
+        - InstanceIds
+      LoadBalancerId:
+        Ref: SSHLoadBalancer
+  SNatEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SourceVSwitchId:
+        Fn::GetAtt:
+        - PubSubnet
+        - VSwitchId
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SNatIp:
+        Fn::GetAtt:
+        - NatGatewayEIP
+        - EipAddress
+    DependsOn:
+    - NatGatewayEIPBind
+Outputs:
+  SSHLoadBalancerIp:
+    Description: Public ip of slb for ssh
+    Value:
+      Fn::GetAtt:
+      - SSHLoadBalancer
+      - IpAddress
+  ExternalLoadBalancerIp:
+    Description: Public ip for docker service
+    Value:
+      Fn::GetAtt:
+      - ExternalLoadBalancer
+      - IpAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - InstancePassword
+      Label:
+        default: ECS
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        default: SLB
+    - Parameters:
+      - PubSubnetZoneId
+      Label:
+        default: VPC
+    - Parameters:
+      - ManagerInstanceType
+      - ManagerSystemDiskCategory
+      - ManagerImageId
+      - AdditionalManagerSize
+      Label:
+        default: Manager
+    - Parameters:
+      - NodeInstanceType
+      - NodeSystemDiskCategory
+      - NodeImageId
+      - ClusterSize
+      Label:
+        default: Node
+    TemplateTags:
+    - acs:example:容器:一键创建DockerSwarm模式集群

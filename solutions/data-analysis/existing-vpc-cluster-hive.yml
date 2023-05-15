@@ -1,0 +1,2092 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 'Alibaba ROS solution template: Create multiple ECSs (Hive) on existing virtual
+    proprietary networks, switches, and security group base resources, one of which
+    binds elastic IP as a management node and the other uses elastic scaling to manage;
+    jdk version is 1.8.0, Hadoop version is 2.7.7, Scala version is 2.12.1, Spark
+    version is 2.1.0, Hive version is 2.3.7, access to spark management interface
+    requires security group configuration 8080 port entry rules, access to hiv management
+    interface requires security group configuration 1001 port entry rules.'
+  zh-cn: 阿里巴巴 ROS 解决方案模板：在已有虚拟专有网络、交换机和安全组基础资源上，创建多台ECS(Hive)，其中一台绑定弹性IP作为管理节点，其他节点使用弹性伸缩进行管理；Java
+    jdk版本是1.8.0，Hadoop版本是2.7.7，Scala版本是2.12.1，Spark版本是2.1.0，Hive版本是2.3.7，访问Spark管理界面需要安全组配置8080端口入规则，访问Hive管理界面需要安全组配置10001端口入规则。
+Parameters:
+  VpcId:
+    Type: String
+    Label:
+      zh-cn: 现有VPC的实例ID
+      en: Existing VPC Instance ID
+    Description:
+      zh-cn: 控制台-VPC-专有网络下查询
+      en: Please search the ID starting with (vpc-xxx)from console-Virtual Private
+        Cloud
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Zone ID
+      zh-cn: 交换机可用区
+    Description:
+      en: New Switch Availability Zone ID
+      zh-cn: 新建交换机Switch的可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VSwitchId:
+    Type: String
+    Label:
+      zh-cn: 网络交换机ID
+      en: VSwitch ID
+    Description:
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+      en: Please search the business VSwitch ID starting with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  SecurityGroupId:
+    Type: String
+    Label:
+      zh-cn: 业务安全组ID
+      en: Business Security Group ID
+    Description:
+      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: '<font color=''blue''><b>1.Before selecting the model please confirm that
+        the current available zone under the model is in stock, some models need to
+        be reported in advance</b></font>]<br><font color=''blue''><b>2.List of optional
+        models</font>]<br></b></font>[ecs.c5.large: <font color=''green''>2vCPU 4GiB
+        Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPSS</font>]<br></b>[ecs.c5.xlarge:
+        <font color=''green''>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending
+        and receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge: <font color=''green''>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]'
+      zh-cn: '<font color=''blue''><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color=''blue''><b>2.可选机型列表</font><br></b></font>[ecs.c5.large: <font color=''green''>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge: <font color=''green''>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge: <font color=''green''>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  BindWidth:
+    Type: Number
+    Label:
+      en: Public IP Bandwidth
+      zh-cn: 公网IP带宽值
+    Description:
+      en: 'Public network IP bandwidth，unit: Mbps'
+      zh-cn: 公网IP带宽值，单位：Mbps
+    Default: 5
+    MinValue: 1
+    MaxValue: 100
+  DiskCategory:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 磁盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+  DiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: ''
+      zh-cn: 实例系统盘大小，单位为GiB。取值范围：20~32768
+    Default: 40
+    MinValue: 20
+    MaxValue: 2048
+  Amount:
+    Type: Number
+    Label:
+      en: Instance Amount
+      zh-cn: 实例数量
+    Description:
+      en: 'ECS Instance Amount, Allowed value: 3~10'
+      zh-cn: 购买实例数量，允许值：3~10
+    Default: 3
+    MinValue: 3
+    MaxValue: 10
+  DBInstancetype:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: 'Constraints: RDS specifications need to be supported under the single Availability
+        Zone of an existing switch<br>Details of the specifications can be found at:
+        <a href=''https://www.alibabacloud.com/help/doc-detail/26312.htm'' target=''_blank''><b><font
+        color=''blue''>Primary instance types</font></b></a><br>General specifications
+        are recommended: <br>[rds.mysql.s2.large: <font color=''green''>2vCPU 4GiB
+        Max Connections 1200 IOPS2000</font>]'
+      zh-cn: '约束： RDS规格需要在已有交换机的单可用区下支持创建<br>规格详见：<a href=''https://help.aliyun.com/document_detail/26312.html''
+        target=''_blank''><b><font color=''blue''>实例规格表</font></b></a><br>推荐通用规格:
+        <br>[rds.mysql.s2.large: <font color=''green''>2vCPU 4GiB 最大连接数 1200 IOPS2000</font>]'
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: DB Engine
+      zh-cn: 数据库引擎
+    Description:
+      en: Database Instance engine type and version.
+      zh-cn: 数据库引擎类型及版本。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.5
+    - MySQL-5.6
+    - MySQL-5.7
+  DBInstanceStorageType:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 磁盘类型
+    Description:
+      en: 'The type of disk supported by the current RDS specification is required<br><font
+        color=''blue''><b>Optional values:</b></font><br>[local_ssd: <font color=''green''>Local
+        SSD disk</font>]<br>[cloud_ssd: <font color=''green''>SSD cloud disk</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD cloud disk</font>]'
+      zh-cn: '需要使用当前RDS规格支持的磁盘类型<br><font color=''blue''><b>可选值：</b></font><br>[local_ssd:
+        <font color=''green''>本地SSD盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]'
+  RdsAccountName:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库账号
+    Description:
+      en: Database read-write account with a maximum of 16 characters, consisting
+        of lowercase letters, Numbers, underscores, beginning letters, and ending
+        letters or Numbers.
+      zh-cn: 数据库可读写的账号，最长16个字符, 由小写字母，数字、下划线组成、字母开头，字母或数字结尾。
+    Default: db_admin
+  RdsPassword:
+    Type: String
+    Label:
+      en: Account Password
+      zh-cn: 账号密码
+    Description:
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    ConstraintDescription:
+      en: '8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  InstanceImageId:
+    Type: String
+    Label:
+      zh-cn: 镜像ID
+      en: Image ID
+    Description:
+      en: Image ID，See detail：<b><a href='https://www.alibabacloud.com/help/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+Resources:
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceStorage: 20
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceStorageType:
+        Ref: DBInstanceStorageType
+      DBInstanceClass:
+        Ref: DBInstancetype
+      SecurityIPList: 0.0.0.0/0
+      MultiAZ: false
+      DBInstanceDescription:
+        Fn::Join:
+        - ''
+        - - StackId-
+          - Ref: ALIYUN::StackId
+      DBMappings:
+      - CharacterSetName: utf8
+        DBName: hive_metadata
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 257afdf3-a3ff-489c-89cb-b0a4243ac0df
+  RdsAccount:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: RdsDBInstance
+      AccountPassword:
+        Ref: RdsPassword
+      AccountType: Super
+      AccountName:
+        Ref: RdsAccountName
+    DependsOn:
+    - RdsDBInstance
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 74996349-7203-476f-bac8-4e936088c519
+  RosWaitConditionMasterHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 28c8b447-0074-4e1c-b16e-a23b999b1221
+  RosWaitConditionMaster:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 1800
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionMasterHandle
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d31fecba-ebcf-42a2-b524-af819d7cc0fd
+  RosWaitConditionClusterHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 96189890-7475-4a66-956e-0a7bf79f1832
+  RosWaitConditionCluster:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 3600
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionClusterHandle
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ac2da7a5-324d-445d-b539-670f51aa4211
+  RosWaitConditionHandleEss:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7a568f88-588f-4635-b081-f327f41d685a
+  RosWaitConditionEss:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 1800
+      Count:
+        Fn::Calculate:
+        - '{0}-1'
+        - 0
+        - - Ref: Amount
+      Handle:
+        Ref: RosWaitConditionHandleEss
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: aca6e39d-f458-420b-8506-9ca72010ea67
+  RamRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName:
+        Fn::Join:
+        - ''
+        - - StackId-
+          - Ref: ALIYUN::StackId
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - oos.aliyuncs.com
+      Policies:
+      - PolicyName:
+          Fn::Join:
+          - ''
+          - - StackId-
+            - Ref: ALIYUN::StackId
+        PolicyDocument:
+          Version: '1'
+          Statement:
+          - Action:
+            - ecs:*
+            Resource:
+            - '*'
+            Effect: Allow
+          - Action:
+            - vpc:DescribeVpcs
+            - vpc:DescribeVSwitches
+            Resource:
+            - '*'
+            Effect: Allow
+          - Action:
+            - ess:CompleteLifecycleAction
+            Resource:
+            - '*'
+            Effect: Allow
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c40eb24b-0042-4ad8-b85c-b6155fa52238
+  OOSTemplateIn:
+    Type: ALIYUN::OOS::Template
+    Properties:
+      Content:
+        Fn::Join:
+        - ''
+        - - '{"FormatVersion": "OOS-2019-06-01","Parameters": {"regionId": {"Type":
+            "String","Default": "'
+          - Ref: ALIYUN::Region
+          - '"},"instanceIds": {"Type": "List","Default": ["${instanceId}"]},"lifecycleHookId":
+            {"Type": "String","Default": "${lifecycleHookId}"},"lifecycleActionToken":
+            {"Type": "String","Default": "${lifecycleActionToken}"}},"RamRole": "'
+          - Fn::GetAtt:
+            - RamRole
+            - RoleName
+          - '","Tasks": [{"Name": "runCommand","Action": "ACS::ECS::RunCommand","OnError":
+            "CompleteLifecycleActionForAbandon","OnSuccess": "CompleteLifecycleActionForContinue","Properties":
+            {"regionId": "{{ regionId }}","commandContent": "'
+          - 'cd /software && rm -f /etc/hosts && rm -f /software/spark/conf/slaves
+            && bash /software/spark/sbin/stop-slave.sh && bash rm_nodes.sh '
+          - Ref: Amount
+          - ' && sleep 15'
+          - '","instanceId": "{{ ACS::TaskLoopItem }}","commandType": "RunShellScript"},
+            "Loop": {"RateControl": {"Mode":"Concurrency","MaxErrors":0,"Concurrency":10},"Items":
+            "{{ instanceIds }}","Outputs": {"commandOutputs": {"AggregateType": "Fn::ListJoin","AggregateField":
+            "commandOutput"}}},"Outputs": {"commandOutput": {"Type": "String","ValueSelector":
+            "invocationOutput"}}}, {"Name": "CompleteLifecycleActionForContinue","Action":
+            "ACS::ExecuteAPI","OnSuccess": "ACS::END","Properties": {"Service": "ESS","API":
+            "CompleteLifecycleAction","Parameters": {"RegionId": "{{ regionId }}","LifecycleHookId":
+            "{{ lifecycleHookId }}","LifecycleActionToken": "{{ lifecycleActionToken
+            }}"}}}, {"Name": "CompleteLifecycleActionForAbandon","Action": "ACS::ExecuteAPI","Properties":
+            {"Service": "ESS","API": "CompleteLifecycleAction","Parameters": {"RegionId":
+            "{{ regionId }}","LifecycleHookId": "{{ lifecycleHookId }}","LifecycleActionToken":
+            "{{ lifecycleActionToken }}","LifecycleActionResult": "ABANDON"}}}]}'
+      TemplateName:
+        Fn::Join:
+        - ''
+        - - StackId-
+          - Ref: ALIYUN::StackId
+          - -In
+    DependsOn:
+    - RamRole
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f38f57e5-4fad-404f-9550-45331dca1d60
+  EcsInstanceGroupMaster:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: InstanceImageId
+      IoOptimized: optimized
+      InternetMaxBandwidthOut:
+        Ref: BindWidth
+      InternetMaxBandwidthIn:
+        Ref: BindWidth
+      InstanceChargeType: PostPaid
+      MaxAmount: 1
+      SystemDiskCategory:
+        Ref: DiskCategory
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - Hive
+          - -[0,3]
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceType
+      HostName:
+        Fn::Join:
+        - ''
+        - - Hive
+          - -[0,3]
+      Password:
+        Ref: InstancePassword
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - RosWaitConditionMasterHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/sh \n"
+            - PASSWORD="
+            - Ref: InstancePassword
+            - "\" \n"
+            - NODE_COUNT=
+            - Ref: Amount
+            - " \n"
+            - ROS_NOTIFY="
+            - Fn::GetAtt:
+              - RosWaitConditionClusterHandle
+              - CurlCli
+            - "\" \n"
+            - "sleep 10 \n"
+            - "set -e \n"
+            - "HOST_IP=$(ifconfig eth0 | awk '/inet /{print $2}') \n"
+            - "HOST_NAME=$(hostname) \n"
+            - "OSS_NAME=\"ros-template-resources\" \n"
+            - "OSS_REGION=\"cn-beijing\" \n"
+            - "ENDPOINT=\"aliyuncs.com\" \n"
+            - "ENV_DIR=\"/software\" \n"
+            - "RESOURCE_DIR=\"${ENV_DIR}/resources\" \n"
+            - "BASH_PATH=\"/etc/profile\" \n"
+            - "JDK_NAME=\"jdk-8u251-linux-i586\" \n"
+            - "JDK_RPM=\"${JDK_NAME}.rpm\" \n"
+            - "HADOOP=\"hadoop\" \n"
+            - "HADOOP_EXTRACT_NAME=\"${HADOOP}-2.7.7\" \n"
+            - "HADOOP_GZ=\"${HADOOP_EXTRACT_NAME}.tar.gz\" \n"
+            - "SPARK=\"spark\" \n"
+            - "SPARK_EXTRACT_NAME=\"${SPARK}-2.1.0-bin-hadoop2.7\" \n"
+            - "SPARK_TGZ=\"${SPARK_EXTRACT_NAME}.tgz\" \n"
+            - "SCALA=\"scala\" \n"
+            - "SCALA_EXTRACT_NAME=\"${SCALA}-2.12.1\" \n"
+            - "SCALA_TGZ=\"${SCALA_EXTRACT_NAME}.tgz\" \n"
+            - "HIVE=\"hive\" \n"
+            - "HIVE_EXTRACT_NAME=\"apache-${HIVE}-2.3.7-bin\" \n"
+            - "HIVE_GZ=\"${HIVE_EXTRACT_NAME}.tar.gz\" \n"
+            - "MYSQL_JAVA=\"mysql-connector-java\" \n"
+            - "MYSQL_JAVA_EXTRACT_NAME=\"${MYSQL_JAVA}-5.1.48\" \n"
+            - "MYSQL_JAVA_GZ=\"${MYSQL_JAVA_EXTRACT_NAME}.tar.gz\" \n"
+            - DB_ROOT_ACCOUNT="
+            - Ref: RdsAccountName
+            - "\" \n"
+            - DB_ROOT_PWD="
+            - Ref: RdsPassword
+            - "\" \n"
+            - RDS_CONNECT_STRING="
+            - Fn::GetAtt:
+              - RdsDBInstance
+              - InnerConnectionString
+            - "\" \n"
+            - "PORT=\"3306\" \n"
+            - "objectList=(\"JDK/${JDK_RPM}\" \"Hadoop/${SPARK_TGZ}\" \"Hadoop/${HADOOP_GZ}\"\
+              \ \"Hadoop/${SCALA_TGZ}\" \"Hadoop/${HIVE_GZ}\" \"MySQL/${MYSQL_JAVA_GZ}\"\
+              ) \n"
+            - " \n"
+            - "LOG_FILE=\"${ENV_DIR}/userdata.log\" \n"
+            - "CLUSTER_FILE=\"${ENV_DIR}/cluster.sh\" \n"
+            - "SSH_SCRIPT_FILE=\"${ENV_DIR}/ssh.sh\" \n"
+            - "RM_NODES_FILE=\"${ENV_DIR}/rm_nodes.ini\" \n"
+            - "ADD_NODES_FILE=\"${ENV_DIR}/add_nodes.ini\" \n"
+            - "NODES_INFO_FILE=\"${ENV_DIR}/nodes_info.ini\" \n"
+            - " \n"
+            - "HADOOP_HOME=${ENV_DIR}/hadoop \n"
+            - " \n"
+            - "recordLog() { \n"
+            - "    time=$(date \"+%Y-%m-%d %H:%M:%S\") \n"
+            - "    echo \"$time --- $1\" >>${LOG_FILE} \n"
+            - "} \n"
+            - " \n"
+            - "createDir() { \n"
+            - "    dir=$1 \n"
+            - "    if [ -d \"${dir}\" ]; then \n"
+            - "        recordLog \"Create failed, dir-${dir} is existed\" \n"
+            - "    else \n"
+            - "        mkdir -p \"${dir}\" \n"
+            - "        recordLog \"Create Dir-${dir} successful\" \n"
+            - "    fi \n"
+            - "} \n"
+            - " \n"
+            - "prepareEnv() { \n"
+            - "    mkdir ${ENV_DIR} \n"
+            - "    createDir ${RESOURCE_DIR} \n"
+            - "} \n"
+            - " \n"
+            - "download() { \n"
+            - "    objectName=$1 \n"
+            - "    wget https://${OSS_NAME}.oss-${OSS_REGION}.${ENDPOINT}/${objectName}\
+              \ -P ${RESOURCE_DIR} \n"
+            - "    recordLog \"Download ${objectName} successful\" \n"
+            - "} \n"
+            - " \n"
+            - "downloadResources() { \n"
+            - "    for object in ${objectList[@]}; do \n"
+            - "        download ${object} \n"
+            - "    done \n"
+            - "    recordLog \"Download all resources successful\" \n"
+            - "} \n"
+            - " \n"
+            - "installJavaAndConfig() { \n"
+            - "    yum -y install glibc.i686 \n"
+            - "    rpm -Uvh ${RESOURCE_DIR}/${JDK_RPM} \n"
+            - "    # config \n"
+            - "    export JAVA_HOME=$(find / -name jdk1.8.0_*) \n"
+            - "    echo \"export JAVA_HOME=${JAVA_HOME}\" >>${BASH_PATH} \n"
+            - "    echo \"export JRE_HOME=${JAVA_HOME}/jre\" >>${BASH_PATH} \n"
+            - "    echo \"export CLASSPATH=.:${JAVA_HOME}/lib:${JAVA_HOME}/jre/lib\"\
+              \ >>${BASH_PATH} \n"
+            - "    echo \"export PATH=${JAVA_HOME}/bin:$PATH\" >>${BASH_PATH} \n"
+            - "    source ${BASH_PATH} \n"
+            - "    recordLog \"Config java successful\" \n"
+            - "} \n"
+            - " \n"
+            - "generateScript() { \n"
+            - "    ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+            - "    yum -y install expect \n"
+            - "    echo '#!/bin/bash' >${SSH_SCRIPT_FILE} \n"
+            - "    echo 'name_or_ip=$1' >>${SSH_SCRIPT_FILE} \n"
+            - "    echo 'authorized_key=$2' >>${SSH_SCRIPT_FILE} \n"
+            - "    echo 'expect <<EOF' >>${SSH_SCRIPT_FILE} \n"
+            - "    echo 'set timeout 150' >>${SSH_SCRIPT_FILE} \n"
+            - "    echo \"spawn ssh root@\\${name_or_ip} echo \\\"\\${authorized_key}\\\
+              \" >> /root/.ssh/authorized_keys\" >>${SSH_SCRIPT_FILE} \n"
+            - "    echo 'expect {' >>${SSH_SCRIPT_FILE} \n"
+            - "    echo \"  \\\"*yes/no*\\\" { send \\\"yes\\n\\\"; exp_continue }\"\
+              \ >>${SSH_SCRIPT_FILE} \n"
+            - "    echo \"  \\\"*password:\\\" { send \\\"${PASSWORD}\\n\\\" }\" >>${SSH_SCRIPT_FILE}\
+              \ \n"
+            - "    echo '}' >>${SSH_SCRIPT_FILE} \n"
+            - "    echo 'expect eof' >>${SSH_SCRIPT_FILE} \n"
+            - "    echo 'EOF' >>${SSH_SCRIPT_FILE} \n"
+            - "    chmod +x ${SSH_SCRIPT_FILE} \n"
+            - "    recordLog \"Generate ${SSH_SCRIPT_FILE} successful\" \n"
+            - "    echo '#!/bin/bash' >\"${SSH_SCRIPT_FILE}.login\" \n"
+            - "    echo 'host_ip=$1' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+            - "    echo 'expect <<EOF' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+            - "    echo 'set timeout 150' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+            - "    echo \"spawn ssh root@\\${host_ip} exit;\" >>\"${SSH_SCRIPT_FILE}.login\"\
+              \ \n"
+            - "    echo 'expect {' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+            - "    echo \"  \\\"*yes/no*\\\" { send \\\"yes\\n\\\" }\" >>\"${SSH_SCRIPT_FILE}.login\"\
+              \ \n"
+            - "    echo '}' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+            - "    echo 'expect eof' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+            - "    echo 'EOF' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+            - "    chmod +x \"${SSH_SCRIPT_FILE}.login\" \n"
+            - "    recordLog \"Generate ${SSH_SCRIPT_FILE}.login successful\" \n"
+            - "} \n"
+            - " \n"
+            - "configLocalSSH() { \n"
+            - "    authorized_key=$(cat /root/.ssh/id_rsa.pub) \n"
+            - "    bash ${SSH_SCRIPT_FILE} \"${HOST_IP}\" \"${authorized_key}\" \n"
+            - "    bash \"${SSH_SCRIPT_FILE}.login\" \"0.0.0.0\" \n"
+            - "    bash \"${SSH_SCRIPT_FILE}.login\" \"localhost\" \n"
+            - "    recordLog \"Config expect-localhost successful\" \n"
+            - "} \n"
+            - " \n"
+            - "installAndConfigHadoop(){ \n"
+            - "    # download \n"
+            - "    tar -zxvf ${RESOURCE_DIR}/${HADOOP_GZ} -C ${ENV_DIR} && cd ${ENV_DIR}\
+              \ && mv ${HADOOP_EXTRACT_NAME} ${HADOOP} \n"
+            - "    echo \"export HADOOP_HOME=${HADOOP_HOME}\" >> ${BASH_PATH} \n"
+            - "    echo \"export PATH=${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:$PATH\"\
+              \ >> ${BASH_PATH} \n"
+            - "    source ${BASH_PATH} \n"
+            - "    # config core-site.xml \n"
+            - "    mv ${HADOOP_HOME}/etc/hadoop/core-site.xml ${HADOOP_HOME}/etc/hadoop/bak.core-site.xml\
+              \ \n"
+            - '    cat >${HADOOP_HOME}/etc/hadoop/core-site.xml <<EOF
+
+              '
+            - "<configuration> \n"
+            - "  <property> \n"
+            - "    <name>fs.defaultFS</name> \n"
+            - "    <value>hdfs://${HOST_IP}:9000</value> \n"
+            - "  </property> \n"
+            - "  <property> \n"
+            - "    <name>hadoop.tmp.dir</name> \n"
+            - "    <value>${ENV_DIR}/tmp</value> \n"
+            - "  </property> \n"
+            - "</configuration> \n"
+            - 'EOF
+
+              '
+            - "    # hdfs-site.xml \n"
+            - "    mv ${HADOOP_HOME}/etc/hadoop/hdfs-site.xml ${HADOOP_HOME}/etc/hadoop/bak.hdfs-site.xml\
+              \ \n"
+            - '    cat >${HADOOP_HOME}/etc/hadoop/hdfs-site.xml <<EOF
+
+              '
+            - "<configuration> \n"
+            - "  <property> \n"
+            - "    <name>dfs.replication</name> \n"
+            - "    <value>${NODE_COUNT}</value> \n"
+            - "  </property> \n"
+            - "</configuration> \n"
+            - 'EOF
+
+              '
+            - "    # config mapred-site.xml \n"
+            - '    cat >${HADOOP_HOME}/etc/hadoop/mapred-site.xml <<EOF
+
+              '
+            - "<configuration> \n"
+            - "  <property> \n"
+            - "    <name>mapreduce.framework.name</name> \n"
+            - "    <value>yarn</value> \n"
+            - "  </property> \n"
+            - "</configuration> \n"
+            - 'EOF
+
+              '
+            - "    # config yarn-site.xml \n"
+            - "    mv ${HADOOP_HOME}/etc/hadoop/yarn-site.xml ${HADOOP_HOME}/etc/hadoop/bak.yarn-site.xml\
+              \ \n"
+            - '    cat >${HADOOP_HOME}/etc/hadoop/yarn-site.xml <<EOF
+
+              '
+            - "<configuration> \n"
+            - "  <property> \n"
+            - "    <name>yarn.nodemanager.aux-services</name> \n"
+            - "    <value>mapreduce_shuffle</value> \n"
+            - "  </property> \n"
+            - "  <property> \n"
+            - "    <name>yarn.resourcemanager.hostname</name> \n"
+            - "    <value>${HOST_IP}</value> \n"
+            - "  </property> \n"
+            - "</configuration> \n"
+            - 'EOF
+
+              '
+            - "    # config java home \n"
+            - "    sed -i 's/export JAVA_HOME=/#export JAVA_HOME=/' ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh\
+              \ \n"
+            - "    sed -i \"/#export JAVA_HOME=/a export JAVA_HOME=${JAVA_HOME}\"\
+              \ ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh \n"
+            - "    sed -i 's/export JAVA_HOME=/#export JAVA_HOME=/' ${HADOOP_HOME}/etc/hadoop/mapred-env.sh\
+              \ \n"
+            - "    sed -i \"/#export JAVA_HOME=/a export JAVA_HOME=${JAVA_HOME}\"\
+              \ ${HADOOP_HOME}/etc/hadoop/mapred-env.sh \n"
+            - "    sed -i 's/export JAVA_HOME=/#export JAVA_HOME=/' ${HADOOP_HOME}/etc/hadoop/yarn-env.sh\
+              \ \n"
+            - "    sed -i \"/#export JAVA_HOME=/a export JAVA_HOME=${JAVA_HOME}\"\
+              \ ${HADOOP_HOME}/etc/hadoop/yarn-env.sh \n"
+            - "    recordLog \"Config hadoop successful\" \n"
+            - "} \n"
+            - " \n"
+            - "installSparkAndConfig() { \n"
+            - "   tar zxvf ${RESOURCE_DIR}/spark-*.tgz -C ${ENV_DIR} && cd ${ENV_DIR}\
+              \ && mv ${SPARK_EXTRACT_NAME} ${SPARK} \n"
+            - "   mv ${ENV_DIR}/${SPARK}/conf/spark-env.sh.template ${ENV_DIR}/${SPARK}/conf/spark-env.sh\
+              \ \n"
+            - "   echo \"export SCALA_HOME=${ENV_DIR}/scala\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+              \ \n"
+            - "   echo \"export JAVA_HOME=${JAVA_HOME}\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+              \ \n"
+            - "   echo \"export HADOOP_HOME=${ENV_DIR}/hadoop\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+              \ \n"
+            - "   echo \"export HADOOP_CONF_DIR=${ENV_DIR}/hadoop/etc/hadoop\" >>\
+              \ ${ENV_DIR}/spark/conf/spark-env.sh \n"
+            - "   echo \"export SPARK_HOME=${ENV_DIR}/spark\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+              \ \n"
+            - "   echo \"export SPARK_MASTER_IP=${HOST_IP}\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+              \ \n"
+            - "   echo \"export SPARK_EXECUTOR_MEMORY=1G\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+              \ \n"
+            - "   recordLog \"Config spark successful\" \n"
+            - "} \n"
+            - " \n"
+            - "installScalaAndConfig() { \n"
+            - "    tar zxvf ${RESOURCE_DIR}/${SCALA_TGZ} -C ${ENV_DIR} && cd ${ENV_DIR}\
+              \ && mv ${SCALA_EXTRACT_NAME} ${SCALA} \n"
+            - "    echo \"export SCALA_HOME=${ENV_DIR}/scala\" >> ${BASH_PATH} \n"
+            - "    echo \"PATH=$PATH:${ENV_DIR}/scala/bin\" >> ${BASH_PATH} \n"
+            - "    echo \"export JAVA_HOME=${JAVA_HOME}\" >> ${BASH_PATH} \n"
+            - "    echo \"export JRE_HOME=${JAVA_HOME}/jre\" >> ${BASH_PATH} \n"
+            - "    echo \"export CLASSPATH=.:${JAVA_HOME}/lib:${JRE_HOME}/lib\" >>\
+              \ ${BASH_PATH} \n"
+            - "    echo \"export PATH=${JAVA_HOME}/bin:$PATH\" >> ${BASH_PATH} \n"
+            - "    echo \"export HADOOP_HOME=${ENV_DIR}/hadoop\" >> ${BASH_PATH} \n"
+            - "    echo \"export PATH=.:${ENV_DIR}/hadoop/bin:$PATH\" >> ${BASH_PATH}\
+              \ \n"
+            - "    echo \"export SPARK_HOME=${ENV_DIR}/spark\" >> ${BASH_PATH} \n"
+            - "    echo \"export PATH=.:${ENV_DIR}/spark/bin:$PATH\" >> ${BASH_PATH}\
+              \ \n"
+            - "    source ${BASH_PATH} \n"
+            - "    recordLog \"Config scala successful\" \n"
+            - "} \n"
+            - " \n"
+            - " \n"
+            - "generateClusterScript() { \n"
+            - '    cat >${CLUSTER_FILE} <<EOF
+
+              '
+            - "#!/bin/bash \n"
+            - "NODE_COUNT=\\$1 \n"
+            - "HOST_IP=\\$(ifconfig eth0 | awk '/inet /{print \\$2}') \n"
+            - "#sleep 10 \n"
+            - "#set -e \n"
+            - "ENV_DIR=\"/software\" \n"
+            - "HADOOP=\"hadoop\" \n"
+            - "SPARK=\"spark\" \n"
+            - " \n"
+            - "LOG_FILE=\"\\${ENV_DIR}/userdata.log\" \n"
+            - "SSH_SCRIPT_FILE=\"\\${ENV_DIR}/ssh.sh\" \n"
+            - "RM_NODES_FILE=\"\\${ENV_DIR}/rm_nodes.ini\" \n"
+            - "ADD_NODES_FILE=\"\\${ENV_DIR}/add_nodes.ini\" \n"
+            - "NODES_INFO_FILE=\"\\${ENV_DIR}/nodes_info.ini\" \n"
+            - "NODES_COUNT_FILE=\"\\${ENV_DIR}/nodes_count.ini\" \n"
+            - "HOSTS_PATH=\"/etc/hosts\" \n"
+            - " \n"
+            - "HADOOP_HOME=\\${ENV_DIR}/\\${HADOOP} \n"
+            - "SPARK_HOME=\\${ENV_DIR}/\\${SPARK} \n"
+            - " \n"
+            - "configCluster() { \n"
+            - "    if [ ! -f \\${NODES_COUNT_FILE} ]; then \n"
+            - "        echo \"正常创建config\" >> \\${LOG_FILE} \n"
+            - "        nodes_info=\\$(cat \\${NODES_INFO_FILE}) \n"
+            - "        for node_info in \\${nodes_info[@]}; do \n"
+            - "            new_node_info=(\\${node_info//:/ }) \n"
+            - "            node_ip=\\${new_node_info[0]} \n"
+            - "            node_hostname=\\${new_node_info[1]} \n"
+            - "            echo \"\\${node_ip} \\${node_hostname}\" >>\\${HOSTS_PATH}\
+              \ \n"
+            - "            echo \"\\${node_hostname}\" >>\"\\${SPARK_HOME}/conf/slaves\"\
+              \ \n"
+            - "            if [[ \"\\${HOST_IP}\" == \"\\${node_ip}\" ]]; then \n"
+            - "                continue \n"
+            - "            fi \n"
+            - "            authorized_key=\\$(cat /root/.ssh/id_rsa.pub) \n"
+            - "            bash \\${SSH_SCRIPT_FILE} \"\\${node_hostname}\" \"\\${authorized_key}\"\
+              \ \n"
+            - "        done \n"
+            - "        for node_info in \\${nodes_info[@]}; do \n"
+            - "            new_node_info=(\\${node_info//:/ }) \n"
+            - "            node_ip=\\${new_node_info[0]} \n"
+            - "            node_hostname=\\${new_node_info[1]} \n"
+            - "            if [[ \"\\${HOST_IP}\" == \"\\${node_ip}\" ]]; then \n"
+            - "                continue \n"
+            - "            fi \n"
+            - "            scp -r \\${HOSTS_PATH} \\${node_hostname}:/etc \n"
+            - "            scp -r \\${SPARK_HOME}/conf/slaves \\${node_hostname}:\\\
+              ${SPARK_HOME}/conf \n"
+            - "            #scp -r \\${ENV_DIR}/hive \\${node_hostname}:\\${ENV_DIR}/\
+              \ \n"
+            - "        done \n"
+            - "    else \n"
+            - "        old_node_count=\\$(cat \\${NODES_COUNT_FILE}) \n"
+            - "        if [ \\${NODE_COUNT} -gt \\${old_node_count} ]; then \n"
+            - "            nodes_info=\\$(cat \\${NODES_INFO_FILE}) \n"
+            - "            for node_info in \\${nodes_info[@]}; do \n"
+            - "                new_node_info=(\\${node_info//:/ }) \n"
+            - "                node_ip=\\${new_node_info[0]} \n"
+            - "                node_hostname=\\${new_node_info[1]} \n"
+            - "                grep \"\\${node_hostname}\" \\${HOSTS_PATH} \n"
+            - "                if [ \\$? -eq \"0\" ]; then \n"
+            - "                    continue \n"
+            - "                fi \n"
+            - "                echo \"\\${node_ip} \\${node_hostname}\" >>\\${HOSTS_PATH}\
+              \ \n"
+            - "                echo \"\\${node_hostname}\" >>\"\\${SPARK_HOME}/conf/slaves\"\
+              \ \n"
+            - "                authorized_key=\\$(cat /root/.ssh/id_rsa.pub) \n"
+            - "                bash \\${SSH_SCRIPT_FILE} \"\\${node_hostname}\" \"\
+              \\${authorized_key}\" \n"
+            - "                sed -i \"s%<value>\\${old_node_count}</value>%<value>\\\
+              ${NODE_COUNT}</value>%g\" \\${HADOOP_HOME}/etc/hadoop/hdfs-site.xml\
+              \ \n"
+            - "            done \n"
+            - "            for node_info in \\${nodes_info[@]}; do \n"
+            - "                new_node_info=(\\${node_info//:/ }) \n"
+            - "                node_ip=\\${new_node_info[0]} \n"
+            - "                node_hostname=\\${new_node_info[1]} \n"
+            - "                if [ \"\\${HOST_IP}\" == \"\\${node_ip}\" ]; then \n"
+            - "                    continue \n"
+            - "                fi \n"
+            - "                scp -r \\${HOSTS_PATH} \\${node_hostname}:/etc \n"
+            - "                scp -r \\${SPARK_HOME}/conf/slaves \\${node_hostname}:\\\
+              ${SPARK_HOME}/conf \n"
+            - "                scp -r \\${HADOOP_HOME}/etc/hadoop/hdfs-site.xml \\\
+              ${node_hostname}:\\${HADOOP_HOME}/etc/hadoop \n"
+            - "                #scp -r \\${ENV_DIR}/hive \\${node_hostname}:\\${ENV_DIR}/\
+              \ \n"
+            - "            done \n"
+            - "        else \n"
+            - "            rm_nodes_info=\\$(cat \\${RM_NODES_FILE}) \n"
+            - "            for rm_node in \\${rm_nodes_info[@]}; do \n"
+            - "                rm_node_info=(\\${rm_node//:/ }) \n"
+            - "                node_ip=\\${rm_node_info[0]} \n"
+            - "                node_hostname=\\${rm_node_info[1]} \n"
+            - "                grep \"\\${node_hostname}\" \"\\${HOSTS_PATH}\" \n"
+            - "                if [ \\$? -eq \"0\" ]; then \n"
+            - "                    sed -i \"/\\${node_hostname}/d\" \\${HOSTS_PATH}\
+              \ \n"
+            - "                    sed -i \"/\\${node_hostname}/d\" \\${SPARK_HOME}/conf/slaves\
+              \ \n"
+            - "                    sed -i \"s%<value>\\${old_node_count}</value>%<value>\\\
+              ${NODE_COUNT}</value>%g\" \\${HADOOP_HOME}/etc/hadoop/hdfs-site.xml\
+              \ \n"
+            - "                fi \n"
+            - "            done \n"
+            - "            nodes_info=\\$(cat \\${NODES_INFO_FILE}) \n"
+            - "            for node_info in \\${nodes_info[@]}; do \n"
+            - "                new_node_info=(\\${node_info//:/ }) \n"
+            - "                node_ip=\\${new_node_info[0]} \n"
+            - "                node_hostname=\\${new_node_info[1]} \n"
+            - "                if [ \"\\${HOST_IP}\" == \"\\${node_ip}\" ]; then \n"
+            - "                    continue \n"
+            - "                fi \n"
+            - "                scp -r \\${HOSTS_PATH} \\${node_hostname}:/etc \n"
+            - "                scp -r \\${SPARK_HOME}/conf/slaves \\${node_hostname}:\\\
+              ${SPARK_HOME}/conf \n"
+            - "                scp -r \\${HADOOP_HOME}/etc/hadoop/hdfs-site.xml \\\
+              ${node_hostname}:\\${HADOOP_HOME}/etc/hadoop \n"
+            - "            done \n"
+            - "        fi \n"
+            - "    fi \n"
+            - "} \n"
+            - " \n"
+            - "startCluster() { \n"
+            - "    if [ ! -f \\${NODES_COUNT_FILE} ]; then \n"
+            - "        echo \"正常创建start\" >> \\${LOG_FILE} \n"
+            - "        \\${HADOOP_HOME}/bin/hdfs namenode -format \n"
+            - "        \\${HADOOP_HOME}/sbin/start-dfs.sh \n"
+            - "        \\${HADOOP_HOME}/sbin/start-yarn.sh \n"
+            - "        #bash \\${HADOOP_HOME}/sbin/start-all.sh \n"
+            - "        nodes_info=\\$(cat \\${NODES_INFO_FILE}) \n"
+            - "        for node_info in \\${nodes_info[@]}; do \n"
+            - "            new_node_info=(\\${node_info//:/ }) \n"
+            - "            node_ip=\\${new_node_info[0]} \n"
+            - "            node_hostname=\\${new_node_info[1]} \n"
+            - "            if [[ \"\\${HOST_IP}\" == \"\\${node_ip}\" ]]; then \n"
+            - "                continue \n"
+            - "            fi \n"
+            - "            ssh root@\\${node_hostname} \"bash \\${ENV_DIR}/hadoop/sbin/hadoop-daemon.sh\
+              \ start datanode && bash \\${ENV_DIR}/hadoop/sbin/yarn-daemon.sh start\
+              \ nodemanager && exit;\" \n"
+            - "        done \n"
+            - "        echo \"Start hadoop successful\" >>\\${LOG_FILE} \n"
+            - "        bash \\${ENV_DIR}/spark/sbin/start-all.sh \n"
+            - "        echo \"Start spark successful\" >>\\${LOG_FILE} \n"
+            - "        sleep 5 \n"
+            - "        #schematool -initSchema -dbType mysql \n"
+            - "        \\${HADOOP_HOME}/sbin/start-dfs.sh \n"
+            - "        bash \\${ENV_DIR}/hive/bin/hive --service metastore >${LOG_FILE}\
+              \ & \n"
+            - "        bash \\${ENV_DIR}/hive/bin/hive --service hiveserver2 >${LOG_FILE}\
+              \ & \n"
+            - "        sleep 10 \n"
+            - "        echo \"Start hive successful\" >>\\${LOG_FILE} \n"
+            - "    else \n"
+            - "        old_node_count=\\$(cat \\${NODES_COUNT_FILE}) \n"
+            - "        if [ \\${NODE_COUNT} -gt \\${old_node_count} ]; then \n"
+            - "            nodes_info=\\$(cat \\${NODES_INFO_FILE}) \n"
+            - "            for node_info in \\${nodes_info[@]}; do \n"
+            - "                new_node_info=(\\${node_info//:/ }) \n"
+            - "                node_ip=\\${new_node_info[0]} \n"
+            - "                node_hostname=\\${new_node_info[1]} \n"
+            - "                grep \"\\${node_hostname}\" \\${HOSTS_PATH} \n"
+            - "                if [ \\$? -eq \"0\" ]; then \n"
+            - "                    continue \n"
+            - "                fi \n"
+            - "                ssh root@\\${node_hostname} \"bash \\${ENV_DIR}/hadoop/sbin/hadoop-daemon.sh\
+              \ start datanode && bash \\${ENV_DIR}/hadoop/sbin/yarn-daemon.sh start\
+              \ nodemanager && exit;\" \n"
+            - "            done \n"
+            - "            echo \"Start hadoop(scale-out) successful\" >>\\${LOG_FILE}\
+              \ \n"
+            - "            bash \\${ENV_DIR}/spark/sbin/stop-all.sh \n"
+            - "            sleep 3 \n"
+            - "            bash \\${ENV_DIR}/spark/sbin/start-all.sh \n"
+            - "            echo \"Start spark(scale-out) successful\" >>\\${LOG_FILE}\
+              \ \n"
+            - "            rm -f \\${ADD_NODES_FILE} \n"
+            - "        else \n"
+            - "            nodes_info=\\$(cat \\${NODES_INFO_FILE}) \n"
+            - "            echo \"Start hadoop(scale-in) successful\" >>\\${LOG_FILE}\
+              \ \n"
+            - "            bash \\${ENV_DIR}/spark/sbin/stop-all.sh \n"
+            - "            sleep 5 \n"
+            - "            bash \\${ENV_DIR}/spark/sbin/start-all.sh \n"
+            - "            echo \"Start spark(scale-in) successful\" >>\\${LOG_FILE}\
+              \ \n"
+            - "            rm -f \\${RM_NODES_FILE} && touch \\${RM_NODES_FILE} \n"
+            - "        fi \n"
+            - "    fi \n"
+            - "    echo \\${NODE_COUNT} >\\${NODES_COUNT_FILE} \n"
+            - "} \n"
+            - " \n"
+            - "main() { \n"
+            - "    nodes_count=\\$(cat \\${NODES_INFO_FILE} | wc -l) \n"
+            - "    if [[ \"\\${nodes_count}\" == \"\\${NODE_COUNT}\" ]]; then \n"
+            - "        echo \"config cluster ......\" >>\\${LOG_FILE} \n"
+            - "        configCluster \n"
+            - "        echo \"config finished ......\" >>\\${LOG_FILE} \n"
+            - "        echo \"start cluster ......\" >>\\${LOG_FILE} \n"
+            - "        startCluster \n"
+            - "        echo \"start finished\" >>\\${LOG_FILE} \n"
+            - "        ${ROS_NOTIFY} \n"
+            - "    fi \n"
+            - "} \n"
+            - " \n"
+            - "main \n"
+            - 'EOF
+
+              '
+            - "} \n"
+            - " \n"
+            - "installAndConfigHive() { \n"
+            - "    tar -zxvf ${RESOURCE_DIR}/${HIVE_GZ} -C ${ENV_DIR} \n"
+            - "    cd ${ENV_DIR} && mv ${HIVE_EXTRACT_NAME} hive \n"
+            - "    ## config \n"
+            - "    echo \"export HIVE_HOME=${ENV_DIR}/hive\" >>${BASH_PATH} \n"
+            - "    echo \"export PATH=${ENV_DIR}/hive/bin:$PATH\" >>${BASH_PATH} \n"
+            - "    source ${BASH_PATH} \n"
+            - "    # config hive-site.xml \n"
+            - '    cat >${ENV_DIR}/hive/conf/hive-site.xml<<EOF
+
+              '
+            - "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?> \n"
+            - "<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?> \n"
+            - "<configuration> \n"
+            - " <property> \n"
+            - "    <name>javax.jdo.option.ConnectionURL</name> \n"
+            - "    <value>jdbc:mysql://HOST_IP_PORT/hive_metadata?&amp;createDatabaseIfNotExist=true&amp;characterEncoding=UTF-8&amp;useSSL=false</value>\
+              \ \n"
+            - " </property> \n"
+            - "<property> \n"
+            - "    <name>javax.jdo.option.ConnectionUserName</name> \n"
+            - "    <value>DB_ROOT_ACCOUNT</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "    <name>javax.jdo.option.ConnectionPassword</name> \n"
+            - "    <value>DB_ROOT_PWD</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "    <name>javax.jdo.option.ConnectionDriverName</name> \n"
+            - "    <value>com.mysql.jdbc.Driver</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "    <name>datanucleus.schema.autoCreateAll</name> \n"
+            - "    <value>true</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "    <name>hive.metastore.schema.verification</name> \n"
+            - "    <value>false</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "    <name>hive.server2.webui.host</name> \n"
+            - "    <value>${HOST_IP}</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "    <name>hive.server2.webui.port</name> \n"
+            - "    <value>10001</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "    <name>hive.metastore.uris</name> \n"
+            - "    <value>thrift://${HOST_IP}:9083</value> \n"
+            - "</property> \n"
+            - "</configuration> \n"
+            - 'EOF
+
+              '
+            - " \n"
+            - "    sed -i \"s/DB_ROOT_ACCOUNT/${DB_ROOT_ACCOUNT}/\" ${ENV_DIR}/hive/conf/hive-site.xml\
+              \ \n"
+            - "    sed -i \"s/HOST_IP_PORT/${RDS_CONNECT_STRING}:${PORT}/\" ${ENV_DIR}/hive/conf/hive-site.xml\
+              \ \n"
+            - "    sed -i \"s/DB_ROOT_PWD/${DB_ROOT_PWD}/\" ${ENV_DIR}/hive/conf/hive-site.xml\
+              \ \n"
+            - "    # config hive-site.sh \n"
+            - "    cp ${ENV_DIR}/hive/conf/hive-env.sh.template ${ENV_DIR}/hive/conf/hive-env.sh\
+              \ \n"
+            - "    echo \"HADOOP_HOME=${ENV_DIR}/hadoop\" >>${ENV_DIR}/hive/conf/hive-env.sh\
+              \ \n"
+            - "    echo \"export HIVE_CONF_DIR=${ENV_DIR}/hive/conf\" >>${ENV_DIR}/hive/conf/hive-env.sh\
+              \ \n"
+            - "    recordLog \"Config hive successful\" \n"
+            - "} \n"
+            - " \n"
+            - "installAndConfigJavaMysql() { \n"
+            - "    tar -zxvf ${RESOURCE_DIR}/${MYSQL_JAVA_GZ} -C ${ENV_DIR}/hive/lib\
+              \ \n"
+            - "    cp ${ENV_DIR}/hive/lib/mysql-connector-java-5.1.48/${MYSQL_JAVA_EXTRACT_NAME}-bin.jar\
+              \ ${ENV_DIR}/hive/lib/ \n"
+            - "    rm -rf ${ENV_DIR}/hive/lib/mysql-connector-java-5.1.48 \n"
+            - "} \n"
+            - " \n"
+            - "main() { \n"
+            - "    prepareEnv \n"
+            - "    downloadResources \n"
+            - "    generateScript \n"
+            - "    configLocalSSH \n"
+            - "    installJavaAndConfig \n"
+            - "    installAndConfigHadoop \n"
+            - "    installSparkAndConfig \n"
+            - "    generateClusterScript \n"
+            - "    installAndConfigHive \n"
+            - "    installAndConfigJavaMysql \n"
+            - "    echo \"${HOST_IP}:${HOST_NAME}\" >>${NODES_INFO_FILE} \n"
+            - "    touch ${RM_NODES_FILE} \n"
+            - "    rm -rf /etc/hosts && touch /etc/hosts \n"
+            - "} \n"
+            - " \n"
+            - "main \n"
+            - "ros-notify -d \"{\\\"Status\\\" : \\\"Success\\\"}\" \n"
+    DependsOn:
+    - OOSTemplateIn
+    - RdsAccount
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4d17593b-029a-45bf-849a-38376b2ac955
+  VpcEip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth:
+        Ref: BindWidth
+      InternetChargeType: PayByTraffic
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c97c38d5-253b-4d8d-89f0-1537687b31b8
+  EipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - EcsInstanceGroupMaster
+          - InstanceIds
+      AllocationId:
+        Ref: VpcEip
+    DependsOn:
+    - VpcEip
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: fabc6711-b5c0-4aef-a1fc-fae3761b74a8
+  OOSTemplateOut:
+    Type: ALIYUN::OOS::Template
+    Properties:
+      Content:
+        Fn::Join:
+        - ''
+        - - "FormatVersion: OOS-2019-06-01\nParameters:\n  regionId:\n    Type: String\n\
+            \    Default: "
+          - Ref: ALIYUN::Region
+          - "\n  instanceIds:\n    Type: List\n    Default:\n      - '${instanceId}'\n\
+            \  lifecycleHookId:\n    Type: String\n    Default: '${lifecycleHookId}'\n\
+            \  lifecycleActionToken:\n    Type: String\n    Default: '${lifecycleActionToken}'\n\
+            RamRole: "
+          - Fn::GetAtt:
+            - RamRole
+            - RoleName
+          - "\nTasks:\n  - Name: runCommand\n    Action: 'ACS::ECS::RunCommand'\n\
+            \    OnError: CompleteLifecycleActionForAbandon\n    OnSuccess: CompleteLifecycleActionForContinue\n\
+            \    Properties:\n      regionId: '{{ regionId }}'\n      commandContent:\
+            \ |- \n"
+          - Fn::Replace:
+            - ros-notify:
+                Fn::GetAtt:
+                - RosWaitConditionHandleEss
+                - CurlCli
+            - Fn::Join:
+              - ''
+              - - "        #!/bin/sh \n"
+                - "        hostname=$(hostname) \n"
+                - '        MASTER_IP='
+                - Fn::Select:
+                  - '0'
+                  - Fn::GetAtt:
+                    - EcsInstanceGroupMaster
+                    - PrivateIps
+                - '
+
+                  '
+                - '        DB_ROOT_ACCOUNT="'
+                - Ref: RdsAccountName
+                - "\" \n"
+                - '        DB_ROOT_PWD="'
+                - Ref: RdsPassword
+                - "\" \n"
+                - '        RDS_CONNECT_STRING="'
+                - Fn::GetAtt:
+                  - RdsDBInstance
+                  - InnerConnectionString
+                - "\" \n"
+                - "        PORT=\"3306\" \n"
+                - '        PASSWORD='
+                - Ref: InstancePassword
+                - '
+
+                  '
+                - '        NODE_COUNT='
+                - Ref: Amount
+                - '
+
+                  '
+                - "        echo root:${PASSWORD} | chpasswd \n"
+                - "        # open sshd PasswordAuthentication \n"
+                - "        sed -i 's/PasswordAuthentication no/PasswordAuthentication\
+                  \ yes/g' \"/etc/ssh/sshd_config\" \n"
+                - "        service sshd restart \n"
+                - '        NODE_COUNT='
+                - Ref: Amount
+                - '
+
+                  '
+                - '        MASTER_HOSTNAME='
+                - Fn::Select:
+                  - '0'
+                  - Fn::GetAtt:
+                    - EcsInstanceGroupMaster
+                    - HostNames
+                - '
+
+                  '
+                - "        HOST_IP=$(ifconfig eth0 | awk '/inet /{print $2}') \n"
+                - "        HOST_NAME=$(hostname) \n"
+                - "        ENV_DIR=\"/software\" \n"
+                - "        BASH_PATH=\"/etc/profile\" \n"
+                - "        RESOURCE_DIR=\"${ENV_DIR}/resources\" \n"
+                - "        set -e \n"
+                - "        JDK_NAME=\"jdk-8u251-linux-i586\" \n"
+                - "        JDK_RPM=\"${JDK_NAME}.rpm\" \n"
+                - "        HADOOP=\"hadoop\" \n"
+                - "        HADOOP_EXTRACT_NAME=\"${HADOOP}-2.7.7\" \n"
+                - "        HADOOP_GZ=\"${HADOOP_EXTRACT_NAME}.tar.gz\" \n"
+                - "        SPARK=\"spark\" \n"
+                - "        SPARK_EXTRACT_NAME=\"${SPARK}-2.1.0-bin-hadoop2.7\" \n"
+                - "        SPARK_TGZ=\"${SPARK_EXTRACT_NAME}.tgz\" \n"
+                - "        SCALA=\"scala\" \n"
+                - "        SCALA_EXTRACT_NAME=\"${SCALA}-2.12.1\" \n"
+                - "        SCALA_TGZ=\"${SCALA_EXTRACT_NAME}.tgz\" \n"
+                - "         \n"
+                - "        HIVE=\"hive\" \n"
+                - "        HIVE_EXTRACT_NAME=\"apache-${HIVE}-2.3.7-bin\" \n"
+                - "        HIVE_GZ=\"${HIVE_EXTRACT_NAME}.tar.gz\" \n"
+                - "        MYSQL_JAVA=\"mysql-connector-java\" \n"
+                - "        MYSQL_JAVA_EXTRACT_NAME=\"${MYSQL_JAVA}-5.1.48\" \n"
+                - "        MYSQL_JAVA_GZ=\"${MYSQL_JAVA_EXTRACT_NAME}.tar.gz\" \n"
+                - "        LOG_FILE=\"${ENV_DIR}/userdata.log\" \n"
+                - "        CLUSTER_FILE=\"${ENV_DIR}/cluster.sh\" \n"
+                - "        SSH_SCRIPT_FILE=\"${ENV_DIR}/ssh.sh\" \n"
+                - "        RM_NODES_FILE=\"${ENV_DIR}/rm_nodes.sh\" \n"
+                - "        RM_NODES_INI=\"${ENV_DIR}/rm_nodes.ini\" \n"
+                - "        ADD_NODES_FILE=\"${ENV_DIR}/add_nodes.sh\" \n"
+                - "        NODES_INFO_FILE=\"${ENV_DIR}/nodes_info.ini\" \n"
+                - "         \n"
+                - "        HADOOP_HOME=${ENV_DIR}/hadoop \n"
+                - "         \n"
+                - "        recordLog() { \n"
+                - "            time=$(date \"+%Y-%m-%d %H:%M:%S\") \n"
+                - "            if [ ! -d ${ENV_DIR} ]; then \n"
+                - "                mkdir ${ENV_DIR} \n"
+                - "            fi \n"
+                - "            echo \"$time --- $1\" >>${LOG_FILE} \n"
+                - "        } \n"
+                - "          \n"
+                - "        createDir() { \n"
+                - "            dir=$1 \n"
+                - "            if [ -d \"${dir}\" ]; then \n"
+                - "                recordLog \"Create failed, dir-${dir} is existed\"\
+                  \ \n"
+                - "            else \n"
+                - "                mkdir -p \"${dir}\" \n"
+                - "                recordLog \"Create Dir-${dir} successful\" \n"
+                - "            fi \n"
+                - "        } \n"
+                - "         \n"
+                - "        prepareEnv() { \n"
+                - "            mkdir ${ENV_DIR} \n"
+                - "            createDir ${RESOURCE_DIR} \n"
+                - "        } \n"
+                - "         \n"
+                - "        generateSSHScript() { \n"
+                - "            ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+                - "            yum -y install expect \n"
+                - "            echo '#!/bin/bash' >${SSH_SCRIPT_FILE} \n"
+                - "            echo 'name_or_ip=$1' >>${SSH_SCRIPT_FILE} \n"
+                - "            echo 'authorized_key=$2' >>${SSH_SCRIPT_FILE} \n"
+                - "            echo 'expect <<EOF' >>${SSH_SCRIPT_FILE} \n"
+                - "            echo 'set timeout 150' >>${SSH_SCRIPT_FILE} \n"
+                - "            echo \"spawn ssh root@\\${name_or_ip} echo \\\"\\${authorized_key}\\\
+                  \" >> /root/.ssh/authorized_keys\" >>${SSH_SCRIPT_FILE} \n"
+                - "            echo 'expect {' >>${SSH_SCRIPT_FILE} \n"
+                - "            echo \"  \\\"*yes/no*\\\" { send \\\"yes\\n\\\"; exp_continue\
+                  \ }\" >>${SSH_SCRIPT_FILE} \n"
+                - "            echo \"  \\\"*password:\\\" { send \\\"${PASSWORD}\\\
+                  n\\\" }\" >>${SSH_SCRIPT_FILE} \n"
+                - "            echo '}' >>${SSH_SCRIPT_FILE} \n"
+                - "            echo 'expect eof' >>${SSH_SCRIPT_FILE} \n"
+                - "            echo 'EOF' >>${SSH_SCRIPT_FILE} \n"
+                - "            chmod +x ${SSH_SCRIPT_FILE} \n"
+                - "            recordLog \"Generate ${SSH_SCRIPT_FILE} successful\"\
+                  \ \n"
+                - "            echo '#!/bin/bash' >\"${SSH_SCRIPT_FILE}.login\" \n"
+                - "            echo 'host_ip=$1' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+                - "            echo 'expect <<EOF' >>\"${SSH_SCRIPT_FILE}.login\"\
+                  \ \n"
+                - "            echo 'set timeout 150' >>\"${SSH_SCRIPT_FILE}.login\"\
+                  \ \n"
+                - "            echo \"spawn ssh root@\\${host_ip} exit;\" >>\"${SSH_SCRIPT_FILE}.login\"\
+                  \ \n"
+                - "            echo 'expect {' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+                - "            echo \"  \\\"*yes/no*\\\" { send \\\"yes\\n\\\" }\"\
+                  \ >>\"${SSH_SCRIPT_FILE}.login\" \n"
+                - "            echo '}' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+                - "            echo 'expect eof' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+                - "            echo 'EOF' >>\"${SSH_SCRIPT_FILE}.login\" \n"
+                - "            chmod +x \"${SSH_SCRIPT_FILE}.login\" \n"
+                - "            recordLog \"Generate ${SSH_SCRIPT_FILE}.login successful\"\
+                  \ \n"
+                - "        } \n"
+                - "         \n"
+                - "        configLocalSSH() { \n"
+                - "            authorized_key=$(cat /root/.ssh/id_rsa.pub) \n"
+                - "            bash ${SSH_SCRIPT_FILE} \"${MASTER_IP}\" \"${authorized_key}\"\
+                  \ \n"
+                - "            bash ${SSH_SCRIPT_FILE} \"${HOST_IP}\" \"${authorized_key}\"\
+                  \ \n"
+                - "            bash \"${SSH_SCRIPT_FILE}.login\" \"0.0.0.0\" \n"
+                - "            bash \"${SSH_SCRIPT_FILE}.login\" \"localhost\" \n"
+                - "            sed -i \"s/${MASTER_IP}/${MASTER_HOSTNAME},${MASTER_IP}/\"\
+                  \ \"/root/.ssh/known_hosts\" \n"
+                - "            recordLog \"Config expect-localhost successful\" \n"
+                - "        } \n"
+                - "         \n"
+                - "          \n"
+                - "        scpResources() { \n"
+                - "            scp -r root@${MASTER_IP}:${RESOURCE_DIR}/* ${RESOURCE_DIR}\
+                  \ \n"
+                - "            recordLog \"Scp resources successful\" \n"
+                - "        } \n"
+                - "         \n"
+                - "        installJavaAndConfig() { \n"
+                - "            yum -y install glibc.i686 \n"
+                - "            rpm -Uvh ${RESOURCE_DIR}/${JDK_RPM} \n"
+                - "            # config \n"
+                - "            export JAVA_HOME=$(find / -name jdk1.8.0_*) \n"
+                - "            echo \"export JAVA_HOME=${JAVA_HOME}\" >>${BASH_PATH}\
+                  \ \n"
+                - "            echo \"export JRE_HOME=${JAVA_HOME}/jre\" >>${BASH_PATH}\
+                  \ \n"
+                - "            echo \"export CLASSPATH=.:${JAVA_HOME}/lib:${JAVA_HOME}/jre/lib\"\
+                  \ >>${BASH_PATH} \n"
+                - "            echo \"export PATH=${JAVA_HOME}/bin:$PATH\" >>${BASH_PATH}\
+                  \ \n"
+                - "            source ${BASH_PATH} \n"
+                - "            recordLog \"Config java successful\" \n"
+                - "        } \n"
+                - "         \n"
+                - "        installAndConfigHadoop(){ \n"
+                - "            # download \n"
+                - "            tar -zxvf ${RESOURCE_DIR}/${HADOOP_GZ} -C ${ENV_DIR}\
+                  \ && cd ${ENV_DIR} && mv ${HADOOP_EXTRACT_NAME} ${HADOOP} \n"
+                - "            echo \"export HADOOP_HOME=${HADOOP_HOME}\" >> ${BASH_PATH}\
+                  \ \n"
+                - "            echo \"export PATH=${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:$PATH\"\
+                  \ >> ${BASH_PATH} \n"
+                - "            source ${BASH_PATH} \n"
+                - "            # config core-site.xml \n"
+                - "            mv ${HADOOP_HOME}/etc/hadoop/core-site.xml ${HADOOP_HOME}/etc/hadoop/bak.core-site.xml\
+                  \ \n"
+                - '            cat >${HADOOP_HOME}/etc/hadoop/core-site.xml <<EOF
+
+                  '
+                - "        <configuration> \n"
+                - "          <property> \n"
+                - "            <name>fs.defaultFS</name> \n"
+                - "            <value>hdfs://${MASTER_IP}:9000</value> \n"
+                - "          </property> \n"
+                - "          <property> \n"
+                - "            <name>hadoop.tmp.dir</name> \n"
+                - "            <value>${ENV_DIR}/tmp</value> \n"
+                - "          </property> \n"
+                - "        </configuration> \n"
+                - '        EOF
+
+                  '
+                - "            # hdfs-site.xml \n"
+                - "            mv ${HADOOP_HOME}/etc/hadoop/hdfs-site.xml ${HADOOP_HOME}/etc/hadoop/bak.hdfs-site.xml\
+                  \ \n"
+                - '            cat >${HADOOP_HOME}/etc/hadoop/hdfs-site.xml <<EOF
+
+                  '
+                - "        <configuration> \n"
+                - "          <property> \n"
+                - "            <name>dfs.replication</name> \n"
+                - "            <value>${NODE_COUNT}</value> \n"
+                - "          </property> \n"
+                - "        </configuration> \n"
+                - '        EOF
+
+                  '
+                - "            # config mapred-site.xml \n"
+                - '            cat >${HADOOP_HOME}/etc/hadoop/mapred-site.xml <<EOF
+
+                  '
+                - "        <configuration> \n"
+                - "          <property> \n"
+                - "            <name>mapreduce.framework.name</name> \n"
+                - "            <value>yarn</value> \n"
+                - "          </property> \n"
+                - "        </configuration> \n"
+                - '        EOF
+
+                  '
+                - "            # config yarn-site.xml \n"
+                - "            mv ${HADOOP_HOME}/etc/hadoop/yarn-site.xml ${HADOOP_HOME}/etc/hadoop/bak.yarn-site.xml\
+                  \ \n"
+                - '            cat >${HADOOP_HOME}/etc/hadoop/yarn-site.xml <<EOF
+
+                  '
+                - "        <configuration> \n"
+                - "          <property> \n"
+                - "            <name>yarn.nodemanager.aux-services</name> \n"
+                - "            <value>mapreduce_shuffle</value> \n"
+                - "          </property> \n"
+                - "          <property> \n"
+                - "            <name>yarn.resourcemanager.hostname</name> \n"
+                - "            <value>${MASTER_IP}</value> \n"
+                - "          </property> \n"
+                - "        </configuration> \n"
+                - '        EOF
+
+                  '
+                - "            # config java home \n"
+                - "            sed -i 's/export JAVA_HOME=/#export JAVA_HOME=/' ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh\
+                  \ \n"
+                - "            sed -i \"/#export JAVA_HOME=/a export JAVA_HOME=${JAVA_HOME}\"\
+                  \ ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh \n"
+                - "            sed -i 's/export JAVA_HOME=/#export JAVA_HOME=/' ${HADOOP_HOME}/etc/hadoop/mapred-env.sh\
+                  \ \n"
+                - "            sed -i \"/#export JAVA_HOME=/a export JAVA_HOME=${JAVA_HOME}\"\
+                  \ ${HADOOP_HOME}/etc/hadoop/mapred-env.sh \n"
+                - "            sed -i 's/export JAVA_HOME=/#export JAVA_HOME=/' ${HADOOP_HOME}/etc/hadoop/yarn-env.sh\
+                  \ \n"
+                - "            sed -i \"/#export JAVA_HOME=/a export JAVA_HOME=${JAVA_HOME}\"\
+                  \ ${HADOOP_HOME}/etc/hadoop/yarn-env.sh \n"
+                - "            recordLog \"Config hadoop successful\" \n"
+                - "        } \n"
+                - "         \n"
+                - "        installSparkAndConfig() { \n"
+                - "           tar zxvf ${RESOURCE_DIR}/${SPARK_TGZ} -C ${ENV_DIR}\
+                  \ && cd ${ENV_DIR} && mv ${SPARK_EXTRACT_NAME} ${SPARK} \n"
+                - "           mv ${ENV_DIR}/${SPARK}/conf/spark-env.sh.template ${ENV_DIR}/${SPARK}/conf/spark-env.sh\
+                  \ \n"
+                - "           echo \"export SCALA_HOME=${ENV_DIR}/scala\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+                  \ \n"
+                - "           echo \"export JAVA_HOME=${JAVA_HOME}\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+                  \ \n"
+                - "           echo \"export HADOOP_HOME=${ENV_DIR}/hadoop\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+                  \ \n"
+                - "           echo \"export HADOOP_CONF_DIR=${ENV_DIR}/hadoop/etc/hadoop\"\
+                  \ >> ${ENV_DIR}/spark/conf/spark-env.sh \n"
+                - "           echo \"export SPARK_HOME=${ENV_DIR}/spark\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+                  \ \n"
+                - "           echo \"export SPARK_MASTER_IP=${HOST_IP}\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+                  \ \n"
+                - "           echo \"export SPARK_EXECUTOR_MEMORY=1G\" >> ${ENV_DIR}/spark/conf/spark-env.sh\
+                  \ \n"
+                - "           recordLog \"Config spark successful\" \n"
+                - "        } \n"
+                - "         \n"
+                - "        installScalaAndConfig() { \n"
+                - "            tar zxvf ${RESOURCE_DIR}/${SCALA_TGZ} -C ${ENV_DIR}\
+                  \ && cd ${ENV_DIR} && mv ${SCALA_EXTRACT_NAME} ${SCALA} \n"
+                - "            echo \"export SCALA_HOME=${ENV_DIR}/scala\" >> ${BASH_PATH}\
+                  \ \n"
+                - "            echo \"PATH=$PATH:${ENV_DIR}/scala/bin\" >> ${BASH_PATH}\
+                  \ \n"
+                - "            echo \"export JAVA_HOME=${JAVA_HOME}\" >> ${BASH_PATH}\
+                  \ \n"
+                - "            echo \"export JRE_HOME=${JAVA_HOME}/jre\" >> ${BASH_PATH}\
+                  \ \n"
+                - "            echo \"export CLASSPATH=.:${JAVA_HOME}/lib:${JRE_HOME}/lib\"\
+                  \ >> ${BASH_PATH} \n"
+                - "            echo \"export PATH=${JAVA_HOME}/bin:$PATH\" >> ${BASH_PATH}\
+                  \ \n"
+                - "            echo \"export HADOOP_HOME=${ENV_DIR}/hadoop\" >> ${BASH_PATH}\
+                  \ \n"
+                - "            echo \"export PATH=.:${ENV_DIR}/hadoop/bin:$PATH\"\
+                  \ >> ${BASH_PATH} \n"
+                - "            echo \"export SPARK_HOME=${ENV_DIR}/spark\" >> ${BASH_PATH}\
+                  \ \n"
+                - "            echo \"export PATH=.:${ENV_DIR}/spark/bin:$PATH\" >>\
+                  \ ${BASH_PATH} \n"
+                - "            source ${BASH_PATH} \n"
+                - "            recordLog \"Config scala successful\" \n"
+                - "        } \n"
+                - "         \n"
+                - "        generateAddNodeScript() { \n"
+                - "            echo '#!/bin/bash' >${ADD_NODES_FILE} \n"
+                - "            echo 'NODE_COUNT=$1' >>${ADD_NODES_FILE} \n"
+                - "            echo \"ssh root@${MASTER_IP} \\\"echo '${HOST_IP}:${HOST_NAME}'\
+                  \ >> ${NODES_INFO_FILE};bash ${CLUSTER_FILE} \\${NODE_COUNT}\\\"\
+                  \" >> ${ADD_NODES_FILE} \n"
+                - "        } \n"
+                - "         \n"
+                - "        generateRmNodeScript() { \n"
+                - "            echo '#!/bin/bash' >${RM_NODES_FILE} \n"
+                - "            echo 'NODE_COUNT=$1' >>${RM_NODES_FILE} \n"
+                - "            echo \"ssh root@${MASTER_IP} \\\"sed -i '/${HOST_IP}:${HOST_NAME}/d'\
+                  \ ${NODES_INFO_FILE};echo ${HOST_IP}:${HOST_NAME} >> ${RM_NODES_INI};bash\
+                  \ ${CLUSTER_FILE} \\${NODE_COUNT}\\\"\" >>${RM_NODES_FILE} \n"
+                - "        } \n"
+                - "         \n"
+                - "        installAndConfigHive() { \n"
+                - "            tar -zxvf ${RESOURCE_DIR}/${HIVE_GZ} -C ${ENV_DIR}\
+                  \ \n"
+                - "            cd ${ENV_DIR} && mv ${HIVE_EXTRACT_NAME} hive \n"
+                - "            ## config \n"
+                - "            echo \"export HIVE_HOME=${ENV_DIR}/hive\" >>${BASH_PATH}\
+                  \ \n"
+                - "            echo \"export PATH=${ENV_DIR}/hive/bin:$PATH\" >>${BASH_PATH}\
+                  \ \n"
+                - "            source ${BASH_PATH} \n"
+                - "            # config hive-site.xml \n"
+                - '            cat >${ENV_DIR}/hive/conf/hive-site.xml<<EOF
+
+                  '
+                - "        <?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"\
+                  no\"?> \n"
+                - "        <?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"\
+                  ?> \n"
+                - "        <configuration> \n"
+                - "         <property> \n"
+                - "            <name>javax.jdo.option.ConnectionURL</name> \n"
+                - "            <value>jdbc:mysql://HOST_IP_PORT/hive_metadata?&amp;createDatabaseIfNotExist=true&amp;characterEncoding=UTF-8&amp;useSSL=false</value>\
+                  \ \n"
+                - "        </property> \n"
+                - "        <property> \n"
+                - "            <name>javax.jdo.option.ConnectionUserName</name> \n"
+                - "            <value>DB_ROOT_ACCOUNT</value> \n"
+                - "        </property> \n"
+                - "        <property> \n"
+                - "            <name>javax.jdo.option.ConnectionPassword</name> \n"
+                - "            <value>DB_ROOT_PWD</value> \n"
+                - "        </property> \n"
+                - "        <property> \n"
+                - "            <name>javax.jdo.option.ConnectionDriverName</name>\
+                  \ \n"
+                - "            <value>com.mysql.jdbc.Driver</value> \n"
+                - "        </property> \n"
+                - "        <property> \n"
+                - "            <name>datanucleus.schema.autoCreateAll</name> \n"
+                - "            <value>true</value> \n"
+                - "        </property> \n"
+                - "        <property> \n"
+                - "            <name>hive.metastore.schema.verification</name> \n"
+                - "            <value>false</value> \n"
+                - "        </property> \n"
+                - "        <property> \n"
+                - "            <name>hive.server2.webui.host</name> \n"
+                - "            <value>${MASTER_IP}</value> \n"
+                - "        </property> \n"
+                - "        <property> \n"
+                - "            <name>hive.server2.webui.port</name> \n"
+                - "            <value>10001</value> \n"
+                - "        </property> \n"
+                - "        <property> \n"
+                - "            <name>hive.metastore.uris</name> \n"
+                - "            <value>thrift://${MASTER_IP}:9083</value> \n"
+                - "        </property> \n"
+                - "        </configuration> \n"
+                - '        EOF
+
+                  '
+                - "         \n"
+                - "            sed -i \"s/DB_ROOT_ACCOUNT/${DB_ROOT_ACCOUNT}/\" ${ENV_DIR}/hive/conf/hive-site.xml\
+                  \ \n"
+                - "            sed -i \"s/HOST_IP_PORT/${RDS_CONNECT_STRING}:${PORT}/\"\
+                  \ ${ENV_DIR}/hive/conf/hive-site.xml \n"
+                - "            sed -i \"s/DB_ROOT_PWD/${DB_ROOT_PWD}/\" ${ENV_DIR}/hive/conf/hive-site.xml\
+                  \ \n"
+                - "            # config hive-site.sh \n"
+                - "            cp ${ENV_DIR}/hive/conf/hive-env.sh.template ${ENV_DIR}/hive/conf/hive-env.sh\
+                  \ \n"
+                - "            echo \"HADOOP_HOME=${ENV_DIR}/hadoop\" >>${ENV_DIR}/hive/conf/hive-env.sh\
+                  \ \n"
+                - "            echo \"export HIVE_CONF_DIR=${ENV_DIR}/hive/conf\"\
+                  \ >>${ENV_DIR}/hive/conf/hive-env.sh \n"
+                - "            recordLog \"Config hive successful\" \n"
+                - "        } \n"
+                - "         \n"
+                - "        installAndConfigJavaMysql() { \n"
+                - "            tar -zxvf ${RESOURCE_DIR}/${MYSQL_JAVA_GZ} -C ${ENV_DIR}/hive/lib\
+                  \ \n"
+                - "            cp ${ENV_DIR}/hive/lib/mysql-connector-java-5.1.48/${MYSQL_JAVA_EXTRACT_NAME}-bin.jar\
+                  \ ${ENV_DIR}/hive/lib/ \n"
+                - "            rm -rf ${ENV_DIR}/hive/lib/mysql-connector-java-5.1.48\
+                  \ \n"
+                - "        } \n"
+                - "         \n"
+                - "        main() { \n"
+                - "            prepareEnv \n"
+                - "            generateSSHScript \n"
+                - "            configLocalSSH \n"
+                - "            scpResources \n"
+                - "            installJavaAndConfig \n"
+                - "            installAndConfigHadoop \n"
+                - "            installSparkAndConfig \n"
+                - "            installScalaAndConfig \n"
+                - "            installAndConfigHive \n"
+                - "            installAndConfigJavaMysql \n"
+                - "            generateAddNodeScript \n"
+                - "            generateRmNodeScript \n"
+                - "            bash ${ADD_NODES_FILE} ${NODE_COUNT} \n"
+                - "        } \n"
+                - "         \n"
+                - "        main \n"
+                - "        ros-notify \n"
+          - |2-
+
+                  instanceId: '{{ ACS::TaskLoopItem }}'
+                  commandType: RunShellScript
+                Loop:
+                  RateControl:
+                    Mode: Concurrency
+                    MaxErrors: 0
+                    Concurrency: 10
+                  Items: '{{ instanceIds }}'
+                  Outputs:
+                    commandOutputs:
+                      AggregateType: 'Fn::ListJoin'
+                      AggregateField: commandOutput
+                Outputs:
+                  commandOutput:
+                    Type: String
+                    ValueSelector: invocationOutput
+              - Name: CompleteLifecycleActionForContinue
+                Action: 'ACS::ExecuteAPI'
+                OnSuccess: 'ACS::END'
+                Properties:
+                  Service: ESS
+                  API: CompleteLifecycleAction
+                  Parameters:
+                    RegionId: '{{ regionId }}'
+                    LifecycleHookId: '{{ lifecycleHookId }}'
+                    LifecycleActionToken: '{{ lifecycleActionToken }}'
+              - Name: CompleteLifecycleActionForAbandon
+                Action: 'ACS::ExecuteAPI'
+                Properties:
+                  Service: ESS
+                  API: CompleteLifecycleAction
+                  Parameters:
+                    RegionId: '{{ regionId }}'
+                    LifecycleHookId: '{{ lifecycleHookId }}'
+                    LifecycleActionToken: '{{ lifecycleActionToken }}'
+                    LifecycleActionResult: ABANDON
+      TemplateName:
+        Fn::Join:
+        - ''
+        - - StackId-
+          - Ref: ALIYUN::StackId
+          - -Out
+    DependsOn:
+    - RamRole
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 67a74071-cd8a-4cf0-93bf-e4f05fbf4f7c
+  EssScalingGroupSlave:
+    Type: ALIYUN::ESS::ScalingGroup
+    Properties:
+      VSwitchId:
+        Ref: VSwitchId
+      ScalingGroupName:
+        Fn::Join:
+        - '-'
+        - - Hive-ros
+          - Ref: ALIYUN::StackId
+          - Ref: Amount
+      DefaultCooldown: 0
+      MinSize: 2
+      MaxSize:
+        Ref: Amount
+      DesiredCapacity:
+        Fn::Calculate:
+        - '{0}-1'
+        - 0
+        - - Ref: Amount
+      RemovalPolicys:
+      - NewestInstance
+      - OldestScalingConfiguration
+      HealthCheckType: ECS
+    DependsOn:
+    - EcsInstanceGroupMaster
+    - OOSTemplateIn
+    - OOSTemplateOut
+    - RosWaitConditionMaster
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c5ebe395-2e00-4f5c-9656-4db3c6a06f6d
+  EssScalingConfigurationSlave:
+    Type: ALIYUN::ESS::ScalingConfiguration
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId: centos_7_06_64_20G_alibase_20190711.vhd
+      SystemDiskCategory:
+        Ref: DiskCategory
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Hive-node
+          - Ref: ALIYUN::StackId
+      SystemDiskSize:
+        Ref: DiskSize
+      InstanceTypes:
+      - Ref: InstanceType
+      IoOptimized: optimized
+      ScalingGroupId:
+        Ref: EssScalingGroupSlave
+      ScalingConfigurationName:
+        Fn::Join:
+        - '-'
+        - - Hive-ros
+          - Ref: ALIYUN::StackId
+          - Ref: Amount
+    DependsOn:
+    - EssScalingGroupSlave
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 440cd165-f824-4c69-8005-2ba8b4bfbe47
+  EssScalingGroupEnable:
+    Type: ALIYUN::ESS::ScalingGroupEnable
+    Properties:
+      ScalingConfigurationId:
+        Ref: EssScalingConfigurationSlave
+      ScalingGroupId:
+        Ref: EssScalingGroupSlave
+    DependsOn:
+    - EcsInstanceGroupMaster
+    - EssScalingConfigurationSlave
+    - RosWaitConditionMaster
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 866c1f6a-2b7a-49c3-be21-17c039d49eb4
+  EssLifecycleHookIn:
+    Type: ALIYUN::ESS::LifecycleHook
+    Properties:
+      ScalingGroupId:
+        Ref: EssScalingGroupSlave
+      LifecycleTransition: SCALE_IN
+      DefaultResult: CONTINUE
+      HeartbeatTimeout: 600
+      NotificationArn:
+        Fn::Join:
+        - ''
+        - - 'acs:ess:'
+          - Ref: ALIYUN::Region
+          - ':'
+          - Ref: ALIYUN::TenantId
+          - :oos/
+          - Fn::GetAtt:
+            - OOSTemplateIn
+            - TemplateName
+      NotificationMetadata:
+        Fn::Join:
+        - ''
+        - - '{"regionId": "${regionId}","instanceIds": "${instanceIds}","lifecycleHookId":
+            "${lifecycleHookId}","lifecycleActionToken": "${lifecycleActionToken}"}'
+    DependsOn:
+    - EssScalingGroupSlave
+    - OOSTemplateIn
+    - OOSTemplateOut
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3c848940-437b-4576-96e0-4514bedb2d90
+  EssLifecycleHookOut:
+    Type: ALIYUN::ESS::LifecycleHook
+    Properties:
+      ScalingGroupId:
+        Ref: EssScalingGroupSlave
+      LifecycleTransition: SCALE_OUT
+      NotificationArn:
+        Fn::Join:
+        - ''
+        - - 'acs:ess:'
+          - Ref: ALIYUN::Region
+          - ':'
+          - Ref: ALIYUN::TenantId
+          - :oos/
+          - Fn::GetAtt:
+            - OOSTemplateOut
+            - TemplateName
+      DefaultResult: CONTINUE
+      HeartbeatTimeout: 600
+      NotificationMetadata:
+        Fn::Join:
+        - ''
+        - - '{"regionId": "${regionId}","instanceIds": "${instanceIds}","lifecycleHookId":
+            "${lifecycleHookId}","lifecycleActionToken": "${lifecycleActionToken}"}'
+    DependsOn:
+    - EssScalingGroupSlave
+    - OOSTemplateOut
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 6163867a-1838-4f86-bb06-ca736e88eb68
+Outputs:
+  SparkWebSiteURL:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - VpcEip
+          - EipAddress
+        - :8080
+  HiveWebSiteURL:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - VpcEip
+          - EipAddress
+        - :10001
+  EcsInstanceIds:
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroupMaster
+      - InstanceIds
+  EssGroupId:
+    Value:
+      Fn::GetAtt:
+      - EssScalingGroupSlave
+      - ScalingGroupId
+  EcsEip:
+    Value:
+      Fn::GetAtt:
+      - VpcEip
+      - EipAddress
+  MasterPrivateIp:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - EcsInstanceGroupMaster
+        - PrivateIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcId
+      - VSwitchZoneId
+      - VSwitchId
+      - SecurityGroupId
+      Label:
+        default:
+          zh-cn: 基础资源配置（必填）
+          en: Infrastructure Configuration
+    - Parameters:
+      - InstanceType
+      - InstancePassword
+      - BindWidth
+      - DiskCategory
+      - DiskSize
+      - Amount
+      Label:
+        default:
+          zh-cn: Hive 配置（必填）
+          en: Hive Configuration
+    - Parameters:
+      - DBInstancetype
+      - DBInstanceEngineAndVersion
+      - DBInstanceStorageType
+      - RdsAccountName
+      - RdsPassword
+      Label:
+        default:
+          zh-cn: DB 配置（必填）
+          en: DB Configuration
+    TemplateTags:
+    - acs:solution:数据分析:Hive集群版(已有VPC)
+  ALIYUN::ROS::Designer:
+    257afdf3-a3ff-489c-89cb-b0a4243ac0df:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 261
+        y: 76
+      z: 0
+    74996349-7203-476f-bac8-4e936088c519:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 261
+        y: 188
+      z: 0
+    d31fecba-ebcf-42a2-b524-af819d7cc0fd:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 510
+        y: 290
+      z: 0
+    28c8b447-0074-4e1c-b16e-a23b999b1221:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 337
+        y: 290
+      z: 0
+    ac2da7a5-324d-445d-b539-670f51aa4211:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 589
+        y: 123
+      z: 0
+    96189890-7475-4a66-956e-0a7bf79f1832:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 589
+        y: 216
+      z: 0
+    aca6e39d-f458-420b-8506-9ca72010ea67:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -163
+        y: 156
+      z: 0
+    7a568f88-588f-4635-b081-f327f41d685a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -163
+        y: 259
+      z: 0
+    4d17593b-029a-45bf-849a-38376b2ac955:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 428
+        y: 188
+      z: 0
+    c97c38d5-253b-4d8d-89f0-1537687b31b8:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 428
+        y: -32
+      z: 0
+    fabc6711-b5c0-4aef-a1fc-fae3761b74a8:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 428
+        y: 79
+      z: 0
+    c5ebe395-2e00-4f5c-9656-4db3c6a06f6d:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 85
+        y: 188
+      z: 0
+    440cd165-f824-4c69-8005-2ba8b4bfbe47:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 85
+        y: 23
+      z: 0
+    866c1f6a-2b7a-49c3-be21-17c039d49eb4:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -61
+        y: 106
+      z: 0
+    c40eb24b-0042-4ad8-b85c-b6155fa52238:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 90
+        y: 565
+      z: 0
+    f38f57e5-4fad-404f-9550-45331dca1d60:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -5
+        y: 455
+      z: 0
+    3c848940-437b-4576-96e0-4514bedb2d90:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -5
+        y: 344
+      z: 0
+    67a74071-cd8a-4cf0-93bf-e4f05fbf4f7c:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 184
+        y: 455
+      z: 0
+    6163867a-1838-4f86-bb06-ca736e88eb68:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 184
+        y: 344
+      z: 0
+    406931d1-fae0-437b-9bef-05bded77faf2:
+      source:
+        id: d31fecba-ebcf-42a2-b524-af819d7cc0fd
+      target:
+        id: 28c8b447-0074-4e1c-b16e-a23b999b1221
+      z: 1
+    8d21c9b7-3426-4b77-89ba-bfec2f4cc417:
+      source:
+        id: ac2da7a5-324d-445d-b539-670f51aa4211
+      target:
+        id: 96189890-7475-4a66-956e-0a7bf79f1832
+      z: 1
+    2ce98836-80fc-4bb0-a455-23832b64ed8e:
+      source:
+        id: aca6e39d-f458-420b-8506-9ca72010ea67
+      target:
+        id: 7a568f88-588f-4635-b081-f327f41d685a
+      z: 1
+    0ecf0ef0-08ac-44d0-b758-f61e03d6e990:
+      source:
+        id: fabc6711-b5c0-4aef-a1fc-fae3761b74a8
+      target:
+        id: c97c38d5-253b-4d8d-89f0-1537687b31b8
+      z: 1
+    8b2c2995-2d25-4221-9b42-2eb5b00fd077:
+      source:
+        id: 440cd165-f824-4c69-8005-2ba8b4bfbe47
+      target:
+        id: c5ebe395-2e00-4f5c-9656-4db3c6a06f6d
+      z: 1
+    cb60445d-8f6b-48d5-b80e-502515271fec:
+      source:
+        id: 866c1f6a-2b7a-49c3-be21-17c039d49eb4
+      target:
+        id: 440cd165-f824-4c69-8005-2ba8b4bfbe47
+      z: 1
+    2c1b91cb-68a2-4c01-91f4-4863cbeeb3ea:
+      source:
+        id: 866c1f6a-2b7a-49c3-be21-17c039d49eb4
+      target:
+        id: c5ebe395-2e00-4f5c-9656-4db3c6a06f6d
+      z: 1
+    82af2648-b3b5-41c3-b657-e253924b5412:
+      source:
+        id: 3c848940-437b-4576-96e0-4514bedb2d90
+      target:
+        id: c5ebe395-2e00-4f5c-9656-4db3c6a06f6d
+      z: 1
+    57300553-acbf-4e65-938e-a3399cc0cc5e:
+      source:
+        id: 6163867a-1838-4f86-bb06-ca736e88eb68
+      target:
+        id: c5ebe395-2e00-4f5c-9656-4db3c6a06f6d
+      z: 1
+    ab0cb41e-874d-4eb2-83fc-34764e67aa78:
+      source:
+        id: fabc6711-b5c0-4aef-a1fc-fae3761b74a8
+      target:
+        id: 4d17593b-029a-45bf-849a-38376b2ac955
+      z: 1
+    89bd179d-c0c7-4131-9842-902120b57a4a:
+      source:
+        id: 6163867a-1838-4f86-bb06-ca736e88eb68
+      target:
+        id: 67a74071-cd8a-4cf0-93bf-e4f05fbf4f7c
+      z: 1
+    fb779c24-7ae6-4e23-8fe9-32bf776633eb:
+      source:
+        id: 3c848940-437b-4576-96e0-4514bedb2d90
+      target:
+        id: f38f57e5-4fad-404f-9550-45331dca1d60
+      z: 1
+    9f2d0024-7da4-458a-a5be-156f9f0fbbdb:
+      source:
+        id: f38f57e5-4fad-404f-9550-45331dca1d60
+      target:
+        id: c40eb24b-0042-4ad8-b85c-b6155fa52238
+      z: 1
+    115e9c8c-e483-48d6-9b2b-4bc81c10f275:
+      source:
+        id: 67a74071-cd8a-4cf0-93bf-e4f05fbf4f7c
+      target:
+        id: c40eb24b-0042-4ad8-b85c-b6155fa52238
+      z: 1
+    b129a716-4373-49f7-8f0d-7ba65fd2da9b:
+      source:
+        id: 74996349-7203-476f-bac8-4e936088c519
+      target:
+        id: 257afdf3-a3ff-489c-89cb-b0a4243ac0df
+      z: 1
+    4c28d6c9-8df9-496f-b1f8-99efe2b06844:
+      source:
+        id: 4d17593b-029a-45bf-849a-38376b2ac955
+      target:
+        id: 74996349-7203-476f-bac8-4e936088c519
+      z: 1
+    465aec83-b81d-44cc-a548-728a1de2ecd3:
+      source:
+        id: c5ebe395-2e00-4f5c-9656-4db3c6a06f6d
+      target:
+        id: 74996349-7203-476f-bac8-4e936088c519
+      z: 1

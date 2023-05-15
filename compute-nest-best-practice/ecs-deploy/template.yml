@@ -1,0 +1,270 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: ecs部署nginx
+  zh-cn: ecs部署nginx
+Parameters:
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    Description:
+      en: When the resource purchase duration is Month, the value of Period ranges
+        from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance
+        types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private
+        Cloud
+      zh-cn: 现有虚拟专有网络的实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private
+        Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      SecurityGroupIngress:
+      - PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      SecurityGroupEgress:
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 300
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
+      IoOptimized: optimized
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 200
+      DiskMappings:
+      - Category: cloud_essd
+        Size: 200
+      MaxAmount: 1
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: true
+      InternetMaxBandwidthOut: 100
+      UserData:
+        Fn::Sub:
+        - |
+          #!/bin/bash
+          # 挂盘到/disk1
+          cat >> /root/InitDataDisk.sh << "EOF"
+          #!/bin/bash
+          echo "p
+          n
+          p
+
+
+
+          w
+          " |  fdisk -u /dev/vdb
+          EOF
+          /bin/bash /root/InitDataDisk.sh
+          rm -f /root/InitDataDisk.sh
+          mkfs -t ext4 /dev/vdb1
+          cp /etc/fstab /etc/fstab.bak
+          mkdir /disk1
+          echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /disk1 ext4 defaults 0 0 >> /etc/fstab
+          mount -a
+
+          # 这里配置安装脚本
+          yum install -y nginx
+          # 配置启动脚本
+          /usr/sbin/nginx
+
+          # 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+        - CurlCli:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+Outputs:
+  Endpoint:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+      - http://${ServerAddress}
+      - ServerAddress:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        default:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - VpcId
+      - VSwitchId
+      Label:
+        default:
+          zh-cn: 选择已有基础资源配置
+          en: Choose existing Infrastructure Configuration
+    - Parameters:
+      - EcsInstanceType
+      - InstancePassword
+      Label:
+        default:
+          en: Instance
+          zh-cn: ECS实例配置

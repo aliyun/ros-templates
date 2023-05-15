@@ -1,0 +1,1031 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: SLS多云日志采集、处理及分析
+Parameters:
+  ProjectName:
+    Type: String
+    Label:
+      en: Project Name
+      zh-cn: Project名称
+    Description:
+      en: Logging service Project name, global unique name.
+      zh-cn: 日志服务Project名称，Project名称全局唯一。
+    ConstraintDescription:
+      en: Composed of 3-63 characters, only lowercase letters, Numbers, and short
+        lines (-) are allowed, and they cannot begin or end with short lines.
+      zh-cn: 3-63个字符，只允许小写字母、数字、短横线（-），且不能以短横线开头或结尾。
+    Default: my-demo-log-project-test
+    MinLength: 3
+    MaxLength: 63
+  LogstoreName:
+    Type: String
+    Label:
+      en: Log Store Name
+      zh-cn: 日志库的名称
+    Description:
+      en: The name of the log library, 3-63 characters, beginning and ending with
+        lowercase letters and numbers, and may contain lowercase letters, numbers,
+        hyphens (-), and underscores
+      zh-cn: 日志库的名称，3-63个字符，须以小写字母和数字开头和结尾，可包含小写字母、数字、连字符（-）和下划线（_）
+    ConstraintDescription:
+      en: The name of the log library, 3-63 characters, beginning and ending with
+        lowercase letters and numbers, and may contain lowercase letters, numbers,
+        hyphens (-), and underscores
+      zh-cn: 日志库的名称，3-63个字符，须以小写字母和数字开头和结尾，可包含小写字母、数字、连字符（-）和下划线（_）
+    Default: demo-access-log-store
+    MinLength: 3
+    MaxLength: 63
+  MachineGroupName:
+    Type: String
+    Label:
+      en: Machine Group Name
+      zh-cn: 机器分组名称
+    Description:
+      en: 'Length 2-32, allows upper case letters, numbers, mid-horizontal lines,
+        and underscores, but does not begin or end with a symbol. '
+      zh-cn: 长度2-32，允许大小写字母、数字、中横线及下划线，但不能以符号开头或结尾。
+    ConstraintDescription:
+      en: 'Length 2-32, allows upper case letters, numbers, mid-horizontal lines,
+        and underscores, but does not begin or end with a symbol. '
+      zh-cn: 长度2-32，允许大小写字母、数字、中横线及下划线，但不能以符号开头或结尾。
+    Default: demo-log-group
+    MinLength: 2
+    MaxLength: 32
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        EMR and ECS resources</font></b>
+      zh-cn: 可用区ID，<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建EMR及ECS资源的规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 192.168.0.0/24
+  EcsImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: 'Server instance Image ID, please use CentOS Image, see detail: <b><a href=''https://www.alibabacloud.com/help/doc-detail/112977.html''
+        target=''_blank''><font color=''blue''>Find the mirror</font></a></b>'
+      zh-cn: 服务器镜像，请使用CentOS镜像，详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ImageId
+    Default: centos_7_06_64_20G_alibase_20190711.vhd
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  EcsSystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  EcsSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk space, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘空间, 取值范围：[40, 500], 单位：GB。
+    ConstraintDescription:
+      en: 'System disk space, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘空间, 取值范围：[40, 500], 单位：GB。
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  EcsPassword:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  KafkaEmrVer:
+    Type: String
+    Label:
+      en: Product Version
+      zh-cn: 产品版本
+    Description:
+      en: EMR product version
+      zh-cn: EMR产品版本
+    Default: EMR-3.20.0
+    AllowedValues:
+    - EMR-3.24.3
+    - EMR-3.24.0
+    - EMR-3.23.0
+    - EMR-3.22.1
+    - EMR-3.21.3
+    - EMR-3.20.0
+    - EMR-3.15.0
+    - EMR-2.11.0
+  KafkaInstanceType:
+    Type: String
+    Label:
+      en: Specification
+      zh-cn: 规格
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.g5.xlarge</b></font><br>注：可用区可能不支持通用规格，需要在EMR控制台确认。
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.g5.xlarge</b></font><br>note:
+        a few zones do not support general specifications, please confirm the specification
+        at E-MapReduce console.'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  KafkaDiskType:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 磁盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[CLOUD_EFFICIENCY:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[CLOUD_SSD: <font color=''green''>SSD
+        Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[CLOUD_EFFICIENCY: <font
+        color=''green''>高效云盘</font>]<br>[CLOUD_SSD: <font color=''green''>SSD云盘</font>]'
+    Default: CLOUD_SSD
+    AllowedValues:
+    - CLOUD_EFFICIENCY
+    - CLOUD_SSD
+  KafkaSysDiskCapacity:
+    Type: Number
+    Label:
+      en: System Disk Size
+      zh-cn: 系统盘大小
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    ConstraintDescription:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 120
+    MinValue: 40
+    MaxValue: 500
+  KafkaDiskCapacity:
+    Type: Number
+    Label:
+      en: Data Disk Size
+      zh-cn: 数据盘大小
+    Description:
+      en: 'Data disk size, range of values: 40-32768, units: GB.'
+      zh-cn: 数据盘大小, 取值范围：[40, 32768], 单位：GB。
+    ConstraintDescription:
+      en: 'Data disk size, range of values: 40-32768, units: GB.'
+      zh-cn: 数据盘大小, 取值范围：[40, 32768], 单位：GB。
+    Default: 80
+    MinValue: 40
+    MaxValue: 32768
+  KafkaIsOpenPublicIp:
+    Type: Boolean
+    Label:
+      en: Mounted public net
+      zh-cn: 挂载公网
+    Description:
+      en: Whether to mount the public net.
+      zh-cn: 是否挂载公网。
+    Default: true
+    AllowedValues:
+    - true
+    - false
+  KafkaSshEnable:
+    Type: Boolean
+    Label:
+      en: Remote Logon
+      zh-cn: 是否开启SSH
+    Description:
+      en: Whether to enable SSH.
+      zh-cn: 是否开启SSH。
+    Default: false
+    AllowedValues:
+    - true
+    - false
+  KafkaPassword:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    Description:
+      en: 'Login password, 8-30 characters, and must contains uppercase, lowercase,
+        number, and special characters !@#$%^&* <br>note: <b><font color=''blue''>The
+        password must consists of 4 types of refered symbol, or the stack will fail
+        to be created</font></b>'
+      zh-cn: 登录密码，8-30 个字符，且必须同时包含大写字母、小写字母、数字和特殊字符!@#$%^&* <br>注意：<b><font color='blue'>必须占四种，否则资源栈会创建失败</font></b>
+    ConstraintDescription:
+      en: 8-30 characters, and must contains uppercase, lowercase, number, and special
+        characters !@#$%^&*
+      zh-cn: 8-30 个字符，且必须同时包含大写字母、小写字母、数字和特殊字符!@#$%^&*
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  HadoopEmrVer:
+    Type: String
+    Label:
+      en: Product Version
+      zh-cn: 产品版本
+    Description:
+      en: EMR product version
+      zh-cn: EMR产品版本
+    Default: EMR-3.20.0
+    AllowedValues:
+    - EMR-3.24.3
+    - EMR-3.24.0
+    - EMR-3.23.0
+    - EMR-3.22.1
+    - EMR-3.21.3
+    - EMR-3.20.0
+    - EMR-3.19.1
+    - EMR-3.19.0
+  HadoopHighAvailabilityEnable:
+    Type: Boolean
+    Label:
+      en: High-availability
+      zh-cn: 是否高可用
+    Description:
+      en: Whether to open High-availability cluster
+      zh-cn: 是否开启高可用集群
+    Default: false
+    AllowedValues:
+    - true
+    - false
+  HadoopInstanceType:
+    Type: String
+    Label:
+      en: Specification
+      zh-cn: 规格
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.g5.xlarge</b></font><br>注：可用区可能不支持通用规格，需要在EMR控制台确认。
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.g5.xlarge</b></font><br>note:
+        a few zones do not support general specifications, please confirm the specification
+        at E-MapReduce console.'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  HadoopCoreNodeCount:
+    Type: Number
+    Label:
+      en: Number of Core instances
+      zh-cn: Core实例数量
+    Description:
+      en: 'Number of Core instances, range of values: [1，1000].'
+      zh-cn: Core实例数量，范围[1，1000]。
+    ConstraintDescription:
+      en: 'Number of Core instances, range of values: [1，1000].'
+      zh-cn: Core实例数量，范围[1，1000]。
+    Default: 2
+    MinValue: 1
+    MaxValue: 1000
+  HadoopDiskType:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 磁盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[CLOUD_EFFICIENCY:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[CLOUD_SSD: <font color=''green''>SSD
+        Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[CLOUD_EFFICIENCY: <font
+        color=''green''>高效云盘</font>]<br>[CLOUD_SSD: <font color=''green''>SSD云盘</font>]'
+    Default: CLOUD_SSD
+    AllowedValues:
+    - CLOUD_EFFICIENCY
+    - CLOUD_SSD
+  HadoopSysDiskCapacity:
+    Type: Number
+    Label:
+      en: System Disk Size
+      zh-cn: 系统盘大小
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    ConstraintDescription:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 120
+    MinValue: 40
+    MaxValue: 500
+  HadoopDiskCapacity:
+    Type: Number
+    Label:
+      en: Data Disk Size
+      zh-cn: 数据盘大小
+    Description:
+      en: 'Data disk size, range of values: 40-32768, units: GB.'
+      zh-cn: 数据盘大小, 取值范围：[40, 32768], 单位：GB。
+    ConstraintDescription:
+      en: 'Data disk size, range of values: 40-32768, units: GB.'
+      zh-cn: 数据盘大小, 取值范围：[40, 32768], 单位：GB。
+    Default: 80
+    MinValue: 40
+    MaxValue: 32768
+  HadoopIsOpenPublicIp:
+    Type: Boolean
+    Label:
+      en: Mounted Public Net
+      zh-cn: 挂载公网
+    Description:
+      en: Whether to mount the public net.
+      zh-cn: 是否挂载公网。
+    Default: true
+    AllowedValues:
+    - true
+    - false
+  HadoopSshEnable:
+    Type: Boolean
+    Label:
+      en: Remote Logon
+      zh-cn: 是否开启SSH
+    Description:
+      en: Whether to enable SSH.
+      zh-cn: 是否开启SSH。
+    Default: false
+    AllowedValues:
+    - true
+    - false
+  HadoopPassword:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    Description:
+      en: 'Login password, 8-30 characters, and must contains uppercase, lowercase,
+        number, and special characters !@#$%^&* <br>note: <b><font color=''blue''>The
+        password must consists of 4 types of refered symbol, or the stack will fail
+        to be created</font></b>'
+      zh-cn: 登录密码，8-30 个字符，且必须同时包含大写字母、小写字母、数字和特殊字符!@#$%^&* <br>注意：<b><font color='blue'>必须占四种，否则资源栈会创建失败</font></b>
+    ConstraintDescription:
+      en: 8-30 characters, and must contains uppercase, lowercase, number, and special
+        characters !@#$%^&*
+      zh-cn: 8-30 个字符，且必须同时包含大写字母、小写字母、数字和特殊字符!@#$%^&*
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0c0bdeb7-72f4-4e95-9f48-a46bd0e857cf
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 3600
+      Count: 1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ad473fe3-a869-429d-892a-03079b0c707c
+  SlsProjectOtherCloud:
+    Type: ALIYUN::SLS::Project
+    Properties:
+      Name:
+        Ref: ProjectName
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4881b9a5-c4cf-458d-97fe-a3be8055c5b7
+  SlbLogstoreOtherCloud:
+    Type: ALIYUN::SLS::Logstore
+    Properties:
+      ProjectName:
+        Ref: SlsProjectOtherCloud
+      ShardCount: 2
+      AutoSplit: true
+      MaxSplitShard: 64
+      LogstoreName:
+        Ref: LogstoreName
+      AppendMeta: true
+      TTL: 30
+      EnableTracking: true
+      PreserveStorage: true
+    DependsOn:
+    - SlsProjectOtherCloud
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7ce6fa6a-7c1d-482d-959c-1c34b1c39b6c
+  SlsIndexOtherCloud:
+    Type: ALIYUN::SLS::Index
+    Properties:
+      ProjectName:
+        Ref: SlsProjectOtherCloud
+      FullTextIndex:
+        Enable: true
+      LogstoreName:
+        Fn::GetAtt:
+        - SlbLogstoreOtherCloud
+        - LogstoreName
+    DependsOn:
+    - SlbLogstoreOtherCloud
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 44e414e4-b51a-41e0-97a6-9e97fca55dba
+  SlsMachineGroup:
+    Type: ALIYUN::SLS::MachineGroup
+    Properties:
+      GroupType: ''
+      ProjectName:
+        Ref: SlsProjectOtherCloud
+      MachineList:
+      - X.X.X.X
+      GroupName:
+        Ref: MachineGroupName
+      MachineIdentifyType: ip
+    DependsOn:
+    - SlbLogstoreOtherCloud
+    - SlsIndexOtherCloud
+    - SlsProjectOtherCloud
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: dea1c384-1831-4ddc-a933-eacb8176a9a8
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: bc288263-8f04-42b0-9d9f-0aff6b79db02
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f2f9b17f-47db-40ec-b383-6d624da3a9be
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupIngress:
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      Tags:
+      - Value: 083
+        Key: best_practice
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c6b203b6-aca0-4434-90b5-759b143cce39
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: EcsImageId
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - RosWaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/sh \n"
+            - "yum -y update \n"
+            - "yum -y install ruby \n"
+            - "gem install apache-loggen -v 0.0.5 \n"
+            - "cd /root \n"
+            - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/SLS_Multi_cloud/nginx-log-generator-master.tar.gz\
+              \ \n"
+            - "tar zxvf nginx-log-generator-master.tar.gz \n"
+            - "cd /root/nginx-log-generator-master \n"
+            - "./start_log_generator.sh \n"
+            - "#./view_access_log_records.sh \n"
+            - "#./stop_log_generator.sh \n"
+            - "#cat app.rb \n"
+            - "log_path='/var/log/nginx/access.log' \n"
+            - "echo '[elastic-7.x]' >> /etc/yum.repos.d/elastic.repo \n"
+            - "echo 'name=Elastic repository for 7.x packages' >> /etc/yum.repos.d/elastic.repo\
+              \ \n"
+            - "echo 'baseurl=https://artifacts.elastic.co/packages/7.x/yum' >> /etc/yum.repos.d/elastic.repo\
+              \ \n"
+            - "echo 'gpgcheck=1' >> /etc/yum.repos.d/elastic.repo \n"
+            - "echo 'gpgkey=https://artifacts.elastic.co/GPG-KEY-elasticsearch' >>\
+              \ /etc/yum.repos.d/elastic.repo \n"
+            - "echo 'enabled=1' >> /etc/yum.repos.d/elastic.repo \n"
+            - "echo 'autorefresh=1' >> /etc/yum.repos.d/elastic.repo \n"
+            - "echo 'type=rpm-md' >> /etc/yum.repos.d/elastic.repo \n"
+            - "cd /root \n"
+            - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/SLS_Multi_cloud/filebeat-7.6.0-x86_64.rpm\
+              \ \n"
+            - "rpm -ivh filebeat-7.6.0-x86_64.rpm \n"
+            - "#sudo yum -y install filebeat \n"
+            - "sudo chkconfig --add filebeat \n"
+            - "cp /etc/filebeat/filebeat.yml /etc/filebeat/backup.filebeat.yml \n"
+            - "sed -i 's/  enabled: false/  enabled: true/'  /etc/filebeat/filebeat.yml\
+              \ \n"
+            - "sed -i 's?/var/log/?/var/log/nginx/?g'  /etc/filebeat/filebeat.yml\
+              \ \n"
+            - "sed -i 's? Elasticsearch output? Kafka output?g'  /etc/filebeat/filebeat.yml\
+              \ \n"
+            - "sed -i 's?output.elasticsearch:?output.kafka:?g'  /etc/filebeat/filebeat.yml\
+              \ \n"
+            - "sed -i 's#\"localhost:9200\"#\"192.168.0.1:9092\", \"192.168.0.2:9092\"\
+              , \"192.168.0.3:9092\"#g'  /etc/filebeat/filebeat.yml \n"
+            - "sed -i 's/#protocol: \"https\"/topic: log/g'  /etc/filebeat/filebeat.yml\
+              \ \n"
+            - "sudo service filebeat start \n"
+            - "ros-notify -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"Status\\\" : \\\
+              \"Success\\\"}\" \n"
+      IoOptimized: optimized
+      SystemDiskSize:
+        Ref: EcsSystemDiskSize
+      InstanceChargeType: PostPaid
+      MaxAmount: 1
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - Filebeat
+          - -[0,3]
+      AllocatePublicIP: true
+      InstanceType:
+        Ref: EcsInstanceType
+      HostName:
+        Fn::Join:
+        - ''
+        - - Filebeat
+          - -[0,3]
+      Password:
+        Ref: EcsPassword
+      Tags:
+      - Key: best_practice
+        Value: 083
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: deb263fb-6999-4981-8e62-eaa089c55128
+  EmrClusterKafka:
+    Type: ALIYUN::EMR::Cluster
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      SshEnable:
+        Ref: KafkaSshEnable
+      IoOptimized: true
+      HostGroup:
+      - SysDiskType:
+          Ref: KafkaDiskType
+        DiskCapacity:
+          Ref: KafkaDiskCapacity
+        NodeCount: 1
+        DiskCount: 4
+        DiskType:
+          Ref: KafkaDiskType
+        HostGroupType: MASTER
+        SysDiskCapacity:
+          Ref: KafkaSysDiskCapacity
+        VSwitchId:
+          Ref: EcsVSwitch
+        ChargeType: PostPaid
+        Period: 1
+        AutoRenew: false
+        InstanceType:
+          Ref: KafkaInstanceType
+      - SysDiskType:
+          Ref: KafkaDiskType
+        DiskCapacity:
+          Ref: KafkaDiskCapacity
+        NodeCount: 2
+        DiskCount: 4
+        DiskType:
+          Ref: KafkaDiskType
+        HostGroupType: CORE
+        SysDiskCapacity:
+          Ref: KafkaSysDiskCapacity
+        VSwitchId:
+          Ref: EcsVSwitch
+        ChargeType: PostPaid
+        Period: 1
+        AutoRenew: false
+        InstanceType:
+          Ref: KafkaInstanceType
+      NetType: vpc
+      Name:
+        Fn::Join:
+        - '-'
+        - - Kafka
+          - StackId
+          - Ref: ALIYUN::StackId
+      ClusterType: KAFKA
+      IsOpenPublicIp:
+        Ref: KafkaIsOpenPublicIp
+      MasterPwd:
+        Ref: KafkaPassword
+      EmrVer:
+        Ref: KafkaEmrVer
+      HighAvailabilityEnable: false
+      ChargeType: PostPaid
+      UseLocalMetaDb: true
+      UserInfo:
+      - Password:
+          Ref: KafkaPassword
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a7d45830-779a-4f39-819a-76002e786976
+  EmrClusterHadoop:
+    Type: ALIYUN::EMR::Cluster
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      SshEnable:
+        Ref: HadoopSshEnable
+      IoOptimized: true
+      HostGroup:
+      - SysDiskType:
+          Ref: HadoopDiskType
+        DiskCapacity:
+          Ref: HadoopDiskCapacity
+        NodeCount: 1
+        DiskCount: 1
+        DiskType:
+          Ref: HadoopDiskType
+        HostGroupType: MASTER
+        SysDiskCapacity:
+          Ref: HadoopSysDiskCapacity
+        VSwitchId:
+          Ref: EcsVSwitch
+        ChargeType: PostPaid
+        Period: 1
+        AutoRenew: false
+        InstanceType:
+          Ref: HadoopInstanceType
+      - SysDiskType:
+          Ref: HadoopDiskType
+        DiskCapacity:
+          Ref: HadoopDiskCapacity
+        NodeCount:
+          Ref: HadoopCoreNodeCount
+        DiskCount: 4
+        DiskType:
+          Ref: HadoopDiskType
+        HostGroupType: CORE
+        SysDiskCapacity:
+          Ref: HadoopSysDiskCapacity
+        VSwitchId:
+          Ref: EcsVSwitch
+        ChargeType: PostPaid
+        Period: 1
+        AutoRenew: false
+        InstanceType:
+          Ref: HadoopInstanceType
+      NetType: vpc
+      Name:
+        Fn::Join:
+        - '-'
+        - - Hadoop
+          - StackId
+          - Ref: ALIYUN::StackId
+      ClusterType: HADOOP
+      IsOpenPublicIp:
+        Ref: HadoopIsOpenPublicIp
+      MasterPwd:
+        Ref: HadoopPassword
+      EmrVer:
+        Ref: HadoopEmrVer
+      HighAvailabilityEnable:
+        Ref: HadoopHighAvailabilityEnable
+      ChargeType: PostPaid
+      UseLocalMetaDb: true
+      UserInfo:
+      - Password:
+          Ref: HadoopPassword
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 9ccb2d88-1b62-489d-938e-c0ae414bd7b8
+Outputs:
+  EcsInstanceId:
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup
+      - InstanceIds
+  EcsInstancePublicIps:
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup
+      - PublicIps
+  HadoopClusterId:
+    Value:
+      Fn::GetAtt:
+      - EmrClusterHadoop
+      - ClusterId
+  HadoopClusterMasterNodeInnerIps:
+    Value:
+      Fn::GetAtt:
+      - EmrClusterHadoop
+      - MasterNodeInnerIps
+  KafkaClusterId:
+    Value:
+      Fn::GetAtt:
+      - EmrClusterKafka
+      - ClusterId
+  KafkaClusterMasterNodeInnerIps:
+    Value:
+      Fn::GetAtt:
+      - EmrClusterKafka
+      - MasterNodeInnerIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ProjectName
+      - LogstoreName
+      - MachineGroupName
+      Label:
+        default: SLS
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchZoneId
+      - VSwitchCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - EcsImageId
+      - EcsInstanceType
+      - EcsSystemDiskCategory
+      - EcsSystemDiskSize
+      - EcsPassword
+      Label:
+        default: ECS
+    - Parameters:
+      - KafkaEmrVer
+      - KafkaInstanceType
+      - KafkaDiskType
+      - KafkaSysDiskCapacity
+      - KafkaDiskCapacity
+      - KafkaIsOpenPublicIp
+      - KafkaSshEnable
+      - KafkaPassword
+      Label:
+        default: EMR-Kafka
+    - Parameters:
+      - HadoopEmrVer
+      - HadoopHighAvailabilityEnable
+      - HadoopInstanceType
+      - HadoopCoreNodeCount
+      - HadoopDiskType
+      - HadoopSysDiskCapacity
+      - HadoopDiskCapacity
+      - HadoopIsOpenPublicIp
+      - HadoopSshEnable
+      - HadoopPassword
+      Label:
+        default: EMR-Hadoop
+    TemplateTags:
+    - acs:solution:数据分析:SLS多云日志采集、处理及分析
+  ALIYUN::ROS::Designer:
+    bc288263-8f04-42b0-9d9f-0aff6b79db02:
+      size:
+        width: 407.0537109375
+        height: 443
+      position:
+        x: 192
+        y: 50
+      z: 0
+      embeds:
+      - f2f9b17f-47db-40ec-b383-6d624da3a9be
+      - c6b203b6-aca0-4434-90b5-759b143cce39
+    f2f9b17f-47db-40ec-b383-6d624da3a9be:
+      size:
+        width: 302
+        height: 273
+      position:
+        x: 228
+        y: 93
+      z: 1
+      embeds:
+      - deb263fb-6999-4981-8e62-eaa089c55128
+      - a7d45830-779a-4f39-819a-76002e786976
+      - 9ccb2d88-1b62-489d-938e-c0ae414bd7b8
+    0c0bdeb7-72f4-4e95-9f48-a46bd0e857cf:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 667
+        y: 60
+      z: 0
+    ad473fe3-a869-429d-892a-03079b0c707c:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 860
+        y: 60
+      z: 0
+    4881b9a5-c4cf-458d-97fe-a3be8055c5b7:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 861
+        y: 269
+      z: 0
+    7ce6fa6a-7c1d-482d-959c-1c34b1c39b6c:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 667
+        y: 362
+      z: 0
+    44e414e4-b51a-41e0-97a6-9e97fca55dba:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 667
+        y: 161
+      z: 0
+    dea1c384-1831-4ddc-a933-eacb8176a9a8:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 861
+        y: 158
+      z: 0
+    c6b203b6-aca0-4434-90b5-759b143cce39:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 354
+        y: 395
+      z: 1
+    deb263fb-6999-4981-8e62-eaa089c55128:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 264
+        y: 131
+      z: 2
+    a7d45830-779a-4f39-819a-76002e786976:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 441
+        y: 131
+      z: 2
+    9ccb2d88-1b62-489d-938e-c0ae414bd7b8:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 354
+        y: 201
+      z: 2
+    7ac699dc-acc1-4085-8226-b4b128354df2:
+      source:
+        id: ad473fe3-a869-429d-892a-03079b0c707c
+      target:
+        id: 0c0bdeb7-72f4-4e95-9f48-a46bd0e857cf
+      z: 1
+    e154575b-9593-451b-9c5a-c7685cc28b31:
+      source:
+        id: 7ce6fa6a-7c1d-482d-959c-1c34b1c39b6c
+      target:
+        id: 4881b9a5-c4cf-458d-97fe-a3be8055c5b7
+      z: 1
+    dfffbeee-8d77-45ca-b5fc-8c405630aa44:
+      source:
+        id: 44e414e4-b51a-41e0-97a6-9e97fca55dba
+      target:
+        id: 4881b9a5-c4cf-458d-97fe-a3be8055c5b7
+      z: 1
+    e033cef0-a313-4744-aa74-3f91ecb0ce9f:
+      source:
+        id: 44e414e4-b51a-41e0-97a6-9e97fca55dba
+      target:
+        id: 7ce6fa6a-7c1d-482d-959c-1c34b1c39b6c
+      z: 1
+    9d293858-2a4f-43ee-9c30-684e01d4c4b3:
+      source:
+        id: dea1c384-1831-4ddc-a933-eacb8176a9a8
+      target:
+        id: 4881b9a5-c4cf-458d-97fe-a3be8055c5b7
+      z: 1
+    8a8f8a77-be4c-4a04-83b9-7e7e49d52451:
+      source:
+        id: deb263fb-6999-4981-8e62-eaa089c55128
+      target:
+        id: c6b203b6-aca0-4434-90b5-759b143cce39
+      z: 1
+    14d019a5-bb75-4635-841e-9680980af12f:
+      source:
+        id: a7d45830-779a-4f39-819a-76002e786976
+      target:
+        id: c6b203b6-aca0-4434-90b5-759b143cce39
+      z: 1
+    c6fe931b-7068-4f30-b508-f6a123a337d5:
+      source:
+        id: 9ccb2d88-1b62-489d-938e-c0ae414bd7b8
+      target:
+        id: c6b203b6-aca0-4434-90b5-759b143cce39
+      z: 1

@@ -1,0 +1,227 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test create Kafka Instance、Topic
+Parameters:
+  SpecType:
+    Type: String
+    Description: 规格类型，取值：<br>&emsp;normal：标准版（高写版）<br>&emsp;professional：专业版（高写版）&emsp;<br>&emsp;professionalForHighRead：专业版（高读版）
+    Default: null
+    AllowedValues:
+    - null
+    - normal
+    - professional
+    - professionalForHighRead
+  TopicQuota:
+    Type: Number
+    Description: Topic的数量。
+    MinValue: 50
+    MaxValue: 79
+  DiskType:
+    Type: String
+    Description: 磁盘类型。取值：<br>&emsp;0：高效云盘<br>&emsp;1：SSD
+    AllowedValues:
+    - '0'
+    - '1'
+  DiskSize:
+    Type: Number
+    Description: 磁盘容量，单位：GB。
+    MinValue: 500
+    MaxValue: 96000
+  DeployType:
+    Type: Number
+    Description: 部署类型，取值：<br>&emsp;4：公网/VPC实例<br>&emsp;5：VPC实例
+    AllowedValues:
+    - 4
+    - 5
+  EipMax:
+    Type: Number
+    Description: 公网流量，DeployType取值为4是需填写。
+    Default: null
+    MinValue: 1
+    MaxValue: 160
+  IoMaxSpec:
+    Type: String
+    Description: 流量规格，流量峰值和流量规格必须选填一个，<b>推荐填写流量规格</b>。
+    Default: null
+  IoMax:
+    Type: Number
+    Description: 流量峰值，流量峰值和流量规格必须选填一个，<b>推荐填写流量规格</b>。
+    Default: null
+  PayType:
+    Type: String
+    Description: 付费类型
+    Default: null
+    AllowedValues:
+    - null
+    - Hour
+    - Month
+  Name:
+    Type: String
+    Description: 实例名称。
+    Default: null
+  DeployModule:
+    Type: String
+    Description: 部署模式，实例的部署模式必须与其类型一致。取值：<br>&emsp;vpc：VPC实例<br>&emsp;eip：公网/VPC实例
+    AllowedValues:
+    - vpc
+    - eip
+  IsEipInner:
+    Type: Boolean
+    Description: 是否支持EIP，EIP支持必须与实例类型一致。
+    Default: null
+  IsSetUserAndPassword:
+    Type: Boolean
+    Description: 是否设置新的用户名和密码。仅支持公网/VPC实例。
+    Default: null
+  Username:
+    Type: String
+    Description: 用户名。仅支持公网/VPC实例。
+    Default: null
+  Password:
+    Type: String
+    Description: 用户密码。仅支持公网/VPC实例。
+    Default: null
+  VpcId:
+    Type: String
+    Description: 实例部署的VPC ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Default: null
+  ZoneId:
+    Type: String
+    Description: 实例部署的Zone ID。
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    Default: null
+  VSwitchId:
+    Type: String
+    Description: 实例部署的Vswitch ID。
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+      ZoneId: ZoneId
+  SecurityGroup:
+    Type: String
+    Description: 实例的安全组。
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+    Default: null
+  TopicName:
+    Type: String
+    Description: Topic名称，长度为3~64个字符（多于64个字符将被自动截取），可包含字母、数字、下划线（_）和短横线（-）。
+  Remark:
+    Type: String
+    Description: Topic备注信息，长度为3~64个字符，可包含字母、数字、下划线（_）、短横线（-）。
+  PartitionNum:
+    Type: Number
+    Description: Topic分区数。取值：1 ~ 48。建议分区数取值为6的倍数，减少数据倾斜风险。
+    Default: null
+    MinValue: 1
+    MaxValue: 48
+Resources:
+  Instance:
+    Type: ALIYUN::KAFKA::Instance
+    Properties:
+      DeployType:
+        Ref: DeployType
+      DiskType:
+        Ref: DiskType
+      EipMax:
+        Ref: EipMax
+      SpecType:
+        Ref: SpecType
+      IoMax:
+        Ref: IoMax
+      IoMaxSpec:
+        Ref: IoMaxSpec
+      DiskSize:
+        Ref: DiskSize
+      TopicQuota:
+        Ref: TopicQuota
+      PayType:
+        Ref: PayType
+      DeployOption:
+        IsEipInner:
+          Ref: IsEipInner
+        VpcId:
+          Ref: VpcId
+        ZoneId:
+          Ref: ZoneId
+        Username:
+          Ref: Username
+        VSwitchId:
+          Ref: VSwitchId
+        SecurityGroup:
+          Ref: SecurityGroup
+        DeployModule:
+          Ref: DeployModule
+        IsSetUserAndPassword:
+          Ref: IsSetUserAndPassword
+        Name:
+          Ref: Name
+        Password:
+          Ref: Password
+  Topic:
+    Type: ALIYUN::KAFKA::Topic
+    Properties:
+      InstanceId:
+        Fn::GetAtt:
+        - Instance
+        - InstanceId
+      Topic:
+        Ref: TopicName
+      Remark:
+        Ref: Remark
+      PartitionNum:
+        Ref: PartitionNum
+    DependsOn: Instance
+Outputs:
+  InstanceId:
+    Description: 实例ID
+    Value:
+      Fn::GetAtt:
+      - Instance
+      - InstanceId
+  OrderId:
+    Description: 订单ID
+    Value:
+      Fn::GetAtt:
+      - Instance
+      - OrderId
+  TopicName:
+    Value:
+      Fn::GetAtt:
+      - Topic
+      - Topic
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - SpecType
+      - TopicQuota
+      - DiskType
+      - DiskSize
+      - DeployType
+      - EipMax
+      - IoMaxSpec
+      - IoMax
+      - PayType
+      Label:
+        default: 创建实例
+    - Parameters:
+      - Name
+      - DeployModule
+      - IsEipInner
+      - IsSetUserAndPassword
+      - Username
+      - Password
+      - VpcId
+      - ZoneId
+      - VSwitchId
+      - SecurityGroup
+      Label:
+        default: 部署实例
+    - Parameters:
+      - TopicName
+      - Remark
+      - PartitionNum
+      Label:
+        default: 创建Topic

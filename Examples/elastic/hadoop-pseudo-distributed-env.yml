@@ -1,0 +1,407 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Deploy a Hadoop pseudo distributed environment on 1 ECS instance. The
+  ECS instance plays the roles of master and slave. *** WARNING *** Only test in CentOS-7.
+  Maybe stopping firewall is needed. The deploying time mainly depends on the speed
+  of downloading JDK and hadoop packages.
+Parameters:
+  MasterName:
+    Type: String
+    Label: Master Name
+    Description: Master hostname
+    Default: master.hadoop
+  SystemDiskCategory:
+    Type: String
+    Label: Instance System Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  InstancePassword:
+    Type: String
+    Label: ECS Instance Password
+    Description: The root password of ECS instance. The password is a string of 8
+      to 41 characters and must contain uppercase/lowercase letters, numbers.
+    ConstraintDescription: Consist of 8 to 30 alphanumeric.
+    AllowedPattern: '[a-zA-Z0-9]*'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+    Confirm: true
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  VpcName:
+    Type: String
+    Label: Vpc Name
+    Description: Name of VPC
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    MinLength: 2
+    MaxLength: 128
+  IoOptimized:
+    Type: String
+    Label: Io Optimized
+    Description: The 'optimized' instance can provide better IO performance. Support
+      'none' and 'optimized' only, default is 'optimized'.
+    Default: optimized
+  VpcCidrBlock:
+    Type: String
+    Label: Vpc Cidr Block
+    Description: |-
+      The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:
+      10.0.0.0/8
+      172.16.0.0/12 (Default)
+      192.168.0.0/16
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label: VSwitch Cidr Block
+    Description: Cidr Block of created VSwitch
+    Default: 192.168.1.0/24
+  ZoneId:
+    Type: String
+    Label: ECS Zone Id
+    Description: Ecs Available Zone Id, <a href='#/product/cn-beijing/list/zoneList'
+      target='_blank'>View zoneid info</a>
+  InstanceName:
+    Type: String
+    Label: Instance Name
+    Description: The name of ECS instance
+    Default: ecsinstance
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+  HadoopHome:
+    Type: String
+    Description: HADOOP_HOME directory should be new.
+    Default: /usr/local/hadoop/hadoop-2.7.7
+  HadoopUrl:
+    Type: String
+    Description: The official download path of .tar.gz
+    Default: http://apache.claz.org/hadoop/common/hadoop-2.7.7/hadoop-2.7.7.tar.gz
+Resources:
+  MasterConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: VpcName
+      CidrBlock:
+        Ref: VpcCidrBlock
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+      - Priority: 1
+        IpProtocol: all
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        PortRange: -1/-1
+      SecurityGroupEgress:
+      - Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+        PortRange: -1/-1
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  Master:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - MasterConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/bash \n"
+            - '
+
+              '
+            - HADOOP_HOME=
+            - Ref: HadoopHome
+            - '
+
+              '
+            - '
+
+              '
+            - HadoopUrl=
+            - Ref: HadoopUrl
+            - '
+
+              '
+            - MasterName=
+            - Ref: MasterName
+            - '
+
+              '
+            - "hostnamectl --static set-hostname \"$MasterName\" \n"
+            - "export HOME=/root \n"
+            - "export HOSTNAME=`hostname` \n"
+            - "ip_addr=`ifconfig eth0 | awk '/inet /{print $2}'` \n"
+            - "echo \"$ip_addr $MasterName\" >> /etc/hosts \n"
+            - " \n"
+            - "cd /root \n"
+            - "rm -rf .ssh \n"
+            - "ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+            - "cd /root/.ssh \n"
+            - "cp id_rsa.pub authorized_keys \n"
+            - "chmod 600 authorized_keys \n"
+            - "chmod 600 id_rsa \n"
+            - "sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/'\
+              \ /etc/ssh/ssh_config \n"
+            - "sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/ssh_config\
+              \ \n"
+            - "service sshd restart \n"
+            - " \n"
+            - "cd /root \n"
+            - "yum -y install aria2 \n"
+            - "yum -y install java \n"
+            - " \n"
+            - "cd /root \n"
+            - "aria2c $HadoopUrl \n"
+            - "mkdir -p $HADOOP_HOME \ntar zxvf hadoop-*.tar.gz -C $HADOOP_HOME \n\
+              cd $HADOOP_HOME \nmv hadoop-*.*/* ./ \nrmdir hadoop-*.* \n"
+            - "echo >> /etc/profile \n"
+            - "echo export HADOOP_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_MAPRED_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_COMMON_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native >>\
+              \ /etc/profile \n"
+            - "echo export YARN_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_HDFS_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop >> /etc/profile\
+              \ \n"
+            - "echo export HADOOP_OPTS=-Djava.library.path=$HADOOP_HOME/lib:$HADOOP_HOME/lib/native\
+              \ >> /etc/profile \n"
+            - "echo export PATH=$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH >> /etc/profile\
+              \ \n"
+            - "echo export CLASSPATH=.:$CLASSPATH:$HADOOP__HOME/lib >> /etc/profile\
+              \ \n"
+            - "source /etc/profile \n"
+            - " \n"
+            - "mkdir -p $HADOOP_HOME/tmp \n"
+            - "mkdir -p $HADOOP_HOME/dfs/name \n"
+            - "mkdir -p $HADOOP_HOME/dfs/data \n"
+            - "echo >> /etc/profile \n"
+            - "JAVA_HOME=`find /usr/lib/jvm -name 'java-1.8.0-openjdk-1.8.0*'` \n"
+            - "echo export JAVA_HOME=$JAVA_HOME/jre   >> /etc/profile \n"
+            - "echo export JRE_HOME=$JAVA_HOME/jre  >> /etc/profile \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp hadoop-env.sh bak.hadoop-env.sh \n"
+            - "sed -i '/export JAVA_HOME=/{s/^/# /}' hadoop-env.sh \n"
+            - "sed -i \"/# export JAVA_HOME=/a export JAVA_HOME=$JAVA_HOME\" hadoop-env.sh\
+              \ \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp core-site.xml bak.core-site.xml \n"
+            - "echo '<configuration>' > core-site.xml \n"
+            - "echo '  <property>' >> core-site.xml \n"
+            - "echo '    <name>hadoop.tmp.dir</name>' >> core-site.xml \n"
+            - "echo \"    <value>$HADOOP_HOME/tmp</value>\" >> core-site.xml \n"
+            - "echo '  </property>' >> core-site.xml \n"
+            - "echo '' >> core-site.xml \n"
+            - "echo '  <property>' >> core-site.xml \n"
+            - "echo '    <name>fs.default.name</name>' >> core-site.xml \n"
+            - "echo \"    <value>hdfs://$ip_addr:9000</value>\" >> core-site.xml \n"
+            - "echo '  </property>' >> core-site.xml \n"
+            - "echo '</configuration>' >> core-site.xml \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp hdfs-site.xml bak.hdfs-site.xml \n"
+            - "echo '<configuration>' > hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.namenode.name.dir</name>' >> hdfs-site.xml \n"
+            - "echo \"    <value>file://$HADOOP_HOME/dfs/name</value>\" >> hdfs-site.xml\
+              \ \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.datanode.data.dir</name>' >> hdfs-site.xml \n"
+            - "echo \"    <value>file://$HADOOP_HOME/dfs/data</value>\" >> hdfs-site.xml\
+              \ \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.replication</name>' >> hdfs-site.xml \n"
+            - "echo '    <value>1</value>' >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.nameservices</name>' >> hdfs-site.xml \n"
+            - "echo '    <value>hadoop-cluster1</value>' >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.namenode.secondary.http-address</name>' >> hdfs-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:50090</value>\" >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.webhdfs.enabled</name>' >> hdfs-site.xml \n"
+            - "echo '    <value>true</value>' >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '</configuration>' >> hdfs-site.xml \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp mapred-site.xml.template  mapred-site.xml \n"
+            - "echo '<configuration>' > mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.framework.name</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo '    <value>yarn</value>' >> mapred-site.xml \n"
+            - "echo '    <final>true</final>' >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.jobtracker.http.address</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:50030</value>\" >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.jobhistory.address</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:10020</value>\" >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.jobhistory.webapp.address</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:19888</value>\" >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapred.job.tracker</name>' >> mapred-site.xml \n"
+            - "echo \"    <value>http://$ip_addr:9001</value>\" >> mapred-site.xml\
+              \ \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '</configuration>' >> mapred-site.xml \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp yarn-site.xml bak.yarn-site.xml \n"
+            - "echo '<configuration>' > yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.hostname</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.nodemanager.aux-services</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo '    <value>mapreduce_shuffle</value>' >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8032</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.scheduler.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8030</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.resource-tracker.address</name>'\
+              \ >> yarn-site.xml \n"
+            - "echo \"    <value>$ip_addr:8031</value>\" >> yarn-site.xml \n"
+            - "echo '    </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.admin.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8033</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.webapp.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8088</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '</configuration>' >> yarn-site.xml \n"
+            - " \n"
+            - "sed -i 304s/'$JAVA'/'java'/ /usr/local/hadoop/hadoop-2.7.7/bin/hdfs\
+              \ \n"
+            - "cd /usr/local/hadoop/hadoop-2.7.1/etc/hadoop \n"
+            - "echo \"$ip_addr\" > slaves \n"
+            - " \n"
+            - "cd /root \n"
+            - "hadoop namenode -format \n"
+            - "systemctl stop  firewalld \n"
+            - "start-dfs.sh \n"
+            - "start-yarn.sh \n"
+            - 'ros-notify -d ''{"data" : "Install Hadoop."}''
+
+              '
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      IoOptimized:
+        Ref: IoOptimized
+      Password:
+        Ref: InstancePassword
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+  MasterGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: MasterConditionHandle
+      Timeout: 7200
+    DependsOn: Master
+Outputs:
+  WebsiteURL:
+    Description: URL for newly created Hadoop environment.
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - Master
+          - PublicIp
+        - :50070

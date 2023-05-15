@@ -1,0 +1,316 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 同地域跨可用区容灾方案2.0-应用业务迁移
+Parameters:
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 虚拟专有网络ID
+    Description:
+      en: The VSwitch needs to join the VPC ID
+      zh-cn: 交换机需要加入的虚拟专有网络ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    MinLength: '5'
+  LoadBalancerId:
+    Type: String
+    Label:
+      en: SLB ID
+      zh-cn: 负载均衡ID
+    Description:
+      en: Need to add ECS for load balancing ID for back-end servers
+      zh-cn: ECS需要添加为后端服务器的负载均衡ID
+    MinLength: '5'
+  InstanceId:
+    Type: String
+    Label:
+      en: ECS Instance ID
+      zh-cn: 指定ECS的实例ID
+    Description:
+      en: Instance ID of ECS that requires custom mirroring
+      zh-cn: 需要自定义镜像的ECS的实例ID
+    MinLength: '5'
+  SecurityGroupId:
+    Type: String
+    Label:
+      en: Security Group ID
+      zh-cn: 安全组ID
+    Description:
+      en: The ECS needs to join the security group ID
+      zh-cn: ECS需要加入的安全组ID
+    MinLength: '5'
+  VSw2Zone:
+    Type: String
+    Label:
+      en: VSwitch 2 Available Zone
+      zh-cn: 交换机2可用区
+    Description:
+      en: Availability Zone ID, <font color='red'><b>need to maintain a different
+        available area from VSwitch under the existing VPC</b></font><br><b>note：
+        <font color='blue'>Before selecting, please confirm that the Availability
+        Zone supports the specification of creating ECS resources</font></b>
+      zh-cn: 可用区ID，<font color='red'><b>需要与现有VPC下的VSwitch保持不同的可用区域</b></font><br><b>注：
+        <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSw2CidrBlock:
+    Type: String
+    Label:
+      en: VSwitch 2 CIDR Block
+      zh-cn: 交换机2网段
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 192.168.10.0/24
+  ImageName:
+    Type: String
+    Label:
+      en: Custom Mirror Name Prefix
+      zh-cn: 自定义镜像名称前缀
+    Description:
+      en: 'Custom image name prefix, final: Prefix +StackId.'
+      zh-cn: 自定义镜像名称前缀，最终为：前缀+StackId。
+    Default: WPImage
+  Ecs2GroupInstanceType:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSw2Zone
+  Ecs2GroupSystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  Ecs2GroupPassword:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+  Ecs2GroupName:
+    Type: String
+    Label:
+      en: Instance/Host Name
+      zh-cn: 实例名/主机名
+    Description:
+      en: 'Instance name/Host name, Default: WP2, display created successfully [wp2-000,
+        wp2-001...]. '
+      zh-cn: 实例名/主机名，默认：WP2,创建成功显示[WP2-000, WP2-001....]。
+    Default: WP2
+  Ecs2GroupSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'ECS system disk size, range of values: 40-500, units: GB.'
+      zh-cn: ECS系统盘大小，单位为GiB。取值范围：40~500。
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  Ecs2GroupMaxAmount:
+    Type: Number
+    Label:
+      en: Amount
+      zh-cn: 实例数量
+    Description:
+      en: 'Number of instances, value range: 1~100.'
+      zh-cn: 实例数量, 取值范围：1~100。
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+Resources:
+  VSw2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSw2Zone
+      VpcId:
+        Ref: VpcId
+      CidrBlock:
+        Ref: VSw2CidrBlock
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  CustomImage:
+    Type: ALIYUN::ECS::CustomImage
+    Properties:
+      InstanceId:
+        Ref: InstanceId
+      ImageName:
+        Fn::Join:
+        - '-'
+        - - Ref: ImageName
+          - Ref: ALIYUN::StackId
+      Tag:
+      - Key: best_practice
+        Value: '057'
+  Ecs2Group:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSw2
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: CustomImage
+      IoOptimized: optimized
+      SystemDiskSize:
+        Ref: Ecs2GroupSystemDiskSize
+      UserData:
+        Fn::Join:
+        - ''
+        - - "#!/bin/sh \n"
+          - "service httpd stop \n"
+          - "sleep 5 \n"
+          - "service httpd start \n"
+      InstanceChargeType: PostPaid
+      MaxAmount:
+        Ref: Ecs2GroupMaxAmount
+      SystemDiskCategory:
+        Ref: Ecs2GroupSystemDiskCategory
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - Ref: Ecs2GroupName
+          - -[0,3]
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: Ecs2GroupInstanceType
+      HostName:
+        Fn::Join:
+        - ''
+        - - Ref: Ecs2GroupName
+          - -[0,3]
+      Password:
+        Ref: Ecs2GroupPassword
+      Tags:
+      - Key: best_practice
+        Value: '057'
+    DependsOn: CustomImage
+  SlbBackendServerAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - Ecs2Group
+        - InstanceIds
+      LoadBalancerId:
+        Ref: LoadBalancerId
+      BackendServerWeightList:
+      - 100
+    DependsOn:
+    - Ecs2Group
+Outputs:
+  Ecs2InstanceIds:
+    Description:
+      en: List of cloud server instance IDs
+      zh-cn: 云服务器实例ID列表
+    Value:
+      Fn::GetAtt:
+      - Ecs2Group
+      - InstanceIds
+  Ecs2HostNames:
+    Description:
+      en: List of host names for cloud server instances
+      zh-cn: 云服务器实例的主机名称列表
+    Value:
+      Fn::GetAtt:
+      - Ecs2Group
+      - HostNames
+  VSwId:
+    Description:
+      en: VSwitch ID
+      zh-cn: 交换机ID
+    Value:
+      Fn::GetAtt:
+      - VSw2
+      - VSwitchId
+  Ecs2PrivateIps:
+    Description:
+      en: Private network Ip list of cloud server instances
+      zh-cn: 云服务器实例的私网Ip列表
+    Value:
+      Fn::GetAtt:
+      - Ecs2Group
+      - PrivateIps
+  CustomImageId:
+    Description:
+      en: Custom Image ID
+      zh-cn: 自定义镜像ID
+    Value:
+      Fn::GetAtt:
+      - CustomImage
+      - ImageId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcId
+      - LoadBalancerId
+      - InstanceId
+      - SecurityGroupId
+      Label:
+        default:
+          en: Existing Resource Information
+          zh-cn: 已存在资源信息
+    - Parameters:
+      - VSw2Zone
+      - VSw2CidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - ImageName
+      - Ecs2GroupInstanceType
+      - Ecs2GroupSystemDiskCategory
+      - Ecs2GroupPassword
+      - Ecs2GroupName
+      - Ecs2GroupSystemDiskSize
+      - Ecs2GroupMaxAmount
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:solution:备份&容灾:同地域跨可用区容灾方案2.0-应用业务迁移

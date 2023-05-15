@@ -1,0 +1,212 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: One VPC and security group hold a set of ECS instances with the same
+  configuration.
+Parameters:
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup the ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceName:
+    Type: String
+    Label: ECS Instance Name
+    Description: The name of ECS instance
+    Default: ecsInstance
+  InstanceType:
+    Type: String
+    Label: Ecs Instance type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.c5.xlarge
+    - ecs.g5.large
+    - ecs.g5.xlarge
+  InternetChargeType:
+    Type: String
+    Label: Internet ChargeType
+    Description: Instance internet access charge type.Support 'PayByBandwidth' and
+      'PayByTraffic' only.
+    Default: PayByBandwidth
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  IoOptimized:
+    Type: String
+    Label: Io Optimized
+    Description: The 'optimized' instance can provide better IO performance. Support
+      'none' and 'optimized' only, default is 'optimized'.
+    Default: optimized
+    AllowedValues:
+    - none
+    - optimized
+  MaxAmount:
+    Type: Number
+    Label: The Maximum Of ECS Instances
+    Description: The maximum of ECS instances, must be greater than or equal to the
+      minimum.
+    ConstraintDescription: An integer within [1, 100]
+    Default: 2
+    MinValue: 1
+    MaxValue: 100
+  Password:
+    Type: String
+    Label: ECS Instance Password
+    Description: The login password of ECS instance
+    ConstraintDescription: '[8, 30] characters, consists of uppercase letter, lowercase
+      letter and special characters.'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+    Confirm: true
+  SystemDiskCategory:
+    Type: String
+    Label: System Disk Category
+    Description: 'System disk category, allowed values: cloud|cloud_efficiency|cloud_ssd'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  SecurityGroupName:
+    Type: String
+    Label: Security Group Name
+    Description: The security group name
+    Default: mysg
+  VpcName:
+    Type: String
+    Label: Vpc Name
+    Description: VPC name
+    ConstraintDescription: '[2, 128] alphanumeric characters'
+    Default: myvpc
+    MinLength: 2
+    MaxLength: 128
+  VpcCidrBlock:
+    Type: String
+    Label: VPC Cidrblock
+    Description: |-
+      The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:
+      10.0.0.0/8
+      172.16.0.0/12 (Default)
+      192.168.0.0/16
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchName:
+    Type: String
+    Label: VSwitch Name
+    Description: VSwitch name
+    ConstraintDescription: '[2, 128] alphanumeric characters'
+    Default: myvsw
+    MinLength: 2
+    MaxLength: 128
+  VSwitchCidrBlock:
+    Type: String
+    Label: VSwitch CidrBlock
+    Description: VSwitch subnet which is within VPC
+    Default: 192.168.1.0/24
+  ZoneId:
+    Type: String
+    Label: Zone Id
+    Description: The available zone Id, <a href='#/product/cn-beijing/list/zoneList'
+      target='_blank'>View zoneid info.
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: VpcName
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName:
+        Ref: VSwitchName
+    DependsOn: Vpc
+  securityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      SecurityGroupName:
+        Ref: SecurityGroupName
+  ecsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - VSwitch
+        - VSwitchId
+      SecurityGroupId:
+        Fn::GetAtt:
+        - securityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      InternetChargeType:
+        Ref: InternetChargeType
+      MaxAmount:
+        Ref: MaxAmount
+      MinAmount:
+        Ref: MaxAmount
+      IoOptimized:
+        Ref: IoOptimized
+      Password:
+        Ref: Password
+      SystemDisk_Category:
+        Ref: SystemDiskCategory
+Outputs:
+  PrivateIps:
+    Description: Private IP address list of created ecs instance. Only for VPC instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - PrivateIps
+  InstanceIds:
+    Description: The instance id list of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - InstanceIds
+  PublicIps:
+    Description: Public IP address list of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - PublicIps
+  ZoneIds:
+    Description: Zone id of created instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - ZoneIds
+  SecurityGroupId:
+    Description: generated security group id for security group.
+    Value:
+      Fn::GetAtt:
+      - securityGroup
+      - SecurityGroupId

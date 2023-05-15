@@ -1,0 +1,559 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: VMware迁移DDH-01
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 10.0.0.0/8
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  ZoneId:
+    Type: String
+    Label:
+      en: Available Zone
+      zh-cn: 可用区
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources</font></b>
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+    Default: 10.2.0.0/16
+  InstanceType:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+  ImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7_06_64_20G_alibase_20190711.vhd
+  DiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    ConstraintDescription:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  Password:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  UserName:
+    Type: String
+    Label:
+      en: User Name
+      zh-cn: 用户名
+    Description:
+      zh-cn: 用户名，1-64个大小写字母、数字、.@-_z中的特殊符合组成。<br><b>注：<font color='blue'>帐号内唯一</b></font>
+      en: 'User name, Length 1-64, consist of Capital letters, lowercase letters,
+        numbers, .@-_z. <br><b>note: <font color=''blue''>Unique in your account</b></font> '
+    ConstraintDescription:
+      zh-cn: 用户名，1-64个大小写字母、数字、.@-_z中的特殊符合组成。<br><b>注：<font color='blue'>帐号内唯一</b></font>
+      en: 'User name, Length 1-64, consist of Capital letters, lowercase letters,
+        numbers, .@-_z. <br><b>note: <font color=''blue''>Unique in your account</b></font> '
+    Default: VMWare-move
+    MinLength: 1
+  BucketName:
+    Type: String
+    Label:
+      en: Bucket Name
+      zh-cn: 存储空间名称
+    Description:
+      zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建</b></font>
+      en: Length 3 to 63 characters, must start and end with lowercase letters or
+        numbers, and can contain lowercase letters, numbers, and hyphens (-);<br><b>note：<font
+        color='blue'>Requires network-wide uniqueness, existing cannot be created</b></font>
+    Default: vmware-move
+  VmWareImageName:
+    Type: String
+    Label:
+      en: VMWare Image Name
+      zh-cn: VMWare镜像名称
+    Description:
+      zh-cn: 即将上传Bucket的VMWare镜像名称，由大小写字母、数字、.@-_z中的特殊符合组成，以.vmdk结尾, 长度3-108。
+      en: The VMWare mirror name for the upcoming Bucket, consist of Capital letters,
+        lowercase letters, numbers, .@-_z, end with .vmdk, length 3-108.
+    ConstraintDescription:
+      zh-cn: 即将上传Bucket的VMWare镜像名称，由大小写字母、数字、.@-_z中的特殊符合组成，以.vmdk结尾, 长度3-108。
+      en: The VMWare mirror name for the upcoming Bucket, consist of Capital letters,
+        lowercase letters, numbers, .@-_z, end with .vmdk, length 3-108.
+    Default: centos7.6.vmdk
+    MinLength: 3
+    MaxLength: 108
+  VhdImageName:
+    Type: String
+    Label:
+      en: Image Name
+      zh-cn: 镜像名称
+    Description:
+      zh-cn: 转换Bucket 上VMWare镜像后的名称，由大小写字母、数字、.@-_z中的特殊符合组成，以.vhd结尾, 长度3-108。
+      en: Convert the name after the VMWare mirror on bucket, consist of Capital letters,
+        lowercase letters, numbers, .@-_z, end with .vhd, length 3-108.
+    Default: centos7.6.vhd
+    MinLength: 3
+    MaxLength: 108
+  DeletionForce:
+    Type: Boolean
+    Label:
+      en: Support for Force Deletion
+      zh-cn: 支持强制删除
+    Description:
+      en: Do you want to force the deletion of files in OSS?
+      zh-cn: 是否强制删除OSS中的文件
+    Default: false
+Resources:
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a1e64f53-39c7-4571-a7c0-0631d95a42cd
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 600
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 6a158d8d-037d-4ac7-8639-ae33d7bd0621
+  RamUser:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Ref: UserName
+      DisplayName:
+        Ref: UserName
+      Policies:
+      - PolicyName:
+          Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+        PolicyDocument:
+          Statement:
+          - Action:
+            - oss:*
+            Effect: Allow
+            Resource:
+            - '*'
+          Version: '1'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: cd6fe286-3010-444f-84eb-3ccc9b6b6b08
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+      AccessControl: private
+      DeletionForce:
+        Ref: DeletionForce
+      Tags:
+        Value: '064'
+        Key: best_practice
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 04408ad0-2e31-40e8-aa21-81d58c96f92a
+  RamAK:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+        - RamUser
+        - UserName
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 35bf5a3c-d3d9-4e8b-9991-bb5c2d424340
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: dda3c021-1976-43fc-8a11-d46131fed363
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName:
+        Fn::Join:
+        - _
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0761d302-b35b-4dfc-ae07-0fd8d12e9cb4
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Join:
+        - _
+        - - StackId
+          - Ref: ALIYUN::StackId
+      SecurityGroupIngress:
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+        NicType: internet
+      - PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0205d1d6-fbef-49e7-888a-1dfbee13a4d7
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: DiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      Password:
+        Ref: Password
+      AllocatePublicIP: true
+      MaxAmount: 1
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - RosWaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh
+
+              '
+            - "yum -y install qemu-img \n"
+            - "wget http://gosspublic.alicdn.com/ossutil/1.6.3/ossutil64 \n"
+            - "chmod u+x ossutil64 \n"
+            - BucketName=
+            - Ref: BucketName
+            - " \n"
+            - VmWareImageName=
+            - Ref: VmWareImageName
+            - " \n"
+            - VhdImageName=
+            - Ref: VhdImageName
+            - " \n"
+            - Endpoint=
+            - Fn::Join:
+              - ''
+              - - http://oss-
+                - Ref: ALIYUN::Region
+                - -internal.aliyuncs.com
+            - " \n"
+            - AccessKeyId=
+            - Fn::GetAtt:
+              - RamAK
+              - AccessKeyId
+            - " \n"
+            - AccessKeySecret=
+            - Fn::GetAtt:
+              - RamAK
+              - AccessKeySecret
+            - " \n"
+            - "./ossutil64 config -k $AccessKeySecret -i $AccessKeyId -e $Endpoint\
+              \ \n"
+            - "echo \"./ossutil64 cp oss://$BucketName/$VmWareImageName .\" > convert.sh\
+              \ \n"
+            - "echo \"qemu-img convert $VmWareImageName -O vpc -o subformat=dynamic\
+              \ $VhdImageName \" >> convert.sh \n"
+            - "echo \"qemu-img info $VhdImageName\" >> convert.sh \n"
+            - "echo \"qemu-img info $VmWareImageName\" >> convert.sh \n"
+            - "echo \"./ossutil64 cp $VhdImageName oss://$BucketName/$VhdImageName\"\
+              \ >> convert.sh \n"
+            - "chmod u+x convert.sh \n"
+            - "ros-notify -d \"{\\\"Data\\\" : \\\"SUCCESS\\\", \\\"Status\\\" : \\\
+              \"SUCCESS\\\"}\" \n"
+      Tags:
+      - Key: best_practice
+        Value: '064'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 10b19a38-b7d5-46d2-9c30-156d8a38b8da
+Outputs:
+  InstancePublicIp:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - EcsInstanceGroup
+        - PublicIps
+  InstanceId:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+  RamUserName:
+    Value:
+      Fn::GetAtt:
+      - RamUser
+      - UserName
+  RamAccessKeyId:
+    Value:
+      Fn::GetAtt:
+      - RamAK
+      - AccessKeyId
+  RamAccessKeySecret:
+    Value:
+      Fn::GetAtt:
+      - RamAK
+      - AccessKeySecret
+  OssBucketName:
+    Value:
+      Fn::GetAtt:
+      - OssBucket
+      - Name
+  OssBucketVhdAddress:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - OssBucket
+          - InternalDomainName
+        - /
+        - Ref: VhdImageName
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - ZoneId
+      - VSwitchCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - InstanceType
+      - ImageId
+      - DiskCategory
+      - SystemDiskSize
+      - Password
+      Label:
+        default: ECS
+    - Parameters:
+      - UserName
+      Label:
+        default: RAM
+    - Parameters:
+      - BucketName
+      - VmWareImageName
+      - VhdImageName
+      - DeletionForce
+      Label:
+        default: OSS
+    TemplateTags:
+    - acs:solution:业务上云:VMware迁移DDH-镜像存储及工具环境的搭建
+  ALIYUN::ROS::Designer:
+    dda3c021-1976-43fc-8a11-d46131fed363:
+      size:
+        width: 319.0537109375
+        height: 299
+      position:
+        x: 191
+        y: 50
+      z: 0
+      embeds:
+      - 0761d302-b35b-4dfc-ae07-0fd8d12e9cb4
+      - 0205d1d6-fbef-49e7-888a-1dfbee13a4d7
+    0761d302-b35b-4dfc-ae07-0fd8d12e9cb4:
+      size:
+        width: 122
+        height: 151
+      position:
+        x: 211
+        y: 90
+      z: 1
+      embeds:
+      - 10b19a38-b7d5-46d2-9c30-156d8a38b8da
+    6a158d8d-037d-4ac7-8639-ae33d7bd0621:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 568
+        y: 73
+      z: 0
+    a1e64f53-39c7-4571-a7c0-0631d95a42cd:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 739
+        y: 73
+      z: 0
+    cd6fe286-3010-444f-84eb-3ccc9b6b6b08:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 740
+        y: 170
+      z: 0
+    04408ad0-2e31-40e8-aa21-81d58c96f92a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 568
+        y: 260
+      z: 0
+    35bf5a3c-d3d9-4e8b-9991-bb5c2d424340:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 570
+        y: 170
+      z: 0
+    0205d1d6-fbef-49e7-888a-1dfbee13a4d7:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 398
+        y: 130
+      z: 1
+    10b19a38-b7d5-46d2-9c30-156d8a38b8da:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 250
+        y: 130
+      z: 2
+    f841900d-3a33-43e3-976e-5c385cb6c95c:
+      source:
+        id: 6a158d8d-037d-4ac7-8639-ae33d7bd0621
+      target:
+        id: a1e64f53-39c7-4571-a7c0-0631d95a42cd
+      z: 1
+    4c508311-82d2-4674-927e-a49d8d744096:
+      source:
+        id: 35bf5a3c-d3d9-4e8b-9991-bb5c2d424340
+      target:
+        id: cd6fe286-3010-444f-84eb-3ccc9b6b6b08
+      z: 1
+    3c19b8b5-e4de-4a38-b863-d8fa1df00650:
+      source:
+        id: 10b19a38-b7d5-46d2-9c30-156d8a38b8da
+      target:
+        id: 0205d1d6-fbef-49e7-888a-1dfbee13a4d7
+      z: 1

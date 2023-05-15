@@ -1,0 +1,667 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: '阿里云资源编排示例模板: 小型业务VPC网络架构，在VPC网络部署两个子网，所有子网都通过NatGateway对外网提供服务和访问外网。'
+  en: 'Alibaba Cloud ROS Sample Template: Small business VPC network architecture.
+    Two subnets are created in the VPC. ECS access international network through NatGateway
+    DNAT and SNAT.'
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      zh-cn: VPC的IP网段；<br>您可以使用以下IP地址范围：<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0/16]</font>
+      en: 'The VPC CIDR Block; <br>You can use the following IP network segments:
+        <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font
+        color=''green''>[192.168.0.0/16]</font>'
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchZoneId1:
+    Type: String
+    Label:
+      en: VSwitch Zone ID 1
+      zh-cn: 交换机1可用区
+    Description:
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+        or not.
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  FirstVSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch1 CIDR Block
+      zh-cn: 交换机1子网网段
+    Description:
+      zh-cn: 创建的第一个虚拟交换机的子网，它必须属于自己的VPC内
+      en: CIDR Block of created First VSwitch，It must belong to itself VPC CIDR Block.
+    Default: 192.168.1.0/24
+  VSwitchZoneId2:
+    Type: String
+    Label:
+      en: VSwitch Zone ID 2
+      zh-cn: 交换机2可用区
+    Description:
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+        or not.
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  SecondVSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch2 CIDR Block
+      zh-cn: 交换机2子网网段
+    Description:
+      zh-cn: 创建的第二个虚拟交换机的子网，它必须属于自己的VPC网段内
+      en: CIDR Block of created Second VSwitch，It must belong to itself VPC CIDR Block.
+    Default: 192.168.2.0/24
+  Bandwidth:
+    Type: Number
+    Label:
+      en: Nat Gateway Bandwidth
+      zh-cn: 网关带宽
+    Description:
+      zh-cn: Nat网关绑定的EIP带宽。取值范围：1~200， 单位：Mbps。
+      en: 'EIP Bandwidth for Nat Gateway.Value range: [1,200], unit: Mbps.'
+    ConstraintDescription:
+      zh-cn: Nat网关绑定的EIP带宽。取值范围：1~200， 单位：Mbps。
+      en: 'EIP Bandwidth for Nat Gateway.Value range: [1,200], unit: Mbps.'
+    Default: 5
+    MinValue: 5
+  NumberOfNodeInFirstSubnet:
+    Type: Number
+    Label:
+      en: Number of instances in host group 1.
+      zh-cn: 主机组1内实例个数
+    Description:
+      zh-cn: 第一个主机组中的节点数。
+      en: Number of Node In First Group.
+    Default: 2
+  NumberOfNodeInSecondSubnet:
+    Type: Number
+    Label:
+      en: Number of instances in host group 2.
+      zh-cn: 主机组2内实例个数
+    Description:
+      zh-cn: 第二个主机组中的节点数。
+      en: Number of Node In Second Group
+    Default: 2
+  InstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  ImageId:
+    Type: String
+    Label:
+      zh-cn: 镜像
+      en: Image
+    Description:
+      zh-cn: 镜像ID, 请使用Centos7, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+      en: Image ID，Please use Centos7, see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+    Default: centos_7
+  Password:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  EipSNat:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth:
+        Ref: Bandwidth
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5d3269f8-26a1-4197-8371-ae5beae145e5
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName: test_vpc_entry
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7466498d-3674-4877-b74b-87d8289b0a0e
+  EcsVSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId1
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      CidrBlock:
+        Ref: FirstVSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 77338a24-1af1-4058-aa35-0782455c7c20
+  EcsVSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId2
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      CidrBlock:
+        Ref: SecondVSwitchCidrBlock
+    DependsOn: EcsVSwitch1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c43904e5-b0fd-4d55-b01e-a18884316407
+  VpcNatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - EcsVSwitch2
+        - VSwitchId
+      Description: My NAT Gateway
+      NatGatewayName: nat_gateway_1
+    DependsOn: EcsVSwitch2
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 6ac80bdb-7bbe-41c7-aa0f-5b7707655d7a
+  EIpSnatAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: VpcNatGateway
+      AllocationId:
+        Ref: EipSNat
+    DependsOn: VpcNatGateway
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: df4cf6f2-4bef-4ab8-a646-4f3e60ccb11f
+  EipForward:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth:
+        Ref: Bandwidth
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 04776ab4-3f74-4acd-ae7e-72ef406dab7f
+  EIpForwardAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: VpcNatGateway
+      AllocationId:
+        Ref: EipForward
+    DependsOn: EIpSnatAssociation
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0075f6c2-e894-4964-a713-fb9d11d79b50
+  EcsForwardEntry1:
+    Type: ALIYUN::ECS::ForwardEntry
+    Properties:
+      ExternalIp:
+        Fn::GetAtt:
+        - EipForward
+        - EipAddress
+      ExternalPort: Any
+      ForwardTableId:
+        Fn::GetAtt:
+        - VpcNatGateway
+        - ForwardTableId
+      InternalIp:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - EcsInstanceGroup1
+          - PrivateIps
+      InternalPort: Any
+      IpProtocol: Any
+    DependsOn: EIpForwardAssociation
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 514767f6-9fce-4a31-84b0-6f86b4577e13
+  EipForward2:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth:
+        Ref: Bandwidth
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4b795343-4010-47d8-9a8a-019d94120fe3
+  EIpForward2Association:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: VpcNatGateway
+      AllocationId:
+        Ref: EipForward2
+    DependsOn: EIpForwardAssociation
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 81648669-d418-40c3-a12f-29c9d4cd144b
+  EcsForwardEntry2:
+    Type: ALIYUN::ECS::ForwardEntry
+    Properties:
+      ExternalIp:
+        Fn::GetAtt:
+        - EipForward2
+        - EipAddress
+      ExternalPort: Any
+      ForwardTableId:
+        Fn::GetAtt:
+        - VpcNatGateway
+        - ForwardTableId
+      InternalIp:
+        Fn::Select:
+        - '1'
+        - Fn::GetAtt:
+          - EcsInstanceGroup1
+          - PrivateIps
+      InternalPort: Any
+      IpProtocol: Any
+    DependsOn: EIpForward2Association
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 285c5595-1cc3-4fef-ad78-de25df01ba0e
+  SNatEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatIp:
+        Fn::GetAtt:
+        - EipSNat
+        - EipAddress
+      SNatTableId:
+        Fn::GetAtt:
+        - VpcNatGateway
+        - SNatTableId
+      SourceVSwitchId:
+        Fn::GetAtt:
+        - EcsVSwitch2
+        - VSwitchId
+    DependsOn: EIpSnatAssociation
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 23c0b0db-7001-45ed-821b-8cdc08cd1d93
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+        PortRange: 22/22
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c5190e3c-215c-4aa7-b90e-310295c39b69
+  EcsInstanceGroup1:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - EcsVSwitch1
+        - VSwitchId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_efficiency
+      MaxAmount:
+        Ref: NumberOfNodeInFirstSubnet
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ca44fd62-ec1f-4db8-bb4a-3ee2c5aa6652
+  EcsInstanceGroup2:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - EcsVSwitch2
+        - VSwitchId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_efficiency
+      MaxAmount:
+        Ref: NumberOfNodeInSecondSubnet
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: b924fa56-accc-4d6f-9b7d-37f4e3fba5c7
+Outputs:
+  FirstServerIPs:
+    Description: First Server IPs
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup1
+      - PrivateIps
+  SecondServerIPs:
+    Description: Second Server IPs
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup2
+      - PrivateIps
+  FirstSSHIP:
+    Description: First SSH IP
+    Value:
+      Fn::GetAtt:
+      - EipForward
+      - EipAddress
+  SecondSSHIP:
+    Description: Second SSH IP
+    Value:
+      Fn::GetAtt:
+      - EipForward2
+      - EipAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchZoneId1
+      - FirstVSwitchCidrBlock
+      - VSwitchZoneId2
+      - SecondVSwitchCidrBlock
+      - Bandwidth
+      - NumberOfNodeInFirstSubnet
+      - NumberOfNodeInSecondSubnet
+      Label:
+        default: VPC
+    - Parameters:
+      - InstanceType
+      - ImageId
+      - Password
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:example:网络:创建小型业务VPC网络架构
+  ALIYUN::ROS::Designer:
+    77338a24-1af1-4058-aa35-0782455c7c20:
+      size:
+        width: 239
+        height: 164
+      position:
+        x: 425
+        y: 372
+      z: 1
+      embeds:
+      - ca44fd62-ec1f-4db8-bb4a-3ee2c5aa6652
+    c43904e5-b0fd-4d55-b01e-a18884316407:
+      size:
+        width: 238
+        height: 293
+      position:
+        x: 428
+        y: 78
+      z: 1
+      embeds:
+      - 6ac80bdb-7bbe-41c7-aa0f-5b7707655d7a
+      - b924fa56-accc-4d6f-9b7d-37f4e3fba5c7
+    7466498d-3674-4877-b74b-87d8289b0a0e:
+      size:
+        width: 451
+        height: 490
+      position:
+        x: 326
+        y: 49
+      z: 0
+      embeds:
+      - c5190e3c-215c-4aa7-b90e-310295c39b69
+      - 77338a24-1af1-4058-aa35-0782455c7c20
+      - c43904e5-b0fd-4d55-b01e-a18884316407
+    514767f6-9fce-4a31-84b0-6f86b4577e13:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 15
+        y: 491
+      z: 0
+    285c5595-1cc3-4fef-ad78-de25df01ba0e:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -121
+        y: 421
+      z: 0
+    6ac80bdb-7bbe-41c7-aa0f-5b7707655d7a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 523
+        y: 123
+      z: 2
+    5d3269f8-26a1-4197-8371-ae5beae145e5:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 977
+        y: 137
+      z: 0
+    df4cf6f2-4bef-4ab8-a646-4f3e60ccb11f:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 802
+        y: 86
+      z: 0
+    04776ab4-3f74-4acd-ae7e-72ef406dab7f:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 15
+        y: 198
+      z: 0
+    0075f6c2-e894-4964-a713-fb9d11d79b50:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 246
+        y: 198
+      z: 0
+    4b795343-4010-47d8-9a8a-019d94120fe3:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -121
+        y: 74
+      z: 0
+    81648669-d418-40c3-a12f-29c9d4cd144b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 245
+        y: 74
+      z: 0
+    23c0b0db-7001-45ed-821b-8cdc08cd1d93:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 802
+        y: 195
+      z: 0
+    c5190e3c-215c-4aa7-b90e-310295c39b69:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 694
+        y: 317
+      z: 1
+    ca44fd62-ec1f-4db8-bb4a-3ee2c5aa6652:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 520
+        y: 421
+      z: 2
+    b924fa56-accc-4d6f-9b7d-37f4e3fba5c7:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 524
+        y: 236
+      z: 2
+    5bf4c7f6-5dec-47cf-b904-0ae5b906302e:
+      source:
+        id: 23c0b0db-7001-45ed-821b-8cdc08cd1d93
+      target:
+        id: 6ac80bdb-7bbe-41c7-aa0f-5b7707655d7a
+      z: 1
+    4ce1e043-eeea-4955-900c-1941c7e9841b:
+      source:
+        id: ca44fd62-ec1f-4db8-bb4a-3ee2c5aa6652
+      target:
+        id: c5190e3c-215c-4aa7-b90e-310295c39b69
+      z: 1
+    4bc8ba52-7e09-4b89-8436-6823610a4947:
+      source:
+        id: b924fa56-accc-4d6f-9b7d-37f4e3fba5c7
+      target:
+        id: c5190e3c-215c-4aa7-b90e-310295c39b69
+      z: 1
+    cd3bce57-4ad3-4e50-a3ca-924ee4b2ce47:
+      source:
+        id: df4cf6f2-4bef-4ab8-a646-4f3e60ccb11f
+      target:
+        id: 5d3269f8-26a1-4197-8371-ae5beae145e5
+      z: 1
+    c1a791be-8739-4bf4-b7e9-932f0c5b53de:
+      source:
+        id: 23c0b0db-7001-45ed-821b-8cdc08cd1d93
+      target:
+        id: 5d3269f8-26a1-4197-8371-ae5beae145e5
+      z: 1
+    bf464649-072c-495c-a803-308157e0198f:
+      source:
+        id: df4cf6f2-4bef-4ab8-a646-4f3e60ccb11f
+      target:
+        id: 6ac80bdb-7bbe-41c7-aa0f-5b7707655d7a
+      z: 1
+    417fa27a-1596-448d-9947-51bbadc83f4f:
+      source:
+        id: 0075f6c2-e894-4964-a713-fb9d11d79b50
+      target:
+        id: 6ac80bdb-7bbe-41c7-aa0f-5b7707655d7a
+      z: 1
+    a059e3be-63ae-475b-9458-3fa8fe94eefb:
+      source:
+        id: 81648669-d418-40c3-a12f-29c9d4cd144b
+      target:
+        id: 6ac80bdb-7bbe-41c7-aa0f-5b7707655d7a
+      z: 1
+    a3bad3b2-a092-4378-8c8b-c0798993a940:
+      source:
+        id: 0075f6c2-e894-4964-a713-fb9d11d79b50
+      target:
+        id: 04776ab4-3f74-4acd-ae7e-72ef406dab7f
+      z: 1
+    faf3a1fd-39c7-4fae-b613-edeb0098a6f6:
+      source:
+        id: 81648669-d418-40c3-a12f-29c9d4cd144b
+      target:
+        id: 4b795343-4010-47d8-9a8a-019d94120fe3
+      z: 1
+    8cd6e1a3-c42a-4ef4-9da7-b89e8af025f7:
+      source:
+        id: 285c5595-1cc3-4fef-ad78-de25df01ba0e
+      target:
+        id: ca44fd62-ec1f-4db8-bb4a-3ee2c5aa6652
+      z: 1
+    8e42f43a-694a-4a2e-aa8b-7b79cd8a987e:
+      source:
+        id: 514767f6-9fce-4a31-84b0-6f86b4577e13
+      target:
+        id: ca44fd62-ec1f-4db8-bb4a-3ee2c5aa6652
+      z: 1
+    c94e02f1-c741-4013-bb6c-743403842b8c:
+      source:
+        id: 514767f6-9fce-4a31-84b0-6f86b4577e13
+      target:
+        id: 04776ab4-3f74-4acd-ae7e-72ef406dab7f
+      z: 1
+    612bdc94-93a8-4982-8651-fcb96906c37f:
+      source:
+        id: 285c5595-1cc3-4fef-ad78-de25df01ba0e
+      target:
+        id: 4b795343-4010-47d8-9a8a-019d94120fe3
+      z: 1

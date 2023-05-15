@@ -1,0 +1,231 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates an ECS Instance Group attach SLB
+Parameters:
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+  InternetChargeType:
+    Type: String
+    Label: Internet Charge Type
+    Description: Instance internet access charge type.Support 'PayByBandwidth' and
+      'PayByTraffic' only. Default is PayByTraffic
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  InternetMaxBandwidthOut:
+    Type: Number
+    Label: Internet Max Bandwidth Out
+    Description: '[0,100]'
+    Default: 1
+    MinValue: 0
+    MaxValue: 100
+  IoOptimized:
+    Type: String
+    Label: Io Optimized
+    Description: The 'optimized' instance can provide better IO performance. Support
+      'none' and 'optimized' only, default is 'optimized'.
+    Default: optimized
+    AllowedValues:
+    - none
+    - optimized
+  SecurityGroupId:
+    Type: String
+    Label: Security Group Id
+    Description: Security group to create ecs instance. For classic instance need
+      the security group not belong to VPC, for VPC instance, please make sure the
+      security group belong to specified VPC.
+  SystemDiskCategory:
+    Type: String
+    Label: System Disk Category
+    Description: Category of system disk. Default is cloud_efficiency. Support cloud|cloud_efficiency|cloud_ssd
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  DataDiskCategory:
+    Type: String
+    Label: Data Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd).'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  DataDiskSize:
+    Type: Number
+    Label: Data Disk Size
+    Description: 'The size of the first volume, unit in GB.Value range: cloud: [5,2000],
+      cloud_efficiency: [20,32768], cloud_ssd: [20,32768].The value should be equal
+      to or greater than the specific snapshot.'
+    Default: 200
+  DataSnapshotId:
+    Type: String
+    Label: Data Snapshot Id
+    Description: Disk snapshot ID
+  InstanceName:
+    Type: String
+    Label: ECS Instance Name
+    Description: '[2, 128] alphanumeric characters, underline, dot or hyphen.'
+    ConstraintDescription: Consist of 2 to 128 characters of alphanumeric characters
+      and special characters.
+    Default: ecsInstance
+    MinLength: 2
+    MaxLength: 128
+  Password:
+    Type: String
+    Label: ECS Instance Password
+    Description: The root password of ECS instance. The password is a string of 8
+      to 30 characters and must contain uppercase/lowercase letters, numbers.
+    ConstraintDescription: Consist of 8 to 30 alphanumeric.
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+    Confirm: true
+  MaxAmount:
+    Type: Number
+    Label: The Maximum Of ECS Instances
+    Description: The maximum of ECS instances, must be greater than or equal to the
+      minimum.
+    ConstraintDescription: The number between 1 and 100
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  MinAmount:
+    Type: Number
+    Label: The Minimum Of ECS Instances
+    Description: The minimum of ECS instances, must be less than or equal to the maximum.
+    ConstraintDescription: The number between 1 and 100
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  VpcId:
+    Type: String
+    Label: Vpc Id
+    Description: The VPC ID
+  VSwitchId:
+    Type: String
+    Label: VSwitch Id
+    Description: Virtual Switch ID
+  FirstLoadbalancerId:
+    Type: String
+    Label: First Loadbalancer Id
+    Description: The first SLB instance ID
+  SecondLoadbalancerId:
+    Type: String
+    Label: Second Loadbalancer Id
+    Description: The second SLB instance ID
+  ThirdLoadbalancerId:
+    Type: String
+    Label: Third Loadbalancer Id
+    Description: The third SLB instance ID
+Resources:
+  ecsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: 'false'
+      InstanceName:
+        Ref: InstanceName
+      MaxAmount:
+        Ref: MaxAmount
+      MinAmount:
+        Ref: MinAmount
+      Password:
+        Ref: Password
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthOut:
+        Ref: InternetMaxBandwidthOut
+      InternetChargeType:
+        Ref: InternetChargeType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      IoOptimized:
+        Ref: IoOptimized
+      DiskMappings:
+      - Category:
+          Ref: DataDiskCategory
+        Size:
+          Ref: DataDiskSize
+        SnapshotId:
+          Ref: DataSnapshotId
+      UserData:
+        Fn::Join:
+        - ''
+        - - '#!/bin/sh
+
+            '
+          - 'ip_addr=`ifconfig eth0 | awk ''/inet /{print $2}''`
+
+            '
+          - 'host_name=`hostname`
+
+            '
+          - 'echo "$ip_addr $host_name" >> /etc/hosts
+
+            '
+  AttachmentECSToFirstSLB:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      LoadBalancerId:
+        Ref: FirstLoadbalancerId
+      BackendServerList:
+        Fn::GetAtt:
+        - ecsInstanceGroup
+        - InstanceIds
+      BackendServerWeightList:
+      - '100'
+  AttachmentECSToSecondSLB:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      LoadBalancerId:
+        Ref: SecondLoadbalancerId
+      BackendServerList:
+        Fn::GetAtt:
+        - ecsInstanceGroup
+        - InstanceIds
+      BackendServerWeightList:
+      - '100'
+  AttachmentECSToThirdSLB:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      LoadBalancerId:
+        Ref: ThirdLoadbalancerId
+      BackendServerList:
+        Fn::GetAtt:
+        - ecsInstanceGroup
+        - InstanceIds
+      BackendServerWeightList:
+      - '100'
+Outputs:
+  InstanceIds:
+    Description: The instance id list of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - InstanceIds

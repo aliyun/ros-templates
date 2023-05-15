@@ -1,0 +1,1108 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 使用Docker容器安装部署Harbor(1.9.3)集群服务，Harbor是一个企业级私有的容器镜像管理服务，Harbor提供了用户管理，访问控制，活动审计等的特性,
+    本次部署以NFS作为共享存储（/data目录）存放Harbor相关镜像数据，并分离PostgreSQL与Redis为多个Harbor共同连接使用，使用SLB令集群达到负载均衡高可用的模式，对SLB绑定公网IP对外提供服务。
+  en: Use docker container to install and deploy the cluster service of harbor (1.9.3).
+    Harbor is an enterprise level private container image management service. Harbor
+    provides the features of user management, access control, activity audit, etc,
+    In this deployment, NFS is used as the shared storage (/data directory) to store
+    the related image data of harbor, and PostgreSQL and redis are separated for the
+    common connection of multiple harbors. SLB is used to make the cluster load balanced
+    and highly available, and the SLB is bound to the public IP to provide external
+    services.
+Parameters:
+  VSwitchZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VPC:
+    Type: String
+    Label:
+      zh-cn: 现有VPC的实例ID
+      en: Existing VPC Instance ID
+    Description:
+      zh-cn: 现有虚拟专有网络的实例ID,控制台-VPC-专有网络下查询
+      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitch:
+    Type: String
+    Label:
+      zh-cn: 网络交换机ID
+      en: Existing VSwitch ID
+    Description:
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VPC
+      ZoneId: VSwitchZoneId
+  SecurityGroup:
+    Type: String
+    Label:
+      zh-cn: 业务安全组ID
+      en: Business Security Group ID
+    Description:
+      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VPC
+  ClusterAmount:
+    Type: Number
+    Label:
+      zh-cn: 集群主机数
+      en: Number of cluster hosts
+    Description:
+      zh-cn: 集群主机数量，取值范围：[2~10]
+      en: 'Number of cluster hosts, value range: [2~10]'
+    Default: 2
+    MinValue: 2
+    MaxValue: 10
+  InstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font>]<br><font color='blue'><b>2.List of optional
+        models</font>]<br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB
+        Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPSS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  SystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size, range of values: 40-500, units: GB.'
+    Default: 40
+  Password:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  HarborAdminPassword:
+    Type: String
+    Label:
+      zh-cn: Harbor Admin用户密码
+      en: Harbor Admin User Password
+    Description:
+      zh-cn: Harbor Web Admin用户登录密码,长度8-30。
+      en: Harbor Web Admin User login password, Length 8-30.
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: Type And Version
+      zh-cn: 类型与版本号
+    Description:
+      zh-cn: 数据库实例引擎类型，默认为PostgreSQL
+      en: The Database instance engine type is PostgreSQL by default.
+    Default: PostgreSQL-10.0
+    AllowedValues:
+    - PostgreSQL-10.0
+    - PostgreSQL-11.0
+    - PostgreSQL-12.0
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: DB Instance Class
+      zh-cn: 数据库实例类型
+    Description:
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>推荐规格：<b><font color='blue'>pg.n2.small.2c</font></b><br>请参见详细信息：<a
+        href='https://help.aliyun.com/document_detail/26312.html' target='_blank'><b><font
+        color='blue'>实例规格表</font></b></a>
+      en: 'Select the instance specification based on the type of database engine
+        and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.html''
+        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: DB Instance Storage
+      zh-cn: 数据库实例存储
+    Description:
+      zh-cn: 数据库实例存储大小范围为20-2000，每5个增量，单位为GB
+      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit
+        GB
+    ConstraintDescription:
+      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit
+        GB
+      zh-cn: RDS实例的大小范围是20 - 2000，每5递增，单位GB
+    Default: 20
+    MinValue: 20
+    MaxValue: 2000
+  DBUser:
+    Type: String
+    Label:
+      en: DB Username
+      zh-cn: 数据库账号
+    Description:
+      en: Username of Harbor database
+      zh-cn: Harbor数据库账号
+    ConstraintDescription:
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+      en: Must begin with a letter and contain only alphanumeric characters.
+    Default: harbor
+    MinLength: 2
+    MaxLength: 16
+  DBPassword:
+    Type: String
+    Label:
+      en: DB Password
+      zh-cn: 数据库密码
+    Description:
+      en: The password of Harbor database consists of 8 to 32 characters of alphanumeric
+        characters, hyphen and underline
+      zh-cn: Harbor数据库密码，由8~32位大小写字母、数字、下划线、连字符组成。
+    ConstraintDescription:
+      en: Consist of 8 to 32 characters of alphanumeric characters, hyphen and underline
+      zh-cn: 由 8 到 32 个字母数字字符、连字符和下划线组成
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  RedisInstanceClass:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      en: Instance specifications, please refer to：<a href='https://www.alibabacloud.com/help/en/doc-detail/26350.html'
+        target='_blank'><b><font color='blue'>View specifications</font></b></a>
+      zh-cn: 推荐规格：<b><font color='blue'>redis.master.small.default</font></b><br>更多实例规格，请参考：<a
+        href='https://help.aliyun.com/document_detail/26350.html' target='_blank'><b><font
+        color='blue'>查看规格信息</font></b></a>
+  EvictionPolicy:
+    Type: String
+    Label:
+      zh-cn: 数据逐出策略
+      en: Eviction Policy
+    Description:
+      zh-cn: 缓存数据逐出策略：volatile lru（最近使用的过期数据）、volatile ttl（正在过期数据）、volatile random（任何过期数据）、allkeys
+        lru（最近使用的最少数据）、allkeys random（任意选择数据）、no enviction（不要删除任何数据）
+      en: 'Cache data eviction strategy: volatile-lru(Most recently used expired data),
+        volatile-ttl(Being expiring data), volatile-random(Any expired data), allkeys-lru（Least
+        recently used data), allkeys-random(Arbitrarily select data)、no-enviction(Do
+        not delete any data)'
+    Default: noeviction
+    AllowedValues:
+    - noeviction
+    - allkeys-lru
+    - volatile-lru
+    - allkeys-random
+    - volatile-random
+    - volatile-ttl
+  RedisPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols,
+        including:! @ # $ % ^ & * ( ) _ + - ='
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+    ConstraintDescription:
+      en: '8-32 characters, can contain size letters, Numbers and special symbols,
+        including:! @ # $ % ^ & * ( ) _ + - ='
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+    MinLength: '8'
+    MaxLength: '32'
+    NoEcho: true
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Specification
+    Description:
+      zh-cn: 实例规格，详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+      en: Instance specifications, see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance support type</b></font></a>
+    Default: slb.s1.small
+    AllowedValues:
+    - slb.s1.small
+    - slb.s2.small
+    - slb.s2.medium
+    - slb.s3.small
+    - slb.s3.medium
+    - slb.s3.large
+  Bandwidth:
+    Type: Number
+    Label:
+      zh-cn: 负载均衡的弹性公网IP带宽
+      en: SLB Elastic IP Bandwidth
+    Description:
+      zh-cn: 取值范围：[0, 1000]，单位：Mbps。
+      en: 'Value range: [0, 1000], Unit: Mbps.'
+    Default: 10
+    MinValue: 1
+    MaxValue: 1000
+Resources:
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: bf7d52b8-5ab4-4394-bf9e-b093ec0cea45
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count:
+        Ref: ClusterAmount
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 1800
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 50b01af3-a111-4339-87b8-a5146b1ec97b
+  NasFileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      ProtocolType: NFS
+      StorageType: Capacity
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8db6bcfa-6e81-4a29-91c4-a245599ee846
+  NasAccessGroup:
+    Type: ALIYUN::NAS::AccessGroup
+    Properties:
+      AccessGroupType: Vpc
+      AccessGroupName:
+        Fn::Join:
+        - '-'
+        - - AccessGroup
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 64ae4e4c-7f99-44f4-85f5-a0cdcb6b1250
+  NasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      NetworkType: Vpc
+      FileSystemId:
+        Ref: NasFileSystem
+      AccessGroupName:
+        Ref: NasAccessGroup
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5ef7999d-9cbc-45b2-b0a1-3913a509c64b
+  RDSInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBInstanceNetType: Intranet
+      SecurityIPList: 0.0.0.0/0
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUsername:
+        Ref: DBUser
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: b5d21093-a673-4ca9-a5f7-65f9791de92b
+  RDSDatabaseClair:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RDSInstance
+      CharacterSetName: UTF8
+      DBName: clair
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7b88bde6-238b-4a05-9a3a-92125244c47d
+  RDSDatabaseHarbor:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RDSInstance
+      CharacterSetName: UTF8
+      DBName: harbor
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4824499a-c8e5-415a-9c23-990ad4b43a23
+  RDSDatabaseNotaryServer:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RDSInstance
+      CharacterSetName: UTF8
+      DBName: notary_server
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f5d683d7-1716-461a-b8bc-2206a0fd93e6
+  RDSDatabaseNotarySigner:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RDSInstance
+      CharacterSetName: UTF8
+      DBName: notary_signer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a3234563-6ce7-42da-a3e5-08b7bb25ddf7
+  RedisInstance:
+    Type: ALIYUN::REDIS::Instance
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      InstanceClass:
+        Ref: RedisInstanceClass
+      EvictionPolicy:
+        Ref: EvictionPolicy
+      InstanceName: MyRedis
+      Password:
+        Ref: RedisPassword
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7e795f8f-9583-4a91-afe7-6fe0a9d7b7bc
+  HarborServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - " \n"
+            - HarborAdminPassword=
+            - Ref: HarborAdminPassword
+            - '
+
+              '
+            - RdsUserPassword=
+            - Ref: DBPassword
+            - '
+
+              '
+            - RdsUser=
+            - Ref: DBUser
+            - '
+
+              '
+            - RedisPassword=
+            - Ref: RedisPassword
+            - '
+
+              '
+            - NasMountTarget=
+            - Fn::GetAtt:
+              - NasMountTarget
+              - MountTargetDomain
+            - '
+
+              '
+            - RdsHost=
+            - Fn::GetAtt:
+              - RDSInstance
+              - InnerConnectionString
+            - '
+
+              '
+            - RdsPort=
+            - Fn::GetAtt:
+              - RDSInstance
+              - InnerPort
+            - '
+
+              '
+            - RedisHost=
+            - Fn::GetAtt:
+              - RedisInstance
+              - ConnectionDomain
+            - '
+
+              '
+            - RedisPort=
+            - Fn::GetAtt:
+              - RedisInstance
+              - Port
+            - '
+
+              '
+            - "InstallDocker() { \n"
+            - "    yum install -y yum-utils \n"
+            - "    yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo\
+              \ \n"
+            - "    yum makecache fast \n"
+            - "    yum -y install docker-ce \n"
+            - "    systemctl enable docker \n"
+            - "    systemctl start docker \n"
+            - "    pip3 install docker-compose \n"
+            - "} \n"
+            - '
+
+              '
+            - "DownloadHarborPackage() { \n"
+            - "    cd /home \n"
+            - "    wget https://github.com/goharbor/harbor/releases/download/v1.9.3/harbor-online-installer-v1.9.3.tgz\
+              \ \n"
+            - "    tar xvf harbor-online-installer-v1.9.3.tgz \n"
+            - "} \n"
+            - '
+
+              '
+            - "SetDockerRegistry() { \n"
+            - "    echo \"{\" >> /etc/docker/daemon.json \n"
+            - "    echo '     \"registry-mirrors\": [\"https://ly7y5sh7.mirror.aliyuncs.com\"\
+              ]' >> /etc/docker/daemon.json \n"
+            - "    echo \"}\" >> /etc/docker/daemon.json \n"
+            - "    systemctl daemon-reload \n"
+            - "    systemctl restart docker \n"
+            - "} \n"
+            - '
+
+              '
+            - "MountNasVolume() { \n"
+            - "    mkdir -p /data \n"
+            - "    yum install nfs-utils -y \n"
+            - "    echo \"options sunrpc tcp_slot_table_entries=128\" >> /etc/modprobe.d/sunrpc.conf\
+              \ \n"
+            - "    echo \"options sunrpc tcp_max_slot_table_entries=128\" >> /etc/modprobe.d/sunrpc.conf\
+              \ \n"
+            - "    mount -t nfs -o vers=4,minorversion=0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport\
+              \ ${NasMountTarget}:/ /data \n"
+            - "    echo \"mount -t nfs -o vers=4,minorversion=0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport\
+              \ ${NasMountTarget}:/ /data \">> /etc/rc.d/rc.local \n"
+            - '    chmod +x /etc/rc.d/rc.local
+
+              '
+            - "} \n"
+            - '
+
+              '
+            - "SetHarborConfig() { \n"
+            - '    HostIP=`curl -s ip.cip.cc`
+
+              '
+            - "    sed -i \"s%hostname:.*%hostname: ${HostIP}%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%https:.*%#https:%g\" /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%port: 443%#port: 443%g\" /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%certificate: /your/certificate/path%#certificate: /your/certificate/path%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%private_key: /your/private/key/path%#private_key: /your/private/key/path%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%harbor_admin_password:.*%harbor_admin_password: ${HarborAdminPassword}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%^database:.*%#database:%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%password: root123%#password: root123%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%max_idle_conns: 50%#max_idle_conns: 50%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%max_open_conns: 100%#max_open_conns: 100%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%# external_database:%external_database:%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%#   harbor:%   harbor:%g\" /home/harbor/harbor.yml \
+              \ \n"
+            - "    sed -i \"s%#     host: harbor_db_host%     host: ${RdsHost}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     port: harbor_db_port%     port: ${RdsPort}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     db_name: harbor_db_name%     db_name: harbor%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     username: harbor_db_username%     username: ${RdsUser}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     password: harbor_db_password%     password: ${RdsUserPassword}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     ssl_mode: disable%     ssl_mode: disable%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%#     max_idle_conns: 2%     max_idle_conns: 2%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%#     max_open_conns: 0%     max_open_conns: 0%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%#   clair:%   clair:%g\" /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     host: clair_db_host%     host: ${RdsHost}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     port: clair_db_port%     port: ${RdsPort}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     db_name: clair_db_name%     db_name: clair%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     username: clair_db_username%     username: ${RdsUser}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     password: clair_db_password%     password: ${RdsUserPassword}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#   notary_signer:%   notary_signer:%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%#     host: notary_signer_db_host%     host: ${RdsHost}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     port: notary_signer_db_port%     port: ${RdsPort}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     db_name: notary_signer_db_name%     db_name: notary_signer%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     username: notary_signer_db_username%     username:\
+              \ ${RdsUser}%g\" /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     password: notary_signer_db_password%     password:\
+              \ ${RdsUserPassword}%g\" /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#   notary_server:%   notary_server:%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%#     host: notary_server_db_host%     host: ${RdsHost}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     port: notary_server_db_port%     port: ${RdsPort}%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     db_name: notary_server_db_name%     db_name: notary_server%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     username: notary_server_db_username%     username:\
+              \ ${RdsUser}%g\" /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#     password: notary_server_db_password%     password:\
+              \ ${RdsUserPassword}%g\" /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%# external_redis:%external_redis:%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%#   host: redis%   host: ${RedisHost}%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%#   port: 6379%   port: ${RedisPort}%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%#   password:%   password: ${RedisPassword}%g\" /home/harbor/harbor.yml\
+              \  \n"
+            - "    sed -i \"s%#   registry_db_index: 1%   registry_db_index: 1%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#   jobservice_db_index: 2%   jobservice_db_index: 2%g\"\
+              \ /home/harbor/harbor.yml  \n"
+            - "    sed -i \"s%#   chartmuseum_db_index: 3%   chartmuseum_db_index:\
+              \ 3%g\" /home/harbor/harbor.yml  \n"
+            - "} \n"
+            - '
+
+              '
+            - "InstallHarbor() { \n"
+            - "    /home/harbor/prepare \n"
+            - "    /home/harbor/install.sh \n"
+            - "    echo \"cd /home/harbor\" >> /etc/rc.d/rc.local \n"
+            - "    echo \"docker-compose up -d\" >> /etc/rc.d/rc.local \n"
+            - "} \n"
+            - '
+
+              '
+            - "main() { \n"
+            - "    InstallDocker \n"
+            - "    DownloadHarborPackage  \n"
+            - "    SetDockerRegistry \n"
+            - "    MountNasVolume \n"
+            - "    SetHarborConfig \n"
+            - "    InstallHarbor \n"
+            - "} \n"
+            - "main \n"
+            - "netstat -ntlp | grep 80 >> /tmp/access.log \n"
+            - "if [[ $? -eq 0 ]]; \n"
+            - "then \n"
+            - "     ros-notify \n"
+            - "fi \n"
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      AllocatePublicIP: true
+      Password:
+        Ref: Password
+      InstanceName: HarborServer
+      InstanceType:
+        Ref: InstanceType
+      MaxAmount:
+        Ref: ClusterAmount
+    DependsOn:
+    - NasFileSystem
+    - NasMountTarget
+    - RDSDatabaseClair
+    - RDSDatabaseHarbor
+    - RDSDatabaseNotaryServer
+    - RDSDatabaseNotarySigner
+    - RDSInstance
+    - RedisInstance
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2ff6ba70-73b3-445e-bc71-b38fc672f01b
+  RedisWhitelist:
+    Type: ALIYUN::REDIS::Whitelist
+    Properties:
+      InstanceId:
+        Ref: RedisInstance
+      SecurityIps: 0.0.0.0/0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5a991fbb-300a-4547-8409-a2b76783fc14
+  NasAccessRule:
+    Type: ALIYUN::NAS::AccessRule
+    Properties:
+      AccessGroupName:
+        Ref: NasAccessGroup
+      SourceCidrIp: 0.0.0.0/0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2f32668a-557e-4d3d-9250-35aab06514b8
+  SlbLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      AddressType: intranet
+      LoadBalancerName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      InternetChargeType: paybytraffic
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      MasterZoneId:
+        Ref: VSwitchZoneId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 45a906e2-5633-451e-b0fb-20f2a2e2f227
+  VpcEip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth:
+        Ref: Bandwidth
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4da6a44b-523e-48c1-bc48-7ec5edcc086d
+  EIPAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: SlbLoadBalancer
+      AllocationId:
+        Ref: VpcEip
+    DependsOn:
+    - SlbLoadBalancer
+    - VpcEip
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d7b7c0b5-8ee7-4b81-8b96-2b42f6388f44
+  SlbListener80:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Protocol: tcp
+      HealthCheck:
+        HealthyThreshold: 3
+        UnhealthyThreshold: 3
+        Interval: 2
+        Timeout: 5
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+      ListenerPort: 80
+      Bandwidth: -1
+      BackendServerPort: 80
+      Scheduler: wrr
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e495c6fc-fcdc-4d1a-b517-c78af826f5d0
+  SlbBackendServerAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - HarborServer
+        - InstanceIds
+      BackendServerWeightList:
+      - 100
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+    DependsOn:
+    - HarborServer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 92a5b0b7-0af1-451f-8b44-9ed56bf62b49
+Outputs:
+  HarborServerWebUrl:
+    Value:
+      Fn::Sub:
+      - http://${HarborServerAddress}
+      - HarborServerAddress:
+          Fn::GetAtt:
+          - VpcEip
+          - EipAddress
+  HarborWebUser:
+    Value: admin
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VSwitchZoneId
+      - VPC
+      - VSwitch
+      - SecurityGroup
+      Label:
+        default:
+          zh-cn: 基础资源配置（必填）
+          en: Infrastructure Configuration
+    - Parameters:
+      - ClusterAmount
+      - InstanceType
+      - SystemDiskCategory
+      - SystemDiskSize
+      - Password
+      - HarborAdminPassword
+      Label:
+        default:
+          zh-cn: Harbor 配置
+          en: Harbor Configuration
+    - Parameters:
+      - DBInstanceEngineAndVersion
+      - DBInstanceClass
+      - DBInstanceStorage
+      - DBUser
+      - DBPassword
+      Label:
+        default:
+          zh-cn: DB 配置
+          en: DB Configuration
+    - Parameters:
+      - RedisInstanceClass
+      - EvictionPolicy
+      - RedisPassword
+      Label:
+        default:
+          zh-cn: Redis 配置
+          en: Redis Configuration
+    - Parameters:
+      - LoadBalancerSpec
+      - Bandwidth
+      Label:
+        default:
+          zh-cn: SLB 配置
+          en: SLB Configuration
+    TemplateTags:
+    - acs:solution:容器:Harbor集群版(已有VPC)
+  ALIYUN::ROS::Designer:
+    50b01af3-a111-4339-87b8-a5146b1ec97b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 178
+        y: 99
+      z: 0
+    2ff6ba70-73b3-445e-bc71-b38fc672f01b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 95
+        y: 58
+      z: 0
+    bf7d52b8-5ab4-4394-bf9e-b093ec0cea45:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 178
+        y: 231
+      z: 0
+    b5d21093-a673-4ca9-a5f7-65f9791de92b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -230
+        y: 142
+      z: 0
+    4824499a-c8e5-415a-9c23-990ad4b43a23:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -230
+        y: 297
+      z: 0
+    7b88bde6-238b-4a05-9a3a-92125244c47d:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -230
+        y: 5
+      z: 0
+    a3234563-6ce7-42da-a3e5-08b7bb25ddf7:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -363
+        y: 4
+      z: 0
+    f5d683d7-1716-461a-b8bc-2206a0fd93e6:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -96
+        y: 3
+      z: 0
+    7e795f8f-9583-4a91-afe7-6fe0a9d7b7bc:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -77
+        y: 143
+      z: 0
+    5a991fbb-300a-4547-8409-a2b76783fc14:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -77
+        y: 296
+      z: 0
+    2f32668a-557e-4d3d-9250-35aab06514b8:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 291
+        y: -31
+      z: 0
+    64ae4e4c-7f99-44f4-85f5-a0cdcb6b1250:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 149
+        y: -31
+      z: 0
+    8db6bcfa-6e81-4a29-91c4-a245599ee846:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 3
+        y: -31
+      z: 0
+    5ef7999d-9cbc-45b2-b0a1-3913a509c64b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 79
+        y: -155
+      z: 0
+    45a906e2-5633-451e-b0fb-20f2a2e2f227:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 302
+        y: 303
+      z: 0
+    4da6a44b-523e-48c1-bc48-7ec5edcc086d:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 302
+        y: 52
+      z: 0
+    d7b7c0b5-8ee7-4b81-8b96-2b42f6388f44:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 302
+        y: 169
+      z: 0
+    e495c6fc-fcdc-4d1a-b517-c78af826f5d0:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 451
+        y: 303
+      z: 0
+    92a5b0b7-0af1-451f-8b44-9ed56bf62b49:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 95
+        y: 303
+      z: 0
+    582a8be0-e2f9-4b77-974d-a5ecf5c8a57c:
+      source:
+        id: 50b01af3-a111-4339-87b8-a5146b1ec97b
+      target:
+        id: bf7d52b8-5ab4-4394-bf9e-b093ec0cea45
+      z: 1
+    49cd7765-a2cb-4029-a590-87ffe8668f34:
+      source:
+        id: 4824499a-c8e5-415a-9c23-990ad4b43a23
+      target:
+        id: b5d21093-a673-4ca9-a5f7-65f9791de92b
+      z: 1
+    08cb52ab-3626-4ed8-8e9a-1d0f7f77d84f:
+      source:
+        id: 7b88bde6-238b-4a05-9a3a-92125244c47d
+      target:
+        id: b5d21093-a673-4ca9-a5f7-65f9791de92b
+      z: 1
+    a3a87843-0939-4749-9773-9a98b0c097bf:
+      source:
+        id: a3234563-6ce7-42da-a3e5-08b7bb25ddf7
+      target:
+        id: b5d21093-a673-4ca9-a5f7-65f9791de92b
+      z: 1
+    83fcfa49-5d42-4b60-99cd-d489245d897f:
+      source:
+        id: f5d683d7-1716-461a-b8bc-2206a0fd93e6
+      target:
+        id: b5d21093-a673-4ca9-a5f7-65f9791de92b
+      z: 1
+    e8230438-a8ed-4949-ba22-5a5b20651265:
+      source:
+        id: 5a991fbb-300a-4547-8409-a2b76783fc14
+      target:
+        id: 7e795f8f-9583-4a91-afe7-6fe0a9d7b7bc
+      z: 1
+    edf47289-5d3a-48cb-a7ba-abd039148e5b:
+      source:
+        id: 2f32668a-557e-4d3d-9250-35aab06514b8
+      target:
+        id: 64ae4e4c-7f99-44f4-85f5-a0cdcb6b1250
+      z: 1
+    ffe1c82f-f340-40eb-be07-b9ed3ad7b204:
+      source:
+        id: 5ef7999d-9cbc-45b2-b0a1-3913a509c64b
+      target:
+        id: 8db6bcfa-6e81-4a29-91c4-a245599ee846
+      z: 1
+    470583aa-673c-4029-b73b-c7fec65675b0:
+      source:
+        id: 5ef7999d-9cbc-45b2-b0a1-3913a509c64b
+      target:
+        id: 64ae4e4c-7f99-44f4-85f5-a0cdcb6b1250
+      z: 1
+    a807ccea-a8ca-4e6d-b413-f2492727604f:
+      source:
+        id: d7b7c0b5-8ee7-4b81-8b96-2b42f6388f44
+      target:
+        id: 45a906e2-5633-451e-b0fb-20f2a2e2f227
+      z: 1
+    ec7a8d55-16af-4664-add2-81ac9a63ec98:
+      source:
+        id: d7b7c0b5-8ee7-4b81-8b96-2b42f6388f44
+      target:
+        id: 4da6a44b-523e-48c1-bc48-7ec5edcc086d
+      z: 1
+    58a62f9d-f0b7-4a03-8830-4e9b953399af:
+      source:
+        id: e495c6fc-fcdc-4d1a-b517-c78af826f5d0
+      target:
+        id: 45a906e2-5633-451e-b0fb-20f2a2e2f227
+      z: 1
+    ca7ab58e-d155-4bf7-b6eb-a6229c474b74:
+      source:
+        id: 92a5b0b7-0af1-451f-8b44-9ed56bf62b49
+      target:
+        id: 2ff6ba70-73b3-445e-bc71-b38fc672f01b
+      z: 1
+    8fc1b0b8-96de-4cbe-ae0b-20adb8d2d3ed:
+      source:
+        id: 92a5b0b7-0af1-451f-8b44-9ed56bf62b49
+      target:
+        id: 45a906e2-5633-451e-b0fb-20f2a2e2f227
+      z: 1

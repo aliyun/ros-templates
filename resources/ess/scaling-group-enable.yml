@@ -1,0 +1,169 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ESS ScalingConfiguration、ScalingGroupEnable
+Parameters:
+  VpcId:
+    Type: String
+    Description: VPC Id.
+  VSwitchId:
+    Type: String
+    Description: VSW Id.
+  SecurityGroupId:
+    Type: String
+    Description: Security Group Id.
+  ScalingConfigurationName:
+    Type: String
+    Default: mytest
+  Password:
+    Type: String
+  SystemDiskSize:
+    Type: Number
+    Default: 100
+  SystemDiskCategory:
+    Type: String
+    Default: cloud_essd
+  InstanceType:
+    Type: String
+    Default: ecs.c5.large
+  ImageId:
+    Type: String
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
+Resources:
+  ScalingGroup:
+    Type: ALIYUN::ESS::ScalingGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      MaxSize: 3
+      MinSize: 0
+      DefaultCooldown: 15
+  ScalingConfiguration:
+    Type: ALIYUN::ESS::ScalingConfiguration
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      ScalingConfigurationName:
+        Ref: ScalingConfigurationName
+      ScalingGroupId:
+        Ref: ScalingGroup
+    DependsOn: ScalingGroup
+  InstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Password:
+        Ref: Password
+      MaxAmount: 3
+  ScalingRule:
+    Type: ALIYUN::ESS::ScalingRule
+    Properties:
+      AdjustmentType: QuantityChangeInCapacity
+      ScalingGroupId:
+        Fn::GetAtt:
+        - ScalingGroup
+        - ScalingGroupId
+      AdjustmentValue: 10
+    DependsOn: ScalingGroup
+  ScalingGroupEnable:
+    Type: ALIYUN::ESS::ScalingGroupEnable
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - InstanceGroup
+        - InstanceIds
+      ScalingConfigurationId:
+        Ref: ScalingConfiguration
+      ScalingGroupId:
+        Ref: ScalingGroup
+      ScalingRuleAris:
+      - Fn::GetAtt:
+        - ScalingRule
+        - ScalingRuleAri
+      ScalingRuleArisExecuteVersion: 0
+Outputs:
+  ScalingInstanceDetails:
+    Description: Detail information of auto created scaling instances
+    Value:
+      Fn::GetAtt:
+      - ScalingGroupEnable
+      - ScalingInstanceDetails
+  ScalingRuleArisExecuteResultNumberOfAddedInstances:
+    Description: The number of added vm via the execution of scaling rule aris
+    Value:
+      Fn::GetAtt:
+      - ScalingGroupEnable
+      - ScalingRuleArisExecuteResultNumberOfAddedInstances
+  ScalingRuleArisExecuteErrorInfoScalingRuleArisExecuteErrorInfo:
+    Description: The error info of the execution of scaling rule aris
+    Value:
+      Fn::GetAtt:
+      - ScalingGroupEnable
+      - ScalingRuleArisExecuteErrorInfo
+  ScalingGroupId:
+    Description: The scaling group id
+    Value:
+      Fn::GetAtt:
+      - ScalingGroupEnable
+      - ScalingGroupId
+  ScalingRuleArisExecuteResultInstancesRemoved:
+    Description: Instances removed via the execution of scaling rule aris
+    Value:
+      Fn::GetAtt:
+      - ScalingGroupEnable
+      - ScalingRuleArisExecuteResultInstancesRemoved
+  ScalingInstances:
+    Description: The auto created scaling instances
+    Value:
+      Fn::GetAtt:
+      - ScalingGroupEnable
+      - ScalingInstances
+  LifecycleState:
+    Description: The scaling group status
+    Value:
+      Fn::GetAtt:
+      - ScalingGroupEnable
+      - LifecycleState
+  ScalingRuleArisExecuteResultInstancesAdded:
+    Description: Instances added via the execution of scaling rule aris
+    Value:
+      Fn::GetAtt:
+      - ScalingGroupEnable
+      - ScalingRuleArisExecuteResultInstancesAdded
+  ScalingConfigurationId:
+    Description: The scaling configuration id
+    Value:
+      Fn::GetAtt:
+      - ScalingConfiguration
+      - ScalingConfigurationId
+  ScalingRuleAri:
+    Value:
+      Fn::GetAtt:
+      - ScalingRule
+      - ScalingRuleAri
+  ScalingRuleId:
+    Value:
+      Fn::GetAtt:
+      - ScalingRule
+      - ScalingRuleId

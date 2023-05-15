@@ -1,0 +1,243 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ECS LaunchTemplate、AutoProvisioningGroup
+Parameters:
+  VSwitchId:
+    Type: String
+  SecurityGroupId:
+    Type: String
+  LaunchTemplateName:
+    Type: String
+    Default: mytest
+  ImageId:
+    Type: String
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Default: ecs.c5.large
+  SystemDiskCategory:
+    Type: String
+    Description: Category of system disk. Default is cloud_efficiency. support cloud|cloud_efficiency|cloud_ssd|cloud_essd|ephemeral_ssd.Old
+      instances will not be changed.
+    Default: cloud_essd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+    - ephemeral_ssd
+  PayAsYouGoTargetCapacity:
+    Type: String
+    Description: The target capacity of pay-as-you-go instances in the auto provisioning
+      group.
+    Default: '1'
+  TotalTargetCapacity:
+    Type: String
+    Description: |-
+      The total target capacity of the auto provisioning group. The target capacity consists
+      of the following three parts:
+      The target capacity of pay-as-you-go instances specified by the PayAsYouGoTargetCapacity parameter
+      The target capacity of preemptible instances specified by the SpotTargetCapacity parameter
+      The supplemental capacity besides PayAsYouGoTargetCapacity and SpotTargetCapacity
+    Default: '2'
+  SpotTargetCapacity:
+    Type: String
+    Description: The target capacity of preemptible instances in the auto provisioning
+      group.
+    Default: '1'
+  AutoProvisioningGroupName:
+    Type: String
+    Description: |-
+      The name of the auto provisioning group to be created. It must be 2 to 128 characters
+      in length. It must start with a letter but cannot start with http:// or https://.
+      It can contain letters, digits, colons (:), underscores (_), and hyphens (-).
+    Default: mytest
+  SpotAllocationStrategy:
+    Type: String
+    Description: |-
+      The scale-out policy for preemptible instances. Valid values:
+      lowest-price: The cost optimization policy the auto provisioning group follows to select instance
+      types of the lowest cost to create instances.
+      diversified: The distribution balancing policy the auto provisioning group follows to evenly create
+      instances across zones specified in multiple extended template configurations.
+      Default value: lowest-price
+    Default: lowest-price
+    AllowedValues:
+    - diversified
+    - lowest-price
+  SpotInstancePoolsToUseCount:
+    Type: Number
+    Description: |-
+      This parameter takes effect when the SpotAllocationStrategy parameter is set to lowest-price. The auto provisioning group selects instance types of the lowest cost to create
+      instances.
+    Default: null
+  PayAsYouGoAllocationStrategy:
+    Type: String
+    Description: |-
+      The scale-out policy for pay-as-you-go instances. Valid values:
+      lowest-price: The cost optimization policy the auto provisioning group follows to select instance
+      types of the lowest cost to create instances.
+      prioritized: The priority-based policy the auto provisioning group follows to create instances.
+      The priority of an instance type is specified by the LaunchTemplateConfig.N.Priority parameter.
+      Default value: lowest-price
+    Default: lowest-price
+    AllowedValues:
+    - lowest-price
+    - prioritized
+  MaxSpotPrice:
+    Type: Number
+    Description: |-
+      The global maximum price for preemptible instances in the auto provisioning group.
+      If both the MaxSpotPrice and LaunchTemplateConfig.N.MaxPrice parameters are specified, the maximum price is the lower value of the two.
+    Default: 5
+  DefaultTargetCapacityType:
+    Type: String
+    Description: |-
+      The type of supplemental instances. When the total value of PayAsYouGoTargetCapacity and SpotTargetCapacity is smaller than the value of TotalTargetCapacity, the auto provisioning group will create instances of the specified type to meet
+      the capacity requirements. Valid values:
+      PayAsYouGo: Pay-as-you-go instances.
+      Spot: Preemptible instances.
+      Default value: Spot
+    Default: PayAsYouGo
+    AllowedValues:
+    - PayAsYouGo
+    - Spot
+  AutoProvisioningGroupType:
+    Type: String
+    Description: |-
+      The type of the auto provisioning group. Valid values:
+      request: One-time delivery. After the auto provisioning group is started, it only attempts
+      to create an instance cluster once. If the cluster fails to be created, the group
+      does not try again.
+      maintain: The continuous delivery and maintain capacity type. After the auto provisioning group
+      is started, it continuously attempts to create and maintain the instance cluster.
+      The auto provisioning group compares the real-time and target capacity of the cluster.
+      If the cluster does not meet the target capacity, the group will create instances
+      until the cluster meets the target capacity.
+      Default value: maintain
+    Default: maintain
+    AllowedValues:
+    - maintain
+    - request
+  ExcessCapacityTerminationPolicy:
+    Type: String
+    Description: |-
+      The shutdown policy for excess preemptible instances followed when the capacity of
+      the auto provisioning group exceeds the target capacity. Valid values:
+      no-termination: Excess preemptible instances are not shut down.
+      termination: Excess preemptible instances are to be shut down. The action to be performed on these
+      shutdown instances is specified by the SpotInstanceInterruptionBehavior parameter.
+      Default value: no-termination
+    Default: termination
+    AllowedValues:
+    - no-termination
+    - termination
+  TerminateInstances:
+    Type: Boolean
+    Description: |-
+      Specifies whether to release instances of the auto provisioning group. Valid values:
+      true
+      false
+      Default: false
+    Default: true
+    AllowedValues:
+    - true
+    - false
+  TerminateInstancesWithExpiration:
+    Type: Boolean
+    Description: |-
+      The shutdown policy for preemptible instances when the auto provisioning group expires.
+      Valid values:
+      true: shuts down preemptible instances. The action to be performed on these shutdown instances
+      is specified by the SpotInstanceInterruptionBehavior parameter.
+      false: does not shut down preemptible instances.
+      Default: false
+    Default: true
+    AllowedValues:
+    - true
+    - false
+Resources:
+  LaunchTemplate:
+    Type: ALIYUN::ECS::LaunchTemplate
+    Properties:
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      LaunchTemplateName:
+        Ref: LaunchTemplateName
+      VersionDescription: Test create LaunchTemplate
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+  AutoProvisioningGroup:
+    Type: ALIYUN::ECS::AutoProvisioningGroup
+    Properties:
+      LaunchTemplateId:
+        Fn::GetAtt:
+        - LaunchTemplate
+        - LaunchTemplateId
+      LaunchTemplateVersion: '1'
+      TotalTargetCapacity:
+        Ref: TotalTargetCapacity
+      PayAsYouGoTargetCapacity:
+        Ref: PayAsYouGoTargetCapacity
+      SpotTargetCapacity:
+        Ref: SpotTargetCapacity
+      AutoProvisioningGroupName:
+        Ref: AutoProvisioningGroupName
+      SpotAllocationStrategy:
+        Ref: SpotAllocationStrategy
+      SpotInstancePoolsToUseCount:
+        Ref: SpotInstancePoolsToUseCount
+      LaunchTemplateConfig:
+      - Priority: 1
+        WeightedCapacity: 1
+        VSwitchId:
+          Ref: VSwitchId
+        MaxPrice: 1
+      Description: Test AutoProvisioningGroup
+      PayAsYouGoAllocationStrategy:
+        Ref: PayAsYouGoAllocationStrategy
+      MaxSpotPrice:
+        Ref: MaxSpotPrice
+      DefaultTargetCapacityType:
+        Ref: DefaultTargetCapacityType
+      AutoProvisioningGroupType:
+        Ref: AutoProvisioningGroupType
+      ExcessCapacityTerminationPolicy:
+        Ref: ExcessCapacityTerminationPolicy
+      TerminateInstances:
+        Ref: TerminateInstances
+      TerminateInstancesWithExpiration:
+        Ref: TerminateInstancesWithExpiration
+    DependsOn: LaunchTemplate
+Outputs:
+  AutoProvisioningGroupId:
+    Description: The ID of the auto provisioning group.
+    Value:
+      Fn::GetAtt:
+      - AutoProvisioningGroup
+      - AutoProvisioningGroupId
+  LaunchTemplateId:
+    Value:
+      Fn::GetAtt:
+      - LaunchTemplate
+      - LaunchTemplateId
+  LaunchTemplateName:
+    Value:
+      Fn::GetAtt:
+      - LaunchTemplate
+      - LaunchTemplateName
+  DefaultVersionNumber:
+    Value:
+      Fn::GetAtt:
+      - LaunchTemplate
+      - DefaultVersionNumber
+  LatestVersionNumber:
+    Value:
+      Fn::GetAtt:
+      - LaunchTemplate
+      - LatestVersionNumber

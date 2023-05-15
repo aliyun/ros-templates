@@ -1,0 +1,131 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ECS ForwardEntry
+Parameters:
+  VpcName:
+    Type: String
+  VSwitchName:
+    Type: String
+  NatGatewayName:
+    Type: String
+  ImageId:
+    Type: String
+    Default: centos_7
+  SecurityGroupName:
+    Type: String
+  InstancePassword:
+    Type: String
+  InstanceType:
+    Type: String
+    Default: ecs.c5.large
+  SystemDiskCategory:
+    Type: String
+    Description: Category of system disk. Default is cloud_efficiency. support cloud|cloud_efficiency|cloud_ssd|cloud_essd|ephemeral_ssd.Old
+      instances will not be changed.
+    Default: cloud_essd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+    - ephemeral_ssd
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: VpcName
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Ref: VSwitchName
+      CidrBlock: 192.168.0.0/16
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Ref: SecurityGroupName
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      NatGatewayName:
+        Ref: NatGatewayName
+  Ecs:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Fn::GetAtt:
+        - SecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: 'false'
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      InstanceType:
+        Ref: InstanceType
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: 5
+  EIpAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: Eip
+    DependsOn: NatGateway
+  ForwardTableEntry:
+    Type: ALIYUN::ECS::ForwardEntry
+    Properties:
+      IpProtocol: TCP
+      ExternalIp:
+        Fn::GetAtt:
+        - Eip
+        - EipAddress
+      ForwardTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - ForwardTableId
+      ExternalPort: '22'
+      InternalPort: '22'
+      InternalIp:
+        Fn::GetAtt:
+        - Ecs
+        - PrivateIp
+    DependsOn: EIpAssociation
+Outputs:
+  ForwardEntryId:
+    Description: The id of created forward entry.
+    Value:
+      Fn::GetAtt:
+      - ForwardTableEntry
+      - ForwardEntryId

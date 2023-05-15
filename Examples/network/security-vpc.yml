@@ -1,0 +1,1025 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  ZoneId1:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID，选择创建交换机1，3，4, 7 的可用区（需要指定与交换机2，5，6, 8, 9不同可用区）
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  ZoneId2:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID，选择创建交换机2，5，6, 8, 9的可用区（需要指定与交换机1，3，4, 7 不同可用区）
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  InstanceChargeType:
+    Type: String
+    Label:
+      zh-cn: ECS实例的付费模式
+      en: ECS Instance Billing Method
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  EcsPeriodUnit:
+    Type: String
+    Label:
+      zh-cn: 云服务器预付费资源的购买周期
+      en: ECS Purchase cycle of prepaid resources
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${InstanceChargeType}
+            - PostPaid
+    Default: Week
+    AllowedValues:
+    - Week
+    - Month
+  EcsPeriod:
+    Type: Number
+    Label:
+      zh-cn: 云服务器预付费资源的购买时长
+      en: ECS Purchase duration of prepaid resources
+    Description:
+      zh-cn: 云服务器预付费资源的购买时长，当预付费资源的购买周期为Week时，取值范围：[1，2，3，4]; 当预付费资源的购买周期为Month时，取值：[1，2，3，4，5，6，7，8，9，12，24，36，48，60]<br>
+      en: 'When the purchase cycle of prepaid resource is week, the value range is:
+        [1,2,3,4]; when the purchase cycle of prepaid resource is month, the value
+        is: [1,2,3,4,5,6,7,8,9,12,24,36,48,60]<br>'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${InstanceChargeType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 12
+    - 24
+    - 36
+    - 48
+    - 60
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+  Vpc1CidrBlock:
+    Type: String
+    Label:
+      en: Security VPC CIDR Block
+      zh-cn: 安全管控专有网络网段
+    Default: 10.1.0.0/16
+  VSwitch1CidrBlock:
+    Type: String
+    Label:
+      en: Security VSwitch 1 CIDR Block
+      zh-cn: 交换机1子网段(所属安全管控专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.1.0.0/24
+  VSwitch2CidrBlock:
+    Type: String
+    Label:
+      en: Security VSwitch 2 CIDR Block
+      zh-cn: 交换机2子网段(所属安全管控专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.1.1.0/24
+  VSwitch3CidrBlock:
+    Type: String
+    Label:
+      en: SecurityVSwitch 3 CIDR Block
+      zh-cn: 交换机3子网段(所属安全管控专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.1.2.0/24
+  SecurityVpcInstanceType:
+    Type: String
+    Label:
+      en: Security Vpc Instance Type
+      zh-cn: 部署安全管控服务ECS实例规格
+    Description:
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId1}
+      InstanceChargeType: ${InstanceChargeType}
+  SecurityVpcSystemDiskCategory:
+    Type: String
+    Label:
+      en: Security Vpc System Disk Category
+      zh-cn: 部署安全管控服务ECS系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${SecurityVpcInstanceType}
+      ZoneId: ${ZoneId1}
+  Vpc2CidrBlock:
+    Type: String
+    Label:
+      en: Frontend Business VPC CIDR Block
+      zh-cn: 前端业务专有网络网段
+    Default: 10.2.0.0/16
+  VSwitch4CidrBlock:
+    Type: String
+    Label:
+      en: Frontend Business VSwitch 4 CIDR Block
+      zh-cn: 交换机4子网段(所属前端业务专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.2.0.0/24
+  VSwitch5CidrBlock:
+    Type: String
+    Label:
+      en: Frontend Business VSwitch 5 CIDR Block
+      zh-cn: 交换机5子网段(所属前端业务专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.2.1.0/24
+  VSwitch6CidrBlock:
+    Type: String
+    Label:
+      en: Frontend Business VSwitch 6 CIDR Block
+      zh-cn: 交换机6子网段(所属前端业务专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.2.2.0/24
+  FrontendBusinessVpcInstanceType:
+    Type: String
+    Label:
+      en: Frontend Business Vpc Instance Type
+      zh-cn: 部署前端业务ECS实例规格
+    Description:
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId2}
+      InstanceChargeType: ${InstanceChargeType}
+  FrontendBusinessVpcSystemDiskCategory:
+    Type: String
+    Label:
+      en: Frontend Business Vpc System Disk Category
+      zh-cn: 部署前端业务ECS系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${FrontendBusinessVpcInstanceType}
+      ZoneId: ${ZoneId2}
+  Vpc3CidrBlock:
+    Type: String
+    Label:
+      en: Backend Business VPC CIDR Block
+      zh-cn: 后端业务专有网络网段
+    Default: 10.3.0.0/16
+  VSwitch7CidrBlock:
+    Type: String
+    Label:
+      en: Backend Business VSwitch 7 CIDR Block
+      zh-cn: 交换机7子网段(所属后端业务专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.3.0.0/24
+  VSwitch8CidrBlock:
+    Type: String
+    Label:
+      en: Backend Business VSwitch 8 CIDR Block
+      zh-cn: 交换机8子网段(所属后端业务专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.3.1.0/24
+  VSwitch9CidrBlock:
+    Type: String
+    Label:
+      en: Backend Business VSwitch 9 CIDR Block
+      zh-cn: 交换机9子网段(所属后端业务专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.3.2.0/24
+  BackendBusinessVpcInstanceType:
+    Type: String
+    Label:
+      en: Backend Business Vpc Instance Type
+      zh-cn: 部署后端业务ECS实例规格
+    Description:
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId2}
+      InstanceChargeType: ${InstanceChargeType}
+  BackendBusinessVpcSystemDiskCategory:
+    Type: String
+    Label:
+      en: Backend Business Vpc System Disk Category
+      zh-cn: 部署后端业务ECS系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${BackendBusinessVpcInstanceType}
+      ZoneId: ${ZoneId2}
+Resources:
+  Vpc1:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+        - ''
+        - - vpc1-
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: Vpc1CidrBlock
+  Vpc2:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+        - ''
+        - - vpc2-
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: Vpc2CidrBlock
+  Vpc3:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+        - ''
+        - - vpc3-
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: Vpc3CidrBlock
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId1
+      VpcId:
+        Fn::GetAtt:
+        - Vpc1
+        - VpcId
+      CidrBlock:
+        Ref: VSwitch1CidrBlock
+      VSwitchName:
+        Fn::Join:
+        - ''
+        - - vsw1-
+          - Ref: ALIYUN::StackId
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId2
+      VpcId:
+        Fn::GetAtt:
+        - Vpc1
+        - VpcId
+      CidrBlock:
+        Ref: VSwitch2CidrBlock
+      VSwitchName:
+        Fn::Join:
+        - ''
+        - - vsw2-
+          - Ref: ALIYUN::StackId
+  VSwitch3:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId1
+      VpcId:
+        Fn::GetAtt:
+        - Vpc1
+        - VpcId
+      CidrBlock:
+        Ref: VSwitch3CidrBlock
+      VSwitchName:
+        Fn::Join:
+        - ''
+        - - vsw3-
+          - Ref: ALIYUN::StackId
+  VSwitch4:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId1
+      VpcId:
+        Fn::GetAtt:
+        - Vpc2
+        - VpcId
+      CidrBlock:
+        Ref: VSwitch4CidrBlock
+      VSwitchName:
+        Fn::Join:
+        - ''
+        - - vsw4-
+          - Ref: ALIYUN::StackId
+  VSwitch5:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId2
+      VpcId:
+        Fn::GetAtt:
+        - Vpc2
+        - VpcId
+      CidrBlock:
+        Ref: VSwitch5CidrBlock
+      VSwitchName:
+        Fn::Join:
+        - ''
+        - - vsw5-
+          - Ref: ALIYUN::StackId
+  VSwitch6:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId2
+      VpcId:
+        Fn::GetAtt:
+        - Vpc2
+        - VpcId
+      CidrBlock:
+        Ref: VSwitch6CidrBlock
+      VSwitchName:
+        Fn::Join:
+        - ''
+        - - vsw6-
+          - Ref: ALIYUN::StackId
+  VSwitch7:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId1
+      VpcId:
+        Fn::GetAtt:
+        - Vpc3
+        - VpcId
+      CidrBlock:
+        Ref: VSwitch7CidrBlock
+      VSwitchName:
+        Fn::Join:
+        - ''
+        - - vsw7-
+          - Ref: ALIYUN::StackId
+  VSwitch8:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId2
+      VpcId:
+        Fn::GetAtt:
+        - Vpc3
+        - VpcId
+      CidrBlock:
+        Ref: VSwitch8CidrBlock
+      VSwitchName:
+        Fn::Join:
+        - ''
+        - - vsw8-
+          - Ref: ALIYUN::StackId
+  VSwitch9:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId2
+      VpcId:
+        Fn::GetAtt:
+        - Vpc3
+        - VpcId
+      CidrBlock:
+        Ref: VSwitch9CidrBlock
+      VSwitchName:
+        Fn::Join:
+        - ''
+        - - vsw9-
+          - Ref: ALIYUN::StackId
+  CenInstance:
+    Type: ALIYUN::CEN::CenInstance
+    Properties:
+      Name:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  TransitRouter:
+    Type: ALIYUN::CEN::TransitRouter
+    Properties:
+      CenId:
+        Ref: CenInstance
+  TransitRouterVpc1Attachment:
+    Type: ALIYUN::CEN::TransitRouterVpcAttachment
+    Properties:
+      VpcId:
+        Ref: Vpc1
+      CenId:
+        Ref: CenInstance
+      ZoneMappings:
+      - ZoneId:
+          Ref: ZoneId1
+        VSwitchId:
+          Ref: VSwitch1
+      - ZoneId:
+          Ref: ZoneId2
+        VSwitchId:
+          Ref: VSwitch2
+      TransitRouterId:
+        Fn::GetAtt:
+        - TransitRouter
+        - TransitRouterId
+      RouteTableAssociationEnabled: false
+      RouteTablePropagationEnabled: false
+      AutoCreateVpcRoute: false
+    DependsOn:
+    - CenInstance
+    - VSwitch1
+    - VSwitch2
+    - VSwitch3
+    - Vpc1
+  TransitRouterVpc2Attachment:
+    Type: ALIYUN::CEN::TransitRouterVpcAttachment
+    Properties:
+      VpcId:
+        Ref: Vpc2
+      CenId:
+        Ref: CenInstance
+      ZoneMappings:
+      - ZoneId:
+          Ref: ZoneId1
+        VSwitchId:
+          Ref: VSwitch4
+      - ZoneId:
+          Ref: ZoneId2
+        VSwitchId:
+          Ref: VSwitch5
+      TransitRouterId:
+        Fn::GetAtt:
+        - TransitRouter
+        - TransitRouterId
+      RouteTableAssociationEnabled: false
+      RouteTablePropagationEnabled: false
+      AutoCreateVpcRoute: false
+    DependsOn:
+    - CenInstance
+    - VSwitch4
+    - VSwitch5
+    - VSwitch6
+    - Vpc2
+  TransitRouterVpc3Attachment:
+    Type: ALIYUN::CEN::TransitRouterVpcAttachment
+    Properties:
+      VpcId:
+        Ref: Vpc3
+      CenId:
+        Ref: CenInstance
+      ZoneMappings:
+      - ZoneId:
+          Ref: ZoneId1
+        VSwitchId:
+          Ref: VSwitch7
+      - ZoneId:
+          Ref: ZoneId2
+        VSwitchId:
+          Ref: VSwitch8
+      TransitRouterId:
+        Fn::GetAtt:
+        - TransitRouter
+        - TransitRouterId
+      RouteTableAssociationEnabled: false
+      RouteTablePropagationEnabled: false
+      AutoCreateVpcRoute: false
+    DependsOn:
+    - CenInstance
+    - VSwitch7
+    - VSwitch8
+    - VSwitch9
+    - Vpc3
+  EcsSecurityGroup1:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc1
+      SecurityGroupIngress:
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupEgress:
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+  EcsSecurityGroup2:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc2
+      SecurityGroupIngress:
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupEgress:
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+  EcsSecurityGroup3:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc3
+      SecurityGroupIngress:
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupEgress:
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+  ECS1:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc1
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch3
+      SecurityGroupId:
+        Ref: EcsSecurityGroup1
+      ImageId: centos_7
+      InstanceName: SecurityInstance
+      PeriodUnit:
+        Ref: EcsPeriodUnit
+      InstanceChargeType:
+        Ref: InstanceChargeType
+      Period:
+        Ref: EcsPeriod
+      AllocatePublicIP: true
+      InstanceType:
+        Ref: SecurityVpcInstanceType
+      SystemDiskCategory:
+        Ref: SecurityVpcSystemDiskCategory
+      Password:
+        Ref: InstancePassword
+  ECS2:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc2
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch6
+      SecurityGroupId:
+        Ref: EcsSecurityGroup2
+      ImageId: centos_7
+      InstanceName: FrontendBusinessInstance
+      PeriodUnit:
+        Ref: EcsPeriodUnit
+      InstanceChargeType:
+        Ref: InstanceChargeType
+      Period:
+        Ref: EcsPeriod
+      AllocatePublicIP: true
+      InstanceType:
+        Ref: FrontendBusinessVpcInstanceType
+      SystemDiskCategory:
+        Ref: FrontendBusinessVpcSystemDiskCategory
+      Password:
+        Ref: InstancePassword
+  ECS3:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc3
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch9
+      SecurityGroupId:
+        Ref: EcsSecurityGroup3
+      ImageId: centos_7
+      InstanceName: BackendBusinessInstance
+      PeriodUnit:
+        Ref: EcsPeriodUnit
+      InstanceChargeType:
+        Ref: InstanceChargeType
+      Period:
+        Ref: EcsPeriod
+      AllocatePublicIP: true
+      InstanceType:
+        Ref: BackendBusinessVpcInstanceType
+      SystemDiskCategory:
+        Ref: BackendBusinessVpcSystemDiskCategory
+      Password:
+        Ref: InstancePassword
+  Route1:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId:
+        Fn::GetAtt:
+        - Vpc2
+        - RouteTableId
+      NextHopType: Attachment
+      NextHopId:
+        Fn::GetAtt:
+        - TransitRouterVpc2Attachment
+        - TransitRouterAttachmentId
+  Route2:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId:
+        Fn::GetAtt:
+        - Vpc3
+        - RouteTableId
+      NextHopType: Attachment
+      NextHopId:
+        Fn::GetAtt:
+        - TransitRouterVpc3Attachment
+        - TransitRouterAttachmentId
+  RouteTable1:
+    Type: ALIYUN::VPC::RouteTable
+    Properties:
+      VpcId:
+        Ref: Vpc1
+      RouteTableName:
+        Fn::Join:
+        - ''
+        - - routetable1-
+          - Ref: ALIYUN::StackId
+  RouteTable2:
+    Type: ALIYUN::VPC::RouteTable
+    Properties:
+      VpcId:
+        Ref: Vpc1
+      RouteTableName:
+        Fn::Join:
+        - ''
+        - - routetable2-
+          - Ref: ALIYUN::StackId
+  RouteTable3:
+    Type: ALIYUN::VPC::RouteTable
+    Properties:
+      VpcId:
+        Ref: Vpc1
+      RouteTableName:
+        Fn::Join:
+        - ''
+        - - routetable3-
+          - Ref: ALIYUN::StackId
+  RouteTableAssociation1:
+    Type: ALIYUN::VPC::RouteTableAssociation
+    Properties:
+      VSwitchId:
+        Ref: VSwitch1
+      RouteTableId:
+        Fn::GetAtt:
+        - RouteTable1
+        - RouteTableId
+    DependsOn:
+    - RouteTable1
+    - RouteTable2
+    - RouteTable3
+  RouteTableAssociation2:
+    Type: ALIYUN::VPC::RouteTableAssociation
+    Properties:
+      VSwitchId:
+        Ref: VSwitch2
+      RouteTableId:
+        Fn::GetAtt:
+        - RouteTable2
+        - RouteTableId
+    DependsOn:
+    - RouteTable1
+    - RouteTable2
+    - RouteTable3
+  RouteTableAssociation3:
+    Type: ALIYUN::VPC::RouteTableAssociation
+    Properties:
+      VSwitchId:
+        Ref: VSwitch3
+      RouteTableId:
+        Fn::GetAtt:
+        - RouteTable3
+        - RouteTableId
+    DependsOn:
+    - RouteTable1
+    - RouteTable2
+    - RouteTable3
+  Route3:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId:
+        Fn::GetAtt:
+        - RouteTable1
+        - RouteTableId
+      NextHopType: Instance
+      NextHopId:
+        Fn::GetAtt:
+        - ECS1
+        - InstanceId
+    DependsOn:
+    - Route1
+    - Route2
+    - RouteTable1
+    - RouteTable2
+    - RouteTable3
+  Route4:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId:
+        Fn::GetAtt:
+        - RouteTable2
+        - RouteTableId
+      NextHopType: Instance
+      NextHopId:
+        Fn::GetAtt:
+        - ECS1
+        - InstanceId
+    DependsOn:
+    - Route1
+    - Route2
+    - RouteTable1
+    - RouteTable2
+    - RouteTable3
+  Route5:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId:
+        Fn::GetAtt:
+        - RouteTable3
+        - RouteTableId
+      NextHopType: Attachment
+      NextHopId:
+        Fn::GetAtt:
+        - TransitRouterVpc1Attachment
+        - TransitRouterAttachmentId
+    DependsOn:
+    - Route1
+    - Route2
+    - RouteTable1
+    - RouteTable2
+    - RouteTable3
+  TransitRouterRouteTable1:
+    Type: ALIYUN::CEN::TransitRouterRouteTable
+    Properties:
+      TransitRouterId:
+        Fn::GetAtt:
+        - TransitRouter
+        - TransitRouterId
+      TransitRouterRouteTableName:
+        Fn::Join:
+        - ''
+        - - TR_routetable1-
+          - Ref: ALIYUN::StackId
+    DependsOn:
+    - Route3
+    - Route4
+    - Route5
+  TransitRouterRouteTable2:
+    Type: ALIYUN::CEN::TransitRouterRouteTable
+    Properties:
+      TransitRouterId:
+        Fn::GetAtt:
+        - TransitRouter
+        - TransitRouterId
+      TransitRouterRouteTableName:
+        Fn::Join:
+        - ''
+        - - TR_routetable2-
+          - Ref: ALIYUN::StackId
+    DependsOn:
+    - Route3
+    - Route4
+    - Route5
+  TransitRouterRouteTableAssociation1:
+    Type: ALIYUN::CEN::TransitRouterRouteTableAssociation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+        - TransitRouterRouteTable1
+        - TransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+        - TransitRouterVpc2Attachment
+        - TransitRouterAttachmentId
+  TransitRouterRouteTableAssociation2:
+    Type: ALIYUN::CEN::TransitRouterRouteTableAssociation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+        - TransitRouterRouteTable1
+        - TransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+        - TransitRouterVpc3Attachment
+        - TransitRouterAttachmentId
+  TransitRouterRouteEntry:
+    Type: ALIYUN::CEN::TransitRouterRouteEntry
+    Properties:
+      TransitRouterRouteEntryDestinationCidrBlock: 0.0.0.0/0
+      TransitRouterRouteEntryNextHopId:
+        Fn::GetAtt:
+        - TransitRouterVpc1Attachment
+        - TransitRouterAttachmentId
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+        - TransitRouterRouteTable1
+        - TransitRouterRouteTableId
+      TransitRouterRouteEntryNextHopType: Attachment
+  TransitRouterRouteTableAssociation3:
+    Type: ALIYUN::CEN::TransitRouterRouteTableAssociation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+        - TransitRouterRouteTable2
+        - TransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+        - TransitRouterVpc1Attachment
+        - TransitRouterAttachmentId
+  TransitRouterRouteTablePropagation1:
+    Type: ALIYUN::CEN::TransitRouterRouteTablePropagation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+        - TransitRouterRouteTable2
+        - TransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+        - TransitRouterVpc2Attachment
+        - TransitRouterAttachmentId
+  TransitRouterRouteTablePropagation2:
+    Type: ALIYUN::CEN::TransitRouterRouteTablePropagation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+        - TransitRouterRouteTable2
+        - TransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+        - TransitRouterVpc3Attachment
+        - TransitRouterAttachmentId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId1
+      - ZoneId2
+      Label:
+        default: Zones Configuration
+    - Parameters:
+      - InstanceChargeType
+      - EcsPeriodUnit
+      - EcsPeriod
+      - InstancePassword
+      Label:
+        default: ECS Common Configuration
+    - Parameters:
+      - Vpc1CidrBlock
+      - VSwitch1CidrBlock
+      - VSwitch2CidrBlock
+      - VSwitch3CidrBlock
+      - SecurityVpcInstanceType
+      - SecurityVpcSystemDiskCategory
+      Label:
+        default: Security Configuration
+    - Parameters:
+      - Vpc2CidrBlock
+      - VSwitch4CidrBlock
+      - VSwitch5CidrBlock
+      - VSwitch6CidrBlock
+      - FrontendBusinessVpcInstanceType
+      - FrontendBusinessVpcSystemDiskCategory
+      Label:
+        default: Frontend Business Configuration
+    - Parameters:
+      - Vpc3CidrBlock
+      - VSwitch7CidrBlock
+      - VSwitch8CidrBlock
+      - VSwitch9CidrBlock
+      - BackendBusinessVpcInstanceType
+      - BackendBusinessVpcSystemDiskCategory
+      Label:
+        default: Backend Business Configuration
+    TemplateTags:
+    - acs:example:网络场景:安全VPC场景

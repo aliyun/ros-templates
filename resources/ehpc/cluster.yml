@@ -1,0 +1,113 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test EHPC Cluster
+Parameters:
+  BucketStorageClass:
+    Type: String
+    Default: Standard
+  VpcId:
+    Type: String
+  VSwitchId:
+    Type: String
+  AccessGroupName:
+    Type: String
+  EcsOrderComputeCount:
+    Type: Number
+    Default: 1
+  EcsOrderLoginInstanceType:
+    Type: String
+    Default: ecs.g6.large
+  BucketName:
+    Type: String
+    Default: mytest
+  ZoneId:
+    Type: String
+  BucketAccessControl:
+    Type: String
+    Default: public-read
+  Password:
+    Type: String
+Resources:
+  AccessGroup:
+    Type: ALIYUN::NAS::AccessGroup
+    Properties:
+      AccessGroupType: Vpc
+      AccessGroupName:
+        Ref: AccessGroupName
+  FileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      StorageType: Capacity
+      ProtocolType: NFS
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+      StorageClass:
+        Ref: BucketStorageClass
+      AccessControl:
+        Ref: BucketAccessControl
+  MountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      NetworkType: Vpc
+      AccessGroupName:
+        Ref: AccessGroup
+      FileSystemId:
+        Ref: FileSystem
+  AccessRule:
+    Type: ALIYUN::NAS::AccessRule
+    Properties:
+      SourceCidrIp: 0.0.0.0/0
+      AccessGroupName:
+        Ref: AccessGroup
+  Cluster:
+    Type: ALIYUN::EHPC::Cluster
+    Properties:
+      VSwitchId:
+        Ref: VSwitchId
+      ImageOwnerAlias: system
+      EcsOrderComputeCount:
+        Ref: EcsOrderComputeCount
+      EcsOrderLoginInstanceType:
+        Ref: EcsOrderLoginInstanceType
+      EcsOrderLoginCount:
+        Ref: EcsOrderComputeCount
+      EhpcVersion: 1.0.0
+      VolumeMountpoint:
+        Ref: MountTarget
+      EcsOrderManagerInstanceType:
+        Ref: EcsOrderLoginInstanceType
+      Name:
+        Fn::Join:
+        - '-'
+        - - Cluster
+          - Ref: ALIYUN::StackId
+      VolumeId:
+        Ref: FileSystem
+      EcsOrderComputeInstanceType:
+        Ref: EcsOrderLoginInstanceType
+      OsTag: CentOS_7.2_64
+      Password:
+        Ref: Password
+    DependsOn:
+    - AccessRule
+    - FileSystem
+    - MountTarget
+Outputs:
+  MountTargetDomain:
+    Description: Mount point domain name
+    Value:
+      Fn::GetAtt:
+      - MountTarget
+      - MountTargetDomain
+  FileSystemId:
+    Description: ID of the file system created
+    Value:
+      Fn::GetAtt:
+      - FileSystem
+      - FileSystemId

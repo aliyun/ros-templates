@@ -1,0 +1,107 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: VPC环境下创建一个绑定了EIP的NAT网关。
+  en: Create a NAT gateway bound to the EIP in the VPC environment.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      zh-cn: VPC的IP地址范围；<br>您可以使用以下IP地址范围及其子网：<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0/16]</font>
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+    Default: 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: ${VpcCidrBlock}
+    Default: 192.168.10.0/24
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: ALIYUN::StackName
+      CidrBlock:
+        Ref: VpcCidrBlock
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchName:
+        Ref: ALIYUN::StackName
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  VpcNatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - VSwitch
+        - VSwitchId
+      NatGatewayName:
+        Ref: ALIYUN::StackName
+  ElasticIp:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Name:
+        Ref: ALIYUN::StackName
+      Bandwidth: 5
+  ElasticIpAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::GetAtt:
+        - VpcNatGateway
+        - NatGatewayId
+      AllocationId:
+        Fn::GetAtt:
+        - ElasticIp
+        - AllocationId
+  SNatEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatIp:
+        Fn::GetAtt:
+        - ElasticIp
+        - EipAddress
+      SNatTableId:
+        Fn::GetAtt:
+        - VpcNatGateway
+        - SNatTableId
+      SourceCIDR:
+        Ref: VSwitchCidrBlock
+    DependsOn: ElasticIpAssociation
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      Label:
+        default: VPC

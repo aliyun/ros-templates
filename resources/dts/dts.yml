@@ -1,0 +1,165 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test DTS MigrationJob、SynchronizationJob
+Parameters:
+  VpcId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  InstanceId:
+    Type: String
+  RdsDBName:
+    Type: String
+  RdsUserName:
+    Type: String
+    MinLength: 2
+    MaxLength: 16
+  RdsUserPassword:
+    Type: String
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  DtsMigrationJobName:
+    Type: String
+  ConsumerGroupPassword:
+    Type: String
+    Description: Password of consumer group.
+  ConsumerGroupUserName:
+    Type: String
+    Description: User name of consumer group.
+  ConsumerGroupName:
+    Type: String
+    Description: Consumer group name.
+  SubscriptionInstanceName:
+    Type: String
+Resources:
+  DtsMigrationJob:
+    Type: ALIYUN::DTS::MigrationJob
+    Properties:
+      MigrationJobClass: small
+      MigrationJobName:
+        Ref: DtsMigrationJobName
+      MigrationMode:
+        StructureIntialization: true
+        DataSynchronization: true
+        DataIntialization: true
+      SourceEndpoint:
+        UserName:
+          Ref: RdsUserName
+        InstanceID:
+          Ref: InstanceId
+        Region:
+          Ref: ALIYUN::Region
+        InstanceType: RDS
+        Password:
+          Ref: RdsUserPassword
+        Port: '3306'
+      DestinationEndpoint:
+        EngineName: MySQL
+        Port: '3306'
+        Region:
+          Ref: ALIYUN::Region
+        InstanceID:
+          Ref: InstanceId
+        Password:
+          Ref: RdsUserPassword
+        UserName:
+          Ref: RdsUserName
+        InstanceType: RDS
+      MigrationObject:
+      - DBName:
+          Ref: RdsDBName
+  SynchronizationJob:
+    Type: ALIYUN::DTS::SynchronizationJob
+    Properties:
+      SynchronizationJobClass: small
+      SourceEndpoint:
+        InstanceId:
+          Ref: InstanceId
+        InstanceTypeForCreation: MySQL
+        InstanceType: RDS
+      PayType: Postpaid
+      DataInitialization: false
+      DestRegion:
+        Ref: ALIYUN::Region
+      SourceRegion:
+        Ref: ALIYUN::Region
+      NetworkType: Internet
+      DestinationEndpoint:
+        InstanceId:
+          Ref: InstanceId
+        InstanceTypeForCreation: MySQL
+        InstanceType: RDS
+      StructureInitialization: false
+    DependsOn: DtsMigrationJob
+  SubscriptionInstance:
+    Type: ALIYUN::DTS::SubscriptionInstance
+    Properties:
+      SourceEndpointInstanceType: MySQL
+      Configuration:
+        SubscriptionObject:
+        - DBName:
+            Ref: RdsDBName
+        SubscriptionDataType:
+          DDL: true
+          DML: false
+        SubscriptionInstanceName:
+          Ref: SubscriptionInstanceName
+        SourceEndpoint:
+          InstanceType: RDS
+          UserName:
+            Ref: RdsUserName
+          Password:
+            Ref: RdsUserPassword
+          InstanceID:
+            Ref: InstanceId
+        SubscriptionInstanceNetworkType: vpc
+        SubscriptionInstance:
+          VPCId:
+            Ref: VpcId
+          VSwitchId:
+            Ref: VSwitchId
+  ConsumerGroup:
+    Type: ALIYUN::DTS::ConsumerGroup
+    Properties:
+      ConsumerGroupPassword:
+        Ref: ConsumerGroupPassword
+      ConsumerGroupUserName:
+        Ref: ConsumerGroupUserName
+      ConsumerGroupName:
+        Ref: ConsumerGroupName
+      SubscriptionInstanceId:
+        Ref: SubscriptionInstance
+    DependsOn: SubscriptionInstance
+Outputs:
+  MigrationJobId:
+    Value:
+      Fn::GetAtt:
+      - DtsMigrationJob
+      - MigrationJobId
+  SynchronizationJobId:
+    Value:
+      Fn::GetAtt:
+      - SynchronizationJob
+      - SynchronizationJobId
+  SubscriptionInstanceId:
+    Description: The ID of Data subscription instance.
+    Value:
+      Fn::GetAtt:
+      - SubscriptionInstance
+      - SubscriptionInstanceId
+  ConsumerGroupID:
+    Description: Consumer group ID
+    Value:
+      Fn::GetAtt:
+      - ConsumerGroup
+      - ConsumerGroupID
+  ConsumerGroupName:
+    Description: Consumer group name
+    Value:
+      Fn::GetAtt:
+      - ConsumerGroup
+      - ConsumerGroupName

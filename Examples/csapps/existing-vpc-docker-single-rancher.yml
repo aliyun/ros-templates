@@ -1,0 +1,285 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 单节点使用Docker容器安装部署Rancher服务，Rancher是一个开源的企业级多集群Kubernetes管理平台，实现了Kubernetes集群在混合云+本地数据中心的集中部署与管理，以确保集群的安全性，加速企业数字化转型,
+    如需外网访问Rancher Web界面请在安全组添加入方向80访问规则。
+  en: Single-node use of Docker containers to install and deploy Rancher services,
+    Rancher is an open source, enterprise-class multi-cluster Kubernetes management
+    platform that enables the centralized deployment and management of Kubernetes
+    clusters in hybrid cloud and on-premises data centers to ensure cluster security
+    and accelerate digital transformation of enterprises，to access the rancher web
+    interface from the Internet, please add the direction 80 access rule to the security
+    group.
+Parameters:
+  VSwitchZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VPC:
+    Type: String
+    Label:
+      zh-cn: 现有VPC的实例ID
+      en: Existing VPC Instance ID
+    Description:
+      zh-cn: 现有虚拟专有网络的实例ID,控制台-VPC-专有网络下查询
+      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitch:
+    Type: String
+    Label:
+      zh-cn: 网络交换机ID
+      en: Existing VSwitch ID
+    Description:
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+  SecurityGroup:
+    Type: String
+    Label:
+      zh-cn: 业务安全组ID
+      en: Business Security Group ID
+    Description:
+      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+  InstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  SystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[20, 500], 单位：GB。
+      en: 'System disk size, range of values: 20-500, units: GB.'
+    Default: 20
+  RancherLocalDataPath:
+    Type: String
+    Label:
+      zh-cn: Rancher的Etcd持久化数据本地存储目录
+      en: The Rancher service's etcd persistent data local storage directory.
+    Description:
+      zh-cn: Rancher的Etcd持久化数据本地存储目录；<br>默认地址：<font color='red'><b>/opt/rancher</b></font>
+      en: 'The Rancher service''s etcd persistent data local storage directory.;<br>The
+        default address: <font color=''red''><b>/opt/rancher</b></font>'
+    Default: /opt/rancher
+  Password:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: dbc3f31b-5b01-4f1f-8895-735eeace4591
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 1800
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 69de9d16-d3f1-4ecc-8f4a-e26dcd2bfbdb
+  RancherServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - " \n"
+            - RancherLocalDataPath=
+            - Ref: RancherLocalDataPath
+            - '
+
+              '
+            - "InstallDocker() { \n"
+            - "    yum install -y yum-utils \n"
+            - "    yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo\
+              \ stable-19.03 \n"
+            - "    yum makecache fast \n"
+            - "    yum -y install docker-ce-19.03.8 \n"
+            - "    systemctl enable docker \n"
+            - "    systemctl start docker \n"
+            - "} \n"
+            - '
+
+              '
+            - "StartRancher() { \n"
+            - "    mkdir -p ${RancherLocalDataPath} \n"
+            - "    docker run -d --restart=unless-stopped -p 80:80 -p 443:443 -v ${RancherLocalDataPath}:/var/lib/rancher\
+              \  --privileged rancher/rancher:latest \n"
+            - "} \n"
+            - '
+
+              '
+            - "main() { \n"
+            - "    InstallDocker \n"
+            - "    StartRancher  \n"
+            - "} \n"
+            - '
+
+              '
+            - "main \n"
+            - "netstat -ntlp | grep 80 >> /tmp/access.log \n"
+            - "if [[ $? -eq 0 ]]; \n"
+            - "then \n"
+            - "     ros-notify \n"
+            - "fi \n"
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      AllocatePublicIP: true
+      Password:
+        Ref: Password
+      InstanceName: RancherServer
+      InstanceType:
+        Ref: InstanceType
+      MaxAmount: 1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 11509317-9c81-4f5f-b6dd-95f245e2e081
+Outputs:
+  RancherServerWebUrl:
+    Value:
+      Fn::Sub:
+      - http://${RancherServerAddress}
+      - RancherServerAddress:
+          Fn::Select:
+          - '0'
+          - Fn::GetAtt:
+            - RancherServer
+            - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VSwitchZoneId
+      - VPC
+      - VSwitch
+      - SecurityGroup
+      Label:
+        default:
+          zh-cn: 基础资源配置（必填）
+          en: Infrastructure Configuration
+    - Parameters:
+      - InstanceType
+      - SystemDiskCategory
+      - SystemDiskSize
+      - RancherLocalDataPath
+      - Password
+      Label:
+        default:
+          zh-cn: Rancher 配置
+          en: Rancher Configuration
+    TemplateTags:
+    - acs:example:容器:Rancher单机版(已有VPC)
+  ALIYUN::ROS::Designer:
+    69de9d16-d3f1-4ecc-8f4a-e26dcd2bfbdb:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 60
+        y: 10
+      z: 0
+    11509317-9c81-4f5f-b6dd-95f245e2e081:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -54
+        y: 91
+      z: 0
+    dbc3f31b-5b01-4f1f-8895-735eeace4591:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 60
+        y: 190
+      z: 0
+    9c850689-ee70-4f53-a327-6ddb3427890b:
+      source:
+        id: 69de9d16-d3f1-4ecc-8f4a-e26dcd2bfbdb
+      target:
+        id: dbc3f31b-5b01-4f1f-8895-735eeace4591
+      z: 1

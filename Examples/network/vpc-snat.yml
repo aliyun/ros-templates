@@ -1,0 +1,528 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: '阿里云资源编排示例模板: 一键创建SNAT网关，VPC环境下创建一个绑定了EIP的ECS做为SNAT网关。'
+  en: 'Alibaba Cloud ROS Sample Template: One click to create the SNAT gateway, the
+    VPC environment to create an EIP-bound ECS as the SNAT gateway.'
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      zh-cn: VPC的IP地址范围；<br>您可以使用以下IP地址范围及其子网：<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0/16]</font>
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    Default: 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 创建的虚拟交换机的子网，它必须属于自己的VPC网段内
+      en: CIDR Block of created VSwitch,It must belong to itself VPC CIDR Block.
+    Default: 192.168.10.0/24
+  EIPBandwidth:
+    Type: Number
+    Label:
+      zh-cn: 弹性公网带宽
+      en: EIP Bandwidth
+    Description:
+      zh-cn: 弹性公网地址带宽。取值范围：1~200， 单位：Mbps。
+      en: 'EIP Bandwidth, Value range: [1,200], unit: Mbps.'
+    Default: 1
+    MinValue: 1
+    MaxValue: 200
+  ECSZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  ECSImageId:
+    Type: String
+    Label:
+      zh-cn: 镜像
+      en: Image
+    Description:
+      zh-cn: 镜像ID, 请使用Centos7, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+      en: Image ID，Please use Centos7, see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+    Default: ubuntu_14
+  ECSInstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ECSZoneId
+  ECSDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  ECSSysDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 20-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[20, 500], 单位：GB。
+    Default: 20
+    MinValue: 20
+    MaxValue: 500
+  ECSTag:
+    Type: String
+    Label:
+      zh-cn: 标签值
+      en: Tag Value
+    Description:
+      zh-cn: ECS 标签值, 长度为0~128个字符，不能以aliyun和acs:开头，不能包含http://或https://
+      en: 'ECS label value, 0 to 128 characters long, cannot begin with aliyun and
+        acs: cannot contain http://or https://?'
+    Default: DefaultTag
+  SecurityGroupName:
+    Type: String
+    Label:
+      en: Security Group Name
+      zh-cn: 安全组名称
+    Description:
+      en: The security group name, consists of 2~128 letters, Chinese characters,
+        Numbers, dots (.), underscores (_) and hyphens (-).
+      zh-cn: 安全组名称，由2~128个字母、汉字、数字、点（.）、下划线（_）和连字符（-）组成。
+    Default: ROS_SNAT_SG
+  EIPInternetChargeType:
+    Type: String
+    Label:
+      zh-cn: 弹性公网地址的收费类型
+      en: EIP Charge Type
+    Description:
+      zh-cn: 弹性公网地址的收费类型，PayByBandwidth：按带宽付费，PayByTraffic：按流量付费
+      en: The charge type of EIP, PayByBandwidth；PayByTraffic.
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  ECSPassword:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c9cca9ef-2376-4b3d-9514-a39503b7b52c
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ECSZoneId
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 94c7596f-72e7-494f-96d8-49f93f4602f6
+  VRoute:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      RouteId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VRouterId
+      RouteTableId:
+        Fn::GetAtt:
+        - EcsVpc
+        - RouteTableId
+      DestinationCidrBlock: 0.0.0.0/0
+      NextHopId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - ECSSnatGateWay
+          - InstanceIds
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5814af9f-a54e-434f-829c-fefde67daa8a
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      SecurityGroupName:
+        Ref: SecurityGroupName
+      SecurityGroupEgress:
+      - NicType: internet
+        IpProtocol: all
+        PortRange: -1/-1
+        DestCidrIp: 0.0.0.0/0
+        Priority: 1
+      - NicType: intranet
+        IpProtocol: all
+        PortRange: -1/-1
+        DestCidrIp: 0.0.0.0/0
+        Priority: 1
+      SecurityGroupIngress:
+      - NicType: internet
+        IpProtocol: all
+        PortRange: -1/-1
+        SourceCidrIp: 0.0.0.0/0
+        Priority: 1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5bad1226-6720-4d06-9db7-1bbd922624c9
+  ECSSnatGateWay:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ECSZoneId
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Fn::GetAtt:
+        - EcsSecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ECSImageId
+      InstanceType:
+        Ref: ECSInstanceType
+      AllocatePublicIP: 'false'
+      InternetChargeType: PayByTraffic
+      InternetMaxBandwidthIn: 100
+      InternetMaxBandwidthOut: 100
+      IoOptimized: optimized
+      SystemDiskCategory:
+        Ref: ECSDiskCategory
+      SystemDiskSize:
+        Ref: ECSSysDiskSize
+      Password:
+        Ref: ECSPassword
+      MaxAmount: '1'
+      Tags:
+      - Key: ECS_SNAT_GATEWAY
+        Value:
+          Ref: ECSTag
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - RosWaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - '
+
+              '
+            - PostRouting=
+            - Ref: VSwitchCidrBlock
+            - '
+
+              '
+            - SourceRouting=`ifconfig eth0|grep inet|awk '{print $2}'|tr -d 'addr:'`
+            - '
+
+              '
+            - "echo 'net.ipv4.ip_forward=1'>> /etc/sysctl.conf \n"
+            - "sysctl -p \n"
+            - "iptables -t nat -I POSTROUTING -s $PostRouting -j SNAT --to-source\
+              \ $SourceRouting \n"
+            - 'apt-get update
+
+              '
+            - 'apt-get install -y curl
+
+              '
+            - 'ros-notify -d ''{"data" : " docker swarm created"}''
+
+              '
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 74f1ee6f-2140-41a3-a17d-c03446aa778e
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3c4cdc4a-8e20-420a-a2b7-43358d0c12b5
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 600
+    DependsOn: ECSSnatGateWay
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: b2e91eb3-3dcd-48b6-870a-877d62334a9b
+  ElasticIp:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth:
+        Ref: EIPBandwidth
+      InternetChargeType:
+        Ref: EIPInternetChargeType
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 65e9281e-afbc-4eb8-8a4d-3a3584d1d9b9
+  ElasticIpAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - ECSSnatGateWay
+          - InstanceIds
+      AllocationId:
+        Fn::GetAtt:
+        - ElasticIp
+        - AllocationId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d69db303-8a3e-4dc3-ab89-57cb2eca1cbb
+Outputs:
+  ECSSnatGateWay_INNER_IPS:
+    Description: Inner IP address of the ECS instance.
+    Value:
+      Fn::GetAtt:
+      - ECSSnatGateWay
+      - PrivateIps
+  ECSSnatGateWay_InstanceIds:
+    Description: The instance id of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - ECSSnatGateWay
+      - InstanceIds
+  ECSSnatGateWay_ZoneIds:
+    Description: Zone id of created instance.
+    Value:
+      Fn::GetAtt:
+      - ECSSnatGateWay
+      - ZoneIds
+  SecurityGroupId:
+    Description: generated security group id for security group.
+    Value:
+      Fn::GetAtt:
+      - EcsSecurityGroup
+      - SecurityGroupId
+  VpcId:
+    Description: generated security vpc id for VPC.
+    Value:
+      Fn::GetAtt:
+      - EcsVpc
+      - VpcId
+  VSwitchId:
+    Description: generated security vswitch id for VPC.
+    Value:
+      Fn::GetAtt:
+      - EcsVSwitch
+      - VSwitchId
+  EipAddress:
+    Description: IP address of created EIP.
+    Value:
+      Fn::GetAtt:
+      - ElasticIp
+      - EipAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - EIPBandwidth
+      Label:
+        default: VPC
+    - Parameters:
+      - ECSZoneId
+      - ECSImageId
+      - ECSInstanceType
+      - ECSDiskCategory
+      - ECSSysDiskSize
+      - ECSTag
+      - SecurityGroupName
+      - EIPInternetChargeType
+      - ECSPassword
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:example:网络:创建SNAT网关和EIP的ECS做为SNAT网关
+  ALIYUN::ROS::Designer:
+    c9cca9ef-2376-4b3d-9514-a39503b7b52c:
+      size:
+        width: 281
+        height: 328
+      position:
+        x: 121
+        y: 127
+      z: 0
+      embeds:
+      - 94c7596f-72e7-494f-96d8-49f93f4602f6
+      - 5bad1226-6720-4d06-9db7-1bbd922624c9
+    94c7596f-72e7-494f-96d8-49f93f4602f6:
+      size:
+        width: 215
+        height: 157
+      position:
+        x: 141
+        y: 182
+      z: 1
+      embeds:
+      - 74f1ee6f-2140-41a3-a17d-c03446aa778e
+    5814af9f-a54e-434f-829c-fefde67daa8a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 215
+        y: 50
+      z: 0
+    5bad1226-6720-4d06-9db7-1bbd922624c9:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 215
+        y: 359
+      z: 1
+    74f1ee6f-2140-41a3-a17d-c03446aa778e:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 215
+        y: 226
+      z: 2
+    3c4cdc4a-8e20-420a-a2b7-43358d0c12b5:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -21
+        y: 157
+      z: 0
+    b2e91eb3-3dcd-48b6-870a-877d62334a9b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -21
+        y: 311
+      z: 0
+    65e9281e-afbc-4eb8-8a4d-3a3584d1d9b9:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 634
+        y: 226
+      z: 0
+    d69db303-8a3e-4dc3-ab89-57cb2eca1cbb:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 438
+        y: 226
+      z: 0
+    65e49a01-b2d1-4bab-aafd-ea4646e713c4:
+      source:
+        id: 74f1ee6f-2140-41a3-a17d-c03446aa778e
+      target:
+        id: 5bad1226-6720-4d06-9db7-1bbd922624c9
+      z: 1
+    f24a3f86-2c9c-48fb-97ab-b93fe1e9f669:
+      source:
+        id: b2e91eb3-3dcd-48b6-870a-877d62334a9b
+      target:
+        id: 3c4cdc4a-8e20-420a-a2b7-43358d0c12b5
+      z: 1
+    9da1b444-cc71-4516-b8bc-2ad5fa6052c7:
+      source:
+        id: d69db303-8a3e-4dc3-ab89-57cb2eca1cbb
+      target:
+        id: 65e9281e-afbc-4eb8-8a4d-3a3584d1d9b9
+      z: 1
+    d634c86d-8694-4321-9f2d-b04ed521c1f1:
+      source:
+        id: d69db303-8a3e-4dc3-ab89-57cb2eca1cbb
+      target:
+        id: 74f1ee6f-2140-41a3-a17d-c03446aa778e
+      z: 1
+    20187cba-9de4-4736-95a6-e51f1f4d931a:
+      source:
+        id: 5814af9f-a54e-434f-829c-fefde67daa8a
+      target:
+        id: 74f1ee6f-2140-41a3-a17d-c03446aa778e
+      z: 1

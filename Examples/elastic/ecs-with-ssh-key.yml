@@ -1,0 +1,365 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates an ECS and configure SSH key
+Mappings:
+  VpcCidrs:
+    pubsubnet:
+      cidr: 192.168.1.0/24
+    vpc:
+      cidr: 192.168.0.0/16
+Parameters:
+  Bandwidth:
+    Type: Number
+    Label: EIP Bandwidth
+    Description: Specify the peak bandwidth of public internet type instance, if PayByBandwidth
+      is selected. The unit is Mbps.
+    Default: 1
+    MinValue: 1
+    MaxValue: 1000
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: ubuntu_14
+  InstancePassword:
+    Type: String
+    Label: ECS Instance Password
+    Description: The root password of ECS instance. The password is a string of 8
+      to 41 characters and must contain uppercase/lowercase letters, numbers.
+    ConstraintDescription: Consist of 8 to 30 alphanumeric.
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+    Confirm: true
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+  InternetChargeType:
+    Type: String
+    Label: Internet Charge Type
+    Description: The charge type of public internet
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  IoOptimized:
+    Type: String
+    Label: Io Optimized
+    Description: The 'optimized' instance can provide better IO performance. Support
+      'none' and 'optimized' only, default is 'optimized'.
+    Default: optimized
+    AllowedValues:
+    - none
+    - optimized
+  MaxAmount:
+    Type: Number
+    Label: ECS Max Amount
+    Description: Number of Swarm manager nodes (1, 3, 5)
+    Default: 1
+    AllowedValues:
+    - 1
+    - 3
+    - 5
+  SystemDiskCategory:
+    Type: String
+    Label: Ecs System Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  ZoneId:
+    Type: String
+    Label: VSwitch Zone Id
+    Description: VSwitch Available Zone Id, <a href='#/product/cn-beijing/list/zoneList'
+      target='_blank'>View zoneid info</a>
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Fn::FindInMap:
+        - VpcCidrs
+        - vpc
+        - cidr
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      Description: Wide open
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Fn::FindInMap:
+        - VpcCidrs
+        - pubsubnet
+        - cidr
+  ECSFirst:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Fn::GetAtt:
+        - SecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InstanceType:
+        Ref: InstanceType
+      AllocatePublicIP: 'false'
+      IoOptimized:
+        Ref: IoOptimized
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - ECSFirstConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh
+
+              '
+            - 'apt-get update
+
+              '
+            - 'apt-get install -y curl
+
+              '
+            - 'apt-get install -y jq
+
+              '
+            - 'apt-get install -y expect
+
+              '
+            - 'echo ''#!/usr/bin/expect'' > /tmp/ssh_gen_key
+
+              '
+            - 'echo spawn ssh-keygen -t rsa >> /tmp/ssh_gen_key
+
+              '
+            - 'echo ''expect {'' >> /tmp/ssh_gen_key
+
+              '
+            - 'echo ''        "*(/root/.ssh/id_rsa)" {send "\\n\\r";exp_continue}''
+              >> /tmp/ssh_gen_key
+
+              '
+            - 'echo ''        "*(empty for no passphrase)" {send "\\n\\r";exp_continue}''
+              >> /tmp/ssh_gen_key
+
+              '
+            - 'echo ''        "*again" {send "\\n\\r"}'' >> /tmp/ssh_gen_key
+
+              '
+            - 'echo ''}'' >> /tmp/ssh_gen_key
+
+              '
+            - 'echo ''expect eof'' >> /tmp/ssh_gen_key
+
+              '
+            - '
+
+              '
+            - '/usr/bin/expect /tmp/ssh_gen_key
+
+              '
+            - 'pub_key=`cat /root/.ssh/id_rsa.pub`
+
+              '
+            - 'cmd="ros-notify -d ''{\"id\" : \"ssh_pub_key\", \"data\" : \"$pub_key\"}''"
+
+              '
+            - 'eval $cmd
+
+              '
+  ECSFirstConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  ECSFirstWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: ECSFirstConditionHandle
+      Timeout: 300
+    DependsOn: ECSFirst
+  ECSSecond:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Fn::GetAtt:
+        - SecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized:
+        Ref: IoOptimized
+      MaxAmount: '1'
+      MinAmount: '1'
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - ECSSecondConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh
+
+              '
+            - ssh_pub_key_json='
+            - Fn::GetAtt:
+              - ECSFirstWaitCondition
+              - Data
+            - '''
+
+              '
+            - 'echo $ssh_pub_key_json > /tmp/pubkey
+
+              '
+            - 'apt-get update
+
+              '
+            - 'apt-get install -y curl
+
+              '
+            - 'apt-get install -y jq
+
+              '
+            - 'apt-get install -y expect
+
+              '
+            - 'pub_key=`echo "$ssh_pub_key_json" | jq ''.ssh_pub_key'' | xargs echo
+              `
+
+              '
+            - 'echo "$pub_key" > /root/.ssh/authorized_keys
+
+              '
+            - 'chmod 600 /root/.ssh/authorized_keys
+
+              '
+            - 'sudo service ssh restart
+
+              '
+            - 'cmd="ros-notify -d ''{\"data\" : \"$pub_key\"}''"
+
+              '
+            - 'eval $cmd
+
+              '
+            - 'echo $pub_key > /tmp/real_pub_key
+
+              '
+    DependsOn: ECSFirst
+  ECSSecondConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  ECSSecondWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: ECSSecondConditionHandle
+      Timeout: 600
+    DependsOn: ECSSecond
+  ElasticIp:
+    Type: ALIYUN::ECS::EIP
+    Properties:
+      Bandwidth:
+        Ref: Bandwidth
+      InternetChargeType:
+        Ref: InternetChargeType
+  ElasticIpAssociation:
+    Type: ALIYUN::ECS::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::GetAtt:
+        - ECSFirst
+        - InstanceId
+      AllocationId:
+        Fn::GetAtt:
+        - ElasticIp
+        - AllocationId
+Outputs:
+  ECSFirst:
+    Description: Private IP address of created ecs instance. Only for VPC instance.
+    Value:
+      Fn::GetAtt:
+      - ECSFirst
+      - PrivateIp
+  ECSSecondIps:
+    Description: Private IP address list of created ecs instance. Only for VPC instance.
+    Value:
+      Fn::GetAtt:
+      - ECSSecond
+      - PrivateIps
+  EipAddress:
+    Description: IP address of created EIP.
+    Value:
+      Fn::GetAtt:
+      - ElasticIp
+      - EipAddress
+  PubKey:
+    Description: Received the data sent by the second ecs, JSON serialized dict containing
+      data associated with wait condition signals sent to the handle.
+    Value:
+      Fn::GetAtt:
+      - ECSSecondWaitCondition
+      - Data
+  SSHPubKey:
+    Description: Received the data sent by the first ecs, JSON serialized dict containing
+      data associated with wait condition signals sent to the handle.
+    Value:
+      Fn::GetAtt:
+      - ECSFirstWaitCondition
+      - Data

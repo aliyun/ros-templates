@@ -1,0 +1,174 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates a set of ECS instance, and consider it as the machine group of
+  the related project logtail in Log Serivce.
+Parameters:
+  InstanceType:
+    Type: String
+    Label: Instance Type
+    Description: The ECS instance type, <a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
+      target='_blank'>View instance types</a>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  ImageId:
+    Type: String
+    Label: Image ID
+    Description: Image ID, represents the image resource to startup one ECS instance,
+      <a href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'>View
+      image resources</a>.
+    Default: centos_7
+  MaxAmount:
+    Type: Number
+    Label: Max Amount
+    Description: The maximum of ECS instances, must be greater than or equal to the
+      minimum.
+    ConstraintDescription: The integer within [1, 100]
+    MinValue: 1
+    MaxValue: 100
+  SystemDiskCategory:
+    Type: String
+    Label: System Disk Category
+    Description: System disk category.
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+  AllocatePublicIP:
+    Type: Boolean
+    Label: Allocate Public IP
+    Description: Whether allocate the public internet IP or not.
+    Default: true
+  SecurityGroupName:
+    Type: String
+    Label: Security Group Name
+    Description: Security Group Name
+  InstanceName:
+    Type: String
+    Label: Instance Name
+    Description: The ECS instance name
+    Default: ecsInstance
+  Password:
+    Type: String
+    Label: Logon Password
+    Description: The login password of ECS instance
+    ConstraintDescription: Consist of 8 to 30 characters of alphanumeric characters
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  SlsProjectName:
+    Type: String
+    Label: Project Name
+    Description: The existing project name in SLS
+  SlsGroupName:
+    Type: String
+    Label: Group Name
+    Description: The machine group name to be created in SLS, which not be repeated
+      with any exising name.
+  SlsConfigName:
+    Type: String
+    Label: Config Name
+    Description: The existing logtail name in SlS, which is the name of configuration
+      to apply the machine group.
+Resources:
+  securityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName:
+        Ref: SecurityGroupName
+  ecsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      SecurityGroupId:
+        Fn::GetAtt:
+        - securityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      Password:
+        Ref: Password
+      AllocatePublicIP:
+        Ref: AllocatePublicIP
+      MaxAmount:
+        Ref: MaxAmount
+      InternetChargeType: PayByBandwidth
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+  MachineGroup:
+    Type: ALIYUN::SLS::MachineGroup
+    Properties:
+      GroupAttribute: ''
+      GroupName:
+        Ref: SlsGroupName
+      MachineIdentifyType: ip
+      MachineList:
+        Fn::GetAtt:
+        - ecsInstanceGroup
+        - PublicIps
+      ProjectName:
+        Ref: SlsProjectName
+  ApplyConfigToMachineGroup:
+    Type: ALIYUN::SLS::ApplyConfigToMachineGroup
+    Properties:
+      ConfigName:
+        Ref: SlsConfigName
+      GroupName:
+        Fn::GetAtt:
+        - MachineGroup
+        - GroupName
+      ProjectName:
+        Ref: SlsProjectName
+Outputs:
+  SecurityGroupId:
+    Value:
+      Fn::GetAtt:
+      - securityGroup
+      - SecurityGroupId
+  InstanceIds:
+    Description: The instance id list of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - InstanceIds
+  PublicIps:
+    Description: Public IP address list of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - PublicIps
+  ZoneIds:
+    Description: Zone id of created instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - ZoneIds
+  InnerIps:
+    Description: Inner IP address list of the specified instance. Only for classical
+      instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - InnerIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - InstanceType
+      - ImageId
+      - MaxAmount
+      - SystemDiskCategory
+      - AllocatePublicIP
+      - SecurityGroupName
+      - InstanceName
+      - Password
+      Label:
+        default: ECS
+    - Parameters:
+      - SlsProjectName
+      - SlsGroupName
+      - SlsConfigName
+      Label:
+        default: SLS
+    TemplateTags:
+    - acs:example:弹性计算:创建一组ECS并将其作为指定的SLS中相关project的logtail的机器组

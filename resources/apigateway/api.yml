@@ -1,0 +1,239 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ApiGateway Api、Group、App、Deployment、Authorization、Signature、SignatureBinding、TrafficControl、TrafficControlBinding、
+Parameters:
+  RoleName:
+    Type: String
+    Default: mytest
+  PolicyName:
+    Type: String
+    Default: mytest
+  TrafficControlName:
+    Type: String
+    Default: mytest
+  InstanceId:
+    Type: String
+    Default: api-shared-vpc-001
+    AllowedValues:
+    - api-shared-vpc-001
+    - api-shared-classic-001
+  GroupName:
+    Type: String
+    Default: mytest
+  ServiceName:
+    Type: String
+    Default: mytest
+  ApiName:
+    Type: String
+    Default: mytest
+  AppName:
+    Type: String
+    Default: mytest
+  SignatureSecret:
+    Type: String
+    Default: mytest
+  SignatureName:
+    Type: String
+    Default: mytest
+  SignatureKey:
+    Type: String
+    Default: mytest
+Resources:
+  RamRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName:
+        Ref: RoleName
+      Policies:
+      - PolicyName:
+          Ref: PolicyName
+        PolicyDocument:
+          Version: '1'
+          Statement:
+          - Action:
+            - fc:InvokeFunction
+            Resource:
+            - '*'
+            Effect: Allow
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - apigateway.aliyuncs.com
+  FCService:
+    Type: ALIYUN::FC::Service
+    Properties:
+      ServiceName:
+        Ref: ServiceName
+      InternetAccess: true
+  Function:
+    Type: ALIYUN::FC::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3
+      Code:
+        SourceCode: "def handler(event, context):\n\treturn {'isBase64Encode': False,\
+          \ 'statusCode': 200, 'body': 'Hello World!', 'headers': {'Content-type':\
+          \ 'aplication/json'}}\n"
+      FunctionName: mytest
+      ServiceName:
+        Fn::GetAtt:
+        - FCService
+        - ServiceName
+      MemorySize: 128
+    DependsOn: FCService
+  Group:
+    Type: ALIYUN::ApiGateway::Group
+    Properties:
+      InstanceId:
+        Ref: InstanceId
+      GroupName:
+        Ref: GroupName
+  Api:
+    Type: ALIYUN::ApiGateway::Api
+    Properties:
+      AppCodeAuthType: HEADER_QUERY
+      AuthType: APP
+      ServiceConfig:
+        FunctionComputeConfig:
+          fcRegionId:
+            Ref: ALIYUN::Region
+          qualifier: LATEST
+          roleArn:
+            Fn::GetAtt:
+            - RamRole
+            - Arn
+          serviceName:
+            Fn::GetAtt:
+            - FCService
+            - ServiceName
+          functionName:
+            Fn::GetAtt:
+            - Function
+            - FunctionName
+        ServiceProtocol: FunctionCompute
+        ContentTypeCatagory: CLIENT
+      RequestConfig:
+        RequestMode: MAPPING
+        RequestHttpMethod: POST
+        RequestProtocol: HTTP,HTTPS
+        RequestPath: /test
+        BodyFormat: FORM
+      ResultSample: ''
+      Visibility: PRIVATE
+      ResultType: JSON
+      ApiName:
+        Ref: ApiName
+      GroupId:
+        Fn::GetAtt:
+        - Group
+        - GroupId
+    DependsOn:
+    - Group
+    - RamRole
+  App:
+    Type: ALIYUN::ApiGateway::App
+    Properties:
+      Description: Test Create App
+      AppName:
+        Ref: AppName
+  Deployment:
+    Type: ALIYUN::ApiGateway::Deployment
+    Properties:
+      ApiId:
+        Ref: Api
+      GroupId:
+        Ref: Group
+      StageName: TEST
+      Description: TEST
+  Authorization:
+    Type: ALIYUN::ApiGateway::Authorization
+    Properties:
+      ApiIds:
+      - Ref: Api
+      AppIds:
+      - Ref: App
+      GroupId:
+        Ref: Group
+      StageName: TEST
+    DependsOn:
+    - Api
+    - App
+    - Deployment
+  Signature:
+    Type: ALIYUN::ApiGateway::Signature
+    Properties:
+      SignatureSecret:
+        Ref: SignatureSecret
+      SignatureName:
+        Ref: SignatureName
+      SignatureKey:
+        Ref: SignatureKey
+  SignatureBinding:
+    Type: ALIYUN::ApiGateway::SignatureBinding
+    Properties:
+      ApiIds:
+      - Ref: Api
+      GroupId:
+        Ref: Group
+      StageName: TEST
+      SignatureId:
+        Ref: Signature
+    DependsOn: Authorization
+  TrafficControl:
+    Type: ALIYUN::ApiGateway::TrafficControl
+    Properties:
+      TrafficControlName:
+        Ref: TrafficControlName
+      Description: Test TrafficControl
+      TrafficControlUnit: HOUR
+      ApiDefault: 10
+  TrafficControlBinding:
+    Type: ALIYUN::ApiGateway::TrafficControlBinding
+    Properties:
+      ApiIds:
+      - Ref: Api
+      TrafficControlId:
+        Ref: TrafficControl
+      StageName: TEST
+      GroupId:
+        Ref: Group
+    DependsOn: SignatureBinding
+Outputs:
+  SignatureId:
+    Value:
+      Fn::GetAtt:
+      - Signature
+      - SignatureId
+  SubDomain:
+    Value:
+      Fn::GetAtt:
+      - Group
+      - SubDomain
+  GroupId:
+    Value:
+      Fn::GetAtt:
+      - Group
+      - GroupId
+  AppKey:
+    Value:
+      Fn::GetAtt:
+      - App
+      - AppKey
+  AppSecret:
+    Value:
+      Fn::GetAtt:
+      - App
+      - AppSecret
+  AppId:
+    Value:
+      Fn::GetAtt:
+      - App
+      - AppId
+  ApiId:
+    Value:
+      Fn::GetAtt:
+      - Api
+      - ApiId

@@ -1,0 +1,166 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Create a sub account that is a member of a users group and an admin group,
+  enable the console login, and create access key.
+Parameters:
+  GroupName1:
+    Type: String
+    Label:
+      zh-cn: 用户组1的名称
+      en: Group 1 Name
+    Description:
+      zh-cn: 用户组1的名称，指定最多包含64个字符、英文字母、数字或“-”的组名。
+      en: The name of user group 1, <br>Specifies the group name, containing up to
+        64 characters,English letters, Numbers, or '-' are allowed.
+    ConstraintDescription:
+      zh-cn: 不得超过 64 个字符、英文字母、数字或'-'。
+      en: No more than 64 characters,English letters, Numbers, or '-' are allowed.
+    Default: UserGroup
+    AllowedPattern: ^[a-zA-Z0-9\-]+$
+    MinLength: 1
+    MaxLength: 64
+  GroupName2:
+    Type: String
+    Label:
+      zh-cn: 用户组2的名称
+      en: Group 2 Name
+    Description:
+      zh-cn: 用户组2的名称，指定最多包含64个字符、英文字母、数字或“-”的组名。
+      en: The name of user group 2, <br>Specifies the group name, containing up to
+        64 characters,English letters, Numbers, or '-' are allowed.
+    ConstraintDescription:
+      zh-cn: 不得超过 64 个字符、英文字母、数字或'-'。
+      en: No more than 64 characters,English letters, Numbers, or '-' are allowed.
+    Default: AdminGroup
+    AllowedPattern: ^[a-zA-Z0-9\-]+$
+    MinLength: 1
+    MaxLength: 64
+  UserName:
+    Type: String
+    Label:
+      zh-cn: 用户名称
+      en: User Name
+    Description:
+      zh-cn: 不能是已经存在的用户名，<br>用户名可包含英文字母，数字，'.'， '_'或'-'，不超过64个字符。
+      en: The user name cannot already exist,<br>Contains english letters, numbers,'.'
+        , '_' or '-', not more than 64 characters.
+    ConstraintDescription:
+      zh-cn: 不得超过 64 个字符、英文字母、数字或'-'。
+      en: No more than 64 characters,English letters, Numbers, or '-' are allowed.
+    Default: test-user
+    AllowedPattern: '[a-zA-Z0-9\.\-\_]+$'
+    MinLength: 1
+    MaxLength: 64
+  UserPassword:
+    Type: String
+    Label:
+      zh-cn: 用户密码
+      en: User Password
+    Description:
+      zh-cn: 指定密码，必须满足密码强度要求;关于密码强度策略，请参阅<a href='https://help.aliyun.com/document_detail/28740.html'
+        target='_blank'><b><font color='blue'>GetPasswordPolicy</font></b><font color='blue'></a>。
+      en: Specify a password, which must meet the password strength requirements;<br>About
+        password strength policy, Please refer to the <a href='https://help.aliyun.com/document_detail/28740.html'
+        target='_blank'><b><font color='blue'>GetPasswordPolicy</font></b><font color='blue'></a>.
+    NoEcho: true
+Resources:
+  RamGroup1:
+    Type: ALIYUN::RAM::Group
+    Properties:
+      GroupName:
+        Ref: GroupName1
+  RamGroup2:
+    Type: ALIYUN::RAM::Group
+    Properties:
+      GroupName:
+        Ref: GroupName2
+  RamUser:
+    Type: ALIYUN::RAM::User
+    Properties:
+      Groups:
+      - Ref: RamGroup1
+      - Ref: RamGroup2
+      LoginProfile:
+        Password:
+          Ref: UserPassword
+        PasswordResetRequired: false
+      UserName:
+        Ref: UserName
+  RamAK:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+        - RamUser
+        - UserName
+  RamManagedPolicy1:
+    Type: ALIYUN::RAM::ManagedPolicy
+    Properties:
+      PolicyName:
+        Fn::Join:
+        - '-'
+        - - ECSReadOnly
+          - StackId
+          - Ref: ALIYUN::StackId
+      PolicyDocument:
+        Version: '1'
+        Statement:
+        - Action:
+          - ecs:Describe*
+          Resource:
+          - '*'
+          Effect: Allow
+        - Action:
+          - ecs:List*
+          Resource:
+          - '*'
+          Effect: Allow
+        - Action:
+          - vpc:DescribeVpcs
+          - vpc:DescribeVSwitches
+          Resource:
+          - '*'
+          Effect: Allow
+      Groups:
+      - Ref: RamGroup1
+  RamManagedPolicy2:
+    Type: ALIYUN::RAM::ManagedPolicy
+    Properties:
+      PolicyName:
+        Fn::Join:
+        - '-'
+        - - OSSReadOnly
+          - StackId
+          - Ref: ALIYUN::StackId
+      PolicyDocument:
+        Version: '1'
+        Statement:
+        - Action:
+          - oss:*
+          Effect: Allow
+          Resource:
+          - '*'
+      Groups:
+      - Ref: RamGroup2
+Outputs:
+  RamAccessKeyId:
+    Value:
+      Fn::GetAtt:
+      - RamAK
+      - AccessKeyId
+  RamUserId:
+    Value:
+      Fn::GetAtt:
+      - RamUser
+      - UserId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - GroupName1
+      - GroupName2
+      - UserName
+      - UserPassword
+      Label:
+        default: RAM
+    TemplateTags:
+    - acs:example:弹性计算:创建具有不同策略的用户组的用户

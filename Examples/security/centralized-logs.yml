@@ -1,0 +1,152 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Create Ram roles for management operation audit, OSS, and SLS, and save
+  audit data to the specified OSS bucket
+Parameters:
+  RoleName:
+    Type: String
+    Label:
+      zh-cn: 角色名
+      en: Role Name
+    Description:
+      zh-cn: Ram角色名称，长度为1-64个字符，以英文字母或数字开头，允许使用连字符，账号内唯一。
+      en: Ram role name, 1 to 64 characters in length, beginning with English letters
+        or numbers, hyphens allowed, unique in the account.
+    ConstraintDescription:
+      zn-cn: 长度为1-64个字符，以英文字母或数字开头，允许使用连字符。
+      en: 1 to 64 characters in length, beginning with English letters or numbers,
+        hyphens allowed.
+    Default: ActionTrailTestRole
+    MinLength: 1
+    MaxLength: 64
+  TrailName:
+    Type: String
+    Label:
+      zh-cn: 跟踪名称
+      en: Trail Name
+    Description:
+      zh-cn: 跟踪名称，长度为6-36个字符，必须以字母开头，可包含字母、数字、短横线（-）和下划线（_），账号内唯一。
+      en: Trail Name, 6 to 36 characters in length, must start with a letter, and
+        can contain letters, numbers, dashes (-), and underscores (_), unique in the
+        account
+    Default: TestTrail
+  EventRW:
+    Type: String
+    Label:
+      zh-cn: 读写类型
+      en: Event RW
+    Description:
+      zh-cn: 投递事件的读写类型
+      en: Read and write types of delivery events
+    Default: Write
+    AllowedValues:
+    - Write
+    - Read
+    - All
+  OssBucketName:
+    Type: String
+    Label:
+      zh-cn: Bucket名称
+      en: Bucket Name
+    Description:
+      zh-cn: 跟踪写入的OSS存储空间
+      en: Tracking OSS storage space written
+  OssKeyPrefix:
+    Type: String
+    Label:
+      zh-cn: 文件名前缀
+      en: Key Prefix
+    Description:
+      zh-cn: 跟踪写入的OSS存储空间文件名的前缀，可以为空。长度为6-32个字符，必须以字母开头，可包含字母、数字、短横线（-）、斜杠（/）和下划线（_）
+      en: Track the prefix of the OSS storage space file name written, can be empty.
+        6 to 32 characters in length, must start with a letter, and can contain letters,
+        numbers, dashes (-), slashes (/), and underscores (_)
+    Default: ''
+  SlsProjectName:
+    Type: String
+    Label:
+      zh-cn: 日志项目名称
+      en: Project Name
+    Description:
+      zh-cn: 跟踪投递目标的日志服务项目
+      en: Log service items to track delivery targets
+Resources:
+  Role:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName:
+        Ref: RoleName
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - actiontrail.aliyuncs.com
+      Policies:
+      - PolicyName:
+          Fn::Sub: ActionTrailPolicy-${ALIYUN::StackId}
+        PolicyDocument:
+          Version: '1'
+          Statement:
+          - Action:
+            - oss:ListObjects
+            - oss:PutObject
+            - oss:GetBucketLocation
+            Resource:
+            - '*'
+            Effect: Allow
+          - Action:
+            - log:PostLogStoreLogs
+            - log:CreateLogstore
+            Resource:
+            - '*'
+            Effect: Allow
+          - Action:
+            - mns:PublishMessage
+            Resource:
+            - '*'
+            Effect: Allow
+  Trail:
+    Type: ALIYUN::ACTIONTRAIL::Trail
+    Properties:
+      Name:
+        Ref: TrailName
+      OssBucketName:
+        Ref: OssBucketName
+      RoleName:
+        Fn::GetAtt:
+        - Role
+        - RoleName
+      OssKeyPrefix:
+        Ref: OssKeyPrefix
+      EventRW:
+        Ref: EventRW
+      SlsProjectArn:
+        Fn::Sub: acs:log:${ALIYUN::Region}::project/${SlsProjectName}
+      SlsWriteRoleArn:
+        Fn::Sub: acs:ram::${ALIYUN::TenantId}:role/${Role.RoleName}
+    DependsOn: Role
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - RoleName
+      Label:
+        default: RAM
+    - Parameters:
+      - TrailName
+      - EventRW
+      Label:
+        default: Trail
+    - Parameters:
+      - OssBucketName
+      - OssKeyPrefix
+      Label:
+        default: OSS
+    - Parameters:
+      - SlsProjectName
+      Label:
+        default: SLS
+    TemplateTags:
+    - acs:example:安全:集中式日志管理

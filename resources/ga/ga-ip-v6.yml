@@ -1,0 +1,344 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test create GA Accelerator、 BandwidthPackage、IpSets、Listener、EndpointGroup、BandwidthPackageAcceleratorAddition
+Parameters:
+  Name:
+    Type: String
+    Label:
+      en: Name
+      zh-cn: 实例名称
+    Default: IPv6
+  Description:
+    Type: String
+    Label:
+      en: Description
+      zh-cn: 描述信息
+    Default: ''
+  RegionId:
+    Type: String
+    Label:
+      en: RegionId
+      zh-cn: 实例所在地域
+    Default: cn-hangzhou
+    AllowedValues:
+    - cn-beijing
+    - cn-shanghai
+    - cn-hangzhou
+    - cn-shenzhen
+  Bandwidth:
+    Type: Number
+    Label:
+      en: Bandwidth
+      zh-cn: 带宽值
+    Description: 2 - 2000
+    Default: 4
+    MinValue: 2
+    MaxValue: 2000
+  Endpoint:
+    Type: String
+    Label:
+      en: Source Endpoint/IP
+      zh-cn: 源站域名或IP
+    Description:
+      en: Configuration of EndpointGroup
+      zh-cn: 终端节点组配置信息
+  Protocol:
+    Type: String
+    Label:
+      en: Protocol
+      zh-cn: 协议类型
+    Description:
+      en: Protocol of Listener
+      zh-cn: 监听的网络传输协议类型
+    AllowedValues:
+    - tcp
+    - udp
+  PortRanges:
+    Type: Json
+    Label:
+      en: PortRanges
+      zh-cn: 监听端口范围
+    Default:
+    - FromPort: 1000
+      ToPort: 1010
+    - FromPort: 80
+      ToPort: 80
+    - FromPort: 443
+      ToPort: 443
+  PricingCycle:
+    Type: String
+    Label:
+      en: PricingCycle
+      zh-cn: 价格周期
+    Description:
+      en: 'Month: Pay by Month, Year: Pay by Year'
+      zh-cn: Month：按月付费，Year：按年付费
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  Duration:
+    Type: String
+    Label:
+      en: Duration
+      zh-cn: 购买时长
+    Description:
+      en: 'Pay by Month: Valid Values 1 - 9, Pay byYear: Valid Values 1 - 3'
+      zh-cn: 按月付费取值为1-9，按年付费取值为1-3
+    AllowedValues:
+    - '1'
+    - '2'
+    - '3'
+    - '4'
+    - '5'
+    - '6'
+    - '7'
+    - '8'
+    - '9'
+Resources:
+  GaAccelerator:
+    Type: ALIYUN::GA::Accelerator
+    Properties:
+      AcceleratorName:
+        Ref: Name
+      AutoUseCoupon: 'True'
+      PricingCycle:
+        Ref: PricingCycle
+      Duration:
+        Ref: Duration
+      AutoPay: 'True'
+      Spec: 1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a2fff352-1a14-4cd0-932a-632e50414ec6
+  GaBandwidthPackage:
+    Type: ALIYUN::GA::BandwidthPackage
+    Properties:
+      BandwidthType: Enhanced
+      Type: Basic
+      AutoUseCoupon: 'True'
+      PricingCycle:
+        Ref: PricingCycle
+      Bandwidth:
+        Ref: Bandwidth
+      Duration:
+        Ref: Duration
+      AutoPay: 'True'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 370c9c49-0ae7-45a7-912d-bbcb3acf0ce4
+  BandwidthPackageAcceleratorAddition:
+    Type: ALIYUN::GA::BandwidthPackageAcceleratorAddition
+    Properties:
+      BandwidthPackageId:
+        Ref: GaBandwidthPackage
+      AcceleratorId:
+        Ref: GaAccelerator
+    DependsOn:
+    - GaAccelerator
+    - GaBandwidthPackage
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f7b43bb8-81d0-489b-9fa7-ce3f69b0361e
+  IpSets:
+    Type: ALIYUN::GA::IpSets
+    Properties:
+      AccelerateRegion:
+      - IpVersion: IPv6
+        Bandwidth:
+          Ref: Bandwidth
+        AccelerateRegionId:
+          Ref: RegionId
+      AcceleratorId:
+        Ref: GaAccelerator
+    DependsOn: BandwidthPackageAcceleratorAddition
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 419109b7-66df-4f81-b59b-84d664b096f9
+  Listener:
+    Type: ALIYUN::GA::Listener
+    Properties:
+      Description: ''
+      PortRanges:
+        Ref: PortRanges
+      Protocol:
+        Ref: Protocol
+      AcceleratorId:
+        Ref: GaAccelerator
+      Name:
+        Ref: Name
+      ClientAffinity: NONE
+    DependsOn: IpSets
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 399a6dbc-9c59-4894-a413-80ded030802e
+  EndpointGroup:
+    Type: ALIYUN::GA::EndpointGroup
+    Properties:
+      EndpointGroupRegion:
+        Ref: RegionId
+      AcceleratorId:
+        Ref: GaAccelerator
+      EndpointConfigurations:
+      - Type: Ip
+        Endpoint:
+          Ref: Endpoint
+        Weight: 100
+      Name:
+        Ref: Name
+      ListenerId:
+        Ref: Listener
+    DependsOn: Listener
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8633c8a2-d6c5-4905-8a2b-8acc89fa6199
+Outputs:
+  EndpointGroupId:
+    Description: The ID of the endpoint group.
+    Value:
+      Fn::GetAtt:
+      - EndpointGroup
+      - EndpointGroupId
+  AccelerateRegionIds:
+    Description: The ID list of the accelerate region.
+    Value:
+      Fn::GetAtt:
+      - IpSets
+      - AccelerateRegionIds
+  BandwidthPackageId:
+    Description: BandwidthPackage ID
+    Value:
+      Fn::GetAtt:
+      - GaBandwidthPackage
+      - BandwidthPackageId
+  IpSetIds:
+    Description: The ID list of the ip set.
+    Value:
+      Fn::GetAtt:
+      - IpSets
+      - IpSetIds
+  AcceleratorId:
+    Description: Accelerator ID
+    Value:
+      Fn::GetAtt:
+      - GaAccelerator
+      - AcceleratorId
+  ListenerId:
+    Description: The ID of the listener.
+    Value:
+      Fn::GetAtt:
+      - Listener
+      - ListenerId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - Name
+      - Description
+      - RegionId
+      - Bandwidth
+      Label:
+        default:
+          en: InstanceInfo
+          zh-cn: 实例信息
+    - Parameters:
+      - Endpoint
+      - Protocol
+      - PortRanges
+      Label:
+        default:
+          en: SourceSiteInfo
+          zh-cn: 源站信息
+    - Parameters:
+      - PricingCycle
+      - Duration
+      Label:
+        default:
+          en: ChargeInfo
+          zh-cn: 计费信息
+    TemplateTags:
+    - GA
+  ALIYUN::ROS::Designer:
+    fbb2efd7-08f4-4ea4-878a-3029dda24903:
+      z: 1
+      source:
+        id: f7b43bb8-81d0-489b-9fa7-ce3f69b0361e
+      target:
+        id: a2fff352-1a14-4cd0-932a-632e50414ec6
+    896eaea0-e4f6-4630-87e8-97775e45d49c:
+      z: 1
+      source:
+        id: 399a6dbc-9c59-4894-a413-80ded030802e
+      target:
+        id: a2fff352-1a14-4cd0-932a-632e50414ec6
+    370c9c49-0ae7-45a7-912d-bbcb3acf0ce4:
+      size:
+        width: 60
+        height: 60
+      z: 0
+      position:
+        x: 653
+        y: 407
+    6ca26181-d12d-4bdb-8b5a-b01437b04228:
+      z: 1
+      source:
+        id: 8633c8a2-d6c5-4905-8a2b-8acc89fa6199
+      target:
+        id: 399a6dbc-9c59-4894-a413-80ded030802e
+    2c471647-1956-4bfb-8ae8-ffd0da8143d3:
+      z: 1
+      source:
+        id: 8633c8a2-d6c5-4905-8a2b-8acc89fa6199
+      target:
+        id: a2fff352-1a14-4cd0-932a-632e50414ec6
+    f7b43bb8-81d0-489b-9fa7-ce3f69b0361e:
+      size:
+        width: 60
+        height: 60
+      z: 0
+      position:
+        x: 371
+        y: 407
+    399a6dbc-9c59-4894-a413-80ded030802e:
+      size:
+        width: 60
+        height: 60
+      z: 0
+      position:
+        x: 371
+        y: 27
+    8633c8a2-d6c5-4905-8a2b-8acc89fa6199:
+      size:
+        width: 60
+        height: 60
+      z: 0
+      position:
+        x: 661
+        y: 122
+    a2fff352-1a14-4cd0-932a-632e50414ec6:
+      size:
+        width: 60
+        height: 60
+      z: 0
+      position:
+        x: 371
+        y: 248
+    419109b7-66df-4f81-b59b-84d664b096f9:
+      size:
+        width: 60
+        height: 60
+      z: 0
+      position:
+        x: 176
+        y: 248
+    4bda20e3-85a9-483f-b5cb-4359a47203a0:
+      z: 1
+      source:
+        id: f7b43bb8-81d0-489b-9fa7-ce3f69b0361e
+      target:
+        id: 370c9c49-0ae7-45a7-912d-bbcb3acf0ce4
+    1010c65e-81e4-4a09-9a12-5500f41357fa:
+      z: 1
+      source:
+        id: 419109b7-66df-4f81-b59b-84d664b096f9
+      target:
+        id: a2fff352-1a14-4cd0-932a-632e50414ec6

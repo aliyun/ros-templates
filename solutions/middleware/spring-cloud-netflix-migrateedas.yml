@@ -1,0 +1,545 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: SpringCloud应用托管到ACK服务
+Parameters:
+  VSwitchZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      zh-cn: 交换机网段
+      en: VSwitch CIDR Block
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+    Default: 192.168.1.0/24
+  ImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_auto
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 40
+  GroupMaxAmount:
+    Type: Number
+    Label:
+      en: ECS Amount
+      zh-cn: ECS实例数量
+    Description:
+      en: 'Number of instances，value range: 1~100.'
+      zh-cn: 实例数量,取值范围：1~100。
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  RegionName:
+    Type: String
+    Label:
+      zh-cn: 命名空间名称
+      en: Namespace Name
+    Description:
+      zh-cn: 逻辑区域(或名称空间)名称
+      en: Logical region (or namespace) name
+    Default: pig
+  OversoldFactor:
+    Type: Number
+    Label:
+      zh-cn: 超卖因素
+      en: Oversold Factor
+    Description:
+      zh-cn: Docker CPU集群超卖。 支持2（1：2比例）/ 4（1：4比例）/ 8（1：8比例）。
+      en: 'Docker CPU cluster oversold. Support 2 (1: 2 ratio) / 4 (1: 4 ratio) /
+        8 (1: 8 ratio).'
+    Default: 2
+    AllowedValues:
+    - 2
+    - 4
+    - 8
+  ClusterName:
+    Type: String
+    Label:
+      zh-cn: 集群名称
+      en: Cluster Name
+    Description:
+      zh-cn: 集群名称
+      en: Cluster Name
+    Default: pig001
+  EcsGroupMaxAmount:
+    Type: Number
+    Label:
+      en: ECS Amount
+      zh-cn: ECS实例数量
+    Description:
+      en: 'Number of instances，value range: 1~100.'
+      zh-cn: 实例数量,取值范围：1~100。
+    Default: 5
+    MinValue: 1
+    MaxValue: 100
+  KeyPairName:
+    Type: String
+    Label:
+      zh-cn: 密钥对名称
+      en: Key Pair Name
+    Description:
+      zh-cn: ECS实例绑定的密钥对名称。
+      en: Name of the key pair bound to the ECS instance.
+    Default: edas-key
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - Vpc
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VpcCidrBlock
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      SecurityGroupIngress:
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: 443/443
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+        NicType: intranet
+      - PortRange: 4000/9000
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: 15672/15672
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - Policy: drop
+        PortRange: -1/-1
+        Priority: 10
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+      Tags:
+      - Value: '149'
+        Key: best_practice
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 1800
+      Count: 2
+      Handle:
+        Ref: WaitConditionHandle
+  RabbitMQServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName: RabbitMQServer
+      InstanceType:
+        Ref: InstanceType
+      Password:
+        Ref: Password
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      MaxAmount:
+        Ref: GroupMaxAmount
+      AllocatePublicIP: true
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - " \n"
+            - "yum update -y \n"
+            - "sed '$i[rabbitmq-erlang]'  /etc/yum.repos.d/rabbitmq-erlang.repo \n"
+            - "sed '$iname=rabbitmq-erlang'  /etc/yum.repos.d/rabbitmq-erlang.repo\
+              \ \n"
+            - "sed '$ibaseurl=https://dl.bintray.com/rabbitmq/rpm/erlang/20/el/7'\
+              \  /etc/yum.repos.d/rabbitmq-erlang.repo \n"
+            - "sed '$igpgcheck=1'  /etc/yum.repos.d/rabbitmq-erlang.repo \n"
+            - "sed '$igpgkey=https://dl.bintray.com/rabbitmq/Keys/rabbitmq-release-signing-key.asc'\
+              \  /etc/yum.repos.d/rabbitmq-erlang.repo \n"
+            - "sed '$irepo_gpgcheck=0'  /etc/yum.repos.d/rabbitmq-erlang.repo \n"
+            - "sed '$ienabled=1'  /etc/yum.repos.d/rabbitmq-erlang.repo \n"
+            - "yum -y install erlang socat \n"
+            - "wget https://www.rabbitmq.com/releases/rabbitmq-server/v3.6.10/rabbitmq-server-3.6.10-1.el7.noarch.rpm\
+              \ \n"
+            - "rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc\
+              \ \n"
+            - "rpm -Uvh rabbitmq-server-3.6.10-1.el7.noarch.rpm \n"
+            - "service rabbitmq-server start \n"
+            - "service rabbitmq-server status \n"
+            - "rabbitmq-plugins enable rabbitmq_management \n"
+            - "sed -i '36s/<<\"guest\">>//g' /usr/lib/rabbitmq/lib/rabbitmq_server-3.6.10/ebin/rabbit.app\
+              \ \n"
+            - "service rabbitmq-server restart \n"
+            - "ros-notify -d \"{\\\"Data\\\" : \\\"SUCCESS\\\", \\\"Status\\\" : \\\
+              \"SUCCESS\\\"}\" \n"
+      Tags:
+      - Value: '149'
+        Key: best_practice
+    DependsOn: VSwitch
+  MongoDBServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName: MongoDBServer
+      InstanceType:
+        Ref: InstanceType
+      Password:
+        Ref: Password
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      MaxAmount:
+        Ref: GroupMaxAmount
+      AllocatePublicIP: true
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - " \n"
+            - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/MongoDB/mongodb-linux-x86_64-3.0.6.tgz\
+              \ \n"
+            - "tar -zxvf mongodb-linux-x86_64-3.0.6.tgz \n"
+            - "mv  mongodb-linux-x86_64-3.0.6  /usr/local/mongodb \n"
+            - "mkdir -p /data/mongodb  \n"
+            - "mkdir -p /data/logs/mongodb  \n"
+            - "touch /data/logs/mongodb/mongodb.log  \n"
+            - "touch /usr/local/mongodb/bin/mongodb.conf  \n"
+            - "chmod -R 777 /data/logs/mongodb/mongodb.log  \n"
+            - "chmod -R 777 /usr/local/mongodb/bin/mongodb.conf  \n"
+            - "cd /usr/local/mongodb/bin/ \n"
+            - "echo 'port=27017' >> /usr/local/mongodb/bin/mongodb.conf \n"
+            - "echo 'dbpath=/data/mongodb' >> /usr/local/mongodb/bin/mongodb.conf\
+              \ \n"
+            - "echo 'logpath=/data/logs/mongodb/mongodb.log' >> /usr/local/mongodb/bin/mongodb.conf\
+              \ \n"
+            - "echo 'fork=true' >> /usr/local/mongodb/bin/mongodb.conf \n"
+            - "echo 'maxConns=5000' >> /usr/local/mongodb/bin/mongodb.conf \n"
+            - "echo 'storageEngine=mmapv1' >> /usr/local/mongodb/bin/mongodb.conf\
+              \ \n"
+            - "iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport 27017\
+              \ -j ACCEPT \n"
+            - "/usr/local/mongodb/bin/mongod --config /usr/local/mongodb/bin/mongodb.conf\
+              \ \n"
+            - "netstat -anpt | grep mongod \n"
+            - "ros-notify -d \"{\\\"Data\\\" : \\\"SUCCESS\\\", \\\"Status\\\" : \\\
+              \"SUCCESS\\\"}\" \n"
+      Tags:
+      - Value: '149'
+        Key: best_practice
+    DependsOn: VSwitch
+  UserDefineRegion:
+    Type: ALIYUN::EDAS::UserDefineRegion
+    Properties:
+      RegionName:
+        Ref: RegionName
+      RegionTag:
+        Fn::Join:
+        - ':'
+        - - Ref: ALIYUN::Region
+          - Ref: RegionName
+  Cluster:
+    Type: ALIYUN::EDAS::Cluster
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      LogicalRegionId:
+        Fn::Join:
+        - ':'
+        - - Ref: ALIYUN::Region
+          - Ref: RegionName
+      OversoldFactor:
+        Ref: OversoldFactor
+      ClusterName:
+        Ref: ClusterName
+      NetworkMode: 2
+      ClusterType: 2
+    DependsOn: UserDefineRegion
+  SSHKeyPair:
+    Type: ALIYUN::ECS::SSHKeyPair
+    Properties:
+      KeyPairName:
+        Ref: KeyPairName
+  EcsGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      MaxAmount:
+        Ref: EcsGroupMaxAmount
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - edas[1,
+          - Ref: EcsGroupMaxAmount
+          - ']'
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceType
+      KeyPairName:
+        Fn::GetAtt:
+        - SSHKeyPair
+        - KeyPairName
+      Tags:
+      - Key: best_practice
+        Value: '149'
+    DependsOn: Cluster
+  ClusterMember:
+    Type: ALIYUN::EDAS::ClusterMember
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - EcsGroup
+        - InstanceIds
+      ClusterId:
+        Fn::GetAtt:
+        - Cluster
+        - ClusterId
+      Password:
+        Ref: Password
+    DependsOn:
+    - Cluster
+    - EcsGroup
+Outputs:
+  RabbitMQServerPublicIp:
+    Description: RabbitMQ Server Public IP.
+    Value:
+      Fn::GetAtt:
+      - RabbitMQServer
+      - PublicIps
+  MongoDBServerPublicIp:
+    Description: MongoDB Server Public IP.
+    Value:
+      Fn::GetAtt:
+      - MongoDBServer
+      - PublicIps
+  ClusterName:
+    Description: EDAS Cluster Name
+    Value:
+      Fn::GetAtt:
+      - Cluster
+      - ClusterName
+  ClusterId:
+    Description: EDAS cluster ID
+    Value:
+      Fn::GetAtt:
+      - Cluster
+      - ClusterId
+  EDASClusterInstanceIds:
+    Description: ECS instance IDs in EDAS cluster
+    Value:
+      Fn::GetAtt:
+      - ClusterMember
+      - InstanceIds
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VSwitchZoneId
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - ImageId
+      - InstanceType
+      - SystemDiskCategory
+      - SystemDiskSize
+      - GroupMaxAmount
+      - Password
+      Label:
+        default: ECS
+    - Parameters:
+      - RegionName
+      - OversoldFactor
+      - ClusterName
+      - EcsGroupMaxAmount
+      - KeyPairName
+      Label:
+        default: EDAS
+    TemplateTags:
+    - SpringCloud应用托管到ACK服务

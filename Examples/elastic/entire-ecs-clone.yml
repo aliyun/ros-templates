@@ -1,0 +1,74 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Clones ECS Instance And DataBase Disk
+Parameters:
+  SourceEcsDataDiskId:
+    Type: String
+    Label: Source ECS data disk ID
+    Description: Create snapshot based on source ECS data disk
+  SourceEcsSystemDiskId:
+    Type: String
+    Label: Source ECS system disk ID
+    Description: Create custom image based on source ECS system disk
+  SourceEcsInstanceId:
+    Type: String
+    Label: Source ECS Instance ID
+    Description: Source ECS Instance
+  LoginPassword:
+    Type: String
+    Label: ECS Login Password
+    Description: ECS Login Password
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: 8
+    MaxLength: 41
+    NoEcho: true
+    Confirm: true
+  NumberOfClonedEcs:
+    Type: Number
+    Label: Number of Cloned ECS
+    Description: The number of nodes will be cloned
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+Resources:
+  SystemDiskSnapshot:
+    Type: ALIYUN::ECS::Snapshot
+    Properties:
+      Timeout: 300
+      DiskId:
+        Ref: SourceEcsSystemDiskId
+  CustomImage:
+    Type: ALIYUN::ECS::CustomImage
+    Properties:
+      SnapshotId:
+        Ref: SystemDiskSnapshot
+  DataDiskSnapshot:
+    Type: ALIYUN::ECS::Snapshot
+    Properties:
+      DiskId:
+        Ref: SourceEcsDataDiskId
+  NewEcsInstance:
+    Type: ALIYUN::ECS::InstanceGroupClone
+    Properties:
+      ImageId:
+        Ref: CustomImage
+      DiskMappings:
+      - SnapshotId:
+          Fn::GetAtt:
+          - DataDiskSnapshot
+          - SnapshotId
+        Size: 20
+      MinAmount:
+        Ref: NumberOfClonedEcs
+      SourceInstanceId:
+        Ref: SourceEcsInstanceId
+      MaxAmount:
+        Ref: NumberOfClonedEcs
+      Password:
+        Ref: LoginPassword
+Outputs:
+  NewEcsInstanceIds:
+    Description: New Instance Id.
+    Value:
+      Fn::GetAtt:
+      - NewEcsInstance
+      - InstanceIds

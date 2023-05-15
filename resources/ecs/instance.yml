@@ -1,0 +1,179 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Create Vpc ECS instance、EIP、NatGateway、SSHKeyPair
+Parameters:
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+  SystemDiskCategory:
+    Type: String
+    Description: Category of system disk. Default is cloud_efficiency. support cloud|cloud_efficiency|cloud_ssd|cloud_essd|ephemeral_ssd.Old
+      instances will not be changed.
+    Default: cloud_essd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+    - ephemeral_ssd
+  LoginPassword:
+    Type: String
+    Description: ECS Login Password
+    Default: Admin123
+    MinLength: 8
+    MaxLength: 41
+    NoEcho: true
+  PublicIp:
+    Type: Boolean
+    Label: Allocate Public IP or Not
+    Description: Allocate Public IP or Not
+    Default: false
+  VpcId:
+    Type: String
+    Description: VPC Id.
+  VSwitchId:
+    Type: String
+    Description: VSW Id.
+  SecurityGroupId:
+    Type: String
+    Description: Security Group Id.
+  InstanceName:
+    Type: String
+    Description: Instance Name
+    Default: mytest
+  NatGatewayName:
+    Type: String
+    Default: mytest
+  EcsKeyPairName:
+    Type: String
+    Description: SSH key pair name. It must be unique. [2, 128] characters. All character
+      sets are supported. Do not start with a special character, digit, http://, or
+      https://. It can contain digits, ".", "_", or "-".
+    Default: mytest
+Resources:
+  Instance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Ref: InstanceName
+      IoOptimized: optimized
+      AllocatePublicIP:
+        Ref: PublicIp
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Password:
+        Ref: LoginPassword
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: 5
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      NatGatewayName:
+        Ref: NatGatewayName
+  EIpAssociateNat:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: Eip
+    DependsOn:
+    - Eip
+    - NatGateway
+  SSHKeyPair:
+    Type: ALIYUN::ECS::SSHKeyPair
+    Properties:
+      KeyPairName:
+        Fn::Join:
+        - '-'
+        - - Ref: EcsKeyPairName
+          - Ref: ALIYUN::StackId
+  AttachSSHKeyPair:
+    Type: ALIYUN::ECS::SSHKeyPairAttachment
+    Properties:
+      InstanceIds:
+      - Ref: Instance
+      KeyPairName:
+        Fn::GetAtt:
+        - SSHKeyPair
+        - KeyPairName
+    DependsOn:
+    - Instance
+    - SSHKeyPair
+  InstanceClone:
+    Type: ALIYUN::ECS::InstanceClone
+    Properties:
+      SourceInstanceId:
+        Ref: Instance
+    DependsOn: AttachSSHKeyPair
+Outputs:
+  ClonedInstanceId:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - InstanceId
+  ClonedPrivateIp:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - PrivateIp
+  ClonedZoneId:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - ZoneId
+  ClonedHostName:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - HostName
+  KeyPairName:
+    Value:
+      Fn::GetAtt:
+      - SSHKeyPair
+      - KeyPairName
+  PrivateKeyBody:
+    Value:
+      Fn::GetAtt:
+      - SSHKeyPair
+      - PrivateKeyBody
+  KeyPairFingerPrint:
+    Value:
+      Fn::GetAtt:
+      - SSHKeyPair
+      - KeyPairFingerPrint
+  InstanceId:
+    Value:
+      Fn::GetAtt:
+      - Instance
+      - InstanceId
+  PublicIp:
+    Value:
+      Fn::GetAtt:
+      - Instance
+      - PublicIp

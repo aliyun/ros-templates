@@ -1,0 +1,151 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Create SAE Application、Namespace、SlbBinding, and deploy Application
+Parameters:
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VpcId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+      ZoneId: ZoneId
+  SecurityGroupId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  NamespaceName:
+    Type: String
+    Description: 命名空间名称
+    Default: mytest
+  NamespaceId:
+    Type: String
+    Description: 命名空间ID
+    Default: mytest
+  Description:
+    Type: String
+    Description: 命名空间的描述信息
+    Default: null
+  AppName:
+    Type: String
+    Description: 应用名称
+    Default: test
+  Cpu:
+    Type: Number
+    Description: 每个实例所需的CPU。
+    Default: 1000
+  Memory:
+    Type: Number
+    Description: 每个实例所需的内存
+    Default: 2048
+  Replicas:
+    Type: Number
+    Description: 初始实例数
+    Default: 1
+  PackageType:
+    Type: String
+    Description: 应用包类型
+    Default: Image
+  ImageUrl:
+    Type: String
+    Description: 镜像地址
+    Default: registry-vpc.cn-hangzhou.aliyuncs.com/sae-demo-image/consumer:1.0
+  CommandArgs:
+    Type: String
+    Description: 镜像启动命令参数
+    Default: null
+  Envs:
+    Type: String
+    Description: 容器环境变量参数
+    Default: null
+  Timezone:
+    Type: String
+    Description: 时区
+    Default: Asia/Shanghai
+  LoadBalancerSpec:
+    Type: String
+    Description: 负载均衡实例的规格
+    Default: slb.s2.medium
+Resources:
+  LoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      MasterZoneId:
+        Ref: ZoneId
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+  Namespace:
+    Type: ALIYUN::SAE::Namespace
+    Properties:
+      NamespaceName:
+        Ref: NamespaceName
+      NamespaceId:
+        Fn::Sub: ${ALIYUN::Region}:${NamespaceId}
+      NamespaceDescription:
+        Ref: Description
+    DependsOn: LoadBalancer
+  SaeApp:
+    Type: ALIYUN::SAE::Application
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      AppName:
+        Ref: AppName
+      NamespaceId:
+        Fn::GetAtt:
+        - Namespace
+        - NamespaceId
+      Cpu:
+        Ref: Cpu
+      Memory:
+        Ref: Memory
+      Replicas:
+        Ref: Replicas
+      PackageType:
+        Ref: PackageType
+      Deploy: true
+      ImageUrl:
+        Ref: ImageUrl
+      CommandArgs:
+        Ref: CommandArgs
+      Envs:
+        Ref: Envs
+      Timezone:
+        Ref: Timezone
+    DependsOn:
+    - Namespace
+  BindSlb:
+    Type: ALIYUN::SAE::SlbBinding
+    Properties:
+      AppId:
+        Ref: SaeApp
+      Intranet: '[{"port": 80, "targetPort": 8080, "protocol": "TCP"}]'
+      InternetSlbId:
+        Ref: LoadBalancer
+    DependsOn:
+    - LoadBalancer
+    - SaeApp
+Outputs:
+  AppId:
+    Value:
+      Fn::GetAtt:
+      - SaeApp
+      - AppId
+  ChangeOrderId:
+    Value:
+      Fn::GetAtt:
+      - SaeApp
+      - ChangeOrderId
+  NamespaceId:
+    Value:
+      Fn::GetAtt:
+      - Namespace
+      - NamespaceId

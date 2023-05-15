@@ -1,0 +1,83 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test Vpc RouterInterface
+Parameters:
+  VpcName:
+    Type: String
+    Default: mytest
+  OppositeInterfaceId:
+    Type: String
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: VpcName
+      CidrBlock: 192.168.0.0/16
+    Count: 2
+  RouterInterfaceAccept:
+    Type: ALIYUN::VPC::RouterInterface
+    Properties:
+      OppositeInterfaceId:
+        Ref: OppositeInterfaceId
+      Description: Accepting Side
+      RouterType: VRouter
+      RouterId:
+        Fn::Select:
+        - 1
+        - Fn::GetAtt:
+          - Vpc
+          - VRouterId
+      Role: AcceptingSide
+      OppositeRouterType: VRouter
+      InstanceChargeType: PostPaid
+  RouterInterfaceInit:
+    Type: ALIYUN::VPC::RouterInterface
+    Properties:
+      OppositeInterfaceId:
+        Ref: RouterInterfaceAccept
+      OppositeRouterId:
+        Fn::Select:
+        - 1
+        - Fn::GetAtt:
+          - Vpc
+          - VRouterId
+      OppositeInterfaceOwnerId:
+        Ref: ALIYUN::TenantId
+      OppositeRouterType: VRouter
+      Description: Initiating Side
+      RouterType: VRouter
+      RouterId:
+        Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - Vpc
+          - VRouterId
+      Role: InitiatingSide
+      Spec: Mini.2
+      InstanceChargeType: PostPaid
+    DependsOn: RouterInterfaceAccept
+  PeeringRouterInterfaceBinding:
+    Type: ALIYUN::VPC::PeeringRouterInterfaceBinding
+    Properties:
+      OppositeInterfaceId:
+        Ref: RouterInterfaceInit
+      RouterInterfaceId:
+        Ref: RouterInterfaceAccept
+  PeeringRouterInterfaceConnection:
+    Type: ALIYUN::VPC::PeeringRouterInterfaceConnection
+    Properties:
+      OppositeInterfaceId:
+        Ref: RouterInterfaceAccept
+      RouterInterfaceId:
+        Ref: RouterInterfaceInit
+Outputs:
+  OppositeInterfaceId:
+    Value:
+      Fn::GetAtt:
+      - PeeringRouterInterfaceConnection
+      - OppositeInterfaceId
+  RouterInterfaceId:
+    Value:
+      Fn::GetAtt:
+      - PeeringRouterInterfaceConnection
+      - RouterInterfaceId

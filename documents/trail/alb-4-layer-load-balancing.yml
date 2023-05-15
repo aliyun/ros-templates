@@ -1,0 +1,92 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  LoadBalancerId:
+    Type: String
+    Label:
+      en: NLB Instance ID
+      zh-cn: NLB实例ID
+    AssociationProperty: ALIYUN::NLB::LoadBalancer::LoadBalancerId
+  EcsInstanceIds:
+    Type: CommaDelimitedList
+    Label:
+      en: ECS Instance ID List
+      zh-cn: ECS实例ID列表
+    Description:
+      en: The ECS instance where the application service has been deployed, <span
+        style="background:#E7E9EB;"><b>the ECS instance and the NLB instance need
+        to be under the same VPC</b></span>.
+      zh-cn: 已部署应用服务的ECS实例，<span style="background:#E7E9EB;"><b>ECS实例和NLB实例需要在同一个VPC下</b></span>。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    MinLength: 2
+    MaxLength: 2
+Resources:
+  DS_LoadBalancers:
+    Type: DATASOURCE::NLB::LoadBalancers
+    Properties:
+      LoadBalancerIds:
+      - Ref: LoadBalancerId
+  ServerGroup:
+    Type: ALIYUN::NLB::ServerGroup
+    Properties:
+      VpcId:
+        Fn::Jq:
+        - First
+        - .[0].VpcId
+        - Fn::GetAtt:
+          - DS_LoadBalancers
+          - LoadBalancers
+      ServerGroupType: Instance
+      Protocol: TCP
+      ServerGroupName: TrialTutorial
+      Scheduler: Wrr
+      Servers:
+      - ServerType: Ecs
+        ServerId:
+          Fn::Select:
+          - 0
+          - Ref: EcsInstanceIds
+        Port: 80
+        Weight: 100
+      - ServerType: Ecs
+        ServerId:
+          Fn::Select:
+          - 1
+          - Ref: EcsInstanceIds
+        Port: 80
+        Weight: 100
+      HealthCheckConfig:
+        HttpCheckMethod: GET
+        HealthCheckType: Tcp
+        HealthCheckInterval: 10
+        UnhealthyThreshold: 2
+        HealthyThreshold: 2
+  Listener:
+    Type: ALIYUN::NLB::Listener
+    Properties:
+      ServerGroupId:
+        Ref: ServerGroup
+      LoadBalancerId:
+        Ref: LoadBalancerId
+      ListenerProtocol: TCP
+      ListenerPort: 80
+      Enable: true
+Outputs:
+  NlbDnsName:
+    Description:
+      en: DNS name of the NLB instance.
+      zh-cn: NLB实例的DNS名称。
+    Value:
+      Fn::Jq:
+      - First
+      - .[0].DNSName
+      - Fn::GetAtt:
+        - DS_LoadBalancers
+        - LoadBalancers
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - LoadBalancerId
+      - EcsInstanceIds
+    TemplateTags:
+    - acs:document:试用教程:实现IPv4服务的四层负载均衡

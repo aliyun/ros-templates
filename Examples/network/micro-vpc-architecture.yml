@@ -1,0 +1,275 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 'Alibaba Cloud ROS Sample Template: Micro-business VPC network architecture.
+    Create a VPC network and a subnet. ECS in sub-network access to international
+    network through the public IP.'
+  zh-cn: 阿里云资源编排示例模板： 微业务VPC网络体系结构。创建一个VPC网络和一个子网。子网中的ECS通过公共IP访问国际网络。
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      zh-cn: 交换机网段
+      en: VSwitch CIDR Block
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+    Default: 192.168.0.0/24
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      zh-cn: ECS实例类型，进入产品控制台确保当前实例可用, <font><a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b>查看实例类型</b></font color='blue'></a>
+      en: The ECS instance type,go to the product console to ensure the current instance
+        is available, <font><a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
+        target='_blank'><b>View instance types</b></font color='blue'></a>.
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+  ImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName: test_vpc_entry
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 50ef0a7e-c4a4-4670-be70-79e03c5bf13f
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName: test_vswitch
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d2780056-fb3b-44a0-9538-5d0176cbbbe2
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+        PortRange: 22/22
+        Priority: 1
+      SecurityGroupEgress:
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7d9770f4-5de4-4e8c-a04f-ee2e79042e14
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: false
+      IoOptimized: optimized
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_efficiency
+      MaxAmount: 1
+      InstanceType:
+        Ref: InstanceType
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a3402a87-86af-4bee-9c7e-931c4bc0aaf1
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: '1'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a41605ca-a7c7-48e5-b084-4a3757521d61
+  EipBind:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      AllocationId:
+        Fn::GetAtt:
+        - Eip
+        - AllocationId
+    DependsOn: EcsInstanceGroup
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 9d659901-2ae5-4729-9311-2a10a1a44e73
+Outputs:
+  EipAddress:
+    Description:
+      zh-cn: 已创建的EIP的IP地址。
+      en: IP address of created EIP.
+    Value:
+      Fn::GetAtt:
+      - Eip
+      - EipAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      Label:
+        default:
+          zh-cn: 专有网络
+          en: VPC
+    - Parameters:
+      - InstanceType
+      - ImageId
+      - Password
+      Label:
+        default:
+          zh-cn: 云服务器
+          en: ECS
+    TemplateTags:
+    - acs:example:网络:创建小微业务VPC网络架构
+  ALIYUN::ROS::Designer:
+    50ef0a7e-c4a4-4670-be70-79e03c5bf13f:
+      size:
+        width: 222
+        height: 287
+      position:
+        x: 179
+        y: 59
+      z: 0
+      embeds:
+      - d2780056-fb3b-44a0-9538-5d0176cbbbe2
+      - 7d9770f4-5de4-4e8c-a04f-ee2e79042e14
+    d2780056-fb3b-44a0-9538-5d0176cbbbe2:
+      size:
+        width: 167
+        height: 161
+      position:
+        x: 204
+        y: 82
+      z: 1
+      embeds:
+      - a3402a87-86af-4bee-9c7e-931c4bc0aaf1
+    7d9770f4-5de4-4e8c-a04f-ee2e79042e14:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 260
+        y: 260
+      z: 1
+    a3402a87-86af-4bee-9c7e-931c4bc0aaf1:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 260
+        y: 141
+      z: 2
+    a41605ca-a7c7-48e5-b084-4a3757521d61:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 433
+        y: 261
+      z: 0
+    9d659901-2ae5-4729-9311-2a10a1a44e73:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 433
+        y: 141
+      z: 0
+    c3bd1c25-c94c-4de0-928c-2ec0f331e242:
+      source:
+        id: a3402a87-86af-4bee-9c7e-931c4bc0aaf1
+      target:
+        id: 7d9770f4-5de4-4e8c-a04f-ee2e79042e14
+      z: 1
+    bf1643b5-83a5-4b51-a41a-aafed8942dc6:
+      source:
+        id: 9d659901-2ae5-4729-9311-2a10a1a44e73
+      target:
+        id: a41605ca-a7c7-48e5-b084-4a3757521d61
+      z: 1
+    96bfcd80-9546-4492-884e-e1e8c3ae0177:
+      source:
+        id: a3402a87-86af-4bee-9c7e-931c4bc0aaf1
+      target:
+        id: 9d659901-2ae5-4729-9311-2a10a1a44e73
+      z: 1

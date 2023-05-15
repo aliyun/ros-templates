@@ -1,0 +1,342 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Conditions:
+  IsAccountPasswordEmpty1:
+    Fn::Equals:
+    - Ref: AccountPassword
+    - ''
+  IsAccountPasswordEmpty2:
+    Fn::Equals:
+    - Ref: AccountPassword
+    - null
+  WillSetAccountPassword:
+    Fn::Not:
+      Fn::Or:
+      - IsAccountPasswordEmpty1
+      - IsAccountPasswordEmpty2
+Parameters:
+  InstanceId:
+    Type: String
+    Label:
+      en: Tair Instance ID
+      zh-cn: Tair实例ID
+    AssociationProperty: ALIYUN::Redis::Instance::InstanceId
+    AssociationPropertyMetadata:
+      EditionType: Enterprise
+  EcsInstanceId:
+    Type: String
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    Description:
+      en: The ECS instance that will access the Tair instance.
+      zh-cn: 要访问Tair实例的ECS实例。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+  AccountPassword:
+    Type: String
+    Label:
+      en: Instance Account Password
+      zh-cn: 实例账号密码
+    Description:
+      en: "If a password has been configured when creating a Tair instance, set this\
+        \ parameter to reset the password. <br>\nIf no password is configured when\
+        \ creating a Tair instance, you need to configure a password for the Tair\
+        \ instance here. <br>\nThe password must be 8 to 32 characters in length.\
+        \ <br>\nIt must contain at least three of the following character types: uppercase\
+        \ letters, lowercase letters, digits, and special characters. <br> \nSpecial\
+        \ characters include <span style=\"background:#E7E9EB;\"><b>!@#$%^&*()_+-=</b></span>."
+      zh-cn: |-
+        如果创建Tair实例时已配置密码，设置该参数为重置密码。 <br>
+        如果创建Tair实例时未配置密码，此处需要为Tair实例配置密码。 <br>
+        长度为8~32位，需包含大写字母、小写字母、特殊字符和数字中的至少三种，允许的特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>。
+    Default: ''
+    AllowedPattern: ^(?=.*[a-zA-Z])(?=.*[a-z0-9])(?=.*[a-z!@#$%^&*()_+=-])(?=.*[A-Z0-9])(?=.*[A-Z!@#$%^&*()_+=-])(?=.*[0-9!@#$%^&*()_+=-])[a-zA-Z0-9!@#$%^&*()_+=-]{8,32}$|^$
+    NoEcho: true
+    Confirm: true
+Resources:
+  EcsInstanceData:
+    Type: DATASOURCE::ECS::Instances
+    Properties:
+      InstanceIds:
+      - Ref: EcsInstanceId
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 1230
+      Count: 1
+  InstallWebServer:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Ref: EcsInstanceId
+      Type: RunShellScript
+      Sync: true
+      Timeout: 1200
+      CommandContent:
+        Fn::Sub:
+        - |-
+          #!/bin/bash
+          echo "#########################"
+          echo "# Install Redis Client"
+          echo "#########################"
+          cd ~
+          if [ -f "redis-${redis_version}/src/redis-cli" ]; then
+            redis-${redis_version}/src/redis-cli -v
+            if [ $? -ne 0 ]; then
+              rm -f redis-${redis_version}.tar.gz
+              rm -rf redis-${redis_version}
+            else
+              ${ros_notify} --data-binary "{\"status\": \"SUCCESS\", \"data\": \"`pwd`/redis-${redis_version}/src/redis-cli\"}"
+              exit 0
+            fi
+          fi
+          ping download.redis.io -w 5 | grep "0 received"
+          if [ $? -eq 0 ]; then
+            ${ros_notify} --data-binary '{"status": "FAILURE", "reason": "unable to connect to download.redis.io"}'
+            exit 0
+          fi
+          wget https://download.redis.io/releases/redis-${redis_version}.tar.gz
+          if [ $? -ne 0 ]; then
+            ${ros_notify} --data-binary '{"status": "FAILURE", "reason": "fail to download redis-${redis_version}.tar.gz"}'
+            exit 0
+          fi
+          tar xzf redis-${redis_version}.tar.gz
+          cd redis-${redis_version}
+          make
+          src/redis-cli -v
+          if [ $? -ne 0 ]; then
+            ${ros_notify} --data-binary '{"status": "FAILURE", "reason": "fail to install redis client"}'
+            exit 0
+          fi
+          ${ros_notify} --data-binary "{\"status\": \"SUCCESS\", \"data\": \"`pwd`/src/redis-cli\"}"
+        - ros_notify:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+          redis_version: 6.0.9
+  Whitelist:
+    Type: ALIYUN::REDIS::Whitelist
+    Properties:
+      InstanceId:
+        Ref: InstanceId
+      SecurityIps:
+        Fn::Join:
+        - ','
+        - Fn::Jq:
+          - All
+          - .[] | .PrivateIpAddress[]
+          - Fn::GetAtt:
+            - EcsInstanceData
+            - Instances
+      SecurityIpGroupName:
+        Fn::Sub:
+        - ros_${suffix}
+        - suffix:
+            Fn::Select:
+            - '0'
+            - Fn::Split:
+              - '-'
+              - Ref: ALIYUN::StackId
+  Template:
+    Type: ALIYUN::OOS::Template
+    Properties:
+      Content: |-
+        FormatVersion: OOS-2019-06-01
+        Parameters:
+          InstanceId:
+            Type: String
+        Tasks:
+          - Name: DescribeBackupPolicy
+            Action: ACS::ExecuteAPI
+            Properties:
+              Service: R-kvstore
+              API: DescribeBackupPolicy
+              Parameters:
+                RegionId: '{{ ACS::RegionId }}'
+                InstanceId: '{{ InstanceId }}'
+            Outputs:
+              PreferredBackupTime:
+                ValueSelector: .PreferredBackupTime
+                Type: String
+              PreferredBackupPeriod:
+                ValueSelector: .PreferredBackupPeriod
+                Type: String
+              EnableBackupLog:
+                ValueSelector: .EnableBackupLog
+                Type: Number
+          - Name: Branch
+            Action: 'ACS::Choice'
+            Properties:
+              DefaultTask: ACS::END
+              Choices:
+                - When:
+                    'Fn::Equals':
+                      - 0
+                      - '{{ DescribeBackupPolicy.EnableBackupLog }}'
+                  NextTask: ModifyBackupPolicy
+          - Name: ModifyBackupPolicy
+            Action: ACS::ExecuteAPI
+            Properties:
+              Service: R-kvstore
+              API: ModifyBackupPolicy
+              Parameters:
+                RegionId: '{{ ACS::RegionId }}'
+                InstanceId: '{{ InstanceId }}'
+                PreferredBackupTime: '{{ DescribeBackupPolicy.PreferredBackupTime }}'
+                PreferredBackupPeriod: '{{ DescribeBackupPolicy.PreferredBackupPeriod }}'
+                EnableBackupLog: 1
+      TemplateName:
+        Fn::Sub: trial-enable-backup-log-${ALIYUN::StackId}
+  Execution:
+    Type: ALIYUN::OOS::Execution
+    Properties:
+      TemplateName:
+        Ref: Template
+      Parameters:
+        InstanceId:
+          Ref: InstanceId
+  ResourceCleaner:
+    Type: ALIYUN::ROS::ResourceCleaner
+    Properties:
+      Action: Scan+CleanUp
+      Resources:
+      - ResourceId:
+          Ref: Execution
+        ResourceType: OOS:Execution
+        RegionId:
+          Ref: ALIYUN::Region
+      - ResourceId:
+          Ref: Template
+        ResourceType: OOS:Template
+        RegionId:
+          Ref: ALIYUN::Region
+      CleanUpTimeout: 120
+  InstanceData:
+    Type: DATASOURCE::REDIS::Instances
+    Properties:
+      InstanceIds:
+        Fn::Join:
+        - ','
+        - - Ref: InstanceId
+  TemplateForPassword:
+    Type: ALIYUN::OOS::Template
+    Condition: WillSetAccountPassword
+    Properties:
+      Content: |-
+        FormatVersion: OOS-2019-06-01
+        Parameters:
+          InstanceId:
+            Type: String
+          AccountPassword:
+            Type: String
+        Tasks:
+          - Name: ModifyRedisPassword
+            Action: ACS::ExecuteAPI
+            Properties:
+              Service: R-kvstore
+              API: ResetAccountPassword
+              Parameters:
+                RegionId: '{{ ACS::RegionId }}'
+                InstanceId: '{{ InstanceId }}'
+                AccountName: '{{ InstanceId }}'
+                AccountPassword: '{{ AccountPassword }}'
+      TemplateName:
+        Fn::Sub: trial-modify-tair-pwd-${ALIYUN::StackId}
+  ExecutionForPassword:
+    Type: ALIYUN::OOS::Execution
+    Condition: WillSetAccountPassword
+    Properties:
+      TemplateName:
+        Ref: TemplateForPassword
+      Parameters:
+        InstanceId:
+          Ref: InstanceId
+        AccountPassword:
+          Ref: AccountPassword
+  ResourceCleanerForPassword:
+    Type: ALIYUN::ROS::ResourceCleaner
+    Condition: WillSetAccountPassword
+    Properties:
+      Action: Scan+CleanUp
+      Resources:
+      - ResourceId:
+          Ref: ExecutionForPassword
+        ResourceType: OOS:Execution
+        RegionId:
+          Ref: ALIYUN::Region
+      - ResourceId:
+          Ref: TemplateForPassword
+        ResourceType: OOS:Template
+        RegionId:
+          Ref: ALIYUN::Region
+      CleanUpTimeout: 120
+Outputs:
+  ConsoleURL:
+    Description:
+      en: "Console URL for data flashback. \nPlease confirm in the console, after\
+        \ the \"Start Flashbacking\" button can be clicked, continue to step 5."
+      zh-cn: |-
+        数据闪回控制台地址。
+        请在控制台进行确认，待马上闪回按钮可以单击后，继续步骤五。
+    Value:
+      Fn::Sub:
+      - <a href="https://kvstore.console.aliyun.com/Redis/instance/${ALIYUN::Region}/${InstanceId}/Normal/VPC/${InstanceClass}/backupRestore"
+        target="_blank">https://kvstore.console.aliyun.com/Redis/instance/${ALIYUN::Region}/${InstanceId}/Normal/VPC/${InstanceClass}/backupRestore</a>
+      - InstanceClass:
+          Fn::Jq:
+          - First
+          - .[] | .InstanceClass
+          - Fn::GetAtt:
+            - InstanceData
+            - Instances
+  LoginCLI:
+    Description:
+      en: |-
+        The command line that is used to login Tair.
+        Please continue to step 5.
+      zh-cn: |-
+        登录Tair的命令行。
+        请继续步骤五。
+    Value:
+      Fn::Sub:
+      - ${redis_cli} -h ${host} -p ${port}
+      - redis_cli:
+          Fn::Jq:
+          - First
+          - .[]
+          - Fn::GetAtt:
+            - WaitCondition
+            - Data
+        host:
+          Fn::Jq:
+          - First
+          - .[] | .ConnectionDomain
+          - Fn::GetAtt:
+            - InstanceData
+            - Instances
+        port:
+          Fn::Jq:
+          - First
+          - .[] | .Port
+          - Fn::GetAtt:
+            - InstanceData
+            - Instances
+  AccountName:
+    Description:
+      en: Instance Account.
+      zh-cn: 实例账号。
+    Value:
+      Ref: InstanceId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - InstanceId
+      - EcsInstanceId
+      - AccountPassword
+    TemplateTags:
+    - acs:document:试用教程:Tair通过数据闪回恢复数据

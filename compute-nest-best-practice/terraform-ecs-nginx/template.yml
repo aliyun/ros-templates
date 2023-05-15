@@ -1,0 +1,292 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.1
+Parameters:
+  pay_type:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  pay_period_unit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${pay_type}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  pay_period:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Or:
+          - Fn::Equals:
+            - ${pay_type}
+            - PrePaid
+          - Fn::Equals:
+            - ${pay_type}
+            - undefined
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+  zone_id:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>notex：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  vpc_id:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private
+        Cloud
+      zh-cn: 现有虚拟专有网络的实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  vswitch_id:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private
+        Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${vpc_id}
+      ZoneId: ${zone_id}
+  instance_type:
+    Type: String
+    Label: 实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: ${pay_type}
+      ZoneId: ${zone_id}
+    Default: ecs.g6.large
+  instance_password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 登录密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - pay_type
+      - pay_period_unit
+      - pay_period
+      Label:
+        default:
+          en: Payment mode Configuration
+          zh-cn: 付费模式配置
+    - Parameters:
+      - zone_id
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - vpc_id
+      - vswitch_id
+      Label:
+        default:
+          zh-cn: 选择已有基础资源配置
+          en: Choose existing Infrastructure Configuration
+    - Parameters:
+      - instance_type
+      - instance_password
+      Label:
+        default:
+          en: Instance
+          zh-cn: ECS实例配置
+    ResourcesForParameterConstraints:
+      instance:
+        Type: ALIYUN::ECS::InstanceGroup
+        Properties:
+          InstanceType:
+            Ref: instance_type
+          ImageId: centos_7_9_x64_20G_alibase_20210318.vhd
+          VSwitchId:
+            Ref: vswitch_id
+          ZoneId:
+            Ref: zone_id
+          SystemDiskCategory: cloud_essd
+          SystemDiskSize: 500
+Workspace:
+  main.tf: |-
+    provider "alicloud" {
+    }
+
+    variable "pay_type" {
+    }
+
+    variable "pay_period_unit" {
+    }
+
+    variable "pay_period" {
+    }
+
+    variable "zone_id" {
+    }
+
+    variable "instance_type" {
+    }
+
+    variable "vpc_id" {
+    }
+
+    variable "vswitch_id" {
+    }
+
+    variable "instance_password" {
+    }
+
+    # 默认资源名称。
+    locals {
+      production_name = "nginx"
+      new_scg_name = "sg-for-${local.production_name}"
+      new_host_name = "app-for-${local.production_name}"
+    }
+
+    # 安全组基本信息配置
+    resource "alicloud_security_group" "default" {
+      name        = local.new_scg_name
+      description = "nginx scg"
+      vpc_id =  var.vpc_id
+    }
+
+    # 安全组入口端1
+    resource "alicloud_security_group_rule" "allow_ssh" {
+      security_group_id = "${alicloud_security_group.default.id}"
+      type = "ingress"
+      cidr_ip= "0.0.0.0/0"
+      policy = "accept"
+      ip_protocol= "tcp"
+      port_range= "22/22"
+      priority= 1
+    }
+
+    # 安全组入口端2
+    resource "alicloud_security_group_rule" "allow_web" {
+      security_group_id = "${alicloud_security_group.default.id}"
+      type = "ingress"
+      cidr_ip= "0.0.0.0/0"
+      policy = "accept"
+      ip_protocol= "tcp"
+      port_range= "80/443"
+      priority= 1
+    }
+
+    # 安全组出口端
+    resource "alicloud_security_group_rule" "allow_egress" {
+      security_group_id = "${alicloud_security_group.default.id}"
+      type = "egress"
+      cidr_ip= "0.0.0.0/0"
+      policy = "accept"
+      ip_protocol= "tcp"
+      port_range= "1/65535"
+      priority= 1
+    }
+
+    # 实例基本配置
+    resource "alicloud_instance" "instance" {
+      availability_zone = var.zone_id
+      security_groups = [alicloud_security_group.default.id]
+      # series III
+      host_name = local.new_host_name
+      instance_type              = var.instance_type
+      system_disk_size           = 500
+      system_disk_category       = "cloud_essd"
+      image_id                   = "centos_7_9_x64_20G_alibase_20210318.vhd"
+      vswitch_id                 = var.vswitch_id
+      password                   = var.instance_password
+      internet_charge_type = "PayByTraffic"
+      internet_max_bandwidth_out = 30
+      instance_charge_type = var.pay_type
+      period = var.pay_period
+      period_unit = var.pay_period_unit
+      user_data = file("${path.cwd}/user-data.sh")
+      data_disks {
+        size        = 100
+        category    = "cloud_essd"
+      }
+    }
+    # 返回nginx的ip地址
+    output "nginx_ip" {
+      value= "http://${alicloud_instance.instance.public_ip}:8080"
+    }
+  user-data.sh: |-
+    #!/bin/bash -v
+    # 挂盘到/disk1
+    cat >> /root/InitDataDisk.sh << "EOF"
+    #!/bin/bash
+    echo "p
+    n
+    p
+
+
+
+    w
+    " |  fdisk -u /dev/vdb
+    EOF
+    /bin/bash /root/InitDataDisk.sh
+    rm -f /root/InitDataDisk.sh
+    mkfs -t ext4 /dev/vdb1
+    cp /etc/fstab /etc/fstab.bak
+    mkdir /disk1
+    echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /disk1 ext4 defaults 0 0 >> /etc/fstab
+    mount -a
+    # 这里配置安装脚本
+    yum install -y nginx
+    # 配置启动脚本
+    /usr/sbin/nginx

@@ -1,0 +1,233 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates ECS instance and installs TensorFlow
+Conditions:
+  gpu_disable:
+    Fn::Equals:
+    - None
+    - Ref: GPUNodeZoneId
+Parameters:
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: ubuntu_16
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: Select CPU or GPU type.'ecs.gn5-c8g1.2xlarge' is General purpose
+      gpu computing.
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+    - ecs.gn5-c8g1.2xlarge
+  LoginPassword:
+    Type: String
+    Label: ECS Login Password
+    Description: ECS Login Password
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    MinLength: 8
+    MaxLength: 41
+    NoEcho: true
+    Confirm: true
+  PublicIP:
+    Type: Boolean
+    Label: Allocate Public IP or Not
+    Description: Allocate Public IP or Not
+    Default: false
+  NumOfNodes:
+    Type: Number
+    Label: Number of Nodes
+    Description: The number of ECS instances will be created.
+    Default: '1'
+  GPUNodeZoneId:
+    Type: String
+    Label: Zone of GPU Node
+    Description: Specify zone Id that provides the GPU instance while InstanceType
+      is specified the GPU type.
+    Default: None
+Resources:
+  vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: tensorflow_vpc
+  vswitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Fn::If:
+        - gpu_disable
+        - Fn::Select:
+          - '0'
+          - Fn::GetAZs:
+              Ref: ALIYUN::Region
+        - Ref: GPUNodeZoneId
+      VpcId:
+        Ref: vpc
+      VSwitchName: tensorflow_vswitch
+      CidrBlock: 192.168.0.0/16
+  tensorflow_nodes_cloudinit_wait_cond_handle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  tensorflow_nodes_cloudinit_wait_cond:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 1800
+      Count:
+        Ref: NumOfNodes
+      Handle:
+        Ref: tensorflow_nodes_cloudinit_wait_cond_handle
+  sg:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: vpc
+      SecurityGroupName: tensorflow_sg
+      SecurityGroupIngress:
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: 6006/6006
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      SecurityGroupEgress:
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  tensorflow_nodes:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: vpc
+      VSwitchId:
+        Ref: vswitch
+      SecurityGroupId:
+        Ref: sg
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP:
+        Ref: PublicIP
+      InstanceType:
+        Ref: InstanceType
+      Password:
+        Ref: LoginPassword
+      InternetMaxBandwidthOut: 50
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - tensorflow_nodes_cloudinit_wait_cond_handle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh
+
+              '
+            - gpu_enable=
+            - Fn::If:
+              - gpu_disable
+              - 'no'
+              - 'yes'
+            - '
+
+              '
+            - 'apt-get install -y python-pip python-dev
+
+              '
+            - 'pip install tensorflow
+
+              '
+            - 'if [ $gpu_enable = ''yes'' ]; then
+
+              '
+            - '    pip install tensorflow-gpu
+
+              '
+            - '    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_8.0.61-1_amd64.deb
+
+              '
+            - '    dpkg -i cuda-repo-ubuntu1604_8.0.61-1_amd64.deb
+
+              '
+            - '    apt-get install -y libgd3
+
+              '
+            - '    apt-get update --fix-missing
+
+              '
+            - '    apt-get install -y cuda
+
+              '
+            - '    echo "deb http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64
+              /" > /etc/apt/sources.list.d/nvidia-ml.list
+
+              '
+            - '    apt-get update
+
+              '
+            - '    apt-get install -y --no-install-recommends libcudnn7=7.0.1.13-1+cuda8.0
+
+              '
+            - '    apt-get install -y --no-install-recommends libcudnn7-dev=7.0.1.13-1+cuda8.0
+
+              '
+            - '    cd /usr/local/cuda/lib64
+
+              '
+            - '    ln -s /usr/lib/x86_64-linux-gnu/libcudnn.so.7.0.1 libcudnn.so
+
+              '
+            - '    ln -s /usr/lib/x86_64-linux-gnu/libcudnn.so.7.0.1 libcudnn.so.6
+
+              '
+            - '    cp /usr/lib/x86_64-linux-gnu/libcudnn_static_v7.a .
+
+              '
+            - '    cd -
+
+              '
+            - '    echo export CUDA_HOME=/usr/local/cuda > /root/.bash_profile
+
+              '
+            - '    echo ''export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$CUDA_HOME/lib64:/usr/local/cuda/extras/CUPTI/lib64"''
+              >> /root/.bash_profile
+
+              '
+            - '    echo ''export PATH="$CUDA_HOME/bin:$PATH"'' >>  /root/.bash_profile
+
+              '
+            - '    source /root/.bash_profile
+
+              '
+            - '    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64"
+
+              '
+            - "    export CUDA_HOME=/usr/local/cuda \n"
+            - 'fi
+
+              '
+            - 'tensorboard --logdir=/tmp/tf_logs &
+
+              '
+            - "ros-notify \n"
+      MaxAmount:
+        Ref: NumOfNodes
+      MinAmount:
+        Ref: NumOfNodes
+Outputs:
+  tensorflow_nodes_ips:
+    Description: Public IP address list of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - tensorflow_nodes
+      - PublicIps

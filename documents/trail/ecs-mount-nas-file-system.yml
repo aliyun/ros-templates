@@ -1,0 +1,134 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Conditions:
+  CreateNas:
+    Fn::Equals:
+    - Ref: CreateNasFileSystem
+    - true
+Parameters:
+  EcsInstanceId:
+    Type: String
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    Description:
+      en: An ECS instance used to mount NAS file system.
+      zh-cn: 用于挂载NAS文件系统的ECS实例。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+  MountPath:
+    Type: String
+    Label:
+      en: Mount Path
+      zh-cn: 挂载路径
+    Description:
+      en: The local path on the ECS where the file system is to be mounted. Use the
+        Linux absolute path that starts with "/". Please make sure the mount path
+        is not occupied.
+      zh-cn: ECS上待挂载的本地路径，请使用"/"开头的Linux绝对路径, 请确保挂载路径未被占用。
+    Default: /mnt
+  CreateNasFileSystem:
+    Type: Boolean
+    Label:
+      en: Whether to automatically create a general performance NAS file system
+      zh-cn: 是否自动创建通用性能型NAS文件系统
+    Description:
+      en: If you choose to create automatically, the NAS file system will be automatically
+        created under the virtual switch where the ECS is located, <font color='red'><b>Please
+        ensure that the selected ECS and the trial NAS resource package are in the
+        same region</b>.
+      zh-cn: 如果选择自动创建, 将自动在 ECS 所在的虚拟交换机下创建 NAS 文件系统, <font color='red'><b>请确保选择的ECS和试用的NAS资源包在同一个地域下</b>。
+    Default: true
+  NasFileSystemId:
+    Type: String
+    Label:
+      en: Existing file system ID
+      zh-cn: 已有文件系统ID
+    Description:
+      en: Enter the existing file system Id, please ensure that the file system and
+        ECS are under the same VPC.
+      zh-cn: 输入已有文件系统Id, 请确保文件系统与 ECS 处于同一个 VPC 下。
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${CreateNasFileSystem}
+            - true
+    Default: null
+Resources:
+  DS_Instances:
+    Type: DATASOURCE::ECS::Instances
+    Properties:
+      InstanceIds:
+      - Ref: EcsInstanceId
+  NasFileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Condition: CreateNas
+    Properties:
+      VpcId:
+        Fn::Jq:
+        - First
+        - .[0].VpcId
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+      VSwitchId:
+        Fn::Jq:
+        - First
+        - .[0].VswitchId
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+      StorageType: Performance
+      FileSystemType: standard
+      ProtocolType: NFS
+  NasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
+      VpcId:
+        Fn::Jq:
+        - First
+        - .[0].VpcId
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+      VSwitchId:
+        Fn::Jq:
+        - First
+        - .[0].VswitchId
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+      Status: Active
+      FileSystemId:
+        Fn::If:
+        - CreateNas
+        - Ref: NasFileSystem
+        - Ref: NasFileSystemId
+      NetworkType: Vpc
+      AccessGroupName: DEFAULT_VPC_GROUP_NAME
+  MountToEcs:
+    Type: ALIYUN::ECS::Invocation
+    Properties:
+      InstanceIds:
+      - Ref: EcsInstanceId
+      CommandName: ACS-NAS-ClickMount-Mount-Linux-NFS.sh
+      Parameters:
+        ecslocalpath:
+          Ref: MountPath
+        automountonboot: true
+        mountparam: vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport
+        mounttargetdomain:
+          Fn::GetAtt:
+          - NasMountTarget
+          - MountTargetDomain
+        protocoltype: NFSv3
+        nasremotepath: /
+      Sync: true
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - EcsInstanceId
+      - MountPath
+    TemplateTags:
+    - acs:document:试用教程:NAS挂载到ECS

@@ -1,0 +1,493 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 容器应用DevOps for ACK集群
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font></font><br><font
+        color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font></font><br><font
+        color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 192.168.0.0/16
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        RDS and CS resources</font></b>
+      zh-cn: 可用区ID，<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建RDS及CS资源的规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 192.168.0.0/24
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: Type And Version
+      zh-cn: 类型与版本号
+    Description:
+      en: Database type and version number.
+      zh-cn: 数据库类型与版本号。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.5
+    - MySQL-5.6
+    - MySQL-5.7
+    - MySQL-8.0
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html'
+        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
+      en: 'Select the instance specification based on the type of database engine
+        and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.htm''
+        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+    Default: rds.mysql.s3.large
+    AllowedValues:
+    - rds.mysql.s2.large
+    - rds.mysql.s2.xlarge
+    - rds.mysql.s3.large
+    - rds.mysql.m1.medium
+    - rds.mysql.c1.large
+    - rds.mysql.c1.xlarge
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: Storage Space
+      zh-cn: 存储空间
+    Description:
+      en: 'Database storage space, units: GB, per 5GB increment, value range: 5-1000.'
+      zh-cn: 数据库存储空间, 单位：GB, 每5GB进行递增，取值范围：5-1000。
+    Default: 5
+    MinValue: 5
+    MaxValue: 1000
+  DBInstanceDBName:
+    Type: String
+    Label:
+      en: Database Name
+      zh-cn: 数据库名称
+    Description:
+      en: The database name created by the instance, consisting of lowercase letters,
+        numbers, underscores, and middle lines, beginning with letters, ending with
+        letters or numbers, up to 64 characters.
+      zh-cn: 实例创建的数据库名称，由小写字母、数字、下划线、中划线组成，以字母开头，字母或数字结尾，最多64个字符。
+    Default: devops
+  DBInstanceMasterUsername:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库账号
+    Description:
+      en: Database read-write account with a maximum of 16 characters, consisting
+        of lowercase letters, Numbers, underscores, beginning letters, and ending
+        letters or Numbers.
+      zh-cn: 数据库可读写的账号，最长16个字符, 由小写字母，数字、下划线组成、字母开头，字母或数字结尾。
+    Default: devops_ack
+    MaxLength: 16
+  DBInstanceMasterUserPassword:
+    Type: String
+    Label:
+      en: Account Password
+      zh-cn: 账号密码
+    Description:
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    ConstraintDescription:
+      en: '8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  ManagedKubernetesClusterName:
+    Type: String
+    Label:
+      en: Cluster Name
+      zh-cn: 集群名称
+    Description:
+      zh-cn: 名称为1-63个字符，可包含数字、汉字、英文字符，或'-'
+      en: The name must be 1 to 63 characters in length and can contain digits, Chinese
+        characters, letters, and hyphens (-).
+    Default: devops_cluster
+  ManagedKubernetesClusterKubernetesVersion:
+    Type: String
+    Label:
+      en: Kubernetes Version
+      zh-cn: Kubernetes版本
+    Description:
+      en: Kubernetes Version
+      zh-cn: Kubernetes版本
+    Default: 1.12.6-aliyun.1
+    AllowedValues:
+    - 1.14.8-aliyun.1
+    - 1.12.6-aliyun.1
+  ManagedKubernetesClusterInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    MinLength: 1
+  ManagedKubernetesClusterNumOfNodes:
+    Type: Number
+    Label:
+      en: Quantity
+      zh-cn: 数量
+    Description:
+      en: Number of nodes, range 2-200
+      zh-cn: 节点数量，范围2-200
+    Default: 3
+    MinValue: 2
+    MaxValue: 200
+  ManagedKubernetesClusterSystemDiskCategory:
+    Type: String
+    Label:
+      en: Disk Category
+      zh-cn: 磁盘类型
+    Description:
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]'
+      en: '<font color=''blue''><b>Optional values: </b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+  ManagedKubernetesClusterSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 120
+    MinValue: 40
+    MaxValue: 500
+  ManagedKubernetesClusterPassword:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  ManagedKubernetesClusterSnatEntry:
+    Type: Boolean
+    Label:
+      en: Configure SNAT
+      zh-cn: 配置SNAT
+    Description:
+      en: Configure SNAT for VPC
+      zh-cn: 为专有网络配置SNAT
+    Default: true
+  ManagedKubernetesClusterEndpointPublicAccess:
+    Type: Boolean
+    Label:
+      en: Public Access
+      zh-cn: 公网访问
+    Description:
+      en: Expose API Server with EIP
+      zh-cn: 使用 EIP 暴露API Server
+    Default: true
+  ManagedKubernetesClusterCloudMonitorFlags:
+    Type: Boolean
+    Label:
+      en: CloudMonitor Agent
+      zh-cn: 云监控插件
+    Description:
+      en: Install the CloudMonitor Agent on ECS Nodes
+      zh-cn: 在 ECS 节点上安装云监控插件
+    Default: true
+  CrNamespaceName:
+    Type: String
+    Label:
+      en: Namespaces
+      zh-cn: 命名空间
+    Description:
+      en: The namespace must be 2-30 characters long and can contain lowercase English
+        letters numbers and the separators _ and - (separators cannot be the first
+        or last character)<br><b>note：<font color='blue'>Requires network-wide uniqueness,
+        existing cannot be created</b></font>
+      zh-cn: 长度为2-30位，可填写小写英文字母、数字，可使用的分隔符包括“_”、“-”（分隔符不能在首位或末位），<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建</b></font>
+    Default: my_devops_namespace_practice
+  RepositoryRepoType:
+    Type: String
+    Label:
+      en: Repository Type
+      zh-cn: 仓库类型
+    Description:
+      en: Repository Type
+      zh-cn: 仓库类型
+    Default: PRIVATE
+    AllowedValues:
+    - PUBLIC
+    - PRIVATE
+  RepositoryRepoName:
+    Type: String
+    Label:
+      en: Repository Name
+      zh-cn: 仓库名称
+    Description:
+      en: 'Repository name length: 2-64 characters. The name can contain lowercase
+        English letters numbers and the separators _ - and . (separators cannot be
+        the first or last character)'
+      zh-cn: 长度为2-64个字符，可使用小写英文字母、数字，可使用分隔符“_”、“-”、“.”（分隔符不能在首位或末位）
+    Default: devops_repository
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupIngress:
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      Tags:
+      - Value: '052'
+        Key: best_practice
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  CsManagedKubernetesCluster:
+    Type: ALIYUN::CS::ManagedKubernetesCluster
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchIds:
+      - Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      CloudMonitorFlags:
+        Ref: ManagedKubernetesClusterCloudMonitorFlags
+      SnatEntry:
+        Ref: ManagedKubernetesClusterSnatEntry
+      WorkerSystemDiskCategory:
+        Ref: ManagedKubernetesClusterSystemDiskCategory
+      Tags:
+      - Key: best_practice
+        Value: '052'
+      WorkerInstanceTypes:
+        Fn::Split:
+        - ','
+        - Ref: ManagedKubernetesClusterInstanceType
+      LoginPassword:
+        Ref: ManagedKubernetesClusterPassword
+      ContainerCidr: 172.20.0.0/16
+      NumOfNodes:
+        Ref: ManagedKubernetesClusterNumOfNodes
+      Name:
+        Ref: ManagedKubernetesClusterName
+      Addons:
+      - Name: flannel
+      DisableRollback: false
+      ServiceCidr: 172.21.0.0/20
+      KubernetesVersion:
+        Ref: ManagedKubernetesClusterKubernetesVersion
+      EndpointPublicAccess:
+        Ref: ManagedKubernetesClusterEndpointPublicAccess
+      WorkerSystemDiskSize:
+        Ref: ManagedKubernetesClusterSystemDiskSize
+  RdsDbInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList:
+        Ref: VpcCidrBlock
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBMappings:
+      - CharacterSetName: utf8
+        DBName:
+          Ref: DBInstanceDBName
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      Tags:
+        Key: best_practice
+        Value: '052'
+      MasterUserType: Normal
+      MasterUsername:
+        Ref: DBInstanceMasterUsername
+      MasterUserPassword:
+        Ref: DBInstanceMasterUserPassword
+    DependsOn:
+    - EcsVSwitch
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RdsDbInstance
+      DBName:
+        Ref: DBInstanceDBName
+      AccountName:
+        Ref: DBInstanceMasterUsername
+    DependsOn:
+    - RdsDbInstance
+  CrNamespace:
+    Type: ALIYUN::CR::Namespace
+    Properties:
+      Namespace:
+        Ref: CrNamespaceName
+  CrRepository:
+    Type: ALIYUN::CR::Repository
+    Properties:
+      RepoNamespace:
+        Ref: CrNamespaceName
+      Summary: test cr repository
+      RepoType:
+        Ref: RepositoryRepoType
+      RepoName:
+        Ref: RepositoryRepoName
+    DependsOn:
+    - CrNamespace
+Outputs:
+  ACKClusterId:
+    Value:
+      Fn::GetAtt:
+      - CsManagedKubernetesCluster
+      - ClusterId
+  RDSInstanceId:
+    Value:
+      Fn::GetAtt:
+      - RdsDbInstance
+      - DBInstanceId
+  RDSInnerConnectionString:
+    Value:
+      Fn::GetAtt:
+      - RdsDbInstance
+      - InnerConnectionString
+  CRNamespaceId:
+    Value:
+      Fn::GetAtt:
+      - CrNamespace
+      - NamespaceId
+  CRRepoId:
+    Value:
+      Fn::GetAtt:
+      - CrRepository
+      - RepoId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchZoneId
+      - VSwitchCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - DBInstanceEngineAndVersion
+      - DBInstanceClass
+      - DBInstanceStorage
+      - DBInstanceDBName
+      - DBInstanceMasterUsername
+      - DBInstanceMasterUserPassword
+      Label:
+        default: RDS
+    - Parameters:
+      - ManagedKubernetesClusterName
+      - ManagedKubernetesClusterKubernetesVersion
+      - ManagedKubernetesClusterInstanceType
+      - ManagedKubernetesClusterNumOfNodes
+      - ManagedKubernetesClusterSystemDiskCategory
+      - ManagedKubernetesClusterSystemDiskSize
+      - ManagedKubernetesClusterPassword
+      - ManagedKubernetesClusterSnatEntry
+      - ManagedKubernetesClusterEndpointPublicAccess
+      - ManagedKubernetesClusterCloudMonitorFlags
+      Label:
+        default: CS
+    - Parameters:
+      - CrNamespaceName
+      - RepositoryRepoType
+      - RepositoryRepoName
+      Label:
+        default: CR
+    TemplateTags:
+    - acs:solution:开发运维:容器应用DevOpsforACK集群

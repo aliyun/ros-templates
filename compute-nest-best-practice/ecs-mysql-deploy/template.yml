@@ -1,0 +1,291 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Available Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  Password:
+    Type: String
+    Label:
+      en: Root Account Password
+      zh-cn: 数据库root账户密码
+    Description:
+      en: 'Database root account password, 8-32 characters, including uppercase and
+        lowercase letters, numbers and special symbols (including: !@#$%^&*-+=_).'
+      zh-cn: 数据库root账户密码，长度8-32个字符，可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    ConstraintDescription:
+      en: '8-32 characters, including uppercase and lowercase letters, numbers and
+        special symbols (including: !@#$%^&*-+=_)'
+      zh-cn: 8-32个字符，可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\!\@\#\$\%\^\&\*\-\+\=\_]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: Ecs实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  DataDiskCategory:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 数据盘类型
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+  DataDiskSize:
+    Type: Number
+    Label:
+      en: Data Disk Space
+      zh-cn: 数据盘空间
+    Default: 40
+    MinValue: 20
+    MaxValue: 500
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+Resources:
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 1800
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      SecurityGroupIngress:
+      - Priority: 1
+        PortRange: 3306/3306
+        NicType: intranet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7_9_x64_20G_alibase_20220727.vhd
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - mysql
+          - Ref: ALIYUN::StackName
+      IoOptimized: optimized
+      DiskMappings:
+      - Category:
+          Ref: DataDiskCategory
+        Device: /dev/xvdb
+        Size:
+          Ref: DataDiskSize
+      SystemDiskSize: 40
+      UserData:
+        Fn::Sub:
+        - |
+          #!/bin/sh
+
+          # sleep一段时间确保网络就绪
+          sleep 10
+
+          # 对数据盘进行分区
+          cat >> /root/InitDataDisk.sh << "EOF"
+          #!/bin/bash
+          echo "p
+          n
+          p
+
+
+
+          w
+          " |  fdisk -u /dev/vdb
+          EOF
+          /bin/bash /root/InitDataDisk.sh
+          rm -f /root/InitDataDisk.sh
+          # 在新分区上创建文件系统
+          mkfs.ext4 /dev/vdb1
+          # 创建目录，MySQL将安装在该目录下
+          mkdir /data1
+          # 挂载文件系统
+          mount /dev/vdb1 /data1
+          # 向 /etc/fstab 写入新分区信息
+          echo /dev/vdb1 /data1 ext4 defaults,nodelalloc,noatime 0 2 >> /etc/fstab
+          cd /data1/
+
+          # 安装社区版MySQL
+          wget http://repo.mysql.com/mysql-community-release-el6-5.noarch.rpm
+          rpm -ivh mysql-community-release-el6-5.noarch.rpm
+          yum repolist all | grep mysql
+          yum install mysql-community-server -y
+
+          # 启动MySQL服务
+          service mysqld start
+
+          # 以超级用户身份登入，创建admin用户，并允许admin用户以Password为密码远程登录
+          mysqladmin -u root password '${Password}'
+          echo "create database test character set utf8 collate utf8_bin;" > ./test.sql
+          echo "CREATE USER 'admin'@'%' IDENTIFIED BY '${Password}';" >> ./test.sql
+          echo "GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' WITH GRANT OPTION;" >> ./test.sql
+          mysql -u root -p'${Password}' < ./test.sql
+
+          # 将MySQL的配置和数据路径移动到数据盘上
+          systemctl stop mysqld
+          rsync -av /var/lib/mysql /data1
+          # 修改配置文件
+          sed -i 's/\/var\/lib/\/data1/g' /etc/my.cnf
+          echo -e '\n' >> /etc/my.cnf
+          echo '[client]' >> /etc/my.cnf
+          echo 'port=3306' >> /etc/my.cnf
+          echo 'socket=/data1/mysql/mysql.sock' >> /etc/my.cnf
+          # 重启MySQL
+          systemctl start mysqld
+
+          # 执行成功回调WaitCondition结束WaitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"SUCCESS\", \"Status\" : \"SUCCESS\"}"
+        - CurlCli:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+          Password:
+            Ref: Password
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      SystemDiskCategory: cloud_efficiency
+      InstanceType:
+        Ref: EcsInstanceType
+      HostName: mysql-public-ip
+      Password:
+        Ref: Password
+      AllocatePublicIP: true
+Outputs:
+  DBConnectionAddress:
+    Value:
+      Fn::Sub:
+      - mysql://${Domain}:3306
+      - Domain:
+          Fn::GetAtt:
+          - EcsInstance
+          - PublicIp
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - Password
+      Label:
+        en: Basic Configuration
+        zh-cn: 基础配置
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        en: PayType Configuration
+        zh-cn: 付费类型配置
+    - Parameters:
+      - EcsInstanceType
+      Label:
+        en: Instance Type
+        zh-cn: 实例规格
+    - Parameters:
+      - DataDiskCategory
+      - DataDiskSize
+      Label:
+        en: Data Disk Configuration
+        zh-cn: 数据盘配置
+    - Parameters:
+      - VpcId
+      - VSwitchId
+      Label:
+        en: Network Configuration
+        zh-cn: 网络配置

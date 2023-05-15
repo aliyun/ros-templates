@@ -1,0 +1,855 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: This template is a city-to-city cross-AVAILability outbreak prevention and control
+    project deployment program, ECS is distributed in 2 AVAILAbility to complete disaster
+    capacity-building, all ECS access to the Internet through the NAT gateway
+  zh-cn: 此模板为同城跨可用区疫情防控项目部署方案，ECS分布在2个可用区完成容灾能力建设,所有ECS通过NAT网关访问互联网
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchZoneId1:
+    Type: String
+    Label:
+      en: Switch1 located Zone
+      zh-cn: 交换机1所在可用区
+    Description:
+      zh-cn: 可用区ID，<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitch1CidrBlock:
+    Type: String
+    Label:
+      en: Subnet Segment of Switch1
+      zh-cn: 交换机1子网网段
+    Description:
+      zh-cn: 创建的虚拟交换机的子网，必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Subnet of the created virtual switch，must be a sub-network segment of the
+        proprietary network and is not occupied by other VSwitches.
+  VSwitchZoneId2:
+    Type: String
+    Label:
+      en: Switch2 located Zone
+      zh-cn: 交换机2所在可用区
+    Description:
+      zh-cn: 可用区ID，<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitch2CidrBlock:
+    Type: String
+    Label:
+      en: Subnet Segment of Switch2
+      zh-cn: 交换机2子网网段
+    Description:
+      zh-cn: 创建的虚拟交换机的子网，必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Subnet of the created virtual switch，must be a sub-network segment of the
+        proprietary network and is not occupied by other VSwitches.
+  NatGatewayBandwidth:
+    Type: Number
+    Label:
+      en: NAT Gateway Bandwidth
+      zh-cn: NAT网关带宽
+    Description:
+      en: 'NAT Gateway Bandwidth,Allowed value: 5~500.'
+      zh-cn: Nat网关带宽，允许值:5M~500M，建议10M以上
+    Default: 10
+    MinValue: 5
+    MaxValue: 5000
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Specification
+      zh-cn: 实例规格
+    Description:
+      zh-cn: ECS实例类型，进入产品控制台确保当前实例可用；<br>推荐规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持推荐规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'The ECS instance type,go to the product console to ensure the current instance
+        is available,</b></font><br>recommended specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support recommended specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  ImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: 镜像ID
+    Description:
+      en: Image ID，see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+  NumberOfNginxServer1:
+    Type: Number
+    Label:
+      en: Nginx Server located in Zone1
+      zh-cn: 可用区1 Nginx服务器数量
+    Description:
+      en: 'Nginx Server, Allowed value: 1~5.'
+      zh-cn: 可用区1 Nginx服务器数量，允许值：1~5。
+    Default: 1
+    MinValue: 1
+    MaxValue: 5
+  NumberOfNginxServer2:
+    Type: Number
+    Label:
+      en: Nginx Server located in Zone2
+      zh-cn: 可用区2 Nginx服务器数量
+    Description:
+      en: 'Nginx Server, Allowed value: 1~5.'
+      zh-cn: 可用区2 Nginx服务器数量，允许值：1~5。
+    Default: 1
+    MinValue: 1
+    MaxValue: 5
+  NumberOfTomcatServer1:
+    Type: Number
+    Label:
+      en: Tomcat Server located in Zone1
+      zh-cn: 可用区1 Tomcat服务器数量
+    Description:
+      en: 'Tomcat Server,Allowed value: 1~5.'
+      zh-cn: 可用区1Tomcat服务器数量，允许值：1~5。
+    Default: 1
+    MinValue: 1
+    MaxValue: 5
+  NumberOfTomcatServer2:
+    Type: Number
+    Label:
+      en: Tomcat Server located in Zone2
+      zh-cn: 可用区2 Tomcat服务器数量
+    Description:
+      en: 'Tomcat Server,Allowed value: 1~5.'
+      zh-cn: 可用区2Tomcat服务器数量，允许值：1~5。
+    Default: 1
+    MinValue: 1
+    MaxValue: 5
+  NumberOfEngineServer1:
+    Type: Number
+    Label:
+      en: Business Server located in Zone1
+      zh-cn: 可用区1后端应用服务器数量
+    Description:
+      en: 'Business AppEngine Server,Allowed value: 1~5.'
+      zh-cn: 可用区1后端应用服务器数量，允许值:1~5。
+    Default: 2
+    MinValue: 1
+    MaxValue: 5
+  NumberOfEngineServer2:
+    Type: Number
+    Label:
+      en: Business Server located in Zone2
+      zh-cn: 可用区2后端应用服务器数量
+    Description:
+      en: 'Business AppEngine Server,Allowed value: 1~5.'
+      zh-cn: 可用区2后端应用服务器数量，允许值:1~5。
+    Default: 2
+    MinValue: 1
+    MaxValue: 5
+  Password:
+    Type: String
+    Label:
+      en: Password of ECS Instance
+      zh-cn: 实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three;<br>special characters include: ()''~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；<br>特殊字符包括：()'~!@#$%^&*_-+=|{}[] :;'<>,.?/
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    Description:
+      en: 'Select the instance specification based on the type of database engine
+        and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/26312.htm''
+        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html'
+        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
+    Default: rds.mysql.t1.small
+    AllowedValues:
+    - rds.mysql.t1.small
+    - rds.mysql.s1.small
+    - rds.mysql.s2.large
+    - rds.mysql.s2.xlarge
+    - rds.mysql.s3.large
+    - rds.mysql.m1.medium
+    - rds.mysql.c1.large
+    - rds.mysql.c1.xlarge
+    - rds.mysql.c2.xlarge
+    - rds.mysql.c2.xlp2
+    - rds.mysql.c2.2xlarge
+    - rds.mysql.st.d13
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: DB Engine
+      zh-cn: 数据库引擎
+    Description:
+      en: Database Instance engine type and version.
+      zh-cn: 数据库引擎类型及版本。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.5
+    - MySQL-5.6
+    - MySQL-5.7
+    - MySQL-8.0
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: Instance Storage
+      zh-cn: 实例存储空间
+    Description:
+      en: 'Incrementing in every 5G, unit: GB,Allowed value: 5~2000.'
+      zh-cn: 数据库存储空间，每5GB进行递增,允许值:5~2000。
+    ConstraintDescription:
+      en: 'Incrementing in every 5G, unit: GB'
+      zh-cn: 每5G递增，单位：GB
+    Default: 5
+    MinValue: 5
+    MaxValue: 2000
+  DBUser:
+    Type: String
+    Label:
+      en: Username
+      zh-cn: 数据库账号
+    Description:
+      en: Username of Database
+      zh-cn: 数据库账号
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾
+    Default: mydatabase
+    MinLength: 2
+    MaxLength: 16
+  DBPassword:
+    Type: String
+    Label:
+      en: Password
+      zh-cn: 数据库密码
+    Description:
+      en: Database Password, consisting of letters, numbers, and underline(_), is
+        8 to 32 characters long
+      zh-cn: 数据库密码，由字母、数字、下划线（_）组成，长度为8~32个字符
+    ConstraintDescription:
+      en: Consisting of letters, numbers, and underline(_), 8 to 32 characters in
+        length
+      zh-cn: 由字母、数字和下划线(_)组成，长度为8到32个字符
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  OTSInstanceName:
+    Type: String
+    Label:
+      en: Instance Name
+      zh-cn: 实例名称
+    Description:
+      en: Instance Name
+      zh-cn: 表格存储实例名称
+    AllowedPattern: '[a-zA-Z][-a-zA-Z0-9]{1,14}[a-zA-Z0-9]'
+  OTSClusterType:
+    Type: String
+    Label:
+      en: Table Storage Type
+      zh-cn: 表格存储类别
+    Description:
+      en: Tablestore(OTS) Type,SSD (high performance) is selected by default.
+      zh-cn: 表格存储类别， 默认为SSD（高性能）.
+    Default: SSD
+    AllowedValues:
+    - SSD
+    - HYBRID
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName: AppVPC
+  App_EIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: 20
+  AppVswitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId1
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: VSwitch1CidrBlock
+      VSwitchName: AppVSwitch1
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: AppVswitch1
+      Description: My NAT Gateway
+      NatGatewayName: App-NatGw
+  App_EIPAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::GetAtt:
+        - NatGateway
+        - NatGatewayId
+      AllocationId:
+        Fn::GetAtt:
+        - App_EIP
+        - AllocationId
+  OTSInstance:
+    Type: ALIYUN::OTS::Instance
+    Properties:
+      InstanceName:
+        Ref: OTSInstanceName
+      ClusterType:
+        Ref: OTSClusterType
+  AppVswitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId2
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: VSwitch2CidrBlock
+      VSwitchName: AppVswitch2
+  SecurityGroup1:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+      SecurityGroupEgress:
+      - PortRange: 22/22
+        Priority: 1
+        IpProtocol: tcp
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  SecurityGroup2:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+      SecurityGroupEgress:
+      - PortRange: 22/22
+        Priority: 1
+        IpProtocol: tcp
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  NatGatewayEIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth:
+        Ref: NatGatewayBandwidth
+  NatGatewayEIPBind:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: NatGatewayEIP
+    DependsOn:
+    - NatGateway
+    - NatGatewayEIP
+  FrontLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      SlaveZoneId:
+        Ref: VSwitchZoneId2
+      MasterZoneId:
+        Ref: VSwitchZoneId1
+      LoadBalancerName: App-Front-LoadBalancer
+      AddressType: internet
+      LoadBalancerSpec: slb.s3.large
+  FrontLoadBalancerListener80:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      ListenerPort: '80'
+      Bandwidth: -1
+      HealthCheck:
+        UnhealthyThreshold: '4'
+        Timeout: '2'
+        Port: '8080'
+        HealthyThreshold: '2'
+        Interval: '5'
+      LoadBalancerId:
+        Ref: FrontLoadBalancer
+      BackendServerPort: '8080'
+      Protocol: tcp
+    DependsOn: FrontLoadBalancer
+  AppNginxServers1:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - AppVswitch1
+        - VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroup1
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount:
+        Ref: NumberOfNginxServer1
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_ssd
+      Description: AppNginxServer
+      InstanceName: AppNginxServer[1,1]
+  AppNginxServers2:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - AppVswitch2
+        - VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroup2
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount:
+        Ref: NumberOfNginxServer2
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_ssd
+      Description: AppNginxServer
+      InstanceName: AppNginxServer[2,1]
+  BackendLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - AppVswitch1
+        - VSwitchId
+      SlaveZoneId:
+        Ref: VSwitchZoneId2
+      MasterZoneId:
+        Ref: VSwitchZoneId1
+      AddressType: intranet
+      LoadBalancerName: App-Backend-LoadBalancer
+      LoadBalancerSpec: slb.s3.large
+  BackendLoadBalancerListener7001:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      ListenerPort: '7001'
+      Bandwidth: -1
+      HealthCheck:
+        UnhealthyThreshold: '4'
+        Timeout: '2'
+        Port: '7001'
+        HealthyThreshold: '2'
+        Interval: '5'
+      LoadBalancerId:
+        Ref: BackendLoadBalancer
+      BackendServerPort: '7001'
+      Protocol: tcp
+    DependsOn: BackendLoadBalancer
+  FrontSLBAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::ListMerge:
+        - Fn::GetAtt:
+          - AppNginxServers1
+          - InstanceIds
+        - Fn::GetAtt:
+          - AppNginxServers2
+          - InstanceIds
+      LoadBalancerId:
+        Ref: FrontLoadBalancer
+    DependsOn:
+    - AppNginxServers1
+    - AppNginxServers2
+  AppEngineServers1:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - AppVswitch1
+        - VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroup1
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount:
+        Ref: NumberOfEngineServer1
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_ssd
+      Description: AppEngineServer
+      InstanceName: AppEngineServer[1,1]
+  AppEngineServers2:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - AppVswitch2
+        - VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroup2
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount:
+        Ref: NumberOfEngineServer2
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_ssd
+      Description: AppEngineServer
+      InstanceName: AppEngineServer[2,1]
+  BackendSLBAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::ListMerge:
+        - Fn::GetAtt:
+          - AppEngineServers1
+          - InstanceIds
+        - Fn::GetAtt:
+          - AppEngineServers2
+          - InstanceIds
+      LoadBalancerId:
+        Ref: BackendLoadBalancer
+    DependsOn:
+    - AppEngineServers1
+    - AppEngineServers2
+  AppTomcatServers1:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - AppVswitch1
+        - VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroup1
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount:
+        Ref: NumberOfTomcatServer1
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_ssd
+      Description: AppTomcatServer
+      InstanceName: AppTomcatServer[1,1]
+  AppTomcatServers2:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - AppVswitch2
+        - VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroup2
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount:
+        Ref: NumberOfTomcatServer2
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_ssd
+      Description: AppTomcatServer
+      InstanceName: AppTomcatServer[2,1]
+  AppDeployServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - AppVswitch1
+        - VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroup1
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      AllocatePublicIP: true
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_ssd
+      Description: AppDeployServer
+      InstanceName: AppDeployServer
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VPCId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: AppVswitch1
+      MasterUserPassword:
+        Ref: DBPassword
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      MasterUsername:
+        Ref: DBUser
+      SecurityIPList: 0.0.0.0/0
+      DBInstanceDescription: DataBase
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+  SNatEntry1:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SourceVSwitchId:
+        Ref: AppVswitch1
+      SNatIp:
+        Fn::GetAtt:
+        - NatGatewayEIP
+        - EipAddress
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+    DependsOn:
+    - NatGatewayEIPBind
+  SNatEntry2:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SourceVSwitchId:
+        Ref: AppVswitch2
+      SNatIp:
+        Fn::GetAtt:
+        - NatGatewayEIP
+        - EipAddress
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+    DependsOn:
+    - NatGatewayEIPBind
+Outputs:
+  Region:
+    Value:
+      Ref: ALIYUN::Region
+  UserID:
+    Value:
+      Ref: ALIYUN::AccountId
+  App_Http_URL:
+    Description: App Access Http URL
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - FrontLoadBalancer
+          - IpAddress
+        - :80
+  App_EngineServer_SLB_IP:
+    Description: The ip address of the front load balancer.
+    Value:
+      Fn::GetAtt:
+      - BackendLoadBalancer
+      - IpAddress
+  App_DeployServer_Public_IP:
+    Description: The ip address of the Deploy Server.
+    Value:
+      Fn::GetAtt:
+      - AppDeployServer
+      - PublicIp
+  App_DeployServer_Private_IP:
+    Description: The ip address of the Deploy Server.
+    Value:
+      Fn::GetAtt:
+      - AppDeployServer
+      - PrivateIp
+  App_NginxServer1_Private_IP:
+    Description: The ip address of the Nginx Server.
+    Value:
+      Fn::GetAtt:
+      - AppNginxServers1
+      - PrivateIps
+  App_NginxServer2_Private_IP:
+    Description: The ip address of the Nginx Server.
+    Value:
+      Fn::GetAtt:
+      - AppNginxServers2
+      - PrivateIps
+  App_EngineServer1_Private_IP:
+    Description: The ip address of the Engine Server.
+    Value:
+      Fn::GetAtt:
+      - AppEngineServers1
+      - PrivateIps
+  App_EngineServer2_Private_IP:
+    Description: The ip address of the Engine Server.
+    Value:
+      Fn::GetAtt:
+      - AppEngineServers2
+      - PrivateIps
+  App_TomcatServer1_Private_IP:
+    Description: The ip address of the Tomcat Server.
+    Value:
+      Fn::GetAtt:
+      - AppTomcatServers1
+      - PrivateIps
+  App_TomcatServer2_Private_IP:
+    Description: The ip address of the Tomcat Server.
+    Value:
+      Fn::GetAtt:
+      - AppTomcatServers2
+      - PrivateIps
+  OTS_EndPoint:
+    Description: The Endpoint of the OTS.
+    Value:
+      Fn::GetAtt:
+      - OTSInstance
+      - VpcEndpoint
+  OTS_InstanceName:
+    Description: The InstanceName of the OTS.
+    Value:
+      Fn::GetAtt:
+      - OTSInstance
+      - InstanceName
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchZoneId1
+      - VSwitch1CidrBlock
+      - VSwitchZoneId2
+      - VSwitch2CidrBlock
+      - NatGatewayBandwidth
+      Label:
+        default: VPC
+    - Parameters:
+      - EcsInstanceType
+      - ImageId
+      - NumberOfNginxServer1
+      - NumberOfNginxServer2
+      - NumberOfTomcatServer1
+      - NumberOfTomcatServer2
+      - NumberOfEngineServer1
+      - NumberOfEngineServer2
+      - Password
+      Label:
+        default: ECS
+    - Parameters:
+      - DBInstanceClass
+      - DBInstanceEngineAndVersion
+      - DBInstanceStorage
+      - DBUser
+      - DBPassword
+      Label:
+        default: RDS
+    - Parameters:
+      - OTSInstanceName
+      - OTSClusterType
+      Label:
+        default: OTS
+    TemplateTags:
+    - acs:solution:备份&容灾:同地域跨可用区容灾-云上稳定性保障-疫情护航项目基础设施搭建

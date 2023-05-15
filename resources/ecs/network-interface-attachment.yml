@@ -1,0 +1,116 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ECS NetworkInterface、NetworkInterfaceAttachment
+Parameters:
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.hfc5.large
+  LoginPassword:
+    Type: String
+    Description: ECS Login Password
+    MinLength: 8
+    MaxLength: 41
+    NoEcho: true
+  PublicIp:
+    Type: Boolean
+    Label: Allocate Public IP or Not
+    Description: Allocate Public IP or Not
+    Default: false
+  InstanceName:
+    Type: String
+    Description: Instance Name
+    Default: mytest
+  SystemDiskCategory:
+    Type: String
+    Description: System Disk Category
+    Default: cloud_essd
+  VpcId:
+    Type: String
+    Description: VPC Id.
+  VSwitchId:
+    Type: String
+    Description: VSW Id.
+  SecurityGroupId:
+    Type: String
+    Description: Security Group Id.
+  NetworkInterfaceName:
+    Type: String
+    Description: Name of your ENI. It is a string of [2, 128]  Chinese or English
+      characters. It must begin with a letter and can contain numbers, underscores
+      (_), colons (:), or hyphens (-).
+  Permission:
+    Type: String
+    Default: InstanceAttach
+Resources:
+  EniInstance:
+    Type: ALIYUN::ECS::NetworkInterface
+    Properties:
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      NetworkInterfaceName:
+        Ref: NetworkInterfaceName
+  Instance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Ref: InstanceName
+      IoOptimized: optimized
+      AllocatePublicIP:
+        Ref: PublicIp
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Password:
+        Ref: LoginPassword
+  EniAttachment:
+    Type: ALIYUN::ECS::NetworkInterfaceAttachment
+    Properties:
+      NetworkInterfaceId:
+        Fn::GetAtt:
+        - EniInstance
+        - NetworkInterfaceId
+      InstanceId:
+        Fn::GetAtt:
+        - Instance
+        - InstanceId
+    DependsOn: Instance
+  NetworkInterfacePermission:
+    Type: ALIYUN::ECS::NetworkInterfacePermission
+    Properties:
+      NetworkInterfaceId:
+        Ref: EniInstance
+      AccountId:
+        Ref: ALIYUN::AccountId
+      Permission:
+        Ref: Permission
+Outputs:
+  NetworkInterfacePermissionId:
+    Value:
+      Fn::GetAtt:
+      - NetworkInterfacePermission
+      - NetworkInterfacePermissionId
+  NetworkInterfaceId:
+    Description: ID of your Network Interface.
+    Value:
+      Fn::GetAtt:
+      - EniAttachment
+      - NetworkInterfaceId

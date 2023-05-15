@@ -1,0 +1,288 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Create one container service cluster and deploy JStorm with its dependency
+  Zookeeper.
+Parameters:
+  InstanceType:
+    Type: String
+    Label:
+      zh-cn: ECS实例类型
+      en: ECS Instance Type
+    Description:
+      en: 'The ECS instance type, <a href=''https://help.aliyun.com/document_detail/25378.html''
+        target=''_blank''>View instance types</a>， please confirm the instance type
+        if in the specific zone in ECS console. '
+      zh-cn: ECS实例规格，详情请参见<a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'>实例规格族</a>，请在ECS控制台确认所选可用区下是否支持您选的规格。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  SystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 系统盘类别
+      en: System Disk Category
+    Description:
+      en: 'System disk category, allowed values: cloud|cloud_efficiency|cloud_ssd.'
+      zh-cn: 系统盘类型，可选值：cloud：普通云盘，cloud_ssd：SSD云盘，cloud_efficiency：高效云盘。
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_auto
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  ImageId:
+    Type: String
+    Label:
+      zh-cn: 镜像ID
+      en: ECS Image Id
+    Description:
+      en: Image Id, represents the image resource to startup one ECS instance, <a
+        href='https://help.aliyun.com/document_detail/100410.html' target='_blank'>View
+        image resources</a>.
+      zh-cn: 镜像ID，详情请参考<a href='https://help.aliyun.com/document_detail/100410.html'
+        target='_blank'>公共镜像</a>。
+    Default: ubuntu_16_04_64_20G_alibase_20190513.vhd
+  InstancePassword:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      en: '8~30 characters, consists of uppercase letter, lowercase letter, number
+        or special characters such as ( ) ` ~ ! @ # $ % ^ & * - + = | { } [ ] : ;
+        ‘ < > , . ? / '
+      zh-cn: '长度为8~30个字符。必须同时包含三项（大、小写字母，数字和特殊符号）。<br>支持以下特殊字符：( ) ` ~ ! @ # $ % ^
+        & * - + = | { } [ ] : ; ‘ < > , . ? /。'
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+  IoOptimized:
+    Type: Boolean
+    Label:
+      zh-cn: I/O优化实例
+      en: I/O Optimized
+    Description:
+      en: The 'optimized' instance can provide better I/O performance.
+      zh-cn: 是否创建I/O优化实例
+    Default: true
+  ClusterName:
+    Type: String
+    Label:
+      zh-cn: 集群的名称
+      en: Cluster Name
+    Description:
+      en: Cluster name
+      zh-cn: Docker集群的名称
+    Default: jStormCluster
+  ClusterSize:
+    Type: Number
+    Label:
+      zh-cn: ECS实例数量
+      en: Cluster Size
+    Description:
+      en: The number of cluster nodes is among [1, 100]
+      zh-cn: 集群使用ECS实例数量
+    ConstraintDescription:
+      en: The number of cluster nodes is among [1, 100]
+      zh-cn: 集群节点数在[1, 100]之间
+    Default: 3
+    MinValue: 1
+    MaxValue: 100
+  SubnetCidr:
+    Type: String
+    Label:
+      zh-cn: 子网网段
+      en: Subnet CIDR
+    Description:
+      en: Subnet for containers. The range allowed is 172.17.XX.XX/24 - 172.31.XX.XX/24.
+        Make sure it's different from VPC and VSwitch.
+      zh-cn: 可选范围：172.17.XX.XX/24 - 172.31.XX.XX/24。<br>确保此网段不能和专有网络网段相同。
+    Default: 172.30.15.0/24
+  SupervisorCount:
+    Type: Number
+    Label:
+      zh-cn: Supervisor数量
+      en: Supervisor Count
+    Description:
+      en: The number to deploy Supervisor
+      zh-cn: 部署Supervisor的数量
+    Default: '2'
+Resources:
+  VPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAZs:
+            Ref: ALIYUN::Region
+      VpcId:
+        Ref: VPC
+      CidrBlock: 192.168.10.0/24
+    DependsOn: VPC
+  MyCluster:
+    Type: ALIYUN::CS::Cluster
+    Properties:
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      ImageId:
+        Ref: ImageId
+      IoOptimized:
+        Ref: IoOptimized
+      Name:
+        Ref: ClusterName
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Size:
+        Ref: ClusterSize
+      InstanceType:
+        Ref: InstanceType
+      SubnetCidr:
+        Ref: SubnetCidr
+  App:
+    Type: ALIYUN::CS::App
+    Properties:
+      Ca:
+        Fn::GetAtt:
+        - MyCluster
+        - Ca
+      Cert:
+        Fn::GetAtt:
+        - MyCluster
+        - Cert
+      ClusterId:
+        Fn::GetAtt:
+        - MyCluster
+        - ClusterId
+      Key:
+        Fn::GetAtt:
+        - MyCluster
+        - Key
+      MasterUrl:
+        Fn::GetAtt:
+        - MyCluster
+        - MasterUrl
+      Name: jstorm
+      Template:
+        Fn::Replace:
+        - __supervisor_count__:
+            Ref: SupervisorCount
+        - |
+          zk1:
+              image: 'mesoscloud/zookeeper:3.4.8-ubuntu'
+              environment:
+                  - MYID=1
+                  - SERVERS=${COMPOSE_PROJECT_NAME}_zk1_1,${COMPOSE_PROJECT_NAME}_zk2_1,${COMPOSE_PROJECT_NAME}_zk3_1
+                  - constraint:aliyun.node_index==1
+              restart: 'always'
+          zk2:
+              image: 'mesoscloud/zookeeper:3.4.8-ubuntu'
+              environment:
+                  - MYID=2
+                  - SERVERS=${COMPOSE_PROJECT_NAME}_zk1_1,${COMPOSE_PROJECT_NAME}_zk2_1,${COMPOSE_PROJECT_NAME}_zk3_1
+                  - constraint:aliyun.node_index==2
+              restart: 'always'
+          zk3:
+              image: 'mesoscloud/zookeeper:3.4.8-ubuntu'
+              environment:
+                  - MYID=3
+                  - SERVERS=${COMPOSE_PROJECT_NAME}_zk1_1,${COMPOSE_PROJECT_NAME}_zk2_1,${COMPOSE_PROJECT_NAME}_zk3_1
+                  - constraint:aliyun.node_index==3
+              restart: 'always'
+          nimbus:
+              image: 'registry.cn-hangzhou.aliyuncs.com/jstorm-docker/jstorm'
+              environment:
+                  - CHARACTER=nimbus
+                  - ZK_ROOT=/jstorm.docker.root2
+                  - ZK_HOSTS=${COMPOSE_PROJECT_NAME}_zk1_1,${COMPOSE_PROJECT_NAME}_zk2_1,${COMPOSE_PROJECT_NAME}_zk3_1
+                  - CLUSTER_NAME=jstorm.docker.cluster
+              labels:
+                  aliyun.routing.port_8080: 'http://nimbus'
+                  aliyun.scale: '2'
+              restart: 'always'
+              links:
+                  - zk1
+                  - zk2
+                  - zk3
+          supervisor:
+              image: 'registry.cn-hangzhou.aliyuncs.com/jstorm-docker/jstorm'
+              environment:
+                  - CHARACTER=supervisor
+                  - NIMBUS_HOSTS=jstorm_nimbus_1
+                  - ZK_ROOT=/jstorm.docker.root2
+                  - ZK_HOSTS=${COMPOSE_PROJECT_NAME}_zk1_1,${COMPOSE_PROJECT_NAME}_zk2_1,${COMPOSE_PROJECT_NAME}_zk3_1
+                  - CLUSTER_NAME=jstorm.docker.cluster
+              labels:
+                  aliyun.routing.port_8080: 'http://supervisor'
+                  aliyun.scale: '__supervisor_count__'
+              restart: 'always'
+              links:
+                  - nimbus
+Outputs:
+  CaCert:
+    Description: CA cert of the cluster.
+    Value:
+      Fn::GetAtt:
+      - MyCluster
+      - Ca
+  ClientCert:
+    Description: Client cert of the cluster.
+    Value:
+      Fn::GetAtt:
+      - MyCluster
+      - Cert
+  ClientKey:
+    Description: Client key of the cluster.
+    Value:
+      Fn::GetAtt:
+      - MyCluster
+      - Key
+  ClusterId:
+    Description: Id of the cluster.
+    Value:
+      Fn::GetAtt:
+      - MyCluster
+      - ClusterId
+  Endpoints:
+    Description: Endpoints of the app.
+    Value:
+      Fn::GetAtt:
+      - App
+      - Endpoints
+  MasterUrl:
+    Description: Master url of the cluster.
+    Value:
+      Fn::GetAtt:
+      - MyCluster
+      - MasterUrl
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - InstanceType
+      - SystemDiskCategory
+      - ImageId
+      - InstancePassword
+      - IoOptimized
+      Label:
+        default: ECS
+    - Parameters:
+      - ClusterName
+      - ClusterSize
+      - SubnetCidr
+      - SupervisorCount
+      Label:
+        default: CSCluster
+    TemplateTags:
+    - acs:example:容器:创建JStorm容器服务集群

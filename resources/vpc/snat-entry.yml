@@ -1,0 +1,220 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  SnatEntryName:
+    Type: String
+    Description: Name of Snat Entry.
+  VSwitchName:
+    Type: String
+    Default: mytest
+  VpcName:
+    Type: String
+    Default: mytest
+  CommonBandwidthPackageName:
+    Type: String
+    Default: mytest
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  Bandwidth:
+    Type: Number
+    Default: 2
+Resources:
+  VPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: VpcName
+      CidrBlock: 192.168.0.0/16
+      EnableIpv6: true
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchName:
+        Ref: VSwitchName
+      Ipv6CidrBlock: 1
+      CidrBlock: 192.168.10.0/24
+    DependsOn: VPC
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - VPC
+        - VpcId
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+    DependsOn: VSwitch
+  EIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InstanceChargeType: Postpaid
+      InternetChargeType: PayByTraffic
+  EIPAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: EIP
+    DependsOn:
+    - EIP
+    - NatGateway
+  SnatEntry:
+    Type: ALIYUN::VPC::SnatEntry
+    Properties:
+      SourceVSwitchIds:
+      - Ref: VSwitch
+      SnatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SnatIp:
+        Fn::GetAtt:
+        - EIP
+        - EipAddress
+      SnatEntryName:
+        Ref: SnatEntryName
+    DependsOn: EIPAssociation
+  CommonBandwidthPackage:
+    Type: ALIYUN::VPC::CommonBandwidthPackage
+    Properties:
+      Description: Test create CommonBandwidthPackage
+      ISP: BGP
+      Bandwidth:
+        Ref: Bandwidth
+      InternetChargeType: PayByBandwidth
+      Name:
+        Ref: CommonBandwidthPackageName
+  CommonBandwidthPackageIp:
+    Type: ALIYUN::VPC::CommonBandwidthPackageIp
+    Properties:
+      Eips:
+      - Bandwidth: 1
+        AllocationId:
+          Ref: EIP
+      BandwidthPackageId:
+        Ref: CommonBandwidthPackage
+    DependsOn: EIPAssociation
+  EniInstance:
+    Type: ALIYUN::ECS::NetworkInterface
+    Properties:
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+    DependsOn: VSwitch
+  AssignIpv6Addresses:
+    Type: ALIYUN::ECS::AssignIpv6Addresses
+    Properties:
+      NetworkInterfaceId:
+        Fn::GetAtt:
+        - EniInstance
+        - NetworkInterfaceId
+      Ipv6AddressCount: 1
+    DependsOn:
+    - EniInstance
+  Ipv6Gateway:
+    Type: ALIYUN::VPC::Ipv6Gateway
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - VPC
+        - VpcId
+      Spec: Small
+  Ipv6InternetBandwidth:
+    Type: ALIYUN::VPC::Ipv6InternetBandwidth
+    Properties:
+      Bandwidth: 1
+      Ipv6AddressId:
+        Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - AssignIpv6Addresses
+          - Ipv6AddressIds
+      Ipv6GatewayId:
+        Fn::GetAtt:
+        - Ipv6Gateway
+        - Ipv6GatewayId
+    DependsOn:
+    - AssignIpv6Addresses
+    - Ipv6Gateway
+Outputs:
+  Ipv6CidrBlock:
+    Description: The IPv6 network segment of the VSwitch
+    Value:
+      Fn::GetAtt:
+      - VSwitch
+      - Ipv6CidrBlock
+  InternetBandwidthId:
+    Description: Purchase of public network bandwidth.
+    Value:
+      Fn::GetAtt:
+      - Ipv6InternetBandwidth
+      - InternetBandwidthId
+  AllocationIds:
+    Value:
+      Fn::GetAtt:
+      - CommonBandwidthPackageIp
+      - AllocationIds
+  IpAddresses:
+    Value:
+      Fn::GetAtt:
+      - CommonBandwidthPackageIp
+      - IpAddresses
+  BandwidthPackageId:
+    Value:
+      Fn::GetAtt:
+      - CommonBandwidthPackage
+      - BandwidthPackageId
+  NatGatewayId:
+    Value:
+      Fn::GetAtt:
+      - NatGateway
+      - NatGatewayId
+  SNatTableId:
+    Value:
+      Fn::GetAtt:
+      - NatGateway
+      - SNatTableId
+  SnatEntryIds:
+    Value:
+      Fn::GetAtt:
+      - SnatEntry
+      - SnatEntryIds
+  EipAddress:
+    Description: IP address of created EIP.
+    Value:
+      Fn::GetAtt:
+      - EIPAssociation
+      - EipAddress
+  AllocationId:
+    Description: ID that Aliyun assigns to represent the allocation of the address
+      for use with VPC. Returned only for VPC elastic IP addresses.
+    Value:
+      Fn::GetAtt:
+      - EIPAssociation
+      - AllocationId
+  Eip:
+    Value:
+      Fn::GetAtt:
+      - EIP
+      - EipAddress
+  EipId:
+    Value:
+      Fn::GetAtt:
+      - EIP
+      - AllocationId
+  OrderId:
+    Value:
+      Fn::GetAtt:
+      - EIP
+      - OrderId

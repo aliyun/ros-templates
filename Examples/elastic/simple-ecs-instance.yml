@@ -1,0 +1,87 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: One simple ECS instance with a security group and a vSwitch in a VPC.
+  The user only needs to specify the image ID.
+Parameters:
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,,
+      <a href='#/product/cn-shenzhen/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The instance type
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+  Password:
+    Type: String
+    Label: ECS Instance Password
+    Description: The login password of ECS instances
+    ConstraintDescription: Consist of 8 to 41 characters of alphanumeric characters
+    AllowedPattern: '[a-zA-Z0-9]*'
+    MinLength: '8'
+    MaxLength: '41'
+    NoEcho: true
+    Confirm: true
+Resources:
+  vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: simple_ecs_vpc
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: vpc
+  vswitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAZs:
+            Ref: ALIYUN::Region
+      VpcId:
+        Ref: vpc
+      CidrBlock: 192.168.0.0/16
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: vpc
+      VSwitchId:
+        Ref: vswitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceType:
+        Ref: InstanceType
+      PrivateIpAddress: 192.168.0.1
+      Password:
+        Ref: Password
+Outputs:
+  InstanceId:
+    Description: The instance id of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - InstanceId
+  PublicIp:
+    Description: Public IP address of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - PublicIp
+  SecurityGroupId:
+    Description: generated security group id for security group.
+    Value:
+      Fn::GetAtt:
+      - SecurityGroup
+      - SecurityGroupId

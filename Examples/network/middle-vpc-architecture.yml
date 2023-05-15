@@ -1,0 +1,870 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 'Alibaba Cloud ROS Sample Template: Medium business VPC network architecture.
+    Three subnets are created under VPC. ECS and SLB in Front subnet handle public
+    network request. ECS, SLB, RDS, Redis, OSS and so on in Backend subnet provide
+    core business logic. The network accesses the public network through NatGateway''s
+    SNAT.'
+  zh-cn: 阿里云资源编排示例模板： 中型企业VPC网络体系结构。在VPC下创建了三个子网。Front子网中的ECS和SLB处理公共网络请求。后端子网中的ECS，SLB，RDS，Redis，OSS等提供核心业务逻辑。网络访问公众
+    通过NatGateway的SNAT建立网络。
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC Cidrblock
+      zh-cn: VPC网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR block form. You can use the
+        following IP address ranges and their subnets: 10.0.0.0/8 172.16.0.0/12  192.168.0.0/16'
+      zh-cn: 专有网络的网段，可选值：10.0.0.0/8，172.16.0.0/12，192.168.0.0/16。
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchZoneId1:
+    Type: String
+    Label:
+      en: Front Zone ID
+      zh-cn: 前端服务器可用区ID
+    Description:
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+        or not.
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  FrontVSwitchCidrBlock:
+    Type: String
+    Label:
+      en: Front VSwitch CIDR Block
+      zh-cn: 前端服务器交换机网段
+    Description:
+      en: VSwitch subnet which is within VPC.
+      zh-cn: 交换机网段，必须为VPC子网段。
+    Default: 192.168.1.0/24
+  VSwitchZoneId2:
+    Type: String
+    Label:
+      en: Backend/Other Zone ID
+      zh-cn: 后端/其他服务器可用区ID
+    Description:
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+        or not.
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  BackendVSwitchCidrBlock:
+    Type: String
+    Label:
+      en: Backend VSwitch CIDR Block
+      zh-cn: 后端服务器交换机网段
+    Description:
+      en: Must belong to the subnet segment of VPC.
+      zh-cn: 必须属于VPC的子网段。
+    Default: 192.168.2.0/24
+  OtherVSwitchCidrBlock:
+    Type: String
+    Label:
+      en: Other VSwitch CIDR Block
+      zh-cn: 其他服务器交换机网段
+    Description:
+      en: Must belong to the subnet segment of VPC.
+      zh-cn: 必须属于VPC的子网段。
+    Default: 192.168.3.0/24
+  NatGatewayBandwidth:
+    Type: Number
+    Label:
+      en: Nat Gateway Bandwidth
+      zh-cn: Nat网关带宽
+    Description:
+      en: 'Nat gateway Bandwidth,Allowed value: 5~500.'
+      zh-cn: Nat网关带宽，允许值:5~500。
+    Default: 5
+    MinValue: 5
+    MaxValue: 5000
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  EcsImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: 镜像ID
+    Description:
+      en: 'Instance Image ID. see detail: <b><a href=''https://www.alibabacloud.com/help/doc-detail/112977.html''
+        target=''_blank''><font color=''blue''>Find the mirror</font></a></b>'
+      zh-cn: 实例镜像，详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+  NumberOfFrontServer:
+    Type: Number
+    Label:
+      en: Front Server Amount
+      zh-cn: 前端服务器数量
+    Description:
+      en: 'Number of front server, Allowed value: 1~100.'
+      zh-cn: 前端服务器数量，允许值:1~100。
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  NumberOfBackendServer:
+    Type: Number
+    Label:
+      en: Backend Server Amount
+      zh-cn: 后端服务器数量
+    Description:
+      en: 'Number of backend Server,Allowed value: 1~100.'
+      zh-cn: 后端服务器数量，允许值:1~100。
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  NumberOfOtherServer:
+    Type: Number
+    Label:
+      en: Other Server Amount
+      zh-cn: 其他服务器数量
+    Description:
+      en: 'Number of other server to create ecs instance,Allowed value: 1~100.'
+      zh-cn: 其他服务器数量，允许值:1~100。
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: SLB Specifications
+      zh-cn: SLB规格
+    Description:
+      en: Instance specifications,</br>see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance Support Type</b></font></a>
+      zh-cn: 实例规格，</br>详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    Default: slb.s1.small
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName: MyVPC
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f950d665-1302-4f38-aea2-731c4354023b
+  FrontVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId1
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: FrontVSwitchCidrBlock
+      VSwitchName: FrontSubnet
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 507f73da-44a1-4ce0-9a66-6a11471339df
+  BackendVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId2
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: BackendVSwitchCidrBlock
+      VSwitchName: BackendSubnet
+    DependsOn: FrontVSwitch
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1d565a0c-ca50-4ffb-9983-1136fddf738a
+  BackendLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: BackendVSwitch
+      LoadBalancerName: BackendLoadBalancer
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 6bc1af97-a0d0-4464-a765-504c2c283988
+  BackendLoadBalancerListener80:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      ListenerPort: '80'
+      Bandwidth: -1
+      HealthCheck:
+        UnhealthyThreshold: '4'
+        Timeout: '2'
+        Port: '80'
+        HealthyThreshold: '2'
+        Interval: '5'
+      LoadBalancerId:
+        Ref: BackendLoadBalancer
+      BackendServerPort: '80'
+      Protocol: tcp
+    DependsOn: BackendLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 15c86404-c265-4923-8430-2c587a6d6c61
+  FrontLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName: FrontLoadBalancer
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      AddressType: internet
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 75c6132f-ac05-4800-b6e5-285fe8a3a92b
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+      SecurityGroupEgress:
+      - PortRange: 22/22
+        Priority: 1
+        IpProtocol: tcp
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4ccba16a-8ff6-4e6e-8362-0461e00017e1
+  FrontServers:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: FrontVSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: EcsImageId
+      IoOptimized: optimized
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount:
+        Ref: NumberOfFrontServer
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_efficiency
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1b0695f0-20bb-4212-b7a9-b17893fdaa0b
+  FrontSLBAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - FrontServers
+        - InstanceIds
+      LoadBalancerId:
+        Ref: FrontLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 495d5a56-b9ab-4c81-8477-7d6c3cde9dca
+  OtherVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId2
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: OtherVSwitchCidrBlock
+      VSwitchName: OtherSubnet
+    DependsOn: BackendVSwitch
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8170f135-f31e-478c-a65d-65ee8ebe499c
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: OtherVSwitch
+      Description: My NAT Gateway
+      NatGatewayName: nat_gateway_1
+    DependsOn:
+    - OtherVSwitch
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 467e10f0-9e32-4b27-b528-13bb3909d1ee
+  NatGatewayEIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth:
+        Ref: NatGatewayBandwidth
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 99fde358-efa9-4425-a746-c715b1982a41
+  NatGatewayEIPBind:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: NatGatewayEIP
+    DependsOn:
+    - NatGateway
+    - NatGatewayEIP
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7100c978-ef6a-4934-a0c9-bf18a7d43029
+  OtherServers:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: OtherVSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: EcsImageId
+      IoOptimized: optimized
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount:
+        Ref: NumberOfOtherServer
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_efficiency
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: fdabfc64-c9e1-4121-9600-4521c1e79332
+  BackendServers:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: BackendVSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: EcsImageId
+      IoOptimized: optimized
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount:
+        Ref: NumberOfBackendServer
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_efficiency
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 205b4f6a-0a75-4745-bfe5-04fa56bd978e
+  FrontLoadBalancerListener443:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      ListenerPort: '443'
+      Bandwidth: -1
+      HealthCheck:
+        UnhealthyThreshold: '4'
+        Timeout: '2'
+        Port: '443'
+        HealthyThreshold: '2'
+        Interval: '5'
+      LoadBalancerId:
+        Ref: FrontLoadBalancer
+      BackendServerPort: '443'
+      Protocol: tcp
+    DependsOn: FrontLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 06de6b4f-691e-4d45-9817-1e706b79c6fd
+  FrontLoadBalancerListener22:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      ListenerPort: '22'
+      Bandwidth: -1
+      HealthCheck:
+        UnhealthyThreshold: '4'
+        Timeout: '2'
+        Port: '22'
+        HealthyThreshold: '2'
+        Interval: '5'
+      LoadBalancerId:
+        Ref: FrontLoadBalancer
+      BackendServerPort: '22'
+      Protocol: tcp
+    DependsOn: FrontLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8cdcec81-81b6-454a-b78c-5836ebfe7072
+  BackendSLBAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - BackendServers
+        - InstanceIds
+      LoadBalancerId:
+        Ref: BackendLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: cdfa0dc3-efd7-41c4-976c-f08d4c710147
+  FrontLoadBalancerListener80:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      ListenerPort: '80'
+      Bandwidth: -1
+      HealthCheck:
+        UnhealthyThreshold: '4'
+        Timeout: '2'
+        Port: '80'
+        HealthyThreshold: '2'
+        Interval: '5'
+      LoadBalancerId:
+        Ref: FrontLoadBalancer
+      BackendServerPort: '80'
+      Protocol: tcp
+    DependsOn: FrontLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2c04e63c-d8fc-4239-9973-ee9614374229
+  BackendLoadBalancerListener443:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      ListenerPort: '443'
+      Bandwidth: -1
+      HealthCheck:
+        UnhealthyThreshold: '4'
+        Timeout: '2'
+        Port: '443'
+        HealthyThreshold: '2'
+        Interval: '5'
+      LoadBalancerId:
+        Ref: BackendLoadBalancer
+      BackendServerPort: '443'
+      Protocol: tcp
+    DependsOn: BackendLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2e55d2cc-8d94-408e-8e54-1206bfeb5461
+  SNatEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatIp:
+        Fn::GetAtt:
+        - NatGatewayEIP
+        - EipAddress
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SourceVSwitchId:
+        Ref: OtherVSwitch
+    DependsOn:
+    - NatGatewayEIPBind
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: b2571ec9-1131-468e-82bb-4c6fea0e972c
+Outputs:
+  FrontAccessHttpURL:
+    Description:
+      en: Front Access Http URL.
+      zh-cn: 前端访问Http网址。
+    Value:
+      Fn::Join:
+      - ''
+      - - https://
+        - Fn::GetAtt:
+          - FrontLoadBalancer
+          - IpAddress
+        - :443
+  FrontServerSSHIP:
+    Description:
+      en: The IP address of the front load balancer.
+      zh-cn: 前端负载均衡器的IP地址。
+    Value:
+      Fn::GetAtt:
+      - FrontLoadBalancer
+      - IpAddress
+  FrontAccessHttpsURL:
+    Description: Front Access Https URL
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - FrontLoadBalancer
+          - IpAddress
+        - :80
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchZoneId1
+      - FrontVSwitchCidrBlock
+      - VSwitchZoneId2
+      - BackendVSwitchCidrBlock
+      - OtherVSwitchCidrBlock
+      - NatGatewayBandwidth
+      Label:
+        default:
+          en: VPC
+          zh-cn: 专有网络
+    - Parameters:
+      - EcsInstanceType
+      - EcsImageId
+      - NumberOfFrontServer
+      - NumberOfBackendServer
+      - NumberOfOtherServer
+      - Password
+      Label:
+        default:
+          en: ECS
+          zh-cn: 云服务器
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        default:
+          en: SLB
+          zh-cn: 负载均衡
+    TemplateTags:
+    - acs:example:网络:创建中型业务VPC网络架构
+  ALIYUN::ROS::Designer:
+    f950d665-1302-4f38-aea2-731c4354023b:
+      size:
+        width: 465
+        height: 475
+      position:
+        x: 232
+        y: 53
+      z: 0
+      embeds:
+      - 507f73da-44a1-4ce0-9a66-6a11471339df
+      - 4ccba16a-8ff6-4e6e-8362-0461e00017e1
+      - 1d565a0c-ca50-4ffb-9983-1136fddf738a
+      - 8170f135-f31e-478c-a65d-65ee8ebe499c
+    507f73da-44a1-4ce0-9a66-6a11471339df:
+      size:
+        width: 162
+        height: 196
+      position:
+        x: 256
+        y: 313
+      z: 1
+      embeds:
+      - 1b0695f0-20bb-4212-b7a9-b17893fdaa0b
+    1d565a0c-ca50-4ffb-9983-1136fddf738a:
+      size:
+        width: 163
+        height: 249
+      position:
+        x: 252
+        y: 77
+      z: 1
+      embeds:
+      - 205b4f6a-0a75-4745-bfe5-04fa56bd978e
+      - 6bc1af97-a0d0-4464-a765-504c2c283988
+    8170f135-f31e-478c-a65d-65ee8ebe499c:
+      size:
+        width: 130
+        height: 301
+      position:
+        x: 540
+        y: 128
+      z: 1
+      embeds:
+      - 467e10f0-9e32-4b27-b528-13bb3909d1ee
+      - fdabfc64-c9e1-4121-9600-4521c1e79332
+    15c86404-c265-4923-8430-2c587a6d6c61:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 398
+        y: -63
+      z: 0
+    495d5a56-b9ab-4c81-8477-7d6c3cde9dca:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 138
+        y: 372
+      z: 0
+    1b0695f0-20bb-4212-b7a9-b17893fdaa0b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 300
+        y: 372
+      z: 2
+    467e10f0-9e32-4b27-b528-13bb3909d1ee:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 571
+        y: 168
+      z: 2
+    99fde358-efa9-4425-a746-c715b1982a41:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 722
+        y: -28
+      z: 0
+    7100c978-ef6a-4934-a0c9-bf18a7d43029:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 571
+        y: -28
+      z: 0
+    fdabfc64-c9e1-4121-9600-4521c1e79332:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 574
+        y: 283
+      z: 2
+    4ccba16a-8ff6-4e6e-8362-0461e00017e1:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 445
+        y: 283
+      z: 1
+    205b4f6a-0a75-4745-bfe5-04fa56bd978e:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 300
+        y: 193
+      z: 2
+    75c6132f-ac05-4800-b6e5-285fe8a3a92b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 12
+        y: 372
+      z: 0
+    6bc1af97-a0d0-4464-a765-504c2c283988:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 300
+        y: 102
+      z: 2
+    06de6b4f-691e-4d45-9817-1e706b79c6fd:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -158
+        y: 454
+      z: 0
+    8cdcec81-81b6-454a-b78c-5836ebfe7072:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -159
+        y: 277
+      z: 0
+    cdfa0dc3-efd7-41c4-976c-f08d4c710147:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 128
+        y: 149
+      z: 0
+    2c04e63c-d8fc-4239-9973-ee9614374229:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -164
+        y: 372
+      z: 0
+    2e55d2cc-8d94-408e-8e54-1206bfeb5461:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 196
+        y: -63
+      z: 0
+    b2571ec9-1131-468e-82bb-4c6fea0e972c:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 717
+        y: 168
+      z: 0
+    894f13fe-3205-4a41-83c0-4df7e62d4dd0:
+      source:
+        id: 15c86404-c265-4923-8430-2c587a6d6c61
+      target:
+        id: 6bc1af97-a0d0-4464-a765-504c2c283988
+      z: 1
+    4b70169c-5673-478d-a911-08fe754c1c91:
+      source:
+        id: 495d5a56-b9ab-4c81-8477-7d6c3cde9dca
+      target:
+        id: 1b0695f0-20bb-4212-b7a9-b17893fdaa0b
+      z: 1
+    7a8b5782-7f5a-4bfe-b84e-d3612c8ecc80:
+      source:
+        id: 495d5a56-b9ab-4c81-8477-7d6c3cde9dca
+      target:
+        id: 75c6132f-ac05-4800-b6e5-285fe8a3a92b
+      z: 1
+    9e6d3683-dc66-4adb-94c3-36d249af5c59:
+      source:
+        id: 1b0695f0-20bb-4212-b7a9-b17893fdaa0b
+      target:
+        id: 4ccba16a-8ff6-4e6e-8362-0461e00017e1
+      z: 1
+    f1142b98-b759-49c3-9af6-69127fa8996a:
+      source:
+        id: fdabfc64-c9e1-4121-9600-4521c1e79332
+      target:
+        id: 4ccba16a-8ff6-4e6e-8362-0461e00017e1
+      z: 1
+    bb1f8e1e-aa27-485e-91c2-83e3e7fe5769:
+      source:
+        id: 205b4f6a-0a75-4745-bfe5-04fa56bd978e
+      target:
+        id: 4ccba16a-8ff6-4e6e-8362-0461e00017e1
+      z: 1
+    b4b98339-6a41-4e6e-9b0c-750cf1ac26d5:
+      source:
+        id: 06de6b4f-691e-4d45-9817-1e706b79c6fd
+      target:
+        id: 75c6132f-ac05-4800-b6e5-285fe8a3a92b
+      z: 1
+    2e2e7f43-5aeb-4013-8237-90034e28e20a:
+      source:
+        id: 8cdcec81-81b6-454a-b78c-5836ebfe7072
+      target:
+        id: 75c6132f-ac05-4800-b6e5-285fe8a3a92b
+      z: 1
+    40d40d7c-735e-48b1-b7d8-b177e045b097:
+      source:
+        id: cdfa0dc3-efd7-41c4-976c-f08d4c710147
+      target:
+        id: 205b4f6a-0a75-4745-bfe5-04fa56bd978e
+      z: 1
+    575a132e-73d1-4fdc-8dc5-7f1baf93f049:
+      source:
+        id: cdfa0dc3-efd7-41c4-976c-f08d4c710147
+      target:
+        id: 6bc1af97-a0d0-4464-a765-504c2c283988
+      z: 1
+    114f512e-6f68-43ab-b006-0c62e5cfa53b:
+      source:
+        id: 2c04e63c-d8fc-4239-9973-ee9614374229
+      target:
+        id: 75c6132f-ac05-4800-b6e5-285fe8a3a92b
+      z: 1
+    04666362-b219-4966-b76f-8b3d532c066d:
+      source:
+        id: 2e55d2cc-8d94-408e-8e54-1206bfeb5461
+      target:
+        id: 6bc1af97-a0d0-4464-a765-504c2c283988
+      z: 1
+    525a8fc9-f512-42cc-b991-170df31cbd37:
+      source:
+        id: b2571ec9-1131-468e-82bb-4c6fea0e972c
+      target:
+        id: 467e10f0-9e32-4b27-b528-13bb3909d1ee
+      z: 1
+    4fcd69ba-8264-4ac9-b2d2-e34527f92192:
+      source:
+        id: 7100c978-ef6a-4934-a0c9-bf18a7d43029
+      target:
+        id: 467e10f0-9e32-4b27-b528-13bb3909d1ee
+      z: 1
+    31dd93cf-9049-465d-94c1-ef705b96111d:
+      source:
+        id: 7100c978-ef6a-4934-a0c9-bf18a7d43029
+      target:
+        id: 99fde358-efa9-4425-a746-c715b1982a41
+      z: 1

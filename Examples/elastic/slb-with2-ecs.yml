@@ -1,0 +1,190 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Firstly create one SLB, then create 2 ECS instances, finally attach the
+  2 instances to the SLB.
+Parameters:
+  AddressType:
+    Type: String
+    Label: Address Type
+    Description: Load balancer address type
+    Default: internet
+    AllowedValues:
+    - internet
+    - intranet
+  Bandwidth:
+    Type: Number
+    Label: Bandwidth
+    Description: Specify the peak bandwidth of public internet type instance, if PayByBandwidth
+      is selected. The unit is Mbps.
+    Default: 1
+    MinValue: 1
+    MaxValue: 1000
+  SLB_InternetChargeType:
+    Type: String
+    Label: SLB Internet ChargeType
+    Description: The charge type of public internet SLB instance
+    Default: paybytraffic
+    AllowedValues:
+    - paybybandwidth
+    - paybytraffic
+  ECS_InternetChargeType:
+    Type: String
+    Label: ECS Interne ChargeType
+    Description: The charge type of public internet ECS instance
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: Instance type, <a href='#/product/cn-beijing/list/typeList' target='_blank'>View
+      instance types</a>
+    Default: ecs.n1.large
+    AllowedValues:
+    - ecs.n1.large
+    - ecs.n1.xlarge
+    - ecs.n1.3xlarge
+    - ecs.sn2.medium
+  IoOptimized:
+    Type: String
+    Label: Io Optimized
+    Description: The 'optimized' instance can provide better IO performance. Support
+      'none' and 'optimized' only, default is 'optimized'.
+    Default: optimized
+    AllowedValues:
+    - none
+    - optimized
+  Password:
+    Type: String
+    Label: Ecs Instance Password
+    Description: The password of instances
+    ConstraintDescription: '[8, 30] characters consists of 3 types of uppercase letter,
+      lowercase letter, number or special characters.'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+    Confirm: true
+  SecurityGroupName:
+    Type: String
+    Label: Security Group Name
+    Description: The security group name
+    Default: mysecuritygroup
+  SystemDiskCategory:
+    Type: String
+    Label: System Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+Resources:
+  securityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName:
+        Ref: SecurityGroupName
+  BackendServer1:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      SecurityGroupId:
+        Fn::GetAtt:
+        - securityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InstanceType:
+        Ref: InstanceType
+      InternetChargeType:
+        Ref: ECS_InternetChargeType
+      IoOptimized:
+        Ref: IoOptimized
+      Password:
+        Ref: Password
+      SystemDisk_Category:
+        Ref: SystemDiskCategory
+  BackendServer2:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      SecurityGroupId:
+        Fn::GetAtt:
+        - securityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InstanceType:
+        Ref: InstanceType
+      InternetChargeType:
+        Ref: ECS_InternetChargeType
+      IoOptimized:
+        Ref: IoOptimized
+      Password:
+        Ref: Password
+      SystemDisk_Category:
+        Ref: SystemDiskCategory
+  LoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      AddressType:
+        Ref: AddressType
+      Bandwidth:
+        Ref: Bandwidth
+      InternetChargeType:
+        Ref: SLB_InternetChargeType
+  Attachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServers:
+      - ServerId:
+          Ref: BackendServer1
+        Weight: 100
+      - ServerId:
+          Ref: BackendServer2
+        Weight: 100
+      LoadBalancerId:
+        Ref: LoadBalancer
+Outputs:
+  LoadBalancerId:
+    Description: The id of load balance created.
+    Value:
+      Fn::GetAtt:
+      - LoadBalancer
+      - LoadBalancerId
+  SlbIpAddress:
+    Description: The ip address of the load balancer.
+    Value:
+      Fn::GetAtt:
+      - LoadBalancer
+      - IpAddress
+  BackendServer1InstanceId:
+    Description: The instance id of create BackendServer1
+    Value:
+      Fn::GetAtt:
+      - BackendServer1
+      - InstanceId
+  BackendServer1PublicIp:
+    Description: The instance public ip of create BackendServer1
+    Value:
+      Fn::GetAtt:
+      - BackendServer1
+      - PublicIp
+  BackendServer2InstanceId:
+    Description: The instance id of create BackendServer2
+    Value:
+      Fn::GetAtt:
+      - BackendServer2
+      - InstanceId
+  BackendServer2PublicIp:
+    Description: The instance public ip of create BackendServer2
+    Value:
+      Fn::GetAtt:
+      - BackendServer2
+      - PublicIp

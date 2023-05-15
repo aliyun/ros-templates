@@ -1,0 +1,426 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 此模板主要实现创建ECS并绑定多个弹性网卡，绑定弹性网卡的个数需要由ECS的规格具体决定，每个弹性网卡支持绑定多个弹性公网IP。
+  en: The main implementation is to create ECS and bind multiple elastic network CARDS.
+    The number of binding elastic network CARDS should be determined by the specification
+    of ECS
+Parameters:
+  VpcId:
+    Type: String
+    Label:
+      zh-cn: 现有VPC的实例ID
+      en: Existing VPC Instance ID
+    Description:
+      zh-cn: 现有虚拟专有网络的实例ID,控制台-VPC-专有网络下查询
+      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VSwitchId:
+    Type: String
+    Label:
+      zh-cn: 网络交换机ID
+      en: Existing VSwitch ID
+    Description:
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+      ZoneId: VSwitchZoneId
+  SecurityGroupId:
+    Type: String
+    Label:
+      zh-cn: 业务安全组ID
+      en: Business Security Group ID
+    Description:
+      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  EcsInstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>注：可用区可能不支持通用规格<br>规格详见：<a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b><font color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>note: a few zones do not support general specifications<br>see
+        detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  EniCount:
+    Type: Number
+    Label:
+      zh-cn: 服务器绑定弹性网卡数量
+      en: The Server Binds the ENI number.
+    Description:
+      zh-cn: 单台服务器需要绑定的弹性网卡数量，此数量限制的详细信息请参考实例规格表中的弹性网卡信息：<b><a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><font color='blue'>实例规格族</font></a></b>
+      en: The number of Eni that a single server needs to be bound. For details of
+        this number limit, please refer <br>to the elastic network card information
+        in the instance specification table： <b><a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><font color='blue'>Instance specification family</font></a></b>
+    MinValue: 1
+    MaxValue: 32
+  EcsImageId:
+    Type: String
+    Label:
+      zh-cn: 镜像
+      en: Image
+    Description:
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+      en: Image ID，see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+    Default: centos_7
+  EcsSystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+    Description:
+      zh-cn: 系统盘空间, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk space, range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  EcsSystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  EcsPassword:
+    Type: String
+    Label:
+      zh-cn: 登录密码
+      en: Login Password
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=| {}[]:;' <>,.? / Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=| {}[]:;' <>,.? / Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  BandwidthPackageId:
+    Type: String
+    Label:
+      zh-cn: 共享带宽实例ID
+      en: Shared Bandwidth Instance ID
+    Description:
+      zh-cn: 共享带宽实例ID，共享带宽提供地域级带宽共享和复用功能，可以将多个弹性公网IP统一加入到共享带宽实例中，复用共享<br>带宽中的带宽，节省公网带宽使用成本，<b><font
+        color='blue'>当配置弹性公网IP个数为0时此配置无效。</font></b><br>注：每个共享带宽实例最大支持绑定100个弹性公网IP，详情请参考：<b><a
+        href='https://help.aliyun.com/document_detail/150483.html' target='_blank'><font
+        color='blue'>使用限制</font></a></b>。
+      en: 'Share bandwidth instance ID. shared bandwidth provides the regional bandwidth
+        sharing and multiplexing <br>function. Multiple elastic public network IP
+        can be integrated into the shared bandwidth instance, which can reuse the
+        bandwidth in the shared bandwidth, and save the cost of public network bandwidth.This
+        configuration does not take effect when the number of elastic public IP numbers
+        is 0<br>Note: each shared bandwidth instance supports binding up to 100 EIPs.For
+        details, please refer to:<b><a href=''https://help.aliyun.com/document_detail/150483.html''
+        target=''_blank''><font color=''blue''>Restrictions on use</font></a></b>'
+    Default: null
+  EipCount:
+    Type: Number
+    Label:
+      zh-cn: 单网卡弹性公网IP的个数
+      en: Single Network Card Number of EIPs
+    Description:
+      zh-cn: 单网卡弹性公网IP的个数，<b><font color='blue'>配置为0时不会创建弹性公网IP</font></b>，在不提升配额的情况下，默认每个弹性网卡最多支持绑定10个弹性公网IP，<br>默认每个用户只能申请20个弹性公网IP，详情请参考：<b><a
+        href='https://help.aliyun.com/document_detail/54479.html' target='_blank'><font
+        color='blue'>使用限制</font></a></b>
+      en: The number of elastic single network card public network IP. Elastic public
+        IP is not created when configured to 0，<br>Without increasing the quota, each
+        elastic <br>network card supports binding up to 10 elastic public network
+        IP addresses by default. By default, each user can only apply for 20 elastic
+        public network IP addresses. If you need more, please increase the quota.
+        For details, please refer to:<b><a href='https://help.aliyun.com/document_detail/54479.html'
+        target='_blank'><font color='blue'>Restrictions on use</font></a></b>
+    Default: 1
+    MinValue: 0
+    MaxValue: 10
+Resources:
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: EcsImageId
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      PeriodUnit: Month
+      AutoRenewPeriod: 1
+      Period: 1
+      SystemDiskSize:
+        Ref: EcsSystemDiskSize
+      AllocatePublicIP: false
+      InstanceChargeType: PostPaid
+      IoOptimized: optimized
+      Password:
+        Ref: EcsPassword
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount: 1
+  ENIStack:
+    Type: ALIYUN::ROS::Stack
+    Properties:
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Parameters:
+          VpcId:
+            AssociationProperty: ALIYUN::ECS::VPC::VPCId
+            Type: String
+            Description:
+              zh-cn: 现有虚拟专有网络的实例ID,控制台-VPC-专有网络下查询
+              en: Please search the ID starts with (vpc-xxx)from console-Virtual Private
+                Cloud
+            Label:
+              zh-cn: 现有VPC的实例ID
+              en: Existing VPC Instance ID
+          VSwitchId:
+            AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+            Type: String
+            Description:
+              zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+              en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+                Private Cloud-VSwitches
+            Label:
+              zh-cn: 网络交换机ID
+              en: Existing VSwitch ID
+          SecurityGroupId:
+            Type: String
+            AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+            Description:
+              zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+              en: Please search the business security group ID starting with(sg-xxx)from
+                console-ECS-Network & Security
+            Label:
+              zh-cn: 业务安全组ID
+              en: Business Security Group ID
+          PackageId:
+            Default: null
+            Type: String
+            Label:
+              zh-cn: 共享带宽实例ID
+              en: Shared Bandwidth Instance ID
+            Description:
+              zh-cn: 共享带宽实例ID，共享带宽提供地域级带宽共享和复用功能，可以将多个弹性公网IP统一加入到共享带宽实例中，复用共享<br>带宽中的带宽，节省公网带宽使用成本<br>注：每个共享带宽实例最大支持绑定100个弹性公网IP，详情请参考：<b><a
+                href='https://help.aliyun.com/document_detail/150483.html' target='_blank'><font
+                color='blue'>使用限制</font></a></b>。
+              en: 'Share bandwidth instance ID. shared bandwidth provides the regional
+                bandwidth sharing and multiplexing <br>function. Multiple elastic
+                public network IP can be integrated into the shared bandwidth instance,
+                which can reuse the bandwidth in the shared bandwidth, and save the
+                cost of public network bandwidth.<br>Note: each shared bandwidth instance
+                supports binding up to 100 EIPs.For details, please refer to:<b><a
+                href=''https://help.aliyun.com/document_detail/150483.html'' target=''_blank''><font
+                color=''blue''>Restrictions on use</font></a></b>'
+          EipCount:
+            Label:
+              zh-cn: 单网卡弹性公网IP的个数
+              en: Single Network Card Number of EIPs
+            Description:
+              zh-cn: 单网卡弹性公网IP的个数，在不提升配额的情况下，默认每个弹性网卡最多支持绑定10个弹性公网IP，默认每个用户只能申<br>请20个弹性公网IP，详情请参考：<b><a
+                href='https://help.aliyun.com/document_detail/54479.html' target='_blank'><font
+                color='blue'>使用限制</font></a></b>
+              en: The number of elastic single network card public network IP. Without
+                increasing the quota, each elastic <br>network card supports binding
+                up to 10 elastic public network IP addresses by default. By default,
+                each user can only apply for 20 elastic public network IP addresses.
+                If you need more, please increase the quota. For details, please refer
+                to:<b><a href='https://help.aliyun.com/document_detail/54479.html'
+                target='_blank'><font color='blue'>Restrictions on use</font></a></b>
+            Type: Number
+            MinValue: 0
+            MaxValue: 10
+        Conditions:
+          CreateEipConditions:
+            Fn::Not:
+              Fn::Equals:
+              - 0
+              - Ref: EipCount
+        Resources:
+          EcsENI:
+            Type: ALIYUN::ECS::NetworkInterface
+            Properties:
+              SecurityGroupId:
+                Ref: SecurityGroupId
+              VSwitchId:
+                Ref: VSwitchId
+          Eip:
+            Type: ALIYUN::VPC::EIP
+            Count:
+              Ref: EipCount
+            Properties:
+              InternetChargeType: PayByTraffic
+              InstanceChargeType: Postpaid
+          CommonBandwidthPackageIp:
+            Condition: CreateEipConditions
+            DependOn:
+            - Eip
+            Type: ALIYUN::VPC::CommonBandwidthPackageIp
+            Properties:
+              Eips:
+                Fn::MergeMapToList:
+                - AllocationId:
+                    Ref: Eip
+              BandwidthPackageId:
+                Ref: PackageId
+          EipAssociation:
+            Type: ALIYUN::VPC::EIPAssociation
+            Count:
+              Ref: EipCount
+            DependsOn:
+            - Eip
+            - EcsENI
+            - CommonBandwidthPackageIp
+            Properties:
+              AllocationId:
+                Fn::Select:
+                - Ref: ALIYUN::Index
+                - Ref: Eip
+              InstanceId:
+                Ref: EcsENI
+              Mode: MULTI_BINDED
+        Outputs:
+          NetworkInterfaceId:
+            Value:
+              Fn::GetAtt:
+              - EcsENI
+              - NetworkInterfaceId
+          StackInfo:
+            Value:
+              NetworkInterfaceId:
+                Fn::GetAtt:
+                - EcsENI
+                - NetworkInterfaceId
+              NetworkInterfacePrivate:
+                Fn::GetAtt:
+                - EcsENI
+                - PrivateIpAddress
+              EIPs:
+                Value:
+                  Ref: Eip
+      TimeoutMins: 30
+      Parameters:
+        SecurityGroupId:
+          Ref: SecurityGroupId
+        VSwitchId:
+          Ref: VSwitchId
+        VpcId:
+          Ref: VpcId
+        PackageId:
+          Ref: BandwidthPackageId
+        EipCount:
+          Ref: EipCount
+    Count:
+      Ref: EniCount
+  EcsEni1Attachment:
+    Type: ALIYUN::ECS::NetworkInterfaceAttachment
+    Properties:
+      NetworkInterfaceId:
+        Fn::Select:
+        - Ref: ALIYUN::Index
+        - Fn::GetAtt:
+          - ENIStack
+          - Outputs.NetworkInterfaceId
+      InstanceId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+    DependsOn:
+    - ENIStack
+    - EcsInstanceGroup
+    Count:
+      Ref: EniCount
+Outputs:
+  NetworkInterfaceId:
+    Value:
+      Fn::GetAtt:
+      - ENIStack
+      - Outputs.StackInfo
+  EcsInstanceId:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+  EcsInstancePrivateIp:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - EcsInstanceGroup
+        - PrivateIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcId
+      - VSwitchZoneId
+      - VSwitchId
+      - SecurityGroupId
+      - EcsInstanceType
+      - EniCount
+      - EcsImageId
+      - EcsSystemDiskSize
+      - EcsSystemDiskCategory
+      - EcsPassword
+      Label:
+        default: ECS
+    - Parameters:
+      - BandwidthPackageId
+      - EipCount
+      Label:
+        default: VPC
+    TemplateTags:
+    - acs:example:网络:创建一台多网卡绑定多弹性公网地址的云服务器(已有VPC)

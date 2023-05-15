@@ -1,0 +1,300 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates VPC environment and configures SnatGateway to ensure ECS access
+  internet and provider service for public.
+Parameters:
+  SecurityGroupName:
+    Type: String
+    Label: Security Group Name
+    Description: The security group name
+    Default: ROS_SNAT_SG
+  VpcCidrBlock:
+    Type: String
+    Label: Vpc Cidr Block
+    Description: |-
+      The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:
+      10.0.0.0/8
+      172.16.0.0/12 (Default)
+      192.168.0.0/16
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label: VSwitch Cidr Block
+    Description: Cidr Block of created VSwitch
+    Default: 192.168.1.0/24
+  ECSImageId:
+    Type: String
+    Label: Ecs Image Id
+    Description: Image ID to create ecs instance, <a href='#/product/cn-beijing/list/imageList'
+      target='_blank'> Serach Aliyun public image ID</a>.
+    Default: centos_7
+  ECSInstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+  ECSPassword:
+    Type: String
+    Description: The login password of ECS instance
+    ConstraintDescription: '[8, 30] characters, consists of 3 types of uppercase letter,
+      lowercase letter, number or special characters.'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+    Confirm: true
+  ECSDiskCategory:
+    Type: String
+    Label: ECS Disk Category
+    Description: 'System disk category: efficient cloud disk(cloud_efficiency) or
+      SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+  ECSSysDiskSize:
+    Type: Number
+    Label: ECS Sys Disk Size
+    Description: The system disk capacity is within [40, 500].
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  ECSZoneId:
+    Type: String
+    Label: ECS Zone Id
+    Description: The available zone, <a href='#/product/cn-beijing/list/zoneList'
+      target='_blank'>View available zones</a>
+  ECSTag:
+    Type: String
+    Label: ECS Tag
+    Description: ECS tag
+  EIPBandwidth:
+    Type: Number
+    Label: EIP Bandwidth
+    Description: The speed of elastic public internet IP. The default is 5 Mbps.
+    Default: 5
+    MinValue: 1
+    MaxValue: 200
+  EIPInternetChargeType:
+    Type: String
+    Label: EIP Internet Charge Type
+    Description: 'The charge type of elastic public internet IP: PayByBandwidth(billing
+      by fixed bandwidth), PayByTraffic(billing by traffic). The billing by fixed
+      bandwidth and traffic is in days and hours respectively.'
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ECSZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  VRoute:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      RouteId:
+        Fn::GetAtt:
+        - Vpc
+        - VRouterId
+      RouteTableId:
+        Fn::GetAtt:
+        - Vpc
+        - RouteTableId
+      DestinationCidrBlock: 0.0.0.0/0
+      NextHopId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - ECSSnatGateWay
+          - InstanceIds
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      SecurityGroupName:
+        Ref: SecurityGroupName
+      SecurityGroupEgress:
+      - NicType: internet
+        IpProtocol: all
+        PortRange: -1/-1
+        DestCidrIp: 0.0.0.0/0
+        Priority: 1
+      - NicType: intranet
+        IpProtocol: all
+        PortRange: -1/-1
+        DestCidrIp: 0.0.0.0/0
+        Priority: 1
+      SecurityGroupIngress:
+      - NicType: internet
+        IpProtocol: all
+        PortRange: -1/-1
+        SourceCidrIp: 0.0.0.0/0
+        Priority: 1
+  ECSSnatGateWay:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ECSZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Fn::GetAtt:
+        - SecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ECSImageId
+      InstanceType:
+        Ref: ECSInstanceType
+      AllocatePublicIP: 'false'
+      InternetChargeType: PayByTraffic
+      InternetMaxBandwidthIn: 100
+      InternetMaxBandwidthOut: 100
+      IoOptimized: optimized
+      SystemDisk_Category:
+        Ref: ECSDiskCategory
+      SystemDisk_Size:
+        Ref: ECSSysDiskSize
+      Password:
+        Ref: ECSPassword
+      MaxAmount: '1'
+      MinAmount: '1'
+      Tags:
+      - Key: ECS_SNAT_GATEWAY
+        Value:
+          Ref: ECSTag
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - ECSSnatGateWayConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - '
+
+              '
+            - PostRouting=
+            - Ref: VSwitchCidrBlock
+            - '
+
+              '
+            - SourceRouting=`ifconfig eth0|grep inet|awk '{print $2}'|tr -d 'addr:'`
+            - '
+
+              '
+            - "echo 'net.ipv4.ip_forward=1'>> /etc/sysctl.conf \n"
+            - "sysctl -p \n"
+            - "iptables -t nat -I POSTROUTING -s $PostRouting -j SNAT --to-source\
+              \ $SourceRouting \n"
+            - 'apt-get update
+
+              '
+            - 'apt-get install -y curl
+
+              '
+            - 'ros-notify -d ''{"data" : " docker swarm created"}''
+
+              '
+  ECSSnatGateWayConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  ECSSnatGateWayGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: ECSSnatGateWayConditionHandle
+      Timeout: 600
+    DependsOn: ECSSnatGateWay
+  ElasticIp:
+    Type: ALIYUN::ECS::EIP
+    Properties:
+      Bandwidth:
+        Ref: EIPBandwidth
+      InternetChargeType:
+        Ref: EIPInternetChargeType
+  ElasticIpAssociation:
+    Type: ALIYUN::ECS::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - ECSSnatGateWay
+          - InstanceIds
+      AllocationId:
+        Fn::GetAtt:
+        - ElasticIp
+        - AllocationId
+Outputs:
+  ECSSnatGateWay_INNER_IPS:
+    Description: Inner IP address of the ECS instance.
+    Value:
+      Fn::GetAtt:
+      - ECSSnatGateWay
+      - PrivateIps
+  ECSSnatGateWay_InstanceIds:
+    Description: The instance id of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - ECSSnatGateWay
+      - InstanceIds
+  ECSSnatGateWay_ZoneIds:
+    Description: Zone id of created instance.
+    Value:
+      Fn::GetAtt:
+      - ECSSnatGateWay
+      - ZoneIds
+  SecurityGroupId:
+    Description: generated security group id for security group.
+    Value:
+      Fn::GetAtt:
+      - SecurityGroup
+      - SecurityGroupId
+  VpcId:
+    Description: generated security vpc id for VPC.
+    Value:
+      Fn::GetAtt:
+      - Vpc
+      - VpcId
+  VSwitchId:
+    Description: generated security vswitch id for VPC.
+    Value:
+      Fn::GetAtt:
+      - VSwitch
+      - VSwitchId
+  EipAddress:
+    Description: IP address of created EIP.
+    Value:
+      Fn::GetAtt:
+      - ElasticIp
+      - EipAddress

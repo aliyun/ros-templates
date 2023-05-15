@@ -1,0 +1,492 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 轻量级GPU部署云游戏
+Conditions:
+  CreateUbuntuImage:
+    Fn::Equals:
+    - ubuntu_14
+    - Ref: ImageId
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Zone ID
+    Description:
+      zh-cn: 可用区ID。<br><b>注：<font color='red'>由于轻量级GPU服务器资源较少 </font></b><br><b><font
+        color='blue'>选择可用区前请确认该可用区是否支持创建该规格的ECS。</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='red'>Due to the low resources
+        of lightweight GPU servers</font></b><br><b><font color='blue'>Before selecting
+        the available zone, please confirm that the availability zone supports the
+        creation of ecS for this specification.</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      zh-cn: 交换机网段
+      en: VSwitch CIDR Block
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+    Default: 192.168.0.0/24
+  ImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      zh-cn: 镜像ID，使用其他镜像不会安装服务端等软件，请使用ubuntu_14；<br>详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+      en: Image ID, using other images does not install software such as the service
+        side, please use the ubuntu_14; <br>see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+    Default: ubuntu_14
+  InstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；请使用支持的vgn5i或vgn6i两类规格的轻量级GPU服务器；<br>推荐规格：<font color='red'><b>ecs.vgn6i-m8.2xlarge</b></font><br>注：可用区可能不支持推荐规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone, and use a lightweight GPU server with supported vgn5i or vgn6i specifications;</b></font><br>recommended
+        specifications：<font color=''red''><b>ecs.vgn6i-m8.2xlarge</b></font><br>note:
+        a few zones do not support recommended specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  SystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 磁盘类型
+      en: Disk Type
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VpcCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 40dd30d7-0bdd-4e40-b5bb-63dc82234258
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupIngress:
+      - Priority: 1
+        PortRange: -1/-1
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+      - Priority: 1
+        PortRange: 3389/3389
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 22/22
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 5900/5999
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 8554/8554
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 8555/8555
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: udp
+      SecurityGroupName:
+        Fn::Join:
+        - _
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a4065362-4df4-463c-8210-f27bc38ca0c9
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Condition: CreateUbuntuImage
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 18aba381-44d1-43de-b576-e755e85fea58
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Condition: CreateUbuntuImage
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 3600
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0815ee8f-374a-4ebd-a0da-c985a5b6d9b0
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Join:
+        - _
+        - - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ebd0b6ce-6d4a-4903-b8f2-1edb64aa64de
+  LinuxGpuInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: ImageId
+      UserData:
+        Fn::If:
+        - CreateUbuntuImage
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - RosWaitConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - "#!/bin/sh \n"
+              - instance_type=
+              - Ref: InstanceType
+              - " \n"
+              - "echo 'blacklist nouveau' >> /etc/modprobe.d/blacklist-nouveau.conf\
+                \ \n"
+              - "echo 'blacklist lbm-nouveau' >> /etc/modprobe.d/blacklist-nouveau.conf\
+                \ \n"
+              - "echo 'options nouveau modeset=0' >> /etc/modprobe.d/blacklist-nouveau.conf\
+                \ \n"
+              - "rmmod nouveau \n"
+              - "update-initramfs -u \n"
+              - "apt-get update \n"
+              - "apt-get -y install gcc \n"
+              - "cd / \n"
+              - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/Games/NVIDIA-Linux-x86_64-418.70-grid.run\
+                \ \n"
+              - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/Games/NVIDIA-Linux-x86_64-430.63-grid.run\
+                \ \n"
+              - "chmod +x NVIDIA-Linux-x86_64-418.70-grid.run \n"
+              - "chmod +x NVIDIA-Linux-x86_64-430.63-grid.run \n"
+              - "###reboot \n"
+              - "touch /start1.sh && chmod +x /start1.sh \n"
+              - "echo '#!/bin/bash' >> /start1.sh \n"
+              - "echo 'cd /' >> /start1.sh \n"
+              - echo 'instance_type="
+              - Ref: InstanceType
+              - "\"' >> /start1.sh \n"
+              - "echo 'result=$(echo $instance_type | grep \"vgn6i\")' >> /start1.sh\
+                \ \n"
+              - "echo 'if [[ \"$result\" != \"\" ]];then' >> /start1.sh \n"
+              - "echo '    rm NVIDIA-Linux-x86_64-418.70-grid.run && ./NVIDIA-Linux-x86_64-430.63-grid.run\
+                \ -q -s && nvidia-smi' >> /start1.sh \n"
+              - "echo 'else' >> /start1.sh \n"
+              - "echo '    rm NVIDIA-Linux-x86_64-430.63-grid.run && ./NVIDIA-Linux-x86_64-418.70-grid.run\
+                \ -q -s && nvidia-smi' >> /start1.sh \n"
+              - "echo 'fi' >> /start1.sh \n"
+              - "echo 'wait' >> /start1.sh \n"
+              - "echo 'touch /start1.txt' >> /start1.sh \n"
+              - "echo 'reboot' >> /start1.sh \n"
+              - "touch /start2.sh && chmod +x /start2.sh \n"
+              - "echo '#!/bin/bash' >> /start2.sh \n"
+              - "echo 'apt-get -y install x11vnc' >> /start2.sh \n"
+              - "echo 'wait' >> /start2.sh \n"
+              - "echo 'lspci |grep NVIDIA' >> /start2.sh \n"
+              - "echo 'nvidia-xconfig --enable-all-gpus --separate-x-screens' >> /start2.sh\
+                \ \n"
+              - "echo 'sed -i \"/Section \\\"Device\\\"/a    BusID         \\\"PCI:0:7:0\\\
+                \"\" /etc/X11/xorg.conf' >> /start2.sh \n"
+              - "echo 'touch /start2.txt' >> /start2.sh \n"
+              - "echo 'reboot' >> /start2.sh \n"
+              - "touch /start3.sh && chmod +x /start3.sh \n"
+              - "echo '#!/bin/bash' >> /start3.sh \n"
+              - "echo 'cd /' >> /start3.sh \n"
+              - "echo 'wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/Games/gaminganywhere-0.8.0-bin.linux32.tar.bz2'\
+                \ >> /start3.sh \n"
+              - "echo 'tar -jxvf gaminganywhere-0.8.0-bin.linux32.tar.bz2' >> /start3.sh\
+                \ \n"
+              - "echo 'apt-get update' >> /start3.sh \n"
+              - "echo 'apt-get -y install gcc' >> /start3.sh \n"
+              - "echo 'apt-get -y install pkg-config:i386 libx11-dev:i386 libxext-dev:i386\
+                \ libxtst-dev:i386 libfreetype6:i386 libfreetype6-dev:i386 libgl1-mesa-dev:i386\
+                \ libpulse-dev:i386 libasound2-dev:i386 libva-dev:i386 libva1:i386\
+                \ libbz2-dev:i386 libSDL1.2-dev:i386 libsdl-image1.2:i386 libopenal-dev:i386\
+                \ libvorbisfile3:i386' >> /start3.sh \n"
+              - "echo 'wait' >> /start3.sh \n"
+              - "echo \"echo '/gaminganywhere-0.8.0/deps.posix/lib' > /etc/ld.so.conf.d/gaminganywhere.conf\"\
+                \ >> /start3.sh \n"
+              - "echo 'sed -i \"s/display = :0/display = :1/\" /gaminganywhere-0.8.0/bin/config/common/server-common.conf'\
+                \ >> /start3.sh \n"
+              - "echo 'cd /gaminganywhere-0.8.0 && mkdir -p games/AssaultCube && cd\
+                \ games' >> /start3.sh \n"
+              - "echo 'wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/Games/AssaultCube_v1.1.0.4.tar.bz2'\
+                \ >> /start3.sh \n"
+              - "echo 'tar -xjvf AssaultCube_v*.tar.bz2 -C AssaultCube' >> /start3.sh\
+                \ \n"
+              - "echo 'game_dir=/gaminganywhere-0.8.0/games/AssaultCube/1.1.0.4' >>\
+                \ /start3.sh \n"
+              - "echo 'game_exe=/gaminganywhere-0.8.0/games/AssaultCube/1.1.0.4/bin_unix/linux_client'\
+                \ >> /start3.sh \n"
+              - "echo 'sed -i \"s%game-dir = /games/assaultcube-1.1.0.4%game-dir =\
+                \ $game_dir%\" /gaminganywhere-0.8.0/bin/config/server.assaultcube.linux.conf'\
+                \ >> /start3.sh \n"
+              - "echo 'sed -i \"s%game-exe = /games/assaultcube-1.1.0.4/bin_unix/linux_client%game-exe\
+                \ = $game_exe%\" /gaminganywhere-0.8.0/bin/config/server.assaultcube.linux.conf'\
+                \ >> /start3.sh \n"
+              - "echo 'echo \"/gaminganywhere-0.8.0/deps.posix/lib/\" >> /etc/ld.so.conf'\
+                \ >> /start3.sh \n"
+              - "echo 'ldconfig' >> /start3.sh \n"
+              - "echo 'apt-get -y install kubuntu-desktop' >> /start3.sh \n"
+              - "echo 'wait' >> /start3.sh \n"
+              - "echo 'touch /start3.txt' >> /start3.sh \n"
+              - "echo 'reboot' >> /start3.sh \n"
+              - "touch /start4.sh && chmod +x /start4.sh \n"
+              - "echo '#!/bin/bash' >> /start4.sh \n"
+              - "echo 'touch /start4.txt' >> /start4.sh \n"
+              - "echo 'sudo dpkg --configure -a' >> /start4.sh \n"
+              - "echo 'wait' >> /start4.sh \n"
+              - "echo 'reboot' >> /start4.sh \n"
+              - "touch /start5.sh && chmod +x /start5.sh \n"
+              - "echo '#!/bin/bash' >> /start5.sh \n"
+              - "echo 'sleep 15' >> /start5.sh \n"
+              - "echo 'touch /start5.txt' >> /start5.sh \n"
+              - "echo 'cd /' >> /start5.sh \n"
+              - "echo 'rm /start0.txt.old /start1.txt.old /start2.txt.old /start3.txt.old\
+                \ /start4.txt.old' >> /start5.sh \n"
+              - "echo 'mkdir /root/tmp' >> /start5.sh \n"
+              - "echo 'mv start*.sh start*.log /root/tmp' >> /start5.sh \n"
+              - "echo \"ros-notify\" >> /start5.sh \n"
+              - "echo 'reboot' >> /start5.sh \n"
+              - "touch /start_server.sh && chmod +x /start_server.sh \n"
+              - "echo '#!/bin/bash' >> /start_server.sh \n"
+              - "echo 'touch /finished.txt' >> /start_server.sh \n"
+              - "echo 'startx & x11vnc -display :1 &' >> /start_server.sh \n"
+              - "touch /start_download_gaminganywhere_android_client_apk.sh && chmod\
+                \ +x /start_download_gaminganywhere_android_client_apk.sh \n"
+              - "echo 'wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/Games/GAClient-v22-20150228.apk'\
+                \ >> /start_download_gaminganywhere_android_client_apk.sh \n"
+              - "touch /start_game.sh && chmod +x /start_game.sh \n"
+              - "echo 'cd /gaminganywhere-0.8.0/bin/' >> /start_game.sh \n"
+              - "echo './ga-server-event-driven config/server.assaultcube.linux.conf'\
+                \ >> /start_game.sh \n"
+              - "touch /install.sh && chmod +x /install.sh \n"
+              - "echo '#!/bin/bash' >> /install.sh \n"
+              - "echo \"if [ -f '/start0.txt' ];then\" >> /install.sh \n"
+              - "echo \"  mv /start0.txt /start0.txt.old && /bin/bash /start1.sh >>\
+                \ start1.log\" >> /install.sh \n"
+              - "echo \"elif [ -f '/start1.txt' ];then\" >> /install.sh \n"
+              - "echo \"  mv /start1.txt /start1.txt.old && /bin/bash /start2.sh >>\
+                \ start2.log\" >> /install.sh \n"
+              - "echo \"elif [ -f '/start2.txt' ];then\" >> /install.sh \n"
+              - "echo \"  mv /start2.txt /start2.txt.old && /bin/bash /start3.sh >>\
+                \ start3.log\" >> /install.sh \n"
+              - "echo \"elif [ -f '/start3.txt' ];then\" >> /install.sh \n"
+              - "echo \"  mv /start3.txt /start3.txt.old && /bin/bash /start4.sh >>\
+                \ start4.log\" >> /install.sh \n"
+              - "echo \"elif [ -f '/start4.txt' ];then\" >> /install.sh \n"
+              - "echo \"  mv /start4.txt /start4.txt.old && /bin/bash /start5.sh >>\
+                \ start5.log\" >> /install.sh \n"
+              - "echo \"elif [ -f '/start5.txt' ];then\" >> /install.sh \n"
+              - "echo \"  rm /start5.txt /finished.txt\" >> /install.sh \n"
+              - "echo \"# /bin/bash /start6.sh >> start6.log\" >> /install.sh \n"
+              - "echo \"elif [ -f '/finished.txt' ];then\" >> /install.sh \n"
+              - "echo \"  cd /\" >> /install.sh \n"
+              - "echo \"else\" >> /install.sh \n"
+              - "echo \"  cd /\" >> /install.sh \n"
+              - "echo \"fi\" >> /install.sh \n"
+              - "sed -i '/# By default this script does nothing./a bash /install.sh'\
+                \ /etc/rc.local \n"
+              - "touch /start0.txt \n"
+              - "#ros-notify \n"
+              - "reboot \n"
+        - Ref: ALIYUN::NoValue
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Tags:
+      - Value: '076'
+        Key: best_practice
+      SystemDiskSize: 40
+      AllocatePublicIP: true
+      Password:
+        Ref: Password
+      InstanceType:
+        Ref: InstanceType
+      MaxAmount: 1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2393e7ab-c70e-435e-8f12-55544abbd7c4
+Outputs:
+  ProfilePort:
+    Value: '8554'
+  HostIp:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - LinuxGpuInstanceGroup
+        - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchZoneId
+      - VSwitchCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - ImageId
+      - InstanceType
+      - SystemDiskCategory
+      - Password
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:solution:影视娱乐:轻量级GPU部署云游戏
+  ALIYUN::ROS::Designer:
+    ebd0b6ce-6d4a-4903-b8f2-1edb64aa64de:
+      size:
+        width: 177
+        height: 151
+      position:
+        x: 334
+        y: 144
+      z: 1
+      embeds:
+      - 2393e7ab-c70e-435e-8f12-55544abbd7c4
+    40dd30d7-0bdd-4e40-b5bb-63dc82234258:
+      size:
+        width: 353.0537109375
+        height: 312
+      position:
+        x: 192
+        y: 50
+      z: 0
+      embeds:
+      - a4065362-4df4-463c-8210-f27bc38ca0c9
+      - ebd0b6ce-6d4a-4903-b8f2-1edb64aa64de
+    a4065362-4df4-463c-8210-f27bc38ca0c9:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 223
+        y: 184
+      z: 1
+    0815ee8f-374a-4ebd-a0da-c985a5b6d9b0:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 573
+        y: 235
+      z: 0
+    18aba381-44d1-43de-b576-e755e85fea58:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 573
+        y: 83
+      z: 0
+    2393e7ab-c70e-435e-8f12-55544abbd7c4:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 385
+        y: 184
+      z: 2
+    5dfdb72d-6fae-4c9f-9ac3-7aa684faf12a:
+      source:
+        id: 0815ee8f-374a-4ebd-a0da-c985a5b6d9b0
+      target:
+        id: 18aba381-44d1-43de-b576-e755e85fea58
+      z: 1
+    c0b1e8ad-1c1b-442f-bea6-74e4887cd0da:
+      source:
+        id: 2393e7ab-c70e-435e-8f12-55544abbd7c4
+      target:
+        id: a4065362-4df4-463c-8210-f27bc38ca0c9
+      z: 1

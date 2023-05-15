@@ -1,0 +1,140 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Conditions:
+  IsSecurityIpsEmpty:
+    Fn::Or:
+    - IsSecurityIpsEmpty1
+    - IsSecurityIpsEmpty2
+  IsSecurityIpsEmpty1:
+    Fn::Equals:
+    - Ref: SecurityIps
+    - ''
+  IsSecurityIpsEmpty2:
+    Fn::Equals:
+    - Ref: SecurityIps
+    - null
+Parameters:
+  DBClusterId:
+    Type: String
+    Label:
+      en: PolarDB Cluster ID
+      zh-cn: PolarDB集群ID
+    AssociationProperty: ALIYUN::POLARDB::DBCluster::DBClusterId
+  AccountName:
+    Type: String
+    Label:
+      en: Account name
+      zh-cn: 数据库账号名称
+    Description:
+      en: 'Database account: Enter the database account name, for example: temp'
+      zh-cn: 数据库账号：输入数据库账号名称，例如：temp
+    Default: temp
+  AccountPassword:
+    Type: String
+    Label:
+      en: Account password
+      zh-cn: 数据库账号密码
+    Description:
+      en: |-
+        The password must be 8 to 32 characters in length. <br>
+        It must contain at least three of the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
+        Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>.
+      zh-cn: 长度为8~32位，需包含大写字母、小写字母、特殊字符和数字中的至少三种，允许的特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>。
+    AllowedPattern: ^(?=.*[a-zA-Z])(?=.*[a-z0-9])(?=.*[a-z!@#$%^&*()_+=-])(?=.*[A-Z0-9])(?=.*[A-Z!@#$%^&*()_+=-])(?=.*[0-9!@#$%^&*()_+=-])[a-zA-Z0-9!@#$%^&*()_+=-]{8,32}$
+    NoEcho: true
+    Confirm: true
+  SecurityIps:
+    Type: String
+    Label:
+      en: IP Whitelist
+      zh-cn: IP白名单
+    Description:
+      en: |-
+        Set up to 1000 IP addresses or network segments that are allowed to access the instance. <br>
+        For example: 0.0.0.0/0, 10.23.12.24, 10.23.12.24/24. <br>
+        If not specified, it is set to 0.0.0.0/0. <br>
+        If you want to set multiple IP addresses or network segments, please separate them with commas.
+        Up to 1000 can be set. <br>
+        You can visit <a href="https://ip.taobao.com/ipSearch.html" target="_blank">Taobao IP address database</a> to obtain the public network address of the local device.
+      zh-cn: |-
+        设置允许访问实例的IP地址或网段。<br>
+        例如：0.0.0.0/0，10.23.12.24，10.23.12.24/24。<br>
+        如果未指定，则设置为0.0.0.0/0。<br>
+        如果要设置多个IP地址或网段，请使用英文逗号隔开，最多设置1000个。<br>
+    Default: 0.0.0.0/0
+    AllowedPattern: ^(((2(5[0-5]|[0-4]\d))|(1\d{2})|([1-9]\d)|\d)([.]((2(5[0-5]|[0-4]\d))|(1\d{2})|([1-9]\d)|\d)){3}([/]((3[0-2])|([1-2]\d)|\d))?)(,((2(5[0-5]|[0-4]\d))|(1\d{2})|([1-9]\d)|\d)([.]((2(5[0-5]|[0-4]\d))|(1\d{2})|([1-9]\d)|\d)){3}([/]((3[0-2])|([1-2]\d)|\d))?){0,999}$|^$
+  EcsInstanceId:
+    Type: String
+    Label:
+      en: Ecs Instance ID
+      zh-cn: Ecs实例ID
+    AssociationProperty: ALIYUN::ECS::Instance
+Resources:
+  PolarDBWhiteList:
+    Type: ALIYUN::POLARDB::DBClusterAccessWhiteList
+    Properties:
+      DBClusterId:
+        Ref: DBClusterId
+      SecurityIps:
+        Fn::If:
+        - IsSecurityIpsEmpty
+        - 0.0.0.0/0
+        - Ref: SecurityIps
+  PolarDBAccount:
+    Type: ALIYUN::POLARDB::Account
+    Properties:
+      DBClusterId:
+        Ref: DBClusterId
+      AccountType: Super
+      AccountPassword:
+        Ref: AccountPassword
+      AccountName:
+        Ref: AccountName
+  Command:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Ref: EcsInstanceId
+      ContentEncoding: PlainText
+      CommandContent:
+        Fn::Sub: |-
+          mkdir package
+          cd package
+          wget http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
+          yum -y install mysql57-community-release-el7-10.noarch.rpm
+          yum -y install * --nogpgcheck mysql-community-server
+          yum -y install gcc gcc-c++ autoconf automake make libtool bzr mysql-devel git mysql unzip --nogpgcheck
+          wget https://labfileapp.oss-cn-hangzhou.aliyuncs.com/Universities/sysbench.zip
+          unzip sysbench.zip
+          cd sysbench
+          git checkout 1.0.18
+          ./autogen.sh
+          ./configure --prefix=/usr --mandir=/usr/share/man
+          make
+          make install
+          sudo sh -c "for x in /sys/class/net/eth0/queues/rx-*; do echo f>$x/rps_cpus; done"
+          sudo sh -c "echo 32768 > /proc/sys/net/core/rps_sock_flow_entries"
+          sudo sh -c "echo 4096 > /sys/class/net/eth0/queues/rx-0/rps_flow_cnt"
+      Type: RunShellScript
+      Timeout: 3600
+      Sync: true
+Outputs:
+  PolarDBUrl:
+    Description:
+      en: PolarDB Private network address.
+      zh-cn: PolarDB私网连接地址。
+    Value:
+      Fn::Sub:
+      - ${DBClusterId}.mysql.polardb.rds.aliyuncs.com
+      - DBClusterId:
+          Ref: DBClusterId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - DBClusterId
+      - AccountName
+      - AccountPassword
+      - SecurityIps
+      - EcsInstanceId
+    TemplateTags:
+    - acs:document:试用教程:PolarDB MySQL PolarDB HTAP实时数据分析

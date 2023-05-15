@@ -1,0 +1,299 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: User can create high available infrastructure. Some ECS  and one RDS
+  will be created. ECS will be attached to one SLB. RDS is across multiple available
+  zone. All the resources are under VPC environment. The customer could access this
+  infrastructure through SLB
+Parameters:
+  AppEcsImageId:
+    Type: String
+    Label: Ecs Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: ubuntu_16
+  AppEcsInstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+  AppEcsIoOptimized:
+    Type: String
+    Label: Io Optimized
+    Description: The 'optimized' instance can provide better IO performance. Support
+      'none' and 'optimized' only, default is 'optimized'.
+    Default: optimized
+    AllowedValues:
+    - none
+    - optimized
+  AppEcsMaxAmount:
+    Type: Number
+    Label: Ecs Max Amount
+    Description: Number of Extened AppEcs nodes [1, 2]
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+  AppEcsSystemDiskCategory:
+    Type: String
+    Label: Ecs System Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  DBInstanceClass:
+    Type: String
+    Label: DB Instance Class
+    Description: Database instance type. Refer the RDS database instance type.<a href='https://help.aliyun.com/document_detail/26312.html'
+      target='_blank'>View RDS resources type</a>
+    Default: rds.mysql.t1.small
+    AllowedValues:
+    - rds.mysql.t1.small
+    - rds.mysql.s1.small
+    - rds.mysql.s2.large
+    - rds.mysql.s2.xlarge
+    - rds.mysql.s3.large
+    - rds.mysql.m1.medium
+    - rds.mysql.c1.large
+    - rds.mysql.c1.xlarge
+    - rds.mysql.c2.xlarge
+    - rds.mysql.c2.xlp2
+  DBInstanceStorage:
+    Type: String
+    Label: DB Instance Storage
+    Description: 'Incrementing in every 5G, unit: GB'
+    Default: '50'
+  DBName:
+    Type: String
+    Label: DB Name
+    Description: The name of APP database
+    ConstraintDescription: Consist of 2 to 64 characters of lowercase letters, hyphen
+      or underline. Must begin with a letter and be end with an alphanumeric character
+    Default: myapp
+    AllowedPattern: '[a-z]{1}[a-z0-9-_]*[a-z0-9]{1}'
+    MinLength: '2'
+    MaxLength: '64'
+  DBPassword:
+    Type: String
+    Label: DB Password
+    Description: APP database password
+    ConstraintDescription: '[6, 32] characters consist of alphanumeric characters,
+      hyphen and underline'
+    AllowedPattern: '[a-zA-Z0-9-_]*'
+    MinLength: '6'
+    MaxLength: '32'
+    NoEcho: true
+    Confirm: true
+  DBUser:
+    Type: String
+    Label: DB Username
+    Description: The username of APP database
+    ConstraintDescription: Consist of 2 to 16 characters of lowercase letters, underline.
+      Must begin with a letter and be end with an alphanumeric character
+    Default: my_app
+    AllowedPattern: '[a-z]{1}[a-z0-9_]*[a-z0-9]{1}'
+    MinLength: '2'
+    MaxLength: '16'
+  Engine:
+    Type: String
+    Label: DB Engine
+    Description: Database instance engine type. Support MySQL/SQLServer/PostgreSQL/PPAS.
+    Default: MySQL
+    AllowedValues:
+    - MySQL
+    - SQLServer
+    - PostgreSQL
+    - PPAS
+  EngineVersion:
+    Type: String
+    Label: DB Engine Version
+    Description: MySQL:5.5/5.6; SQLServer:2008r2; PostgreSQL:9.4; PPAS:9.3
+    Default: '5.6'
+    AllowedValues:
+    - '5.5'
+    - '5.6'
+  InstancePassword:
+    Type: String
+    Label: ECS Instance Password
+    Description: The login password of ECS instances
+    ConstraintDescription: Consist of 8 to 41 alphanumeric.
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: '8'
+    MaxLength: '41'
+    NoEcho: true
+    Confirm: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  DefaultSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      Description: HA default security group
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        NicType: intranet
+        PortRange: 443/443
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        NicType: intranet
+        PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAZs:
+            Ref: ALIYUN::Region
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock: 192.168.33.0/24
+  AppEcs:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Fn::GetAtt:
+        - DefaultSecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: AppEcsImageId
+      AllocatePublicIP: 'false'
+      InstanceType:
+        Ref: AppEcsInstanceType
+      IoOptimized:
+        Ref: AppEcsIoOptimized
+      MaxAmount:
+        Ref: AppEcsMaxAmount
+      MinAmount:
+        Ref: AppEcsMaxAmount
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: AppEcsSystemDiskCategory
+  AppEcsLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      AddressType: internet
+      LoadBalancerName: AppEcsLoadBalancer
+  AppEcsLoadBalancerListener443:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      BackendServerPort: '443'
+      Bandwidth: -1
+      HealthCheck:
+        HealthyThreshold: '2'
+        Interval: '5'
+        Port: '443'
+        Timeout: '2'
+        UnhealthyThreshold: '4'
+      ListenerPort: '443'
+      LoadBalancerId:
+        Ref: AppEcsLoadBalancer
+      Persistence:
+        PersistenceTimeout: 600
+        StickySession: 'on'
+      Protocol: tcp
+  AppEcsLoadBalancerListener80:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      BackendServerPort: '80'
+      Bandwidth: -1
+      HealthCheck:
+        HealthyThreshold: '2'
+        Interval: '5'
+        Port: '80'
+        Timeout: '2'
+        UnhealthyThreshold: '4'
+      ListenerPort: '80'
+      LoadBalancerId:
+        Ref: AppEcsLoadBalancer
+      Persistence:
+        PersistenceTimeout: 600
+        StickySession: 'on'
+      Protocol: tcp
+  AppEcsSLBAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - AppEcs
+        - InstanceIds
+      LoadBalancerId:
+        Ref: AppEcsLoadBalancer
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceDescription: DataBase
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBMappings:
+      - CharacterSetName: utf8
+        DBName:
+          Ref: DBName
+      Engine:
+        Ref: Engine
+      EngineVersion:
+        Ref: EngineVersion
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUsername:
+        Ref: DBUser
+      MultiAZ: false
+      PreferredBackupPeriod:
+      - Monday
+      - Wednesday
+      PreferredBackupTime: 23:00Z-24:00Z
+      SecurityIPList: 0.0.0.0/0
+Outputs:
+  AppEcsLoadBalancerIp:
+    Description: Public ip for AppEcs service
+    Value:
+      Fn::Join:
+      - ''
+      - - https://
+        - Fn::GetAtt:
+          - AppEcsLoadBalancer
+          - IpAddress
+        - :443
+  DatabaseInnerConnString:
+    Description: Database inner connection string
+    Value:
+      Fn::GetAtt:
+      - Database
+      - InnerConnectionString
+  DatabaseInnerPort:
+    Description: Database inner connection string
+    Value:
+      Fn::GetAtt:
+      - Database
+      - InnerPort

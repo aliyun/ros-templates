@@ -1,0 +1,1043 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 电商资源建站和数据库迁移方案
+Parameters:
+  VpcCidrBlock1:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  VSwitchZoneId1:
+    Type: String
+    Label:
+      en: Available Zone
+      zh-cn: 可用区
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        RDS and ECS resources</font></b>
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建RDS和ECS资源的规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitchCidrBlock1:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 192.168.2.0/24
+  EipBandwidth:
+    Type: Number
+    Label:
+      en: EIP Bandwidth
+      zh-cn: 弹性IP带宽峰值
+    Description:
+      en: 'Value range: [1, 1000], unit: Mbps.'
+      zh-cn: '取值范围: [1, 1000]，单位：Mbps。'
+    ConstraintDescription:
+      en: 'Value range: [1, 1000], unit: Mbps.'
+      zh-cn: '取值范围: [1, 1000]，单位：Mbps。'
+    Default: 2
+    MinValue: 1
+    MaxValue: 1000
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId1
+  InstanceImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: 'Server instance Image ID. see detail: <b><a href=''https://www.alibabacloud.com/help/en/doc-detail/112977.html''
+        target=''_blank''><font color=''blue''>Find the mirror</font></a></b>'
+      zh-cn: 服务器镜像，详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ImageId
+    Default: centos_7_06_64_20G_alibase_20190711.vhd
+  EcsSystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  EcsSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    ConstraintDescription:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  EcsPassword:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  DataBase1:
+    Type: String
+    Label:
+      en: Database Name
+      zh-cn: 数据库名称
+    Description:
+      en: The database name created by the instance, consisting of lowercase letters,
+        numbers, underscores, and middle lines, beginning with letters, ending with
+        letters or numbers, up to 64 characters.
+      zh-cn: 实例创建的数据库名称，由小写字母、数字、下划线、中划线组成，以字母开头，字母或数字结尾，最多64个字符。
+    ConstraintDescription:
+      en: Consisting of lowercase letters, numbers, underscores, and middle lines,
+        beginning with letters, ending with letters or numbers, up to 64 characters.
+      zh-cn: 由小写字母、数字、下划线、中划线组成，以字母开头，字母或数字结尾，最多64个字符。
+    Default: demodb
+    MinLength: 1
+    MaxLength: 64
+  DBTable:
+    Type: String
+    Label:
+      en: Table Name
+      zh-cn: 表名
+    Description:
+      en: Table name for testing, 1-64 characters, English letters, Numbers and the
+        underscore '_' are recommended.
+      zh-cn: 用于测试的表名, 1-64个字符，建议使用英文字母、数字及下划线“_”。
+    ConstraintDescription:
+      en: 1-64 characters, English letters, Numbers and the underscore '_' are recommended.
+      zh-cn: 1—64个字符，建议使用英文字母、数字及下划线“_”。
+    Default: demo_dplus_buyer
+    MinLength: 1
+    MaxLength: 64
+  MysqlPassword:
+    Type: String
+    Label:
+      en: Root Account Password
+      zh-cn: root用户密码
+    Description:
+      en: Root password for MySQL application (non-rds instance).
+      zh-cn: MySQL应用的root用户密码（非rds实例）。
+    ConstraintDescription:
+      en: Length in 5-30 bits
+      zh-cn: 5~30个字符
+    MinLength: 5
+    MaxLength: 30
+    NoEcho: true
+  DtsUser:
+    Type: String
+    Label:
+      en: Migration User
+      zh-cn: 迁移用户
+    Description:
+      en: Create the migration using MySQL user, grant copy account permissions, <br>up
+        to 16 characters, consisting of lowercase letters, Numbers, underscores, beginning
+        letters, and ending letters or Numbers.
+      zh-cn: 创建迁移用MySQL用户，授予复制账号权限, <br>最长16个字符, 由小写字母，数字、下划线组成、字母开头，字母或数字结尾。
+    ConstraintDescription:
+      en: 1-16 characters, consisting of lowercase letters, Numbers, underscores,
+        beginning letters, and ending letters or Numbers.
+      zh-cn: 1-16个字符, 由小写字母，数字、下划线组成、字母开头，字母或数字结尾。
+    Default: dtssync
+    MinLength: 1
+    MaxLength: 16
+  DtsPassword:
+    Type: String
+    Label:
+      en: Migrate User Password
+      zh-cn: 迁移用户密码
+    Description:
+      en: MySQL migration user password, root password for MySQL application (non-rds
+        instance).
+      zh-cn: MySQL迁移用户密码,MySQL应用的root用户密码（非rds实例）。
+    ConstraintDescription:
+      en: ' Length in 8-32 bits'
+      zh-cn: 长度为8-32位
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: Type And Version
+      zh-cn: 类型与版本号
+    Description:
+      en: Database type and version number.
+      zh-cn: 数据库类型与版本号。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.5
+    - MySQL-5.6
+    - MySQL-5.7
+    - MySQL-8.0
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html'
+        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
+      en: 'Select the instance specification based on the type of database engine
+        and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.html''
+        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+    Default: rds.mysql.s2.large
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: Storage Space
+      zh-cn: 存储空间
+    Description:
+      en: 'Database storage space, units: GB, per 5GB increment, value range: 20-1000.'
+      zh-cn: 数据库存储空间, 单位：GB, 每5GB进行递增，取值范围：20-1000。
+    ConstraintDescription:
+      en: 'Database storage space, units: GB, per 5GB increment, value range: 20-1000.'
+      zh-cn: 数据库存储空间, 单位：GB, 每5GB进行递增，取值范围：20-1000。
+    Default: 200
+    MinValue: 50
+    MaxValue: 1000
+  DBName:
+    Type: String
+    Label:
+      en: Database Name
+      zh-cn: 数据库名称
+    Description:
+      en: The database name created by the instance, consisting of lowercase letters,
+        numbers, underscores, and middle lines, beginning with letters, ending with
+        letters or numbers, up to 64 characters.
+      zh-cn: 实例创建的数据库名称，由小写字母、数字、下划线、中划线组成，以字母开头，字母或数字结尾，最多64个字符。
+    Default: dbname01
+  RdsUserName:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库账号
+    Description:
+      en: The user name of a high-privilege account, consisting of lowercase letters,
+        Numbers, and underscores, begins with a letter, ends with a letter or number,
+        and is 2-16 characters long.
+      zh-cn: 高权限账号用户名，由小写字母，数字、下划线组成，以字母开头，字母或数字结尾，2-16个字符。
+    ConstraintDescription:
+      en: The user name of a high-privilege account, consisting of lowercase letters,
+        Numbers, and underscores, begins with a letter, ends with a letter or number,
+        and is 2-16 characters long.
+      zh-cn: 高权限账号用户名，由小写字母，数字、下划线组成，以字母开头，字母或数字结尾，2-16个字符。
+    Default: myuser
+    MinLength: 2
+    MaxLength: 16
+  RdsUserPassword:
+    Type: String
+    Label:
+      en: Account Password
+      zh-cn: 帐号密码
+    Description:
+      en: 'High-privilege user account password, big/lowercase letters, Numbers, special
+        characters account for three, length of 8-32 bits;Special characters included!@
+        # $% ^ & * () _ + - =.'
+      zh-cn: 高权限用户账号密码，大/小写字母、数字、特殊字符占三种，长度8－32位；特殊字符包含!@#$%^&*()_+-=。
+    ConstraintDescription:
+      en: '8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  DtsMigrationJobClass:
+    Type: String
+    Label:
+      en: Migration Instance Specification
+      zh-cn: 迁移实例规格
+    Description:
+      en: Specifications of data migration channels;<br>see detail：<a href='https://www.alibabacloud.com/help/doc-detail/26606.html'
+        target='_blank'><b><font color='blue'>Specifications</font></b></a>
+      zh-cn: 迁移实例规格；<br>规格详见：<a href='https://help.aliyun.com/document_detail/26606.html'
+        target='_blank'><b><font color='blue'>规格说明</font></b></a>
+    Default: small
+    AllowedValues:
+    - small
+    - medium
+    - large
+  DtsMigrationJobName:
+    Type: String
+    Label:
+      en: Migration Task Name
+      zh-cn: 迁移任务名称
+    Description:
+      en: Migration Task Name
+      zh-cn: 迁移任务名称
+    Default: testmigration
+Resources:
+  EcsVpc1App:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - Vpc1
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VpcCidrBlock1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d69fc413-e9bd-43b1-bdd0-61ce90a4324b
+  EcsSecurityGroup1:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc1App
+      SecurityGroupIngress:
+      - Policy: accept
+        IpProtocol: tcp
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        PortRange: 22/22
+      - Policy: accept
+        IpProtocol: tcp
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        PortRange: 3306/3306
+      - Policy: accept
+        IpProtocol: tcp
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        PortRange: 80/80
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - SecurityGroup1
+          - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7048f43a-802a-465a-ad80-599eb9c22425
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a68c9746-06fe-4f8e-94e2-10f8eed1435a
+  EcsVSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId1
+      VpcId:
+        Ref: EcsVpc1App
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch1
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VSwitchCidrBlock1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3dff451e-ba57-4f66-b1e0-65fe3d81e417
+  VpcEip1:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth:
+        Ref: EipBandwidth
+      InstanceChargeType: Postpaid
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0d95dec1-3713-4205-8551-9426e88432b0
+  EcsInstance1:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: EcsVpc1App
+      VSwitchId:
+        Ref: EcsVSwitch1
+      SecurityGroupId:
+        Ref: EcsSecurityGroup1
+      ImageId:
+        Ref: InstanceImageId
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      Tags:
+      - Key: 008
+        Value: best_practice
+      - Key: 订单应用
+        Value: 业务
+      SystemDiskSize:
+        Ref: EcsSystemDiskSize
+      AllocatePublicIP: false
+      IoOptimized: optimized
+      Password:
+        Ref: EcsPassword
+      InstanceType:
+        Ref: EcsInstanceType
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2dffdc22-4c50-4209-8454-96146fd8d3a3
+  VpcEipAssociation1:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: EcsInstance1
+      AllocationId:
+        Ref: VpcEip1
+    DependsOn:
+    - EcsInstance1
+    - VpcEip1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: b3feba84-6737-4890-8202-3661ebfea58b
+  VpcEip2:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth:
+        Ref: EipBandwidth
+      InstanceChargeType: Postpaid
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 6dfdde06-4467-4182-9f68-384e86c5f3c3
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: EcsVpc1App
+      VSwitchId:
+        Ref: EcsVSwitch1
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      MultiAZ: true
+      DBMappings:
+      - CharacterSetName: utf8
+        DBName:
+          Ref: DBName
+      Tags:
+        Key: best_practice
+        Value: 008
+      MasterUsername:
+        Ref: RdsUserName
+      MasterUserPassword:
+        Ref: RdsUserPassword
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      MasterUserType: Super
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList:
+        Ref: VpcCidrBlock1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c46d890c-2bfc-43ec-9817-149c298afe5a
+  EcsInstance2:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: EcsVpc1App
+      VSwitchId:
+        Ref: EcsVSwitch1
+      SecurityGroupId:
+        Ref: EcsSecurityGroup1
+      ImageId:
+        Ref: InstanceImageId
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - RosWaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/sh \n"
+            - rootpwd=
+            - Ref: MysqlPassword
+            - " \n"
+            - data_base1=
+            - Ref: DataBase1
+            - " \n"
+            - DtsUser=
+            - Ref: DtsUser
+            - " \n"
+            - DtsPwd=
+            - Ref: DtsPassword
+            - " \n"
+            - db_table=
+            - Ref: DBTable
+            - " \n"
+            - "cd ~ \n"
+            - "sleep 120 \n"
+            - "wget http://repo.mysql.com/mysql-community-release-el6-5.noarch.rpm\
+              \ \n"
+            - "rpm -ivh mysql-community-release-el6-5.noarch.rpm \n"
+            - "yum repolist all | grep mysql \n"
+            - "yum install mysql-community-server -y \n"
+            - "# 生成MySQL root用户，设置密码 \n"
+            - "echo \\#\\!/bin/bash > dbroot.sh \n"
+            - "echo MYSQL_PASSWD=\\\"$rootpwd\\\" >> dbroot.sh \n"
+            - "echo service mysqld start >> dbroot.sh \n"
+            - "echo yum install expect -y >> dbroot.sh \n"
+            - "echo \"echo '#!/usr/bin/expect\" >> dbroot.sh \n"
+            - "echo set timeout 60 >> dbroot.sh \n"
+            - "echo 'set password [lindex $argv 0]' >> dbroot.sh \n"
+            - "echo spawn mysql_secure_installation >> dbroot.sh \n"
+            - "echo expect { >> dbroot.sh \n"
+            - "echo \\\"enter for none\\\" { send \\\"\\\\r\\\"\\; exp_continue} >>\
+              \ dbroot.sh \n"
+            - "echo \\\"Y/n\\\" { send \\\"Y\\\\r\\\" \\; exp_continue} >> dbroot.sh\
+              \ \n"
+            - "echo '\"password\" { send \"$password\\r\"; exp_continue}' >> dbroot.sh\
+              \ \n"
+            - "echo \\\"Cleaning up\\\" { send \\\"\\\\r\\\"} >> dbroot.sh \n"
+            - "echo } >> dbroot.sh \n"
+            - "echo \"interact ' > mysql_secure_installation.exp\" >> dbroot.sh \n"
+            - "echo chmod +x mysql_secure_installation.exp >> dbroot.sh \n"
+            - "echo './mysql_secure_installation.exp $MYSQL_PASSWD' >> dbroot.sh \n"
+            - "chmod +x dbroot.sh \n"
+            - "./dbroot.sh \n"
+            - "# 数据库配置文件初始化 \n"
+            - "cp /etc/my.cnf /etc/my.cnf.bak \n"
+            - "echo '[mysqld]' > /etc/my.cnf \n"
+            - "echo 'server_id=2' >> /etc/my.cnf \n"
+            - "echo 'innodb_buffer_pool_size         = 8G' >> /etc/my.cnf \n"
+            - "echo 'port  = 3306' >> /etc/my.cnf \n"
+            - "echo 'max_connections         = 1000 ' >> /etc/my.cnf \n"
+            - "echo 'max_user_connections    = 1000 ' >> /etc/my.cnf \n"
+            - "echo 'table_open_cache            = 10240 ' >> /etc/my.cnf \n"
+            - "echo 'table_definition_cache      = 2048  ' >> /etc/my.cnf \n"
+            - "echo 'open_files_limit = 65535 ' >> /etc/my.cnf \n"
+            - "echo 'innodb_open_files               = 65535' >> /etc/my.cnf \n"
+            - "echo 'innodb_log_file_size            = 100M ' >> /etc/my.cnf \n"
+            - "echo 'innodb_log_files_in_group       = 2 ' >> /etc/my.cnf \n"
+            - "echo 'lower_case_table_names  = 1' >> /etc/my.cnf \n"
+            - "echo 'collation_server        = utf8_bin' >> /etc/my.cnf \n"
+            - "echo 'character_set_server = utf8' >> /etc/my.cnf \n"
+            - "echo 'skip_name_resolve' >> /etc/my.cnf \n"
+            - "echo 'skip-external-locking' >> /etc/my.cnf \n"
+            - "echo 'explicit_defaults_for_timestamp ' >> /etc/my.cnf \n"
+            - "echo 'back_log        = 1024' >> /etc/my.cnf \n"
+            - "echo 'thread_cache_size           = 512 ' >> /etc/my.cnf \n"
+            - "echo 'max_connect_errors      = 2000 ' >> /etc/my.cnf \n"
+            - "echo 'table_open_cache_instances  = 16' >> /etc/my.cnf \n"
+            - "echo 'binlog_cache_size           = 512K' >> /etc/my.cnf \n"
+            - "echo 'bulk_insert_buffer_size     = 64M' >> /etc/my.cnf \n"
+            - "echo 'ft_min_word_len             = 4' >> /etc/my.cnf \n"
+            - "echo 'key_buffer_size             = 32M' >> /etc/my.cnf \n"
+            - "echo 'max_allowed_packet          = 1024M' >> /etc/my.cnf \n"
+            - "echo 'max_heap_table_size         = 32M' >> /etc/my.cnf \n"
+            - "echo 'tmp_table_size  = 32M' >> /etc/my.cnf \n"
+            - "echo 'myisam_max_sort_file_size   = 10G' >> /etc/my.cnf \n"
+            - "echo 'myisam_repair_threads       = 1' >> /etc/my.cnf \n"
+            - "echo 'myisam_sort_buffer_size     = 24M' >> /etc/my.cnf \n"
+            - "echo 'query_cache_limit           = 1M' >> /etc/my.cnf \n"
+            - "echo 'query_cache_size            = 0' >> /etc/my.cnf \n"
+            - "echo 'sort_buffer_size            = 4M' >> /etc/my.cnf \n"
+            - "echo 'join_buffer_size            = 6M' >> /etc/my.cnf \n"
+            - "echo 'read_buffer_size            = 2M' >> /etc/my.cnf \n"
+            - "echo 'read_rnd_buffer_size        = 3M' >> /etc/my.cnf \n"
+            - "echo 'thread_stack                = 192K' >> /etc/my.cnf \n"
+            - "echo '# log' >> /etc/my.cnf \n"
+            - "echo 'general_log                 = off ' >> /etc/my.cnf \n"
+            - "echo 'log_bin=on' >> /etc/my.cnf \n"
+            - "echo 'binlog_format=ROW' >> /etc/my.cnf \n"
+            - "echo '#' >> /etc/my.cnf \n"
+            - "echo 'datadir=/var/lib/mysql' >> /etc/my.cnf \n"
+            - "echo 'socket=/var/lib/mysql/mysql.sock' >> /etc/my.cnf \n"
+            - "echo '' >> /etc/my.cnf \n"
+            - "echo 'symbolic-links=0' >> /etc/my.cnf \n"
+            - "echo '' >> /etc/my.cnf \n"
+            - "echo 'sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES' >> /etc/my.cnf\
+              \ \n"
+            - "echo '' >> /etc/my.cnf \n"
+            - "echo '[mysql_safe]' >> /etc/my.cnf \n"
+            - "echo 'log-error=/var/log/mysqld.log' >> /etc/my.cnf \n"
+            - "echo 'pid-file=/var/run/mysqld/mysqld.pid' >> /etc/my.cnf \n"
+            - "service mysqld restart \n"
+            - "# 操作系统层面数据库优化 \n"
+            - "echo 'ulimit -u 65535' >> /etc/profile \n"
+            - "echo 'ulimit -n 65535' >> /etc/profile \n"
+            - "echo 'ulimit -d unlimited' >> /etc/profile \n"
+            - "echo 'ulimit -m unlimited' >> /etc/profile \n"
+            - "echo 'ulimit -s unlimited' >> /etc/profile \n"
+            - "echo 'ulimit -t unlimited' >> /etc/profile \n"
+            - "echo 'ulimit -v unlimited' >> /etc/profile \n"
+            - "source /etc/profile \n"
+            - "# 创建数据库、表，插入测试数据 \n"
+            - "echo \\#\\!/bin/bash > db.sh \n"
+            - "echo mysql -uroot -p\"$rootpwd\" \\<\\<EOF >> db.sh \n"
+            - "echo CREATE DATABASE IF NOT EXISTS \"$data_base1\" DEFAULT CHARSET\
+              \ utf8 COLLATE utf8_general_ci\\; >> db.sh \n"
+            - "echo create user \"$DtsUser\" identified by \\\"$DtsPwd\\\"\\; >> db.sh\
+              \ \n"
+            - "echo grant REPLICATION CLIENT, REPLICATION SLAVE, select, SHOW VIEW\
+              \ on \\*.* to \"$DtsUser\"@\\\"%\\\" identified by \\\"$DtsPwd\\\"\\\
+              ; >> db.sh \n"
+            - "echo flush privileges\\; >> db.sh \n"
+            - "echo use \"$data_base1\"\\; >> db.sh \n"
+            - "echo DROP TABLE IF EXISTS demo_data\\; >> db.sh \n"
+            - "echo CREATE TABLE \"$db_table\" \\( >> db.sh \n"
+            - "echo   buyer_id varchar\\(32\\) DEFAULT NULL , >> db.sh \n"
+            - "echo   buyer_prov varchar\\(32\\) DEFAULT NULL , >> db.sh \n"
+            - "echo   gender varchar\\(32\\) DEFAULT NULL , >> db.sh \n"
+            - "echo   age_range varchar\\(32\\) DEFAULT NULL , >> db.sh \n"
+            - "echo   zodiac varchar\\(32\\) DEFAULT NULL  >> db.sh \n"
+            - "echo \\) ENGINE=InnoDB DEFAULT CHARSET=utf8\\; >> db.sh \n"
+            - "echo insert into \"$db_table\"\\(\"buyer_id\",\"buyer_prov\",\"gender\"\
+              ,\"age_range\",\"zodiac\"\\) values >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\), >> db.sh \n"
+            - "echo \\(\\\"00047f4d5e5c\\\",\\\"ShangXI\\\",\\\"M\\\",\\\"20-30\\\"\
+              ,\\\"by\\\"\\)\\; >> db.sh \n"
+            - "echo EOF >> db.sh \n"
+            - "chmod +x db.sh \n"
+            - "./db.sh \n"
+            - "ros-notify -d \"{\\\"Data\\\" : \\\"SUCCESS\\\", \\\"Status\\\" : \\\
+              \"SUCCESS\\\"}\" \n"
+      Tags:
+      - Key: 008
+        Value: best_practice
+      - Key: 订单应用
+        Value: 自建数据库
+      AllocatePublicIP: false
+      IoOptimized: optimized
+      Password:
+        Ref: EcsPassword
+      InstanceType:
+        Ref: EcsInstanceType
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 82bd9f90-89db-4bd4-8cac-bbff00f0abe8
+  VpcEipAssociation2:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: EcsInstance2
+      AllocationId:
+        Ref: VpcEip2
+    DependsOn:
+    - EcsInstance2
+    - VpcEip2
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: dda1f1d3-6048-4ae3-baa3-131166ed4911
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 600
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 287657df-217f-4594-823e-a7bda06c3bbd
+  DtsMigrationJob:
+    Type: ALIYUN::DTS::MigrationJob
+    Properties:
+      MigrationJobClass:
+        Ref: DtsMigrationJobClass
+      SourceEndpoint:
+        EngineName: MySQL
+        Port: '3306'
+        Region:
+          Ref: ALIYUN::Region
+        InstanceID:
+          Ref: EcsInstance2
+        IP:
+          Fn::GetAtt:
+          - VpcEip2
+          - EipAddress
+        Password:
+          Ref: DtsPassword
+        UserName:
+          Ref: DtsUser
+        InstanceType: ECS
+      MigrationJobName:
+        Ref: DtsMigrationJobName
+      MigrationMode:
+        StructureIntialization: true
+        DataSynchronization: true
+        DataIntialization: true
+      DestinationEndpoint:
+        EngineName: MySQL
+        Port: '3306'
+        Region:
+          Ref: ALIYUN::Region
+        InstanceID:
+          Ref: RdsDBInstance
+        Password:
+          Ref: RdsUserPassword
+        UserName:
+          Ref: RdsUserName
+        InstanceType: RDS
+      MigrationObject:
+      - NewDBName:
+          Ref: DBName
+        DBName:
+          Ref: DataBase1
+        NewSchemaName:
+          Ref: DBName
+        SchemaName:
+          Ref: DataBase1
+    DependsOn:
+    - RdsDBInstance
+    - RosWaitCondition
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 718b893a-fc3a-4f22-a694-16148f45276a
+Outputs:
+  Instance2EId:
+    Description:
+      en: The instance ID of your own database server.
+      zh-cn: 自建数据库服务器的实例ID
+    Value:
+      Fn::GetAtt:
+      - EcsInstance2
+      - InstanceId
+  Instance1Eip:
+    Description:
+      en: The public network IP of the resource server.
+      zh-cn: APP资源服务器的公网IP。
+    Value:
+      Fn::GetAtt:
+      - VpcEip1
+      - EipAddress
+  RdsInstanceInnerConnectionString:
+    Description:
+      en: RDS Intranet connection string.
+      zh-cn: RDS内网连接串。
+    Value:
+      Fn::GetAtt:
+      - RdsDBInstance
+      - InnerConnectionString
+  RdsAccount:
+    Description:
+      en: RDS high privilege account.
+      zh-cn: RDS高权限帐号。
+    Value:
+      Ref: RdsUserName
+  Instance2Eip:
+    Description:
+      en: Self-built database server public network IP.
+      zh-cn: 自建数据库服务器的公网IP。
+    Value:
+      Fn::GetAtt:
+      - VpcEip2
+      - EipAddress
+  RdsInstanceId:
+    Description:
+      en: RDS Instance ID.
+      zh-cn: RDS实例ID。
+    Value:
+      Fn::GetAtt:
+      - RdsDBInstance
+      - DBInstanceId
+  SelfBuildMySQLAccount:
+    Description:
+      en: Self Build MySQLA ccount.
+      zh-cn: 自建数据库迁移用户账号。
+    Value:
+      Ref: DtsUser
+  Instance1Id:
+    Description:
+      en: The instance ID of the resource server.
+      zh-cn: APP资源服务器的实例ID。
+    Value:
+      Fn::GetAtt:
+      - EcsInstance1
+      - InstanceId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock1
+      - VSwitchZoneId1
+      - VSwitchCidrBlock1
+      - EipBandwidth
+      Label:
+        default: VPC
+    - Parameters:
+      - EcsInstanceType
+      - InstanceImageId
+      - EcsSystemDiskCategory
+      - EcsSystemDiskSize
+      - EcsPassword
+      Label:
+        default: ECS
+    - Parameters:
+      - DataBase1
+      - DBTable
+      - MysqlPassword
+      - DtsUser
+      - DtsPassword
+      Label:
+        default: APP MYSQL
+    - Parameters:
+      - DBInstanceEngineAndVersion
+      - DBInstanceClass
+      - DBInstanceStorage
+      - DBName
+      - RdsUserName
+      - RdsUserPassword
+      Label:
+        default: RDS
+    - Parameters:
+      - DtsMigrationJobClass
+      - DtsMigrationJobName
+      Label:
+        default: DTS
+    TemplateTags:
+    - acs:solution:业务上云:电商行业业务及数据库上云
+  ALIYUN::ROS::Designer:
+    3dff451e-ba57-4f66-b1e0-65fe3d81e417:
+      size:
+        width: 222
+        height: 251
+      position:
+        x: 179
+        y: 72
+      z: 1
+      embeds:
+      - c46d890c-2bfc-43ec-9817-149c298afe5a
+      - 82bd9f90-89db-4bd4-8cac-bbff00f0abe8
+      - 2dffdc22-4c50-4209-8454-96146fd8d3a3
+    d69fc413-e9bd-43b1-bdd0-61ce90a4324b:
+      size:
+        width: 325.572265625
+        height: 396
+      position:
+        x: 160
+        y: 35
+      z: 0
+      embeds:
+      - 7048f43a-802a-465a-ad80-599eb9c22425
+      - 3dff451e-ba57-4f66-b1e0-65fe3d81e417
+    7048f43a-802a-465a-ad80-599eb9c22425:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 318
+        y: 332
+      z: 1
+    a68c9746-06fe-4f8e-94e2-10f8eed1435a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 565
+        y: 236
+      z: 0
+    0d95dec1-3713-4205-8551-9426e88432b0:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 53
+        y: 350
+      z: 0
+    b3feba84-6737-4890-8202-3661ebfea58b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 53
+        y: 212
+      z: 0
+    6dfdde06-4467-4182-9f68-384e86c5f3c3:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 721
+        y: 112
+      z: 0
+    c46d890c-2bfc-43ec-9817-149c298afe5a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 218
+        y: 112
+      z: 2
+    82bd9f90-89db-4bd4-8cac-bbff00f0abe8:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 318
+        y: 112
+      z: 2
+    dda1f1d3-6048-4ae3-baa3-131166ed4911:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 566
+        y: 112
+      z: 0
+    287657df-217f-4594-823e-a7bda06c3bbd:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 730
+        y: 236
+      z: 0
+    2dffdc22-4c50-4209-8454-96146fd8d3a3:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 218
+        y: 212
+      z: 2
+    718b893a-fc3a-4f22-a694-16148f45276a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 561
+        y: 342
+      z: 0
+    dd7b3012-6f0d-4e6f-aa15-7bead450d581:
+      source:
+        id: b3feba84-6737-4890-8202-3661ebfea58b
+      target:
+        id: 2dffdc22-4c50-4209-8454-96146fd8d3a3
+      z: 1
+    b764358f-2bdb-4e63-8423-f568f5b6c29d:
+      source:
+        id: b3feba84-6737-4890-8202-3661ebfea58b
+      target:
+        id: 0d95dec1-3713-4205-8551-9426e88432b0
+      z: 1
+    b1afbb51-c8d6-46eb-9cc2-262a6afb873b:
+      source:
+        id: 82bd9f90-89db-4bd4-8cac-bbff00f0abe8
+      target:
+        id: 7048f43a-802a-465a-ad80-599eb9c22425
+      z: 1
+    b2182bd6-b01e-40d4-ac47-c02c16ea70e1:
+      source:
+        id: dda1f1d3-6048-4ae3-baa3-131166ed4911
+      target:
+        id: 82bd9f90-89db-4bd4-8cac-bbff00f0abe8
+      z: 1
+    5f0a782d-42e6-421f-b36b-df83a277a49b:
+      source:
+        id: dda1f1d3-6048-4ae3-baa3-131166ed4911
+      target:
+        id: 6dfdde06-4467-4182-9f68-384e86c5f3c3
+      z: 1
+    9c347be2-0e45-4ae4-8aef-ce9db042170d:
+      source:
+        id: 287657df-217f-4594-823e-a7bda06c3bbd
+      target:
+        id: a68c9746-06fe-4f8e-94e2-10f8eed1435a
+      z: 1
+    44a468ac-f818-4302-8d11-2615e65cffb2:
+      source:
+        id: 2dffdc22-4c50-4209-8454-96146fd8d3a3
+      target:
+        id: 7048f43a-802a-465a-ad80-599eb9c22425
+      z: 1

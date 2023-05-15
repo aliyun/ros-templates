@@ -1,0 +1,1004 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 'Alibaba ROS solution template: On the existing virtual proprietary network,
+    switch and security group base resources, create multiple ECS (Kafka Middleware),
+    one of which binds elastic IP as the management node, and the other node strucpowers.
+    Java jdk version is 1.8.0, Scala version is 2.12, Kafka version is 0.10.2.2, data
+    disk path is /home/software/ for storing Kafka data, the default Kafka bin directory
+    located at /home/software/kafka/bin.'
+  zh-cn: 阿里巴巴 ROS 解决方案模板：在已有虚拟专有网络、交换机和安全组基础资源上，创建多台ECS(Kafka Middleware)，其中一台绑定弹性IP作为管理节点，其他节点使用弹性伸缩进行管理；Java
+    jdk版本是1.8.0，Scala版本是2.12，Kafka版本是0.10.2.2，数据盘路径是/home/software/，用于存储Kafka数据；默认Kafka
+    bin目录位于/home/software/kafka/bin。
+Parameters:
+  VpcId:
+    Type: String
+    Label:
+      zh-cn: 现有VPC的实例ID
+      en: Existing VPC Instance ID
+    Description:
+      zh-cn: 控制台-VPC-专有网络下查询
+      en: Please search the ID starting with (vpc-xxx)from console-Virtual Private
+        Cloud
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Zone ID
+      zh-cn: 交换机可用区
+    Description:
+      en: New Switch Availability Zone ID
+      zh-cn: 新建交换机Switch的可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VSwitchId:
+    Type: String
+    Label:
+      zh-cn: 网络交换机ID
+      en: VSwitch ID
+    Description:
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+      en: Please search the business VSwitch ID starting with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+      VpcId: VpcId
+  SecurityGroupId:
+    Type: String
+    Label:
+      zh-cn: 业务安全组ID
+      en: Business Security Group ID
+    Description:
+      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font>]<br><font color='blue'><b>2.List of optional
+        models</font>]<br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB
+        Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPSS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  BindWidth:
+    Type: Number
+    Label:
+      en: Public IP Bandwidth
+      zh-cn: 公网IP带宽值
+    Description:
+      en: 'Public network IP bandwidth，unit: Mbps'
+      zh-cn: 公网IP带宽值，单位：Mbps
+    Default: 5
+    MinValue: 1
+    MaxValue: 100
+  DiskCategory:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 磁盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  DiskSize:
+    Type: Number
+    Label:
+      en: Data Disk Space
+      zh-cn: 数据盘空间
+    Description:
+      en: 'Instance disk size, range of values: 20-32768, units: GB'
+      zh-cn: 实例数据盘大小，单位为GiB。取值范围：20~32768
+    Default: 100
+    MinValue: 20
+    MaxValue: 32768
+  ListenPort:
+    Type: Number
+    Label:
+      en: Kafka Listeners Port
+      zh-cn: Kafka监听端口
+    Description:
+      en: Kafka Listeners Port, please use more than 1000 port Numbers
+      zh-cn: Kafka监听端口，请使用1000以上的端口号
+    Default: 9092
+    MinValue: 1000
+    MaxValue: 65535
+  MsgTime:
+    Type: Number
+    Label:
+      en: Message Retention Time
+      zh-cn: 消息保留时间
+    Description:
+      en: Maximum message retention time in hours
+      zh-cn: 消息保留最长时间, 单位：小时
+    Default: 24
+    AllowedValues:
+    - 24
+    - 48
+    - 72
+    - 96
+    - 120
+    - 144
+    - 168
+  TopicClass:
+    Type: Number
+    Label:
+      en: Topic Specifications
+      zh-cn: Topic规格
+    Description:
+      en: number of topics
+      zh-cn: topic数量
+    Default: 50
+    MinValue: 50
+    MaxValue: 450
+  Amount:
+    Type: Number
+    Label:
+      en: Instance Amount
+      zh-cn: 实例数量
+    Description:
+      en: 'ECS Instance Amount, Allowed value: 3~10'
+      zh-cn: 购买实例数量，允许值：3~10
+    Default: 3
+    MinValue: 3
+    MaxValue: 10
+  InstanceImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: 镜像ID
+    Description:
+      en: Image ID，See detail：<b><a href='https://www.alibabacloud.com/help/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+Resources:
+  RosWaitConditionMasterHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8b6b0bdf-affe-4f14-910f-6c79433a0441
+  RosWaitConditionMaster:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 1800
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionMasterHandle
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 6b6a4be7-5ea5-4cdf-b8e9-b32536c55c2c
+  RosWaitConditionHandleEss:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2dad3d8f-a8cc-4bf2-9853-9c2cc4f3cb61
+  RosWaitConditionEss:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 1800
+      Count:
+        Fn::Calculate:
+        - '{0}-1'
+        - 0
+        - - Ref: Amount
+      Handle:
+        Ref: RosWaitConditionHandleEss
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f92be6d9-c880-4470-9878-dd181b341054
+  EcsInstanceGroupMaster:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: InstanceImageId
+      IoOptimized: optimized
+      DiskMappings:
+      - Category:
+          Ref: DiskCategory
+        Size:
+          Ref: DiskSize
+        DiskName: kafka_master_data_disk
+      InternetMaxBandwidthOut:
+        Ref: BindWidth
+      InternetMaxBandwidthIn:
+        Ref: BindWidth
+      InstanceChargeType: PostPaid
+      MaxAmount: 1
+      SystemDiskCategory:
+        Ref: DiskCategory
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - Kafka
+          - -[0,3]
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceType
+      HostName:
+        Fn::Join:
+        - ''
+        - - Kafka
+          - -[0,3]
+      Password:
+        Ref: InstancePassword
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - RosWaitConditionMasterHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/sh \n"
+            - "set -e \n"
+            - "sleep 10 \n"
+            - "HOST_IP=`ifconfig eth0 | awk '/inet /{print $2}'` \n"
+            - "software_path=\"/home/software\" \n"
+            - "mkdir -p ${software_path} \n"
+            - "### mount data disk \n"
+            - "LOGS=/root/mount_logs \n"
+            - "DISK_SUFFIX=\"b\" \n"
+            - "touch ~/test_ftab \n"
+            - 'cat << ESXU > ~/test_ftab
+
+              '
+            - 'fdisk -S 56 /dev/vd${DISK_SUFFIX} <<ESXU
+
+              '
+            - 'n
+
+              '
+            - 'p
+
+              '
+            - '1
+
+              '
+            - '
+
+              '
+            - '
+
+              '
+            - 'w
+
+              '
+            - 'ESXU
+
+              '
+            - "echo \"/dev/vd${DISK_SUFFIX} is fdisked\" >> ${LOGS} \n"
+            - "mkfs.ext4 /dev/vd${DISK_SUFFIX} \n"
+            - "if [[ $? -eq 0 ]];then \n"
+            - "  echo \"/dev/vd${DISK_SUFFIX} is formated\" >> ${LOGS} \n"
+            - "fi \n"
+            - "touch ~/test_ftab \n"
+            - 'cat << ESXU > ~/test_ftab
+
+              '
+            - '/dev/vd${DISK_SUFFIX}         ${software_path}       ext4       defaults        0
+              0
+
+              '
+            - 'ESXU
+
+              '
+            - "cat ~/test_ftab >> /etc/fstab \n"
+            - "mount -a \n"
+            - "rm -rf ~/test_ftab \n"
+            - "chmod -R 777 ${software_path} \n"
+            - "echo \"/dev/vd${DISK_SUFFIX}1 is mounted\" \n"
+            - "#mount /dev/xvdb ${software_path} \n"
+            - "### wget shell \n"
+            - "ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+            - "sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/'\
+              \ /etc/ssh/ssh_config \n"
+            - "service sshd restart \n"
+            - "cd ${software_path} \n"
+            - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/Kafka/master.sh\
+              \ \n"
+            - topic_class=
+            - Ref: TopicClass
+            - '
+
+              '
+            - msg_timeout=
+            - Ref: MsgTime
+            - '
+
+              '
+            - listener_port=
+            - Ref: ListenPort
+            - '
+
+              '
+            - "echo ${HOST_IP} >> ${software_path}/ips.txt \n"
+            - "chmod +x master.sh \n"
+            - "bash master.sh ${software_path} ${listener_port} ${topic_class} ${msg_timeout}\
+              \ \n"
+            - "wget -P ${software_path} https://ros-template-resources.oss-cn-beijing.aliyuncs.com/Kafka/rm_node.sh\
+              \ \n"
+            - "wget -P ${software_path} https://ros-template-resources.oss-cn-beijing.aliyuncs.com/Kafka/config_cluster.sh\
+              \ \n"
+            - "chmod +x ${software_path}/config_cluster.sh \n"
+            - "chmod +x ${software_path}/rm_node.sh \n"
+            - "ros-notify -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"Status\\\" : \\\
+              \"Success\\\"}\" \n"
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 90fb0d3e-35b7-495c-8901-e148708df033
+  VpcEip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth:
+        Ref: BindWidth
+      InternetChargeType: PayByTraffic
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e41ea057-4e0c-4bf6-b6b9-c5304f3aac31
+  EipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - EcsInstanceGroupMaster
+          - InstanceIds
+      AllocationId:
+        Ref: VpcEip
+    DependsOn:
+    - VpcEip
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: dc17f8b4-c00d-4e3c-a641-d5f143ae221b
+  EssScalingGroupSlave:
+    Type: ALIYUN::ESS::ScalingGroup
+    Properties:
+      VSwitchId:
+        Ref: VSwitchId
+      ScalingGroupName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      DefaultCooldown: 0
+      MinSize:
+        Fn::Calculate:
+        - '{0}-1'
+        - 0
+        - - Ref: Amount
+      MaxSize:
+        Fn::Calculate:
+        - '{0}-1'
+        - 0
+        - - Ref: Amount
+      RemovalPolicys:
+      - NewestInstance
+      - OldestScalingConfiguration
+      HealthCheckType: ECS
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: de1ea6b3-0037-4457-aca0-f5277a04c565
+  EssScalingConfigurationSlave:
+    Type: ALIYUN::ESS::ScalingConfiguration
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId: centos_7_06_64_20G_alibase_20190711.vhd
+      SystemDiskCategory:
+        Ref: DiskCategory
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - kafka-node
+          - Ref: ALIYUN::StackId
+      SystemDiskSize: 40
+      InstanceTypes:
+      - Ref: InstanceType
+      InstanceChargeType: PostPaid
+      IoOptimized: optimized
+      ScalingGroupId:
+        Ref: EssScalingGroupSlave
+      DiskMappings:
+      - Category:
+          Ref: DiskCategory
+        Size:
+          Ref: DiskSize
+        DiskName: kafka_slave_data_disk
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - RosWaitConditionHandleEss
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/sh \n"
+            - "set -e \n"
+            - "sudo yum -y install glibc.i686 expect unzip \n"
+            - "fdisk -l >> disk_info.log \n"
+            - "SOFTWARE_FOLDER=\"/home/software\" \n"
+            - "BACKUP_FOLDER=\"/root/backup\" \n"
+            - "mkdir -p ${SOFTWARE_FOLDER} \n"
+            - "### mount data disk \n"
+            - "LOGS=/root/mount_logs \n"
+            - "DISK_SUFFIX=\"b\" \n"
+            - "touch ~/test_ftab \n"
+            - 'cat << ESXU > ~/test_ftab
+
+              '
+            - 'fdisk -S 56 /dev/vd${DISK_SUFFIX} <<ESXU
+
+              '
+            - 'n
+
+              '
+            - 'p
+
+              '
+            - '1
+
+              '
+            - '
+
+              '
+            - '
+
+              '
+            - 'w
+
+              '
+            - 'ESXU
+
+              '
+            - "echo \"/dev/vd${DISK_SUFFIX} is fdisked\" >> ${LOGS} \n"
+            - "mkfs.ext4 /dev/vd${DISK_SUFFIX} \n"
+            - "if [[ $? -eq 0 ]];then \n"
+            - "  echo \"/dev/vd${DISK_SUFFIX} is formated\" >> ${LOGS} \n"
+            - "fi \n"
+            - "touch ~/test_ftab \n"
+            - 'cat << ESXU > ~/test_ftab
+
+              '
+            - '/dev/vd${DISK_SUFFIX}         ${SOFTWARE_FOLDER}       ext4       defaults        0
+              0
+
+              '
+            - 'ESXU
+
+              '
+            - "cat ~/test_ftab >> /etc/fstab \n"
+            - "mount -a \n"
+            - "rm -rf ~/test_ftab \n"
+            - "chmod -R 777 ${SOFTWARE_FOLDER} \n"
+            - "echo \"/dev/vd${DISK_SUFFIX} is mounted\" \n"
+            - "### mount disk over \n"
+            - instance_password=
+            - Ref: InstancePassword
+            - '
+
+              '
+            - 'echo root:'
+            - Ref: InstancePassword
+            - " | chpasswd \n"
+            - "HOST_IP=`ifconfig eth0 | awk '/inet /{print $2}'` \n"
+            - master_ip=
+            - Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                - EcsInstanceGroupMaster
+                - PrivateIps
+            - '
+
+              '
+            - "software_path=/home/software \n"
+            - listener_port=
+            - Ref: ListenPort
+            - '
+
+              '
+            - topic_class=
+            - Ref: TopicClass
+            - '
+
+              '
+            - msg_timeout=
+            - Ref: MsgTime
+            - '
+
+              '
+            - node_count=
+            - Ref: Amount
+            - '
+
+              '
+            - "### config ssh script \n"
+            - "cd ${SOFTWARE_FOLDER} \n"
+            - "ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+            - "touch ssh_copy.sh && chmod +x ssh_copy.sh \n"
+            - "echo '#!/bin/bash' >> ssh_copy.sh \n"
+            - "echo 'expect <<EOF' >> ssh_copy.sh \n"
+            - "echo 'set timeout 150' >> ssh_copy.sh \n"
+            - "echo 'spawn ssh-copy-id -i /root/.ssh/id_rsa.pub $1' >> ssh_copy.sh\
+              \ \n"
+            - "echo 'expect {' >> ssh_copy.sh \n"
+            - "echo '\"yes/no\" {' >> ssh_copy.sh \n"
+            - "echo 'send \"yes\\n\";exp_continue' >> ssh_copy.sh \n"
+            - "echo '}' >> ssh_copy.sh \n"
+            - "echo '\"*password\" {' >> ssh_copy.sh \n"
+            - echo 'send "
+            - Ref: InstancePassword
+            - "\\n\"' >> ssh_copy.sh \n"
+            - "echo '}' >> ssh_copy.sh \n"
+            - "echo '}' >> ssh_copy.sh \n"
+            - "echo 'expect eof' >> ssh_copy.sh \n"
+            - "echo 'EOF' >> ssh_copy.sh \n"
+            - "bash ssh_copy.sh ${master_ip} \n"
+            - "sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/'\
+              \ /etc/ssh/ssh_config \n"
+            - "cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys\
+              \ \n"
+            - "#ssh ${master_ip} \"cat >> /root/.ssh/authorized_keys\" < /root/.ssh/id_rsa.pub\
+              \ \n"
+            - "ssh ${master_ip} cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys\
+              \ \n"
+            - "#ssh ${master_ip} \"ssh -o StrictHostKeyChecking=no ${HOST_IP};exit\"\
+              \ \n"
+            - "scp /home/software/ssh_copy.sh ${master_ip}:/home/software/ \n"
+            - "scp ${master_ip}:/root/backup/backup.tar.gz /home/software/ \n"
+            - "service sshd restart \n"
+            - "cd ${SOFTWARE_FOLDER} && tar -zxvf backup.tar.gz  && rm -f backup.tar.gz\
+              \ \n"
+            - "rpm -Uvh jdk-8u251-linux-i586.rpm && rm -rf jdk-8u251-linux-i586.rpm\
+              \ \n"
+            - "tar -zvxf kafka_2.12-0.10.2.2.tgz -C ${SOFTWARE_FOLDER} && mv ${SOFTWARE_FOLDER}/kafka_2.12-0.10.2.2\
+              \ ${SOFTWARE_FOLDER}/kafka && rm -f kafka_2.12-0.10.2.2.tgz \n"
+            - "### cp slave.sh from master-backup.tar.gz \n"
+            - "chmod +x slave.sh \n"
+            - "bash slave.sh ${master_ip} ${instance_password} ${SOFTWARE_FOLDER}\
+              \ ${listener_port} ${topic_class} ${msg_timeout} \n"
+            - "if [[ $? -eq 0 ]]; \n"
+            - "then \n"
+            - "    ssh ${master_ip} \"echo ${HOST_IP}>> /home/software/ips.txt &&\
+              \ cd ${SOFTWARE_FOLDER} && bash config_cluster.sh ${node_count} ${SOFTWARE_FOLDER}\
+              \ && exit\" \n"
+            - "    ros-notify -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"Status\\\"\
+              \ : \\\"Success\\\"}\" \n"
+            - "fi \n"
+    DependsOn:
+    - EssScalingGroupSlave
+    - RosWaitConditionMaster
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 74993fde-022d-4c13-b995-e8dfa5c854e1
+  EssScalingGroupEnable:
+    Type: ALIYUN::ESS::ScalingGroupEnable
+    Properties:
+      ScalingConfigurationId:
+        Ref: EssScalingConfigurationSlave
+      ScalingGroupId:
+        Ref: EssScalingGroupSlave
+    DependsOn:
+    - EcsInstanceGroupMaster
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 6f6f18a1-bd63-4c5b-a231-dbe38935cac3
+  RamRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName:
+        Fn::Join:
+        - ''
+        - - StackId-
+          - Ref: ALIYUN::StackId
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - oos.aliyuncs.com
+      Policies:
+      - PolicyName:
+          Fn::Join:
+          - ''
+          - - StackId-
+            - Ref: ALIYUN::StackId
+        PolicyDocument:
+          Version: '1'
+          Statement:
+          - Action:
+            - ecs:*
+            Resource:
+            - '*'
+            Effect: Allow
+          - Action:
+            - vpc:DescribeVpcs
+            - vpc:DescribeVSwitches
+            Resource:
+            - '*'
+            Effect: Allow
+          - Action:
+            - ess:CompleteLifecycleAction
+            Resource:
+            - '*'
+            Effect: Allow
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a762aa31-d8cb-40ae-ab9c-c541fa491052
+  OOSTemplate:
+    Type: ALIYUN::OOS::Template
+    Properties:
+      Content:
+        Fn::Join:
+        - ''
+        - - '{"FormatVersion": "OOS-2019-06-01","Parameters": {"regionId": {"Type":
+            "String","Default": "'
+          - Ref: ALIYUN::Region
+          - '"},"instanceIds": {"Type": "List","Default": ["${instanceId}"]},"lifecycleHookId":
+            {"Type": "String","Default": "${lifecycleHookId}"},"lifecycleActionToken":
+            {"Type": "String","Default": "${lifecycleActionToken}"}},"RamRole": "'
+          - Fn::Join:
+            - ''
+            - - StackId-
+              - Ref: ALIYUN::StackId
+          - '","Tasks": [{"Name": "runCommand","Action": "ACS::ECS::RunCommand","OnError":
+            "CompleteLifecycleActionForAbandon","OnSuccess": "CompleteLifecycleActionForContinue","Properties":
+            {"regionId": "{{ regionId }}","commandContent": "'
+          - 'HOST_IP=`ifconfig eth0 | awk ''/inet /{print $2}''` && ssh '
+          - Fn::Select:
+            - '0'
+            - Fn::GetAtt:
+              - EcsInstanceGroupMaster
+              - PrivateIps
+          - ' \"cd /home/software && bash rm_node.sh /home/software ${HOST_IP} '
+          - Ref: Amount
+          - ' && sleep 15\"'
+          - '","instanceId": "{{ ACS::TaskLoopItem }}","commandType": "RunShellScript"},
+            "Loop": {"RateControl": {"Mode":"Concurrency","MaxErrors":0,"Concurrency":10},"Items":
+            "{{ instanceIds }}","Outputs": {"commandOutputs": {"AggregateType": "Fn::ListJoin","AggregateField":
+            "commandOutput"}}},"Outputs": {"commandOutput": {"Type": "String","ValueSelector":
+            "invocationOutput"}}}, {"Name": "CompleteLifecycleActionForContinue","Action":
+            "ACS::ExecuteAPI","OnSuccess": "ACS::END","Properties": {"Service": "ESS","API":
+            "CompleteLifecycleAction","Parameters": {"RegionId": "{{ regionId }}","LifecycleHookId":
+            "{{ lifecycleHookId }}","LifecycleActionToken": "{{ lifecycleActionToken
+            }}"}}}, {"Name": "CompleteLifecycleActionForAbandon","Action": "ACS::ExecuteAPI","Properties":
+            {"Service": "ESS","API": "CompleteLifecycleAction","Parameters": {"RegionId":
+            "{{ regionId }}","LifecycleHookId": "{{ lifecycleHookId }}","LifecycleActionToken":
+            "{{ lifecycleActionToken }}","LifecycleActionResult": "ABANDON"}}}]}'
+      TemplateName:
+        Fn::Join:
+        - ''
+        - - StackId-
+          - Ref: ALIYUN::StackId
+    DependsOn:
+    - RamRole
+    - RosWaitConditionMaster
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: bba410a5-20d9-421d-9735-c6f4409c5b26
+  EssLifecycleHook:
+    Type: ALIYUN::ESS::LifecycleHook
+    Properties:
+      ScalingGroupId:
+        Ref: EssScalingGroupSlave
+      LifecycleTransition: SCALE_IN
+      DefaultResult: CONTINUE
+      HeartbeatTimeout: 600
+      NotificationArn:
+        Fn::Join:
+        - ''
+        - - 'acs:ess:'
+          - Ref: ALIYUN::Region
+          - ':'
+          - Ref: ALIYUN::TenantId
+          - :oos/
+          - Fn::Join:
+            - ''
+            - - StackId-
+              - Ref: ALIYUN::StackId
+      NotificationMetadata:
+        Fn::Join:
+        - ''
+        - - '{"regionId": "${regionId}","instanceIds": "${instanceIds}","lifecycleHookId":
+            "${lifecycleHookId}","lifecycleActionToken": "${lifecycleActionToken}"}'
+    DependsOn:
+    - EssScalingGroupSlave
+    - OOSTemplate
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ad1439fa-d433-4adc-94d5-bb92d60f9f25
+Outputs:
+  KafkaManagerUrl:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - VpcEip
+          - EipAddress
+        - :9000
+  EcsInstanceIds:
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroupMaster
+      - InstanceIds
+  EssGroupId:
+    Value:
+      Fn::GetAtt:
+      - EssScalingGroupSlave
+      - ScalingGroupId
+  EcsEip:
+    Value:
+      Fn::GetAtt:
+      - VpcEip
+      - EipAddress
+  MasterPrivateIp:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - EcsInstanceGroupMaster
+        - PrivateIps
+  AddClusterZookeeperHostsInfo:
+    Value:
+      Fn::Join:
+      - ''
+      - - Fn::Select:
+          - '0'
+          - Fn::GetAtt:
+            - EcsInstanceGroupMaster
+            - PrivateIps
+        - :2181
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcId
+      - VSwitchZoneId
+      - VSwitchId
+      - SecurityGroupId
+      Label:
+        default:
+          zh-cn: 基础资源配置（必填）
+          en: Infrastructure Configuration
+    - Parameters:
+      - InstanceType
+      - InstancePassword
+      - BindWidth
+      - DiskCategory
+      - DiskSize
+      - ListenPort
+      - MsgTime
+      - TopicClass
+      - Amount
+      Label:
+        default:
+          zh-cn: Kafka 配置（必填）
+          en: Kafka Configuration
+    TemplateTags:
+    - acs:solution:中间件:Kafka集群版(已有VPC)
+  ALIYUN::ROS::Designer:
+    6b6a4be7-5ea5-4cdf-b8e9-b32536c55c2c:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -158
+        y: 265
+      z: 0
+    8b6b0bdf-affe-4f14-910f-6c79433a0441:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -158
+        y: 399
+      z: 0
+    f92be6d9-c880-4470-9878-dd181b341054:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -161
+        y: 36
+      z: 0
+    2dad3d8f-a8cc-4bf2-9853-9c2cc4f3cb61:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -161
+        y: 172
+      z: 0
+    90fb0d3e-35b7-495c-8901-e148708df033:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -27
+        y: 362
+      z: 0
+    e41ea057-4e0c-4bf6-b6b9-c5304f3aac31:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 257
+        y: 362
+      z: 0
+    dc17f8b4-c00d-4e3c-a641-d5f143ae221b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 146
+        y: 362
+      z: 0
+    de1ea6b3-0037-4457-aca0-f5277a04c565:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -23
+        y: 138
+      z: 0
+    74993fde-022d-4c13-b995-e8dfa5c854e1:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 177
+        y: 138
+      z: 0
+    6f6f18a1-bd63-4c5b-a231-dbe38935cac3:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 66
+        y: 281
+      z: 0
+    a762aa31-d8cb-40ae-ab9c-c541fa491052:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 253
+        y: 32
+      z: 0
+    bba410a5-20d9-421d-9735-c6f4409c5b26:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 124
+        y: 32
+      z: 0
+    ad1439fa-d433-4adc-94d5-bb92d60f9f25:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: -23
+        y: 32
+      z: 0
+    2ba749a0-c81a-4548-a6d2-7953d3e27e13:
+      source:
+        id: 6b6a4be7-5ea5-4cdf-b8e9-b32536c55c2c
+      target:
+        id: 8b6b0bdf-affe-4f14-910f-6c79433a0441
+      z: 1
+    aba03c41-1935-4e9b-8cc9-be4a7b88bfbc:
+      source:
+        id: f92be6d9-c880-4470-9878-dd181b341054
+      target:
+        id: 2dad3d8f-a8cc-4bf2-9853-9c2cc4f3cb61
+      z: 1
+    1e4af3bd-f472-4fdc-9ec7-b737243d5e06:
+      source:
+        id: dc17f8b4-c00d-4e3c-a641-d5f143ae221b
+      target:
+        id: e41ea057-4e0c-4bf6-b6b9-c5304f3aac31
+      z: 1
+    54c030e5-8cce-496d-bd39-65519dcdd820:
+      source:
+        id: 74993fde-022d-4c13-b995-e8dfa5c854e1
+      target:
+        id: de1ea6b3-0037-4457-aca0-f5277a04c565
+      z: 1
+    10f4f47e-c42b-4e00-8bb3-0efa4fa91a62:
+      source:
+        id: 6f6f18a1-bd63-4c5b-a231-dbe38935cac3
+      target:
+        id: 74993fde-022d-4c13-b995-e8dfa5c854e1
+      z: 1
+    dc6ae64b-8aae-4f9d-8dbb-a6e144889390:
+      source:
+        id: 6f6f18a1-bd63-4c5b-a231-dbe38935cac3
+      target:
+        id: de1ea6b3-0037-4457-aca0-f5277a04c565
+      z: 1
+    90d81168-0259-4b7d-a4d8-d26f548fdc86:
+      source:
+        id: ad1439fa-d433-4adc-94d5-bb92d60f9f25
+      target:
+        id: de1ea6b3-0037-4457-aca0-f5277a04c565
+      z: 1
+    d848a51f-9e15-4a62-b8ee-fc0402897540:
+      source:
+        id: a762aa31-d8cb-40ae-ab9c-c541fa491052
+      target:
+        id: bba410a5-20d9-421d-9735-c6f4409c5b26
+      z: 1
+    a590d9fa-121b-45ad-8df5-32ff599510e6:
+      source:
+        id: bba410a5-20d9-421d-9735-c6f4409c5b26
+      target:
+        id: ad1439fa-d433-4adc-94d5-bb92d60f9f25
+      z: 1
+    610ae1ef-3fd0-4d2e-8407-ab6300d322f8:
+      source:
+        id: dc17f8b4-c00d-4e3c-a641-d5f143ae221b
+      target:
+        id: 90fb0d3e-35b7-495c-8901-e148708df033
+      z: 1

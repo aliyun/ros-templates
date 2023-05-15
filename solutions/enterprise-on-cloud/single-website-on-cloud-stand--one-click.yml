@@ -1,0 +1,816 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 单机网站架构云化-一键完整部署(WordPress)
+Conditions:
+  CreateImage:
+    Fn::Equals:
+    - centos_7
+    - Ref: EcsImage
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following ip address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  VSwitchZone:
+    Type: String
+    Label:
+      en: VSwitch Available Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        RDS, SLB and ECS resources</font></b>
+      zh-cn: 可用区ID，<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建RDS、SLB及ECS资源的规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      zh-cn: 交换机网段
+      en: VSwitch CIDR Block
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other switches.
+    Default: 192.168.1.0/24
+  EipBandwidth:
+    Type: Number
+    Label:
+      en: EIP Bandwidth
+      zh-cn: 弹性IP带宽峰值
+    Description:
+      en: 'Value range: [0, 1000], Unit: Mbps.'
+      zh-cn: 取值范围：[0, 1000]，单位：Mbps。
+    Default: 5
+    MinValue: 1
+    MaxValue: 1000
+  EcsAmount:
+    Type: Number
+    Label:
+      en: Amount
+      zh-cn: 实例数量
+    Description:
+      en: 'Number of instances，value range: 1~100.'
+      zh-cn: 实例数量,取值范围：1~100。
+    Default: 2
+    MinValue: 1
+    MaxValue: 100
+  EcsImage:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+  EcsInstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.g5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.g5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZone
+  EcsDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  EcsSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：40-500, 单位：GB。
+    Default: 40
+  EcsPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: Type And Version
+      zh-cn: 类型与版本号
+    Description:
+      en: Database type and version number.
+      zh-cn: 数据库类型与版本号。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.5
+    - MySQL-5.6
+    - MySQL-5.7
+    - MySQL-8.0
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html'
+        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
+      en: 'Select the instance specification based on the type of database engine
+        and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.html''
+        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+    Default: rds.mysql.s3.large
+    AllowedValues:
+    - rds.mysql.s2.large
+    - rds.mysql.s2.xlarge
+    - rds.mysql.s3.large
+    - rds.mysql.m1.medium
+    - rds.mysql.c1.large
+    - rds.mysql.c1.xlarge
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: Storage Space
+      zh-cn: 存储空间
+    Description:
+      en: 'Database storage space, units: GB, per 5GB increment, value range: 5-1000.'
+      zh-cn: 数据库存储空间, 单位：GB, 每5GB进行递增，取值范围：5-1000。
+    Default: 5
+    MinValue: 5
+    MaxValue: 1000
+  DBInstanceDBName:
+    Type: String
+    Label:
+      en: Database Name
+      zh-cn: 数据库名称
+    Description:
+      en: The database name created by the instance, consisting of lowercase letters,
+        numbers, underscores, and middle lines, beginning with letters, ending with
+        letters or numbers, up to 64 characters.
+      zh-cn: 实例创建的数据库名称，由小写字母、数字、下划线、中划线组成，以字母开头，字母或数字结尾，最多64个字符。
+    Default: wordpress
+  DBInstanceMasterUsername:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库账号
+    Description:
+      en: Database read-write account with a maximum of 16 characters, consisting
+        of lowercase letters, Numbers, underscores, beginning letters, and ending
+        letters or Numbers.
+      zh-cn: 数据库可读写的账号，最长16个字符, 由小写字母，数字、下划线组成、字母开头，字母或数字结尾。
+    Default: test_wordpress
+    MaxLength: 16
+  DBInstanceMasterUserPassword:
+    Type: String
+    Label:
+      en: Account Password
+      zh-cn: 账号密码
+    Description:
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    ConstraintDescription:
+      en: '8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      en: Instance specifications, see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance support type</b></font></a>
+      zh-cn: 实例规格，详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    Default: slb.s1.small
+    AllowedValues:
+    - slb.s1.small
+    - slb.s2.small
+    - slb.s2.medium
+    - slb.s3.small
+    - slb.s3.medium
+    - slb.s3.large
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0a2fc350-0811-4b8c-94d8-6a8359272a85
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZone
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e86e9acb-8c2e-42d9-80e1-d720df04dfd8
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      SecurityGroupIngress:
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: 443/443
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+        NicType: intranet
+      - PortRange: 3389/3389
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+      Tags:
+      - Value: 096
+        Key: best_practice
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5e9ba319-a1d1-43a6-9f37-7b6880cd01bd
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Condition: CreateImage
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0afbe509-28e7-4a0a-95e0-22a9180fde89
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Condition: CreateImage
+    Properties:
+      Timeout: 3600
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f9bc3788-8c31-4abe-bb4e-71fd85c9c26d
+  RdsDbInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList:
+        Ref: VpcCidrBlock
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBMappings:
+      - CharacterSetName: utf8
+        DBName:
+          Ref: DBInstanceDBName
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      MasterUserType: Normal
+      MasterUsername:
+        Ref: DBInstanceMasterUsername
+      MasterUserPassword:
+        Ref: DBInstanceMasterUserPassword
+      Tags:
+        Key: best_practice
+        Value: 096
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 307a4928-d80d-4639-babf-9dd866aa57dc
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: EcsImage
+      IoOptimized: optimized
+      SystemDiskSize:
+        Ref: EcsSystemDiskSize
+      UserData:
+        Fn::If:
+        - CreateImage
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - RosWaitConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - "#!/bin/sh \n"
+              - db_wordpress=
+              - Ref: DBInstanceDBName
+              - " \n"
+              - user_wordpress=
+              - Ref: DBInstanceMasterUsername
+              - " \n"
+              - pwd_wordpress=
+              - Ref: DBInstanceMasterUserPassword
+              - " \n"
+              - "charset='utf8' \n"
+              - host=
+              - Fn::GetAtt:
+                - RdsDbInstance
+                - InnerConnectionString
+              - " \n"
+              - "WebRootPath='/var/www/html' \n"
+              - "ApacheIndex='Options Indexes FollowSymLinks' \n"
+              - "ApacheIndexReplace='Options FollowSymLinks' \n"
+              - "mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup\
+                \ \n"
+              - "wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo\
+                \ \n"
+              - "yum makecache \n"
+              - "yum install -y unzip zip \n"
+              - "yum install -y curl httpd mysql-server php56 php56-php-mysql \n"
+              - "#yum install -y php56-php-gd php56-php-imap php56-php-ldap php56-php-odbc\
+                \ php56-php-xmlrpc \n"
+              - "rpm -Uvh https://mirror.webtatic.com/yum/el7/epel-release.rpm \n"
+              - "rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm\
+                \ \n"
+              - "yum install -y php56w.x86_64 php56w-cli.x86_64 php56w-common.x86_64\
+                \ php56w-gd.x86_64 php56w-imap.x86_64 php56w-ldap.x86_64 php56w-mysql.x86_64\
+                \ php56w-pdo.x86_64 php56w-odbc.x86_64 php56w-process.x86_64 php56w-xml.x86_64\
+                \ php56w-xmlrpc.x86_64 \n"
+              - "systemctl restart httpd \n"
+              - "chkconfig httpd on \n"
+              - "# Download WordPress \n"
+              - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/WordPress/WordPress.zip\
+                \ \n"
+              - "unzip WordPress.zip \n"
+              - "mv WordPress-master wordpress \n"
+              - 'sed -i "s/database_name_here/$db_wordpress/" wordpress/wp-config-sample.php
+
+                '
+              - 'sed -i "s/username_here/$user_wordpress/" wordpress/wp-config-sample.php
+
+                '
+              - 'sed -i "s/password_here/$pwd_wordpress/" wordpress/wp-config-sample.php
+
+                '
+              - 'sed -i "s/utf8/$charset/" wordpress/wp-config-sample.php
+
+                '
+              - "sed -i \"s/localhost/$host/\" wordpress/wp-config-sample.php \n"
+              - 'mv wordpress/wp-config-sample.php wordpress/wp-config.php
+
+                '
+              - 'cp -a wordpress/* $WebRootPath
+
+                '
+              - 'rm -rf wordpress*
+
+                '
+              - "systemctl stop httpd \n"
+              - 'usermod -d $WebRootPath apache &>/dev/null
+
+                '
+              - 'chown apache:apache -R $WebRootPath
+
+                '
+              - 'sed -i "s/$ApacheIndex/$ApacheIndexReplace/" /etc/httpd/conf/httpd.conf
+
+                '
+              - "echo \"install wordPress finished\" > /tmp/report.log \n"
+              - "systemctl start httpd \n"
+              - "ros-notify -d \"{\\\"Data\\\" : \\\"SUCCESS\\\", \\\"Status\\\" :\
+                \ \\\"SUCCESS\\\"}\" \n"
+        - Ref: ALIYUN::NoValue
+      InstanceChargeType: PostPaid
+      MaxAmount:
+        Ref: EcsAmount
+      SystemDiskCategory:
+        Ref: EcsDiskCategory
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - App
+          - -[0,3]
+      AllocatePublicIP:
+        Fn::If:
+        - CreateImage
+        - true
+        - false
+      InstanceType:
+        Ref: EcsInstanceType
+      HostName:
+        Fn::Join:
+        - ''
+        - - App
+          - -[0,3]
+      Password:
+        Ref: EcsPassword
+      Tags:
+      - Key: best_practice
+        Value: 096
+    DependsOn:
+    - RdsDbInstance
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 489426f4-e251-4d39-9c5a-bc5ac5b2624b
+  SlbLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      LoadBalancerName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      PayType: PayOnDemand
+      AddressType: intranet
+      MasterZoneId:
+        Ref: VSwitchZone
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      Tags:
+      - Value: 096
+        Key: best_practice
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5e61aba1-166f-4a31-99db-e2a8299da04f
+  SlbListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        CookieTimeout: 60
+        StickySession: 'on'
+        PersistenceTimeout: 180
+        XForwardedFor: 'off'
+        StickySessionType: insert
+      ListenerPort: 80
+      Bandwidth: -1
+      HealthCheck:
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+        UnhealthyThreshold: 3
+        Timeout: 5
+        HealthyThreshold: 3
+        Port: 80
+        URI: /
+        Interval: 2
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+      BackendServerPort: 80
+      Protocol: http
+    DependsOn:
+    - SlbLoadBalancer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: db70e2c5-2dc9-4d6a-8b18-43fbc0072804
+  SlbBackendServerAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+      BackendServerWeightList:
+      - 100
+    DependsOn:
+    - EcsInstanceGroup
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d3202215-b170-4597-bf5c-a2369d257908
+  VpcEip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth:
+        Ref: EipBandwidth
+      InternetChargeType: PayByTraffic
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1cd0c6a6-ba56-4a00-87f4-8cd4ff52a568
+  EipBind:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: SlbLoadBalancer
+      AllocationId:
+        Ref: VpcEip
+    DependsOn:
+    - SlbLoadBalancer
+    - VpcEip
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4fe9d13e-6229-46f8-bd82-6db52788094b
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RdsDbInstance
+      DBName:
+        Ref: DBInstanceDBName
+      AccountName:
+        Ref: DBInstanceMasterUsername
+    DependsOn:
+    - RdsDbInstance
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 9857f5cb-2690-4812-bcf5-45e3d6516f8a
+Outputs:
+  Eip:
+    Value:
+      Fn::GetAtt:
+      - VpcEip
+      - EipAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchZone
+      - VSwitchCidrBlock
+      - EipBandwidth
+      Label:
+        default: VPC
+    - Parameters:
+      - EcsAmount
+      - EcsImage
+      - EcsInstanceType
+      - EcsDiskCategory
+      - EcsSystemDiskSize
+      - EcsPassword
+      Label:
+        default: ECS
+    - Parameters:
+      - DBInstanceEngineAndVersion
+      - DBInstanceClass
+      - DBInstanceStorage
+      - DBInstanceDBName
+      - DBInstanceMasterUsername
+      - DBInstanceMasterUserPassword
+      Label:
+        default: RDS
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        default: SLB
+    TemplateTags:
+    - acs:solution:业务上云:单机网站架构云化
+  ALIYUN::ROS::Designer:
+    0a2fc350-0811-4b8c-94d8-6a8359272a85:
+      size:
+        width: 398.0537109375
+        height: 357
+      position:
+        x: 198
+        y: 50
+      z: 0
+      embeds:
+      - e86e9acb-8c2e-42d9-80e1-d720df04dfd8
+      - 5e9ba319-a1d1-43a6-9f37-7b6880cd01bd
+      - 5e61aba1-166f-4a31-99db-e2a8299da04f
+    e86e9acb-8c2e-42d9-80e1-d720df04dfd8:
+      size:
+        width: 353
+        height: 201
+      position:
+        x: 218
+        y: 101
+      z: 1
+      embeds:
+      - 489426f4-e251-4d39-9c5a-bc5ac5b2624b
+      - 307a4928-d80d-4639-babf-9dd866aa57dc
+      - 5e61aba1-166f-4a31-99db-e2a8299da04f
+    5e9ba319-a1d1-43a6-9f37-7b6880cd01bd:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 258
+        y: 321
+      z: 1
+    0afbe509-28e7-4a0a-95e0-22a9180fde89:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 90
+        y: 321
+      z: 0
+    f9bc3788-8c31-4abe-bb4e-71fd85c9c26d:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 90
+        y: 171
+      z: 0
+    489426f4-e251-4d39-9c5a-bc5ac5b2624b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 258
+        y: 164
+      z: 2
+    5e61aba1-166f-4a31-99db-e2a8299da04f:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 466
+        y: 164
+      z: 2
+    db70e2c5-2dc9-4d6a-8b18-43fbc0072804:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 466
+        y: 421
+      z: 0
+    d3202215-b170-4597-bf5c-a2369d257908:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 364
+        y: -31
+      z: 0
+    1cd0c6a6-ba56-4a00-87f4-8cd4ff52a568:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 618
+        y: 321
+      z: 0
+    4fe9d13e-6229-46f8-bd82-6db52788094b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 618
+        y: 164
+      z: 0
+    307a4928-d80d-4639-babf-9dd866aa57dc:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 362
+        y: 164
+      z: 2
+    9857f5cb-2690-4812-bcf5-45e3d6516f8a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 362
+        y: 421
+      z: 0
+    2cb136e0-69c8-4aff-99a1-1294fae57c83:
+      source:
+        id: f9bc3788-8c31-4abe-bb4e-71fd85c9c26d
+      target:
+        id: 0afbe509-28e7-4a0a-95e0-22a9180fde89
+      z: 1
+    99b18ad9-0d5c-44fe-801b-5c654f87c3f6:
+      source:
+        id: 489426f4-e251-4d39-9c5a-bc5ac5b2624b
+      target:
+        id: 5e9ba319-a1d1-43a6-9f37-7b6880cd01bd
+      z: 1
+    71e20fc7-5af3-4dab-ae9c-1cd3967ab167:
+      source:
+        id: db70e2c5-2dc9-4d6a-8b18-43fbc0072804
+      target:
+        id: 5e61aba1-166f-4a31-99db-e2a8299da04f
+      z: 1
+    7ece9b2b-e449-453b-9bdf-ae1be699f852:
+      source:
+        id: d3202215-b170-4597-bf5c-a2369d257908
+      target:
+        id: 489426f4-e251-4d39-9c5a-bc5ac5b2624b
+      z: 1
+    1b0171fd-4a64-48b4-b482-c905cbe3a00d:
+      source:
+        id: d3202215-b170-4597-bf5c-a2369d257908
+      target:
+        id: 5e61aba1-166f-4a31-99db-e2a8299da04f
+      z: 1
+    7278ad32-ef87-436d-9a70-7a708f9def17:
+      source:
+        id: 4fe9d13e-6229-46f8-bd82-6db52788094b
+      target:
+        id: 5e61aba1-166f-4a31-99db-e2a8299da04f
+      z: 1
+    59b8e92e-066e-4e98-b7ea-21fe9d730f8b:
+      source:
+        id: 4fe9d13e-6229-46f8-bd82-6db52788094b
+      target:
+        id: 1cd0c6a6-ba56-4a00-87f4-8cd4ff52a568
+      z: 1
+    81fb7d0e-50f4-4ff8-a131-75ba72a8b183:
+      source:
+        id: 9857f5cb-2690-4812-bcf5-45e3d6516f8a
+      target:
+        id: 307a4928-d80d-4639-babf-9dd866aa57dc
+      z: 1

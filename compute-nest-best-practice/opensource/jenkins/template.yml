@@ -1,0 +1,341 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 部署ecs创建jenkins
+  zh-cn: 部署ecs创建jenkins
+Parameters:
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    Description:
+      en: When the resource purchase duration is Month, the value of Period ranges
+        from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance
+        types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private
+        Cloud
+      zh-cn: 现有虚拟专有网络的实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private
+        Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+    Default: cloud_essd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_essd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间 (GB)
+      en: System Disk Space (GB)
+    Default: 100
+  DataDiskCategory:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 数据盘类型
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_essd
+  DataDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 数据盘空间
+      en: Data Disk Space
+    Description:
+      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  InternetMaxBandwidthOut:
+    Type: Number
+    Label:
+      zh-cn: 流量公网带宽
+      en: Internet Max Bandwidth Out
+    Description:
+      zh-cn: 取值范围0-100MB
+      en: 0-100MB, no public ip if zero
+    Default: 5
+    MinValue: 1
+    MaxValue: 100
+Resources:
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      SecurityGroupIngress:
+      - PortRange: 8080/8080
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      SecurityGroupEgress:
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 300
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
+      IoOptimized: optimized
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      DiskMappings:
+      - Category:
+          Ref: DataDiskCategory
+        Size:
+          Ref: DataDiskSize
+      MaxAmount: 1
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: true
+      InternetMaxBandwidthOut:
+        Ref: InternetMaxBandwidthOut
+      UserData:
+        Fn::Sub:
+        - |
+          #!/bin/bash
+          # 挂盘到/data
+          cat >> /root/InitDataDisk.sh << "EOF"
+          #!/bin/bash
+          echo "p
+          n
+          p
+
+
+
+          w
+          " |  fdisk -u /dev/vdb
+          EOF
+          /bin/bash /root/InitDataDisk.sh
+          rm -f /root/InitDataDisk.sh
+          mkfs -t ext4 /dev/vdb1
+          cp /etc/fstab /etc/fstab.bak
+          mkdir /data
+          echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /data ext4 defaults 0 0 >> /etc/fstab
+          mount -a
+
+          # 1.安装JDK
+          yum install java-1.8.0-openjdk* -y
+          # 2.安装jenkins
+          wget '{{ computenest::file::jenkins }}'
+          rpm -ivh jenkins-2.190.3-1.1.noarch.rpm
+          # 3.修改jenkins默认端口配置（与服务器开放的端口一致）(此处因开放端口与默认端口8080一致故不用修改）
+          # sudo sed -i "s#8080#80#g" /etc/sysconfig/jenkins
+          # 4.启动jenkins
+          systemctl start jenkins
+          # 将jenkins数据转移到数据盘路径并修改配置数据
+          cp -r /var/lib/jenkins /data/jenkins
+          sed -i 's/\/var\/lib\/jenkins\/data\/jenkins/g' /etc/sysconfig/jenkins
+          # 重启jenkins
+          sudo systemctl restart jenkins
+
+          # 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+        - CurlCli:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+Outputs:
+  Endpoint:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+      - http://${ServerAddress}:8080
+      - ServerAddress:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        default:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - VpcId
+      - VSwitchId
+      Label:
+        default:
+          zh-cn: 选择已有基础资源配置
+          en: Choose existing Infrastructure Configuration
+    - Parameters:
+      - EcsInstanceType
+      - SystemDiskCategory
+      - SystemDiskSize
+      - DataDiskCategory
+      - DataDiskSize
+      - InstancePassword
+      - InternetMaxBandwidthOut
+      Label:
+        default:
+          en: Instance Configuration
+          zh-cn: ECS实例配置

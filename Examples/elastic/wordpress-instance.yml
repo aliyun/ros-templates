@@ -1,0 +1,341 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates a wordpress instance
+Parameters:
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: Type of ECS instance
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+  InstancePassword:
+    Type: String
+    Label: ECS Instance Password
+    Description: The root password of ECS instance. The password is a string of 8
+      to 30 characters and must contain uppercase/lowercase letters, numbers.
+    ConstraintDescription: Consist of 8 to 30 alphanumeric.
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+    Confirm: true
+  VpcCidrBlock:
+    Type: String
+    Label: The VPC Cidrblock
+    Description: |-
+      The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:
+      10.0.0.0/8
+      172.16.0.0/12 (Default)
+      192.168.0.0/16
+    Default: 10.0.0.0/8
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchCidrBlock:
+    Type: String
+    Label: The VSwitch 2 Cidrblock
+    Description: CIDR Block of created VSwitch, It must belong to itself VPC CIDR
+      block.
+    Default: 10.0.10.0/24
+  DBInstanceClass:
+    Type: String
+    Label: DB Instance Class
+    Description: The RDS instance class
+    Default: rds.mysql.t1.small
+    AllowedValues:
+    - rds.mysql.t1.small
+    - rds.mysql.s1.small
+    - rds.mysql.s2.large
+    - rds.mysql.s2.xlarge
+    - rds.mysql.s3.large
+    - rds.mysql.m1.medium
+    - rds.mysql.c1.large
+    - rds.mysql.c1.xlarge
+    - rds.mysql.c2.xlarge
+    - rds.mysql.c2.xlp2
+    - rds.mysql.c2.2xlarge
+    - rds.mysql.st.d13
+  DBInstanceStorage:
+    Type: Number
+    Label: DB Instance Storage
+    Description: 'Incrementing in every 5G, unit: GB'
+    ConstraintDescription: 'Incrementing in every 5G, unit: GB'
+    Default: 50
+    MinValue: 5
+    MaxValue: 2000
+  ZoneId:
+    Type: String
+    Label: ECS Zone Id
+    Description: Ecs Available Zone Id, <a href='#/product/cn-beijing/list/zoneList'
+      target='_blank'>View zoneid info</a>
+  Engine:
+    Type: String
+    Label: Database Instance Engine Type
+    Description: Database instance engine type. Support MySQL/SQLServer/PostgreSQL/PPAS/MariaDB
+      now.
+    Default: MySQL
+    AllowedValues:
+    - MySQL
+    - SQLServer
+    - PostgreSQL
+    - PPAS
+  EngineVersion:
+    Type: String
+    Label: Database Engine Version
+    Description: MySQL:5.5/5.6; SQLServer:2008r2; PostgreSQL:9.4; PPAS:9.3
+    Default: '5.6'
+    AllowedValues:
+    - '5.5'
+    - '5.6'
+    - 2008r2
+    - '9.4'
+    - '9.3'
+  DBName:
+    Type: String
+    Label: DB Name
+    Description: Name of WordPress database
+    ConstraintDescription: Consist of 2 to 64 characters of lowercase letters, underline.
+      Must begin with a letter and be end with an alphanumeric character
+    Default: wordpress
+    AllowedPattern: '[a-z]{1}[a-z0-9-_]*[a-z0-9]{1}'
+    MinLength: '2'
+    MaxLength: '64'
+  DBUser:
+    Type: String
+    Label: DB Username
+    Description: The username of WordPress database
+    ConstraintDescription: Consist of 2 to 16 characters of lowercase letters, underline.
+      Must begin with a letter and be end with an alphanumeric character
+    Default: wpuser
+    AllowedPattern: '[a-z]{1}[a-z0-9_]*[a-z0-9]{1}'
+    MinLength: '2'
+    MaxLength: '16'
+  DBPassword:
+    Type: String
+    Label: DB Password
+    Description: The password of WordPress database
+    ConstraintDescription: Consist of 8 to 32 capital, lowercase, numeric, or special
+      characters. At least three different types of characters are required. Allowed
+      special characters are "!@#$%^&*()_+-=".
+    MinLength: '8'
+    MaxLength: '32'
+    NoEcho: true
+    Confirm: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName: wordpress_vpc
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: wordpress_sg
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VPCId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBMappings:
+      - DBName:
+          Ref: DBName
+        CharacterSetName: utf8
+      DBInstanceDescription: DataBase
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      Engine:
+        Ref: Engine
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUsername:
+        Ref: DBUser
+      EngineVersion:
+        Ref: EngineVersion
+      SecurityIPList: 0.0.0.0/0
+  SecurityGroupIngress:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: all
+      PortRange: -1/-1
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      InternetMaxBandwidthOut: 80
+      UserData:
+        Fn::Replace:
+        - print: echo
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - '
+
+              '
+            - DatabaseUser=
+            - Ref: DBUser
+            - '
+
+              '
+            - DatabasePwd=
+            - Ref: DBPassword
+            - '
+
+              '
+            - DatabaseName=
+            - Ref: DBName
+            - '
+
+              '
+            - DatabaseHost=
+            - Fn::GetAtt:
+              - Database
+              - InnerConnectionString
+            - '
+
+              '
+            - 'WebRootPath=''/var/www/html''
+
+              '
+            - 'ApacheIndex=''Options Indexes FollowSymLinks''
+
+              '
+            - 'ApacheIndexReplace=''Options Indexes FollowSymLinks''
+
+              '
+            - 'mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
+
+              '
+            - 'wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+
+              '
+            - 'yum makecache
+
+              '
+            - 'yum install -y curl httpd mysql-server php56 php56-php-mysql
+
+              '
+            - '#yum install -y curl httpd mysql-server php56 php-common php-mysql
+
+              '
+            - 'yum install -y php56-php-gd php56-php-imap php56-php-ldap php56-php-odbc
+              php56-php-xmlrpc
+
+              '
+            - '#yum install -y php-gd php-imap php-ldap php-odbc php-pear php-xml
+              php-xmlrpc
+
+              '
+            - 'chkconfig httpd on
+
+              '
+            - 'wget http://wordpress.org/latest.tar.gz
+
+              '
+            - 'tar -xzvf latest.tar.gz
+
+              '
+            - 'sed -i "s/database_name_here/$DatabaseName/" wordpress/wp-config-sample.php
+
+              '
+            - 'sed -i "s/username_here/$DatabaseUser/" wordpress/wp-config-sample.php
+
+              '
+            - 'sed -i "s/password_here/${DatabasePwd:-$DatabasePwdDef}/" wordpress/wp-config-sample.php
+
+              '
+            - 'sed -i "s/localhost/$DatabaseHost/" wordpress/wp-config-sample.php
+
+              '
+            - 'mv wordpress/wp-config-sample.php wordpress/wp-config.php
+
+              '
+            - 'cp -a wordpress/* $WebRootPath
+
+              '
+            - 'rm -rf wordpress*
+
+              '
+            - 'service httpd stop
+
+              '
+            - 'usermod -d $WebRootPath apache &>/dev/null
+
+              '
+            - 'chown apache:apache -R $WebRootPath
+
+              '
+            - 'sed -i "s/$ApacheIndex/$ApacheIndexReplace/" /etc/httpd/conf/httpd.conf
+
+              '
+            - 'service httpd start
+
+              '
+      InstanceType:
+        Ref: InstanceType
+    DependsOn: Database
+Outputs:
+  InstanceIp:
+    Description: Public IP address of WebServer instance.
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - PublicIp
+  InstanceId:
+    Description: The instance id of WebServer instance.
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - InstanceId
+  InnerConnectionString:
+    Description: DB instance connection url by Intranet.
+    Value:
+      Fn::GetAtt:
+      - Database
+      - InnerConnectionString
+  DBInstanceId:
+    Description: The instance id of created database instance.
+    Value:
+      Fn::GetAtt:
+      - Database
+      - DBInstanceId

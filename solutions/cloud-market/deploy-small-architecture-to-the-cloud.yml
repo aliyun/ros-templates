@@ -1,0 +1,724 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 通用产品上云部署架构（小型）
+Conditions:
+  IsLoadbalancer:
+    Fn::Equals:
+    - PayOnDemand
+    - Ref: LoadbalancerPayType
+  IsPrepayRds:
+    Fn::Equals:
+    - Prepaid
+    - Ref: RdsDBInstancePayType
+  IsPrepayRedis:
+    Fn::Equals:
+    - PrePaid
+    - Ref: RedisInstanceChargeType
+  IsRds:
+    Fn::Equals:
+    - Postpaid
+    - Ref: RdsDBInstancePayType
+  IsRedis:
+    Fn::Equals:
+    - PostPaid
+    - Ref: RedisInstanceChargeType
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 192.168.0.0/24
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Available Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        RDS、REDIS、SLB and ECS resources</font></b>
+      zh-cn: 可用区Id。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建RDS、REDIS、SLB及ECS资源的规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  EcsInstanceChargeType:
+    Type: String
+    Label:
+      en: Payment Type
+      zh-cn: 付费类型
+    Description:
+      en: '<font color=''blue''><b>Optional values: </b></font><br>[PostPaid：<font
+        color=''green''>pay-as-you-go</font>]<br>[PrePaid：<font color=''green''>prepayment,
+        monthly</font>]'
+      zh-cn: '<font color=''blue''><b>可选值: </b></font><br>[PostPaid：<font color=''green''>按量付费</font>]<br>[PrePaid：<font
+        color=''green''>预付费，包月</font>]'
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  InstanceGroupMaxAmount:
+    Type: Number
+    Label:
+      en: Number of Instances
+      zh-cn: 数量
+    Description:
+      en: 'Number of created servers, value range: [1, 100].'
+      zh-cn: '创建服务器的数量，取值范围: [1, 100]。'
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  EcsAutoRenew:
+    Type: Boolean
+    Label:
+      en: Automatic Renewal.
+      zh-cn: 自动续费。
+    Description:
+      en: Automatic renewal at the expiration.
+      zh-cn: 到期是否自动续费。
+    Default: false
+  InstanceGroupInstanceType:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      zh-cn: 填写已存在的VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in specifications that can be used under the existing VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  EcsImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: 'Server Instance Image ID,see detail: <b><a href=''https://www.alibabacloud.com/help/en/doc-detail/112977.html''
+        target=''_blank''><font color=''blue''>Find the mirror</font></a></b>'
+      zh-cn: 服务器镜像，详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7_06_64
+  EcsAllocatePublicIP:
+    Type: Boolean
+    Label:
+      en: Public IP
+      zh-cn: 公网IP
+    Description:
+      en: 'ECS instance allocated public network IP, default: false(not allocated).'
+      zh-cn: ECS实例是否分配公网IP, 默认：false(不分配)。
+    Default: false
+  EcsPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  EcsSystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  InstanceGroupSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 60
+  LoadbalancerPayType:
+    Type: String
+    Label:
+      en: Payment Type
+      zh-cn: 付费类型
+    Description:
+      en: '<font color=''blue''><b>Optional values: </b></font><br>[PayOnDemand：<font
+        color=''green''>pay-as-you-go</font>]<br>[PrePay：<font color=''green''>prepayment，monthly
+        or annual</font>]<br><font color=''blue''></a>'
+      zh-cn: '<font color=''blue''><b>可选值: </b></font><br>[PayOnDemand：<font color=''green''>按量付费</font>]<br>[PrePay：<font
+        color=''green''>预付费，包月</font>]<br><font color=''blue''></a>'
+    Default: PayOnDemand
+    AllowedValues:
+    - PayOnDemand
+    - PrePay
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      en: Instance specifications, see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance support type</b></font></a>
+      zh-cn: 实例规格，详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    Default: slb.s1.small
+  RdsDBInstancePayType:
+    Type: String
+    Label:
+      en: Payment Type
+      zh-cn: 付费类型
+    Description:
+      en: '<font color=''blue''><b>Optional values: </b></font><br>[PayOnDemand：<font
+        color=''green''>pay-as-you-go</font>]<br>[PrePay：<font color=''green''>prepayment，monthly
+        or annual</font>]<br><font color=''blue''>The monthly instance can not create
+        a database (db) and an account.</font>'
+      zh-cn: '<font color=''blue''><b>付费类型；可选值: </b></font><br>[Postpaid：<font color=''green''>按量付费</font>]<br>[Prepaid：<font
+        color=''green''>预付费，包月</font>]<br>预付费，包月实例不创建数据库（db）和帐号。'
+    Default: Postpaid
+    AllowedValues:
+    - Postpaid
+    - Prepaid
+  RdsAutoRenew:
+    Type: Boolean
+    Label:
+      en: 'Automatic Renewal '
+      zh-cn: 自动续费
+    Description:
+      en: Automatic renewal at the expiration.
+      zh-cn: 到期是否自动续费
+    Default: false
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: Type And Version
+      zh-cn: 类型与版本号
+    Description:
+      en: Database type and version number.
+      zh-cn: 数据库类型与版本号。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.5
+    - MySQL-5.6
+    - MySQL-5.7
+    - MySQL-8.0
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html'
+        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
+      en: 'Select the instance specification based on the type of database engine
+        and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.htm''
+        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+    Default: rds.mysql.s2.large
+    AllowedValues:
+    - rds.mysql.s2.large
+    - rds.mysql.s2.xlarge
+    - rds.mysql.s3.large
+    - rds.mysql.m1.medium
+    - rds.mysql.c1.large
+    - rds.mysql.c1.xlarge
+  DBInstanceDbName:
+    Type: String
+    Label:
+      en: Database Name
+      zh-cn: 数据库名称
+    Description:
+      en: The database name created by the instance, consisting of lowercase letters,
+        numbers, underscores, and middle lines, beginning with letters, ending with
+        letters or numbers, up to 64 characters.
+      zh-cn: 实例创建的数据库名称，由小写字母、数字、下划线、中划线组成，以字母开头，字母或数字结尾，最多64个字符。
+    Default: small_frame
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: Storage Space
+      zh-cn: 存储空间
+    Description:
+      en: '<font color=''blue''><b>Database storage space, unit: GB, value range:
+        50-1000</b>'
+      zh-cn: '数据库存储空间, 单位：GB, 取值范围: 50-1000'
+    Default: 50
+    MinValue: 20
+    MaxValue: 1000
+  AccountName:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库帐号
+    Description:
+      en: Maximum 16 characters,Consists of a lowercase letter, a number, an underscore,
+        a letter beginning, a letter or a number ending.<br><b>note： <font color='blue'>Keywords
+        cannot be used, e.g.:admin/root</font></b>
+      zh-cn: 最长16个字符, 由小写字母，数字、下划线组成、字母开头，字母或数字结尾。<br><b>注： <font color='blue'>关键字不能用，如：admin/root</font></b>
+    Default: small_admin
+    MaxLength: 16
+  AccountPassword:
+    Type: String
+    Label:
+      en: Account Password
+      zh-cn: 数据库帐号密码
+    Description:
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    ConstraintDescription:
+      en: Length 8-32, must contain three(Capital letters, lowercase letters, numbers,
+        !@#$%^&*()_+-= Special symbol in).
+      zh-cn: 长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）。
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  RedisInstanceChargeType:
+    Type: String
+    Label:
+      en: Payment Type
+      zh-cn: 付费类型
+    Description:
+      en: '<font color=''blue''><b>Optional values: </b></font><br>[PostPaid：<font
+        color=''green''>pay-as-you-go</font>]'
+      zh-cn: '<font color=''blue''><b>可选值: </b></font><br>[PostPaid：<font color=''green''>按量付费</font>]'
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+  RedisInstanceClass:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      zh-cn: 选择可用区支持的实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26350.html'
+        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
+      en: 'Select the instance specifications for available zone support; <br>see
+        detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26350.html''
+        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+    Default: redis.master.mid.default
+  RedisEngineVersion:
+    Type: String
+    Label:
+      en: Database Version
+      zh-cn: 数据库版本
+    Description:
+      en: 'Redis database version.Default: 4.0.'
+      zh-cn: Redis数据库版本。默认值：4.0。
+    Default: '4.0'
+    AllowedValues:
+    - '2.8'
+    - '4.0'
+    - '5.0'
+  RedisInstancePassword:
+    Type: String
+    Label:
+      en: Database Password
+      zh-cn: 数据库密码
+    Description:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  RedisInstance:
+    Type: ALIYUN::REDIS::Instance
+    Condition: IsRedis
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      EngineVersion:
+        Ref: RedisEngineVersion
+      InstanceClass:
+        Ref: RedisInstanceClass
+      Password:
+        Ref: RedisInstancePassword
+  RedisPrepayInstance:
+    Type: ALIYUN::REDIS::PrepayInstance
+    Condition: IsPrepayRedis
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      EngineVersion:
+        Ref: RedisEngineVersion
+      Period: 1
+      InstanceClass:
+        Ref: RedisInstanceClass
+      Password:
+        Ref: RedisInstancePassword
+  MergePay:
+    Type: ALIYUN::ROS::MergePay
+    Condition: IsPrepayRedis
+    Properties:
+      OrderIds:
+      - Fn::GetAtt:
+        - RedisPrepayInstance
+        - OrderId
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Condition: IsRds
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList:
+        Ref: VpcCidrBlock
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBMappings:
+      - CharacterSetName: utf8
+        DBName:
+          Ref: DBInstanceDbName
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      Tags:
+        Value: '001'
+        Key: cloud_market
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      SecurityGroupIngress:
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+      Tags:
+      - Value: '001'
+        Key: cloud_market
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: EcsImageId
+      AutoRenewPeriod: 1
+      IoOptimized: optimized
+      SystemDiskSize:
+        Ref: InstanceGroupSystemDiskSize
+      InstanceChargeType:
+        Ref: EcsInstanceChargeType
+      AutoRenew:
+        Ref: EcsAutoRenew
+      Period: 1
+      MaxAmount:
+        Ref: InstanceGroupMaxAmount
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      AllocatePublicIP:
+        Ref: EcsAllocatePublicIP
+      InstanceType:
+        Ref: InstanceGroupInstanceType
+      Tags:
+      - Value: '001'
+        Key: cloud_market
+      PeriodUnit: Month
+      Password:
+        Ref: EcsPassword
+  RdsPrepayDBInstance:
+    Type: ALIYUN::RDS::PrepayDBInstance
+    Condition: IsPrepayRds
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      PeriodType: Month
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      AutoRenew:
+        Ref: RdsAutoRenew
+      Period: 1
+      PayType:
+        Ref: RdsDBInstancePayType
+      AutoPay: true
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBMappings:
+      - CharacterSetName: utf8
+        DBName:
+          Ref: DBInstanceDbName
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      Tags:
+        Value: '001'
+        Key: cloud_market
+  RdsAccount:
+    Type: ALIYUN::RDS::Account
+    Condition: IsRds
+    Properties:
+      DBInstanceId:
+        Fn::GetAtt:
+        - RdsDBInstance
+        - DBInstanceId
+      AccountType: Normal
+      AccountPassword:
+        Ref: AccountPassword
+      AccountName:
+        Ref: AccountName
+    DependsOn:
+    - RdsDBInstance
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Condition: IsRds
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Fn::GetAtt:
+        - RdsDBInstance
+        - DBInstanceId
+      DBName:
+        Ref: DBInstanceDbName
+      AccountName:
+        Ref: AccountName
+    DependsOn:
+    - RdsAccount
+  SlbLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      PricingCycle: month
+      Duration: 1
+      PayType:
+        Ref: LoadbalancerPayType
+      AutoPay: true
+      AddressType: internet
+      MasterZoneId:
+        Ref: VSwitchZoneId
+      InternetChargeType: paybybandwidth
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+  SlbBackendServerAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Condition: IsLoadbalancer
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+      BackendServerWeightList:
+      - 100
+Outputs:
+  EcsPrivateIps:
+    Description:
+      en: Private network IP list of server instances
+      zh-cn: 服务器实例的私网IP列表
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup
+      - PrivateIps
+  EcsInstanceIds:
+    Description:
+      en: List of server instance IDs
+      zh-cn: 服务器实例ID列表
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup
+      - InstanceIds
+  RdsInnerConnectionString:
+    Description:
+      en: Relational database Intranet connection strings
+      zh-cn: 关系型数据库内网连接串
+    Condition: IsRds
+    Value:
+      Fn::GetAtt:
+      - RdsDBInstance
+      - InnerConnectionString
+  LoadbalancerIp:
+    Description:
+      en: IP of the load balancing instance
+      zh-cn: 负载均衡实例的IP
+    Value:
+      Fn::GetAtt:
+      - SlbLoadBalancer
+      - IpAddress
+  RedisInstanceConnectionDomain:
+    Description:
+      en: The Intranet connection address of the Redis instance
+      zh-cn: Redis实例的内网连接地址
+    Condition: IsRedis
+    Value:
+      Fn::GetAtt:
+      - RedisInstance
+      - ConnectionDomain
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - VSwitchZoneId
+      Label:
+        default: VPC
+    - Parameters:
+      - EcsInstanceChargeType
+      - InstanceGroupMaxAmount
+      - EcsAutoRenew
+      - InstanceGroupInstanceType
+      - EcsImageId
+      - EcsAllocatePublicIP
+      - EcsPassword
+      - EcsSystemDiskCategory
+      - InstanceGroupSystemDiskSize
+      Label:
+        default: ECS
+    - Parameters:
+      - LoadbalancerPayType
+      - LoadBalancerSpec
+      Label:
+        default: SLB
+    - Parameters:
+      - RdsDBInstancePayType
+      - RdsAutoRenew
+      - DBInstanceEngineAndVersion
+      - DBInstanceClass
+      - DBInstanceDbName
+      - DBInstanceStorage
+      - AccountName
+      - AccountPassword
+      Label:
+        default: RDS
+    - Parameters:
+      - RedisInstanceChargeType
+      - RedisInstanceClass
+      - RedisEngineVersion
+      - RedisInstancePassword
+      Label:
+        default: REDIS
+    TemplateTags:
+    - acs:solution:云市场:通用产品上云部署架构（小型）

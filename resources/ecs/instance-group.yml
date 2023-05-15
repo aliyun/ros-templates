@@ -1,0 +1,165 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ECS InstanceGroup、InstanceGroupClone、Command、Invocation
+Parameters:
+  Name:
+    Type: String
+  CommandContent:
+    Type: String
+  Type:
+    Type: String
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+  SystemDiskCategory:
+    Type: String
+    Description: Category of system disk. Default is cloud_efficiency. support cloud|cloud_efficiency|cloud_ssd|cloud_essd|ephemeral_ssd.Old
+      instances will not be changed.
+    Default: cloud_essd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+    - ephemeral_ssd
+  LoginPassword:
+    Type: String
+    Description: ECS Login Password
+    Default: Admin123
+    MinLength: 8
+    MaxLength: 41
+    NoEcho: true
+  PublicIp:
+    Type: Boolean
+    Label: Allocate Public IP or Not
+    Description: Allocate Public IP or Not
+    Default: false
+  VpcId:
+    Type: String
+    Description: VPC Id.
+  VSwitchId:
+    Type: String
+    Description: VSW Id.
+  SecurityGroupId:
+    Type: String
+    Description: Security Group Id.
+  InstanceName:
+    Type: String
+    Description: Instance Name
+    Default: mytest
+  MaxAmount:
+    Type: Number
+    Description: Instance Amount
+    Default: 2
+Resources:
+  InstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - Ref: InstanceName
+          - -[1,6]
+      IoOptimized: optimized
+      AllocatePublicIP:
+        Ref: PublicIp
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Password:
+        Ref: LoginPassword
+      MaxAmount:
+        Ref: MaxAmount
+  InstanceClone:
+    Type: ALIYUN::ECS::InstanceGroupClone
+    Properties:
+      SourceInstanceId:
+        Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - InstanceGroup
+          - InstanceIds
+      MaxAmount:
+        Ref: MaxAmount
+    DependsOn: InstanceGroup
+  Command:
+    Type: ALIYUN::ECS::Command
+    Properties:
+      Name:
+        Ref: Name
+      CommandContent:
+        Ref: CommandContent
+      Type:
+        Ref: Type
+  Invocation:
+    Type: ALIYUN::ECS::Invocation
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - InstanceGroup
+        - InstanceIds
+      CommandId:
+        Ref: Command
+Outputs:
+  InstanceIdsClone:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - InstanceIds
+  PrivateIpsClone:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - PrivateIps
+  PublicIps:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - PublicIps
+  HostNames:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - HostNames
+  ZoneIds:
+    Value:
+      Fn::GetAtt:
+      - InstanceClone
+      - ZoneIds
+  InvokeId:
+    Value:
+      Fn::GetAtt:
+      - Invocation
+      - InvokeId
+  CommandId:
+    Value:
+      Fn::GetAtt:
+      - Command
+      - CommandId
+  InstanceIds:
+    Value:
+      Fn::GetAtt:
+      - InstanceGroup
+      - InstanceIds
+  PrivateIps:
+    Value:
+      Fn::GetAtt:
+      - InstanceGroup
+      - PrivateIps

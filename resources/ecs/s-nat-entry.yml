@@ -1,0 +1,70 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ECS SecurityGroupIngress
+Parameters:
+  VpcName:
+    Type: String
+    Description: VPC Name.
+  VSwitchName:
+    Type: String
+    Description: VSW Name.
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: VpcName
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Ref: VSwitchName
+      CidrBlock: 192.168.0.0/16
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: '1'
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+  EIP_Association:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: Eip
+  SNatTableEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SNatIp:
+        Fn::GetAtt:
+        - EIP_Association
+        - EipAddress
+      SourceVSwitchId:
+        Ref: VSwitch
+Outputs:
+  SNatEntryId:
+    Value:
+      Fn::GetAtt:
+      - SNatTableEntry
+      - SNatEntryId

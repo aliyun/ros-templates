@@ -1,0 +1,601 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: Server Relocation - Create a source server with a move cloud tool.
+  en: 服务器搬迁 - 创建带有迁云工具的源服务器。
+Conditions:
+  CreateWindows:
+    Fn::Equals:
+    - win2012r2_64
+    - Ref: EcsGroupImageId
+Parameters:
+  RamUserName:
+    Type: String
+    Label:
+      zh-cn: 用户名
+      en: User Name
+    Description:
+      zh-cn: 用户名，1-64个大小写字母、数字、.@-_z中的特殊符合组成。<br><b>注：<font color='blue'>帐号内唯一</b></font>
+      en: 'User name, Length 1-64, consist of Capital letters, lowercase letters,
+        numbers, .@-_z. <br><b>note: <font color=''blue''>Unique in your account</b></font> '
+    Default: migrationram
+  VpcCidrBlock:
+    Type: String
+    Label:
+      zh-cn: 专有网络网段
+      en: VPC Network Segment
+    Description:
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwZoneId:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+    Description:
+      zh-cn: 可用区Id。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源。</font></b>
+      en: Availability zone id.<br><b>note： <font color='blue'>Before selecting the
+        availability zone, confirm that the availability Zone supports the creation
+        of ECS resources.</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwCidrBlock:
+    Type: String
+    Label:
+      zh-cn: 交换机网段
+      en: VSwitch Network Segment
+    Description:
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other switches.
+    Default: 192.168.0.0/16
+  EcsGroupMaxAmount:
+    Type: Number
+    Label:
+      zh-cn: 实例数量
+      en: ECS Amount
+    Description:
+      zh-cn: 实例数量,取值范围：1~100。
+      en: Number of instances, with values ranging from 1 to 100.
+    ConstraintDescription:
+      zh-cn: 取值范围：1~100。
+      en: 'Valid value: 1 - 100.'
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  EcsGroupInstanceType:
+    Type: String
+    Label:
+      zh-cn: 规格
+      en: Specifications
+    Description:
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwZoneId
+  EcsGroupImageId:
+    Type: String
+    Label:
+      zh-cn: 镜像
+      en: Image
+    Description:
+      en: Image ID，see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+    AllowedValues:
+    - centos_7
+    - win2012r2_64
+  EcsGroupSystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  EcsGroupSystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size, range of values: 40-500, units: GB.'
+    ConstraintDescription:
+      zh-cn: 取值范围：[40, 500], 单位：GB。
+      en: 'Range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  EcsGroupPassword:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  MoveToRegion:
+    Type: String
+    Label:
+      zh-cn: ECS迁移地域
+      en: ECS migration region
+    Description:
+      zh-cn: ECS需要搬迁的地域。
+      en: Areas where ECS needs to be relocated.
+    Default: cn-zhangjiakou
+    AllowedValues:
+    - cn-chengdu
+    - cn-hangzhou
+    - cn-shanghai
+    - cn-qingdao
+    - cn-beijing
+    - cn-zhangjiakou
+    - cn-huhehaote
+    - cn-shenzhen
+    - cn-hongkong
+    - ap-southeast-1
+    - ap-southeast-2
+    - ap-southeast-3
+    - ap-southeast-5
+    - ap-northeast-1
+    - ap-south-1
+    - me-east-1
+    - eu-central-1
+    - eu-west-1
+    - us-west-1
+    - us-east-1
+  MoveToAliyunSystemDataSize:
+    Type: Number
+    Label:
+      zh-cn: 镜像系统盘空间
+      en: Image system disk space
+    Description:
+      zh-cn: 自定义的镜像系统盘大小，取值范围40-500，单位：GB。
+      en: 'Custom mirror system disk size, Valid value: 40-500, unit: GB.'
+    ConstraintDescription:
+      zh-cn: 取值范围：40-500，单位：GB。
+      en: 'Valid Value: 40-500, unit: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+Resources:
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3c3114b6-b7be-4c4c-9ab6-dc85eece60fb
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 600
+      Count: 1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7296be89-7011-4f4a-8749-5e90298a6fcc
+  RamUser:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Ref: RamUserName
+      Policies:
+      - PolicyName:
+          Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+        PolicyDocument:
+          Version: '1'
+          Statement:
+          - Action:
+            - ecs:*
+            - vpc:DescribeVpcs
+            - vpc:DescribeVSwitches
+            - vpc:*HaVip*
+            - vpc:*RouteTable*
+            - vpc:*VRouter*
+            - vpc:*RouteEntry*
+            - vpc:*VSwitch*
+            - vpc:*Vpc*
+            - vpc:*Cen*
+            Resource:
+            - acs:ecs:*:*:*
+            - acs:vpc:*:*:*
+            Effect: Allow
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 93a7c238-c9c2-4c29-b71a-3bec734d25b0
+  RamAccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+        - RamUser
+        - UserName
+    DependsOn:
+    - RamUser
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f15c0f55-2cde-4e76-8b0b-36f80b7288db
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 71970ddc-366a-4c60-95ab-88fd8a4497af
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwCidrBlock
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: b31137b1-f6b3-4fec-bc03-342e80ec3860
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupIngress:
+      - PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+      SecurityGroupEgress:
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 9ed25729-6dcf-4a21-b810-2905cf4c10e5
+  ECSInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: EcsGroupImageId
+      MaxAmount:
+        Ref: EcsGroupMaxAmount
+      IoOptimized: optimized
+      UserData:
+        Fn::If:
+        - CreateWindows
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - RosWaitConditionHandle
+              - PowerShellCurlCli
+          - Fn::Join:
+            - ''
+            - - "[powershell] \r\n"
+              - "$client = new-object System.Net.WebClient \r\n"
+              - "$client.DownloadFile('http://p2v-tools.oss-cn-hangzhou.aliyuncs.com/smc/Alibaba_Cloud_Migration_Tool.zip',\
+                \ 'C:\\Alibaba_Cloud_Migration_Tool.zip') \r\n"
+              - "Expand-Archive -Path C:\\Alibaba_Cloud_Migration_Tool.zip -DestinationPath\
+                \ C:\\Alibaba_Cloud_Migration_Tool \r\n"
+              - "$name_info=Dir C:\\Alibaba_Cloud_Migration_Tool | Where-Object {\
+                \ $_.BaseName -match 'go2aliyun_client.*?_windows_x86_64' } \r\n"
+              - "$name_info -match 'go2aliyun_client.*?_windows_x86_64.zip' \r\n"
+              - "$name_and_suffix=$matches.values \r\n"
+              - "$name_info -match 'go2aliyun_client.*?_windows_x86_64' \r\n"
+              - "$name=$matches.values \r\n"
+              - "Expand-Archive -Path C:\\Alibaba_Cloud_Migration_Tool\\$name_and_suffix\
+                \ -DestinationPath C:\\Alibaba_Cloud_Migration_Tool\\go2aliyun \r\n"
+              - '$config = ''{"access_id": "'
+              - Fn::GetAtt:
+                - RamAccessKey
+                - AccessKeyId
+              - '", "secret_key": "'
+              - Fn::GetAtt:
+                - RamAccessKey
+                - AccessKeySecret
+              - '", "region_id": "'
+              - Ref: MoveToRegion
+              - '", "image_name": "'
+              - Fn::Join:
+                - '-'
+                - - StackId
+                  - Ref: ALIYUN::StackName
+              - '", "system_disk_size": '
+              - Fn::Str:
+                  Ref: MoveToAliyunSystemDataSize
+              - ", \"platform\": \"\", \"data_disks\": [], \"bandwidth_limit\": 0}'\
+                \ \r\n"
+              - "$config | Out-File C:\\Alibaba_Cloud_Migration_Tool\\go2aliyun\\\
+                $name\\user_config_bak.json \r\n"
+              - "Get-Content C:\\Alibaba_Cloud_Migration_Tool\\go2aliyun\\$name\\\
+                user_config_bak.json | set-Content C:\\Alibaba_Cloud_Migration_Tool\\\
+                go2aliyun\\$name\\user_config.json \r\n"
+              - "ros-notify \r\n"
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - RosWaitConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - "#!/bin/sh \n"
+              - imagename=
+              - Fn::Join:
+                - '-'
+                - - StackId
+                  - Ref: ALIYUN::StackId
+              - " \n"
+              - region=
+              - Ref: MoveToRegion
+              - " \n"
+              - ak=
+              - Fn::GetAtt:
+                - RamAccessKey
+                - AccessKeyId
+              - " \n"
+              - sk=
+              - Fn::GetAtt:
+                - RamAccessKey
+                - AccessKeySecret
+              - " \n"
+              - size=
+              - Fn::Str:
+                  Ref: MoveToAliyunSystemDataSize
+              - " \n"
+              - "cd ~ \n"
+              - "echo \"{\\\"access_id\\\": \\\"$ak\\\", \\\"secret_key\\\": \\\"\
+                $sk\\\", \\\"region_id\\\": \\\"$region\\\", \\\"image_name\\\": \\\
+                \"$imagename\\\", \\\"system_disk_size\\\": $size, \\\"platform\\\"\
+                : \\\"\\\", \\\"data_disks\\\": [], \\\"bandwidth_limit\\\": 0}\"\
+                \ > user_config.json \n"
+              - "yum -y install unzip \n"
+              - "wget http://p2v-tools.oss-cn-hangzhou.aliyuncs.com/smc/Alibaba_Cloud_Migration_Tool.zip\
+                \ \n"
+              - "unzip Alibaba_Cloud_Migration_Tool.zip \n"
+              - "unzip go2aliyun_client*linux_x86_64.zip \n"
+              - "mv go2aliyun_client*linux_x86_64 go2aliyun \n"
+              - "mv go2aliyun/user_config.json go2aliyun/user_config.json.bak \n"
+              - "cp user_config.json go2aliyun/ \n"
+              - "cd go2aliyun \n"
+              - "chmod +x go2aliyun_client \n"
+              - "ros-notify -d \"{\\\"Data\\\" : \\\"SUCCESS\\\", \\\"Status\\\" :\
+                \ \\\"SUCCESS\\\"}\" \n"
+      AllocatePublicIP: true
+      InstanceType:
+        Ref: EcsGroupInstanceType
+      SystemDiskCategory:
+        Ref: EcsGroupSystemDiskCategory
+      SystemDiskSize:
+        Ref: EcsGroupSystemDiskSize
+      Password:
+        Ref: EcsGroupPassword
+      Tags:
+      - Key: best_practice
+        Value: '014'
+    DependsOn:
+    - RamAccessKey
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 525992bf-bafc-4ee4-aaa6-9a15e0e574dd
+Outputs:
+  AccessKeyId:
+    Value:
+      Fn::GetAtt:
+      - RamAccessKey
+      - AccessKeyId
+  UserName:
+    Value:
+      Fn::GetAtt:
+      - RamUser
+      - UserName
+  CreateDate:
+    Value:
+      Fn::GetAtt:
+      - RamUser
+      - CreateDate
+  UserId:
+    Value:
+      Fn::GetAtt:
+      - RamUser
+      - UserId
+  WinECSInstanceIds:
+    Value:
+      Fn::GetAtt:
+      - ECSInstanceGroup
+      - InstanceIds
+  WinECSPrivateIps:
+    Value:
+      Fn::GetAtt:
+      - ECSInstanceGroup
+      - PrivateIps
+  WinECSPublicIps:
+    Value:
+      Fn::GetAtt:
+      - ECSInstanceGroup
+      - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - RamUserName
+      Label:
+        default: RAM
+    - Parameters:
+      - VpcCidrBlock
+      - VSwZoneId
+      - VSwCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - EcsGroupMaxAmount
+      - EcsGroupInstanceType
+      - EcsGroupImageId
+      - EcsGroupSystemDiskCategory
+      - EcsGroupSystemDiskSize
+      - EcsGroupPassword
+      Label:
+        default: ECS
+    - Parameters:
+      - MoveToRegion
+      - MoveToAliyunSystemDataSize
+      Label:
+        default:
+          zh-cn: 迁移信息
+          en: Migration Info
+    TemplateTags:
+    - acs:solution:业务上云:服务器迁移-搭建带有迁云工具的服务器
+  ALIYUN::ROS::Designer:
+    71970ddc-366a-4c60-95ab-88fd8a4497af:
+      size:
+        width: 317.0537109375
+        height: 288
+      position:
+        x: 191
+        y: 50
+      z: 0
+      embeds:
+      - b31137b1-f6b3-4fec-bc03-342e80ec3860
+      - 9ed25729-6dcf-4a21-b810-2905cf4c10e5
+    b31137b1-f6b3-4fec-bc03-342e80ec3860:
+      size:
+        width: 131
+        height: 141
+      position:
+        x: 216
+        y: 134
+      z: 1
+      embeds:
+      - 525992bf-bafc-4ee4-aaa6-9a15e0e574dd
+    3c3114b6-b7be-4c4c-9ab6-dc85eece60fb:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 86
+        y: 96
+      z: 0
+    7296be89-7011-4f4a-8749-5e90298a6fcc:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 86
+        y: 236
+      z: 0
+    f15c0f55-2cde-4e76-8b0b-36f80b7288db:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 254
+        y: 360
+      z: 0
+    93a7c238-c9c2-4c29-b71a-3bec734d25b0:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 409
+        y: 360
+      z: 0
+    9ed25729-6dcf-4a21-b810-2905cf4c10e5:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 402
+        y: 174
+      z: 1
+    525992bf-bafc-4ee4-aaa6-9a15e0e574dd:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 254
+        y: 174
+      z: 2
+    b3c701e4-51e9-467f-95d6-4e51f2049fd5:
+      source:
+        id: 7296be89-7011-4f4a-8749-5e90298a6fcc
+      target:
+        id: 3c3114b6-b7be-4c4c-9ab6-dc85eece60fb
+      z: 1
+    13758b49-7d22-4e83-aca5-e37b06f3ed5d:
+      source:
+        id: f15c0f55-2cde-4e76-8b0b-36f80b7288db
+      target:
+        id: 93a7c238-c9c2-4c29-b71a-3bec734d25b0
+      z: 1
+    db2ba12d-f329-4603-a7c4-99c73d90d3ac:
+      source:
+        id: 525992bf-bafc-4ee4-aaa6-9a15e0e574dd
+      target:
+        id: 9ed25729-6dcf-4a21-b810-2905cf4c10e5
+      z: 1
+    3b96c45c-fb96-49ef-8f67-083875638b93:
+      source:
+        id: 525992bf-bafc-4ee4-aaa6-9a15e0e574dd
+      target:
+        id: f15c0f55-2cde-4e76-8b0b-36f80b7288db
+      z: 1

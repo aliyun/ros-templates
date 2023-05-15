@@ -1,0 +1,1505 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: 混合云使用飞天AI加速工具
+Conditions:
+  CreateCentOS:
+    Fn::Equals:
+    - centos_7
+    - Ref: ImageId
+  NotUseResourceGroupId:
+    Fn::Equals:
+    - default
+    - Ref: ResourceGroupId
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block for Master Instance
+      zh-cn: 专有网络网段
+    Description:
+      en: Master instance proprietary network IP address segment range
+      zh-cn: 专有网络IP地址段范围
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+  MasterVSwitchZoneId:
+    Type: String
+    Label:
+      zh-cn: Master实例交换机可用区
+      en: VSwitch Zone ID for Master Instance
+    Description:
+      zh-cn: 可用区ID。<br><b>注：<font color='blue'><font color='blue'>选择可用区前请确认该可用区是否支持创建Master
+        ECS的规格。</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting the
+        available zone, please confirm that the available zone supports the specification
+        of creating Master ECS</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  MasterVSwitchCidrBlock:
+    Type: String
+    Label:
+      zh-cn: Master实例交换机网段
+      en: VSwitch CIDR Block for Master Instance
+    Description:
+      zh-cn: 必须是专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+    Default: 192.168.0.0/24
+  WorkerVSwitchZoneId:
+    Type: String
+    Label:
+      zh-cn: Worker实例交换机可用区
+      en: VSwitch Zone ID for Worker Instance
+    Description:
+      zh-cn: 可用区ID，<font color='red'><b>选择与其他交换机不同的可用区</b></font><br><b>注：<font color='blue'><font
+        color='blue'>选择可用区前请确认该可用区是否支持创建Worker ECS的规格。</font></b>
+      en: Availability Zone ID.<font color='red'><b>select a different availability
+        zone than other switches</font></b><br><b>note：<font color='blue'>before selecting
+        the available zone, please confirm that the available zone supports the specification
+        of creating Worker ECS</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  WorkerVSwitchCidrBlock:
+    Type: String
+    Label:
+      zh-cn: Worker实例交换机网段
+      en: VSwitch CIDR Block for Worker Instance
+    Description:
+      zh-cn: 必须是专有网络的子网段，并且没有被其他交换机占用。
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+    Default: 192.168.10.0/24
+  MasterInstanceType:
+    Type: String
+    Label:
+      zh-cn: Master实例规格
+      en: Master Instance Type
+    Description:
+      zh-cn: 填写Master实例交换机可用区下可使用的规格；Master实例使用通用型ECS规格<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the master instance VSwitch
+        availability zone; master instances use common ECS specifications</b></font><br>general
+        specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note: a few
+        zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: MasterVSwitchZoneId
+  WorkerInstanceType:
+    Type: String
+    Label:
+      zh-cn: Worker实例规格
+      en: Worker Instance Type
+    Description:
+      zh-cn: 填写Worker实例交换机可用区下可使用的规格；Worker实例使用gn4、gn5、gn5i、gn6v及gn6i系列的GPU计算型ECS规格<br>推荐规格：<font
+        color='red'><b>ecs.gn5i-c2g1.large</b></font><br>注：可用区可能不支持推荐规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the worker instance VSwitch
+        availability zone; worker instances use GPU compute ECS specifications for
+        the gn4, gn5, gn5i, gn6v and gn6i series</b></font><br>recommended specifications：<font
+        color=''red''><b>ecs.gn5i-c2g1.large</b></font><br>note: a few zones do not
+        support recommended specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: WorkerVSwitchZoneId
+  ImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID, using other images does not install software such as the service
+        side, please use the centos_7; <br>see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID，使用其他镜像不会安装服务端等软件，请使用centos_7；<br>详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 磁盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 150
+  InternetBandwidth:
+    Type: Number
+    Label:
+      en: Public Network Bandwidth
+      zh-cn: 公网带宽
+    Description:
+      en: 'ECS public network bandwidth, value range: [1, 100], Unit: Mbps.'
+      zh-cn: 'ECS公网带宽，取值范围: [1, 100]，单位： Mbps。'
+    Default: 5
+    MinValue: 1
+    MaxValue: 100
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  ResourceGroupId:
+    Type: String
+    Label:
+      en: Resource Group Id
+      zh-cn: 资源组ID
+    Description:
+      en: Resource group ID, when default, ECS does not join the resource group.
+      zh-cn: 资源组ID，默认default时，ECS不加入资源组。
+    Default: default
+Resources:
+  MasterEcsWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c7f05162-7643-4115-a404-7ab91f038da9
+  MasterEcsWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: MasterEcsWaitConditionHandle
+      Timeout: 3600
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: dfaf7757-32f0-478f-a9f8-e56d96a12da5
+  IpWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: cf73f037-4151-4b3a-9c4a-22d9eac434b3
+  IpWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: IpWaitConditionHandle
+      Timeout: 3600
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: de882c62-331f-44ef-8133-ed8ef37b3cbd
+  WorkerEcsWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4b27d03b-278a-4270-8ef7-3039a2ab7c25
+  WorkerEcsWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WorkerEcsWaitConditionHandle
+      Timeout: 3600
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a94d64f0-e192-4e17-b5eb-680a4bc283aa
+  CommandWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: dc97442a-0887-4682-9427-4d88faeb761d
+  CommandWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 2
+      Handle:
+        Ref: CommandWaitConditionHandle
+      Timeout: 3600
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1f44d11f-d9c5-43cb-b3ca-ba3a83107f29
+  MasterVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - Master-ECS
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VpcCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 6c3a91bc-0660-4abd-9729-f6eb8530d254
+  WorkerVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - Worker-ECS
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VpcCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 51a8d519-c529-473f-a6b9-a41435d5527f
+  MasterVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: MasterVSwitchZoneId
+      VpcId:
+        Ref: MasterVpc
+      VSwitchName:
+        Fn::Join:
+        - _
+        - - Worker-ECS
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: MasterVSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 92513718-48d9-44a8-ae96-5550910ad4ac
+  WorkerVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: WorkerVSwitchZoneId
+      VpcId:
+        Ref: WorkerVpc
+      VSwitchName:
+        Fn::Join:
+        - _
+        - - Master-ECS
+          - StackId
+          - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: WorkerVSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 17213b8f-8cb6-4a79-9c27-39607c1d6087
+  MasterSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: MasterVpc
+      SecurityGroupIngress:
+      - Priority: 1
+        PortRange: -1/-1
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+      - Priority: 1
+        PortRange: 3389/3389
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 6443/6443
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 443/443
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 22/22
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      SecurityGroupName:
+        Fn::Join:
+        - _
+        - - Master-ECS
+          - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 90aa2317-ae44-4bac-bed6-939e0ab5916e
+  WorkerSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: WorkerVpc
+      SecurityGroupIngress:
+      - Priority: 1
+        PortRange: -1/-1
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+      - Priority: 1
+        PortRange: 3389/3389
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 6443/6443
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 443/443
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 22/22
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      SecurityGroupName:
+        Fn::Join:
+        - _
+        - - Worker-ECS
+          - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e6c78fdf-88d5-4a85-92f8-b41ed18f94e3
+  CenInstance:
+    Type: ALIYUN::CEN::CenInstance
+    Properties:
+      Name:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 6a33aba9-eb19-46ae-9920-cad31c9dd104
+  MasterCenInstanceAttachment:
+    Type: ALIYUN::CEN::CenInstanceAttachment
+    Properties:
+      ChildInstanceRegionId:
+        Ref: ALIYUN::Region
+      ChildInstanceType: VPC
+      ChildInstanceId:
+        Ref: MasterVpc
+      CenId:
+        Ref: CenInstance
+    DependsOn:
+    - MasterVSwitch
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0a181e46-4ef4-4529-b336-5071350d0570
+  WorkerCenInstanceAttachment:
+    Type: ALIYUN::CEN::CenInstanceAttachment
+    Properties:
+      ChildInstanceRegionId:
+        Ref: ALIYUN::Region
+      ChildInstanceType: VPC
+      ChildInstanceId:
+        Ref: WorkerVpc
+      CenId:
+        Ref: CenInstance
+    DependsOn:
+    - MasterCenInstanceAttachment
+    - WorkerVSwitch
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f0349f72-db6c-4da6-a385-d52faf5fe15b
+  MasterInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: MasterVpc
+      VSwitchId:
+        Ref: MasterVSwitch
+      SecurityGroupId:
+        Ref: MasterSecurityGroup
+      ImageId:
+        Ref: ImageId
+      UserData:
+        Fn::If:
+        - CreateCentOS
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - MasterEcsWaitConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - "#!/bin/sh \n"
+              - "yum -y install nfs-utils jq expect \n"
+              - "ossName='ros-template-resources' \n"
+              - "master_ip=`ip addr | grep eth0 | grep -o '[0-9]\\{1,3\\}\\.[0-9]\\\
+                {1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}/' | cut -d '/' -f 1` \n"
+              - "mkdir /root/tmp \n"
+              - '#echo ''sudo mount -t nfs -o vers=4,minorversion=0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport '
+              - Fn::GetAtt:
+                - NasMountTarget
+                - MountTargetDomain
+              - ":/ /mnt' >> /root/tmp/mount.sh \n"
+              - worker_ip_json='
+              - Fn::GetAtt:
+                - IpWaitCondition
+                - Data
+              - "' \n"
+              - "worker_ip=`echo $worker_ip_json | jq .ip | sed 's/\"//g'` \n"
+              - "echo \"$worker_ip        worker001        worker001\" >> /etc/hosts\
+                \ \n"
+              - "master_ip=`ip addr | grep eth0 | grep -o '[0-9]\\{1,3\\}\\.[0-9]\\\
+                {1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}/' | cut -d '/' -f 1` \n"
+              - "ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+              - "touch ssh_copy.sh && chmod +x ssh_copy.sh \n"
+              - "echo '#!/bin/bash' >> ssh_copy.sh \n"
+              - "echo 'expect <<EOF' >> ssh_copy.sh \n"
+              - "echo 'set timeout 150' >> ssh_copy.sh \n"
+              - "echo 'spawn ssh-copy-id -i /root/.ssh/id_rsa.pub worker001' >> ssh_copy.sh\
+                \ \n"
+              - "echo 'expect {' >> ssh_copy.sh \n"
+              - "echo '\"yes/no\" {' >> ssh_copy.sh \n"
+              - "echo 'send \"yes\\n\";exp_continue' >> ssh_copy.sh \n"
+              - "echo '}' >> ssh_copy.sh \n"
+              - "echo '\"*password\" {' >> ssh_copy.sh \n"
+              - echo 'send "
+              - Ref: Password
+              - "\\n\"' >> ssh_copy.sh \n"
+              - "echo '}' >> ssh_copy.sh \n"
+              - "echo '}' >> ssh_copy.sh \n"
+              - "echo 'expect eof' >> ssh_copy.sh \n"
+              - "echo 'EOF' >> ssh_copy.sh \n"
+              - "sleep 60 \n"
+              - "bash ssh_copy.sh \n"
+              - "ssh worker001 \"echo \"$master_ip        master001        master001\"\
+                \ >> /etc/hosts && exit \" \n"
+              - "yum -y install yum-utils device-mapper-persistent-data lvm2 \n"
+              - "yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo\
+                \ stable-19.03 \n"
+              - "yum -y install docker-ce-19.03.8 \n"
+              - "systemctl enable docker && systemctl start docker \n"
+              - "mkdir -p /etc/docker \n"
+              - "echo '{' >> /etc/docker/daemon.json \n"
+              - "echo '  \"exec-opts\": [\"native.cgroupdriver=systemd\"],' >> /etc/docker/daemon.json\
+                \ \n"
+              - "echo '  \"log-driver\": \"json-file\",' >> /etc/docker/daemon.json\
+                \ \n"
+              - "echo '  \"log-opts\": {' >> /etc/docker/daemon.json \n"
+              - "echo '    \"max-size\": \"100m\"' >> /etc/docker/daemon.json \n"
+              - "echo '  },' >> /etc/docker/daemon.json \n"
+              - "echo '  \"storage-driver\": \"overlay2\",' >> /etc/docker/daemon.json\
+                \ \n"
+              - "echo '  \"storage-opts\": [' >> /etc/docker/daemon.json \n"
+              - "echo '    \"overlay2.override_kernel_check=true\"' >> /etc/docker/daemon.json\
+                \ \n"
+              - "echo '  ]' >> /etc/docker/daemon.json \n"
+              - "echo '}' >> /etc/docker/daemon.json \n"
+              - "mkdir -p /etc/systemd/system/docker.service.d \n"
+              - "systemctl daemon-reload && systemctl restart docker \n"
+              - "docker info |grep Cgroup \n"
+              - "echo 'net.ipv4.ip_forward = 1' >> /etc/sysctl.d/k8s.conf \n"
+              - "echo 'net.bridge.bridge-nf-call-ip6tables = 1' >> /etc/sysctl.d/k8s.conf\
+                \ \n"
+              - "echo 'net.bridge.bridge-nf-call-iptables = 1' >> /etc/sysctl.d/k8s.conf\
+                \ \n"
+              - "sysctl -p /etc/sysctl.d/k8s.conf \n"
+              - "echo '[kubernetes]' >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'name=Kubernetes' >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/'\
+                \ >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'enabled=1' >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'gpgcheck=1' >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'repo_gpgcheck=1' >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg\
+                \ https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg'\
+                \ >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "yum install -y kubelet-1.15.3-0 kubeadm-1.15.3-0 kubectl-1.15.3-0\
+                \ \n"
+              - "systemctl enable kubelet && systemctl start kubelet \n"
+              - "kubeadm init --pod-network-cidr=172.16.20.0/16 --image-repository\
+                \ registry.aliyuncs.com/google_containers --kubernetes-version=1.15.3\
+                \ >> /root/tmp/join_k8s_cmd.log \n"
+              - "wait \n"
+              - "cd / \n"
+              - "echo '#!/bin/bash' >> /root/join_k8s_cmd.sh \n"
+              - "cat /root/tmp/join_k8s_cmd.log | grep 'kubeadm join .*' >> /root/join_k8s_cmd.sh\
+                \ \n"
+              - "cat /root/tmp/join_k8s_cmd.log | grep 'discovery.*' >> /root/join_k8s_cmd.sh\
+                \ \n"
+              - "chmod +x /root/join_k8s_cmd.sh \n"
+              - "#scp /root/join_k8s_cmd.sh worker001:/root/ \n"
+              - "mkdir -p /root/.kube \n"
+              - "sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config \n"
+              - "sudo chown $(id -u):$(id -g) /root/.kube/config \n"
+              - "echo \"export KUBECONFIG=/root/.kube/config\" >> ~/.bash_profile\
+                \ \n"
+              - "source ~/.bash_profile \n"
+              - "wget http://mirror.faasx.com/k8s/calico/v3.3.2/rbac-kdd.yaml \n"
+              - "wget http://mirror.faasx.com/k8s/calico/v3.3.2/calico.yaml \n"
+              - "sed -i 's/192.168.0.0/172.16.20.0/' calico.yaml \n"
+              - "sleep 60 \n"
+              - "kubectl create -f rbac-kdd.yaml \n"
+              - "kubectl create -f calico.yaml \n"
+              - "sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml\
+                \ \n"
+              - "systemctl daemon-reload \n"
+              - "#kubectl get nodes \n"
+              - "sleep 60 \n"
+              - "sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml\
+                \ \n"
+              - "#wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/kube-flannel.yml\
+                \ \n"
+              - "#sudo kubectl apply -f kube-flannel.yml \n"
+              - "systemctl daemon-reload \n"
+              - "ssh worker001 \"echo \"$master_ip\" >> /master_ip.info && exit \"\
+                \ \n"
+              - "echo '#!/bin/bash ' >> /root/tmp/mount.sh \n"
+              - 'echo ''sudo mount -t nfs -o vers=4,minorversion=0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport '
+              - Fn::GetAtt:
+                - NasMountTarget
+                - MountTargetDomain
+              - ":/ /mnt' >> /root/tmp/mount.sh \n"
+              - "chmod +x /root/tmp/mount.sh \n"
+              - "##### after worker node \n"
+              - "touch /root/after_worker.sh && chmod +x /root/after_worker.sh \n"
+              - "echo '#/bin/bash' >> /root/after_worker.sh \n"
+              - "echo 'kubectl get nodes' >> /root/after_worker.sh \n"
+              - "echo 'kubectl label node worker001 node-role.kubernetes.io/worker=worker'\
+                \ >> /root/after_worker.sh \n"
+              - "echo 'kubectl get nodes' >> /root/after_worker.sh \n"
+              - "echo \"wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/nvidia-device-plugin.yml\"\
+                \ >> /root/after_worker.sh \n"
+              - "echo 'kubectl create -f nvidia-device-plugin.yml' >> /root/after_worker.sh\
+                \ \n"
+              - "echo 'kubectl get pods --all-namespaces' >> /root/after_worker.sh\
+                \ \n"
+              - "##### install arena  \n"
+              - "touch /root/install_arena.sh && chmod +x /root/install_arena.sh \n"
+              - "echo '#!/bin/bash' >> /root/install_arena.sh \n"
+              - "echo '###install arena' >> /root/install_arena.sh \n"
+              - "echo \"wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/arena-installer-0.3.1-b96e1ac-linux-amd64.tar.gz\"\
+                \ >> /root/install_arena.sh \n"
+              - "echo 'tar xzvf arena-installer-0.3.1-b96e1ac-linux-amd64.tar.gz'\
+                \ >> /root/install_arena.sh \n"
+              - "echo 'cd arena-installer' >> /root/install_arena.sh \n"
+              - "echo 'sh -x install.sh' >> /root/install_arena.sh \n"
+              - "echo 'yum install bash-completion -y' >> /root/install_arena.sh \n"
+              - "echo 'echo \"source <(arena completion bash)\" >> ~/.bashrc' >> /root/install_arena.sh\
+                \ \n"
+              - "echo 'chmod u+x ~/.bashrc' >> /root/install_arena.sh \n"
+              - "echo 'arena version' >> /root/install_arena.sh \n"
+              - "echo 'arena top node -d' >> /root/install_arena.sh \n"
+              - "#cd /root && bash install_arena.sh >> install_arena.log \n"
+              - "#nas-pv.yaml \n"
+              - "echo 'apiVersion: v1' >>  /root/nas-pv.yaml \n"
+              - "echo 'kind: PersistentVolume' >>  /root/nas-pv.yaml \n"
+              - "echo 'metadata:' >>  /root/nas-pv.yaml \n"
+              - "echo '  name: pv-nas' >>  /root/nas-pv.yaml \n"
+              - "echo '  labels:' >>  /root/nas-pv.yaml \n"
+              - "echo '    servedata: nas-serve' >>  /root/nas-pv.yaml \n"
+              - "echo 'spec: ' >>  /root/nas-pv.yaml \n"
+              - "echo '  persistentVolumeReclaimPolicy: Retain ' >>  /root/nas-pv.yaml\
+                \ \n"
+              - "echo '  capacity:' >>  /root/nas-pv.yaml \n"
+              - "echo '    storage: 100Gi' >>  /root/nas-pv.yaml \n"
+              - "echo '  accessModes:' >>  /root/nas-pv.yaml \n"
+              - "echo '  - ReadWriteMany' >>  /root/nas-pv.yaml \n"
+              - "echo '  nfs:' >>  /root/nas-pv.yaml \n"
+              - 'echo ''    server: '
+              - Fn::GetAtt:
+                - NasMountTarget
+                - MountTargetDomain
+              - "' >>  /root/nas-pv.yaml \n"
+              - "echo '    path: \"/\"' >>  /root/nas-pv.yaml \n"
+              - "# kubectl create -f nas-pv.yaml \n"
+              - "# nas-pvc.yaml \n"
+              - "echo 'apiVersion: v1' >>  /root/nas-pvc.yaml \n"
+              - "echo 'kind: PersistentVolumeClaim' >>  /root/nas-pvc.yaml \n"
+              - "echo 'metadata:' >>  /root/nas-pvc.yaml \n"
+              - "echo '  name: pvc-nas' >>  /root/nas-pvc.yaml \n"
+              - "echo '  annotations:' >>  /root/nas-pvc.yaml \n"
+              - "echo '    description: \"this is the serve demo\"' >>  /root/nas-pvc.yaml\
+                \ \n"
+              - "echo 'spec:' >>  /root/nas-pvc.yaml \n"
+              - "echo '  accessModes:' >>  /root/nas-pvc.yaml \n"
+              - "echo '    - ReadWriteMany' >>  /root/nas-pvc.yaml \n"
+              - "echo '  resources:' >>  /root/nas-pvc.yaml \n"
+              - "echo '    requests:' >>  /root/nas-pvc.yaml \n"
+              - "echo '       storage: 100Gi' >>  /root/nas-pvc.yaml \n"
+              - "echo '  selector:' >>  /root/nas-pvc.yaml \n"
+              - "echo '    matchLabels:' >>  /root/nas-pvc.yaml \n"
+              - "echo '      servedata: nas-serve' >>  /root/nas-pvc.yaml \n"
+              - "touch /root/deploy.sh && chmod +x /root/deploy.sh \n"
+              - "echo '#!/bin/bash' >> /root/deploy.sh \n"
+              - "echo 'kubectl create -f nas-pvc.yaml' >> /root/deploy.sh \n"
+              - "echo 'kubectl get pvc' >> /root/deploy.sh \n"
+              - "#create reasoning \n"
+              - "echo 'arena serve custom --name=perseus-serving --gpus=1 --replicas=1\
+                \ --port=8001 --restful-port=8000 --image=registry.cn-shanghai.aliyuncs.com/ai_beijing/perseus_inference:v24\
+                \ --data=pvc-nas:/mnt \"/opt/perseus/bin/perseus_model_server --model-store=/mnt\"\
+                ' >> /root/deploy.sh \n"
+              - "echo 'arena serve list' >> /root/deploy.sh  \n"
+              - "echo 'arena serve logs perseus-serving' >> /root/deploy.sh \n"
+              - "echo 'arena serve list' >> /root/deploy.sh \n"
+              - "echo 'kubectl get service' >> /root/deploy.sh \n"
+              - "#create reasoning client \n"
+              - "echo 'apiVersion: extensions/v1beta1' >> deploy-client.yaml \n"
+              - "echo 'kind: Deployment' >> deploy-client.yaml \n"
+              - "echo 'metadata:' >> deploy-client.yaml \n"
+              - "echo '  name: perseus-client' >> deploy-client.yaml \n"
+              - "echo '  namespace: default' >> deploy-client.yaml \n"
+              - "echo 'spec:' >> deploy-client.yaml \n"
+              - "echo '  replicas: 1' >> deploy-client.yaml \n"
+              - "echo '  template:' >> deploy-client.yaml \n"
+              - "echo '    metadata:' >> deploy-client.yaml \n"
+              - "echo '      labels:' >> deploy-client.yaml \n"
+              - "echo '        app: perseus-client' >> deploy-client.yaml \n"
+              - "echo '        name: perseus-client' >> deploy-client.yaml \n"
+              - "echo '    spec:' >> deploy-client.yaml \n"
+              - "echo '      containers:' >> deploy-client.yaml \n"
+              - "echo '      - name: perseus-client' >> deploy-client.yaml \n"
+              - "echo '        image: registry.cn-shanghai.aliyuncs.com/ai_beijing/perseus_inference:v24'\
+                \ >> deploy-client.yaml \n"
+              - "echo '        command: [\"/bin/sh\", \"-c\"]' >> deploy-client.yaml\
+                \ \n"
+              - "echo '        args: [\"sleep 36000000\"]        # for pausing' >>\
+                \ deploy-client.yaml \n"
+              - "echo '        imagePullPolicy: Always' >> deploy-client.yaml \n"
+              - "echo '      restartPolicy: Always' >> deploy-client.yaml \n"
+              - "echo 'cat deploy-client.yaml' >> /root/deploy.sh \n"
+              - "echo 'kubectl create -f deploy-client.yaml' >> /root/deploy.sh \n"
+              - "echo 'kubectl  get pods' >> /root/deploy.sh \n"
+              - "#login reasoning client for container env \n"
+              - "# kubectl exec -it perseus-client-*****  /bin/bash \n"
+              - "ros-notify \n"
+        - Ref: ALIYUN::NoValue
+      InternetMaxBandwidthOut:
+        Ref: InternetBandwidth
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Tags:
+      - Value: 099
+        Key: best_practice
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      AllocatePublicIP: true
+      Password:
+        Ref: Password
+      InstanceType:
+        Ref: MasterInstanceType
+      MaxAmount: 1
+      ResourceGroupId:
+        Fn::If:
+        - NotUseResourceGroupId
+        - Ref: ALIYUN::NoValue
+        - Ref: ResourceGroupId
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - master
+          - '[1,3]'
+      HostName:
+        Fn::Join:
+        - ''
+        - - master
+          - '[1,3]'
+    DependsOn:
+    - IpWaitCondition
+    - WorkerCenInstanceAttachment
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3f46cba9-2f37-4599-b464-9a7c08ad1222
+  WorkerInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: WorkerVpc
+      VSwitchId:
+        Ref: WorkerVSwitch
+      SecurityGroupId:
+        Ref: WorkerSecurityGroup
+      ImageId:
+        Ref: ImageId
+      UserData:
+        Fn::If:
+        - CreateCentOS
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - WorkerEcsWaitConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - "#!/bin/bash \n"
+              - "worker_ip=`ip addr | grep eth0 | grep -o '[0-9]\\{1,3\\}\\.[0-9]\\\
+                {1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}/' | cut -d '/' -f 1` \n"
+              - Fn::GetAtt:
+                - IpWaitConditionHandle
+                - CurlCli
+              - " -d \"{\\\"id\\\" : \\\"ip\\\", \\\"data\\\" : \\\"$worker_ip\\\"\
+                }\" \n"
+              - "yum -y install nfs-utils jq expect gcc git \n"
+              - "yum -y install yum-utils device-mapper-persistent-data lvm2 \n"
+              - "yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo\
+                \ stable-19.03 \n"
+              - "yum -y install docker-ce-19.03.8 \n"
+              - "systemctl enable docker && systemctl start docker \n"
+              - "#####  gn5i  ##### \n"
+              - "#wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/gn5i_NVIDIA-Linux-x86_64-440.64.00.run\
+                \ \n"
+              - "#chmod +x gn5i_NVIDIA-Linux-x86_64-440.64.00.run \n"
+              - "#./gn5i_NVIDIA-Linux-x86_64-440.64.00.run -q -s \n"
+              - instance_type="
+              - Ref: WorkerInstanceType
+              - "\" \n"
+              - "if [[ `echo $instance_type | grep \"gn5i\"` != \"\" ]];then \n"
+              - "    wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/gn5i_NVIDIA-Linux-x86_64-440.64.00.run\
+                \ \n"
+              - "    chmod +x gn5i_NVIDIA-Linux-x86_64-440.64.00.run \n"
+              - "    ./gn5i_NVIDIA-Linux-x86_64-440.64.00.run -q -s \n"
+              - "elif [ `echo $instance_type | grep \"gn4\"` != \"\" ];then \n"
+              - "    wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/gn4_NVIDIA-Linux-x86_64-440.64.00.run\
+                \ \n"
+              - "   chmod +x gn4_NVIDIA-Linux-x86_64-440.64.00.run \n"
+              - "  ./gn4_NVIDIA-Linux-x86_64-440.64.00.run -q -s \n"
+              - "elif [ `echo $instance_type | grep \"gn5\"` != \"\" ];then \n"
+              - "    wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/gn5_NVIDIA-Linux-x86_64-440.64.00.run\
+                \ \n"
+              - "    chmod +x gn5_NVIDIA-Linux-x86_64-440.64.00.run \n"
+              - "    ./gn5_NVIDIA-Linux-x86_64-440.64.00.run -q -s \n"
+              - "elif [ `echo $instance_type | grep \"gn6i\"` != \"\" ];then \n"
+              - "   wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/gn6i_NVIDIA-Linux-x86_64-440.64.00.run\
+                \ \n"
+              - "  chmod +x gn6i_NVIDIA-Linux-x86_64-440.64.00.run \n"
+              - " ./gn6i_NVIDIA-Linux-x86_64-440.64.00.run -q -s \n"
+              - "elif [ `echo $instance_type | grep \"gn6v\"` != \"\" ];then \n"
+              - "   wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/gn6v_NVIDIA-Linux-x86_64-440.64.00.run\
+                \ \n"
+              - "  chmod +x gn6v_NVIDIA-Linux-x86_64-440.64.00.run \n"
+              - " ./gn6v_NVIDIA-Linux-x86_64-440.64.00.run -q -s \n"
+              - "else \n"
+              - "   wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/NVIDIA-Linux-x86_64-440.64.00.run\
+                \ \n"
+              - "  chmod +x NVIDIA-Linux-x86_64-440.64.00.run \n"
+              - " ./NVIDIA-Linux-x86_64-440.64.00.run \n"
+              - "fi \n"
+              - "distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \n"
+              - "curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.repo\
+                \ | sudo tee /etc/yum.repos.d/nvidia-docker.repo \n"
+              - "yum install -y nvidia-container-toolkit \n"
+              - "#wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/libnvidia-container1-1.0.7-1.x86_64.rpm\
+                \ \n"
+              - "#rpm -ivh libnvidia-container1-1.0.7-1.x86_64.rpm \n"
+              - "##wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/nvidia-container-toolkit-1.0.5-2.x86_64.rpm\
+                \ \n"
+              - "#rpm -ivh nvidia-container-toolkit-1.0.5-2.x86_64.rpm \n"
+              - "##curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.repo\
+                \ | sudo tee /etc/yum.repos.d/nvidia-container-runtime.repo \n"
+              - "##yum -y install nvidia-container-runtime \n"
+              - "wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/nvidia-container-runtime-3.1.4-1.x86_64.rpm\
+                \ \n"
+              - "rpm -ivh nvidia-container-runtime-3.1.4-1.x86_64.rpm \n"
+              - "##yum -y install nvidia-docker \n"
+              - "wget https://${ossName}.oss-cn-beijing.aliyuncs.com/AI_k8s/nvidia-docker-1.0.1-1.x86_64.rpm\
+                \ \n"
+              - "rpm -ivh nvidia-docker-1.0.1-1.x86_64.rpm \n"
+              - "echo '[plugins.linux]' >>  /etc/containerd/config.toml \n"
+              - "echo '   runtime = \"/usr/bin/nvidia-container-runtime\"' >>  /etc/containerd/config.toml\
+                \ \n"
+              - "mkdir -p /etc/systemd/system/docker.service.d \n"
+              - "echo '{' >> /etc/docker/daemon.json \n"
+              - "echo '  \"default-runtime\": \"nvidia\",' >> /etc/docker/daemon.json\
+                \ \n"
+              - "echo '  \"runtimes\": {' >> /etc/docker/daemon.json \n"
+              - "echo '    \"nvidia\": {' >> /etc/docker/daemon.json \n"
+              - "echo '      \"path\": \"/usr/bin/nvidia-container-runtime\",' >>\
+                \ /etc/docker/daemon.json \n"
+              - "echo '      \"runtimeArgs\": []' >> /etc/docker/daemon.json \n"
+              - "echo '    }' >> /etc/docker/daemon.json \n"
+              - "echo '  },' >> /etc/docker/daemon.json \n"
+              - "echo '  \"exec-opts\": [\"native.cgroupdriver=systemd\"],' >> /etc/docker/daemon.json\
+                \ \n"
+              - "echo '  \"log-driver\": \"json-file\",' >> /etc/docker/daemon.json\
+                \ \n"
+              - "echo '  \"log-opts\": {' >> /etc/docker/daemon.json \n"
+              - "echo '    \"max-size\": \"100m\"' >> /etc/docker/daemon.json \n"
+              - "echo '  },' >> /etc/docker/daemon.json \n"
+              - "echo '  \"storage-driver\": \"overlay2\",' >> /etc/docker/daemon.json\
+                \ \n"
+              - "echo '  \"storage-opts\": [' >> /etc/docker/daemon.json \n"
+              - "echo '    \"overlay2.override_kernel_check=true\"' >> /etc/docker/daemon.json\
+                \ \n"
+              - "echo '  ]' >> /etc/docker/daemon.json \n"
+              - "echo '}' >> /etc/docker/daemon.json \n"
+              - "systemctl daemon-reload && systemctl restart docker \n"
+              - "docker info | grep Cgroup \n"
+              - "docker info | grep nvidia \n"
+              - "#docker run --gpus all nvidia/cuda:9.0-base nvidia-smi \n"
+              - "echo 'net.ipv4.ip_forward = 1' >> /etc/sysctl.d/k8s.conf \n"
+              - "echo 'net.bridge.bridge-nf-call-ip6tables = 1' >> /etc/sysctl.d/k8s.conf\
+                \ \n"
+              - "echo 'net.bridge.bridge-nf-call-iptables = 1' >> /etc/sysctl.d/k8s.conf\
+                \ \n"
+              - "sysctl -p /etc/sysctl.d/k8s.conf \n"
+              - "echo '[kubernetes]' >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'name=Kubernetes' >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/'\
+                \ >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'enabled=1' >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'gpgcheck=1' >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'repo_gpgcheck=1' >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "echo 'gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg\
+                \ https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg'\
+                \ >> /etc/yum.repos.d/kubernetes.repo \n"
+              - "yum install -y kubelet-1.15.3-0 kubeadm-1.15.3-0 kubectl-1.15.3-0\
+                \ \n"
+              - "systemctl enable kubelet && systemctl start kubelet \n"
+              - "systemctl restart containerd \n"
+              - "while true;do \n"
+              - "    if [ -f '/master_ip.info' ];then \n"
+              - "        echo 'get master_ip success' >> /root/master_ip.log \n"
+              - "        break \n"
+              - "    else \n"
+              - "        echo 'master_ip is null' >> /root/master_ip.log \n"
+              - "        continue \n"
+              - "    fi \n"
+              - "done \n"
+              - "touch get_join_command.sh && chmod +x get_join_command.sh \n"
+              - "echo '#!/bin/bash' >> get_join_command.sh \n"
+              - "echo 'expect <<EOF' >> get_join_command.sh \n"
+              - "echo 'set timeout 10' >> get_join_command.sh \n"
+              - "echo 'spawn scp master001:/root/join_k8s_cmd.sh /root/' >> get_join_command.sh\
+                \ \n"
+              - "echo 'expect {' >> get_join_command.sh \n"
+              - "echo '\"yes/no\" {' >> get_join_command.sh \n"
+              - "echo 'send \"yes\\n\";exp_continue' >> get_join_command.sh \n"
+              - "echo '}' >> get_join_command.sh \n"
+              - "echo '\"*password\" {' >> get_join_command.sh \n"
+              - echo 'send "
+              - Ref: Password
+              - "\\n\"' >> get_join_command.sh \n"
+              - "echo '}' >> get_join_command.sh \n"
+              - "echo '}' >> get_join_command.sh \n"
+              - "echo 'expect eof' >> get_join_command.sh \n"
+              - "echo 'EOF' >> get_join_command.sh \n"
+              - "bash get_join_command.sh \n"
+              - "systemctl enable kubelet.service \n"
+              - "cd /root && /bin/bash join_k8s_cmd.sh \n"
+              - "sleep 30 \n"
+              - "touch after_worker_start.sh && chmod +x after_worker_start.sh \n"
+              - "echo '#!/bin/bash' >> after_worker_start.sh \n"
+              - "echo 'expect <<EOF' >> after_worker_start.sh \n"
+              - "echo 'set timeout 10' >> after_worker_start.sh \n"
+              - "echo 'spawn ssh master001 \"cd /root && /bin/bash after_worker.sh\
+                \ >> after_worker.log && /bin/bash install_arena.sh >> install_arena.log\"\
+                ' >> after_worker_start.sh \n"
+              - "echo 'expect {' >> after_worker_start.sh \n"
+              - "echo '\"*password\" {' >> after_worker_start.sh \n"
+              - echo 'send "
+              - Ref: Password
+              - "\\n\"' >> after_worker_start.sh \n"
+              - "echo '}' >> after_worker_start.sh \n"
+              - "echo '}' >> after_worker_start.sh \n"
+              - "echo 'expect eof' >> after_worker_start.sh \n"
+              - "echo 'EOF' >> after_worker_start.sh \n"
+              - "sleep 30 \n"
+              - "bash after_worker_start.sh \n"
+              - "touch /root/start.sh && chmod +x /root/start.sh \n"
+              - "echo '#!/bin/bash' >> /root/start.sh \n"
+              - "echo 'systemctl daemon-reload && systemctl restart docker' >> /root/start.sh\
+                \ \n"
+              - "echo 'systemctl restart containerd' >> /root/start.sh \n"
+              - "###cd /root/ && bash join_k8s_cmd.sh \n"
+              - "##cd /root/ && bash join_k8s_cmd.sh \n"
+              - "##scp master001:/root/join_k8s_cmd.sh ./ \n"
+              - "##chmod +x join_k8s_cmd.sh && bash join_k8s_cmd.sh \n"
+              - "##wget https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v1.11/nvidia-device-plugin.yml\
+                \ \n"
+              - "##kubectl create -f nvidia-device-plugin.yml \n"
+              - "##kubectl get pods --all-namespaces \n"
+              - "sleep 30 \n"
+              - "mkdir /root/tmp \n"
+              - "echo '#!/bin/bash ' >> /root/tmp/mount.sh \n"
+              - 'echo ''sudo mount -t nfs -o vers=4,minorversion=0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport '
+              - Fn::GetAtt:
+                - NasMountTarget
+                - MountTargetDomain
+              - ":/ /mnt' >> /root/tmp/mount.sh \n"
+              - "chmod +x /root/tmp/mount.sh \n"
+              - "echo 'install nfs /sbin/modprobe --ignore-install nfs nfs4_unique_id=`cat\
+                \ /sys/class/dmi/id/product_uuid`' >> /etc/modprobe.d/nfs.conf \n"
+              - "touch /install.sh && chmod +x /install.sh \n"
+              - "echo '#!/bin/bash' >> /install.sh \n"
+              - "echo \"if [ -f '/restart.txt' ];then\" >> /install.sh \n"
+              - "echo \"  mv /restart.txt /restart.txt.old && cd /root && /bin/bash\
+                \ start.sh >> start.log\" >> /install.sh \n"
+              - "echo \"else\" >> /install.sh \n"
+              - "echo \"  cd /\" >> /install.sh \n"
+              - "echo \"fi\" >> /install.sh \n"
+              - "sed -i '/# By default this script does nothing./a bash /install.sh'\
+                \ /etc/rc.local \n"
+              - "touch restart.txt \n"
+              - "#cd / && git clone https://code.aliyun.com/best-practice/099.git\
+                \ \n"
+              - "ros-notify \n"
+              - "#root \n"
+        - Ref: ALIYUN::NoValue
+      InternetMaxBandwidthOut:
+        Ref: InternetBandwidth
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Tags:
+      - Value: 099
+        Key: best_practice
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      AllocatePublicIP: true
+      InstanceType:
+        Ref: WorkerInstanceType
+      MaxAmount: 1
+      Password:
+        Ref: Password
+      ResourceGroupId:
+        Fn::If:
+        - NotUseResourceGroupId
+        - Ref: ALIYUN::NoValue
+        - Ref: ResourceGroupId
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - worker
+          - '[1,3]'
+      HostName:
+        Fn::Join:
+        - ''
+        - - worker
+          - '[1,3]'
+    DependsOn:
+    - WorkerCenInstanceAttachment
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3a33cc57-0ac7-4467-9036-f3b8026a78a7
+  NasAccessGroup:
+    Type: ALIYUN::NAS::AccessGroup
+    Properties:
+      AccessGroupType: Vpc
+      AccessGroupName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d2466e9e-2a0b-4255-98a0-1350b05cda06
+  NasFileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      ProtocolType: NFS
+      StorageType: Capacity
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 966680bc-3c20-43e8-84e9-0af2226a043a
+  NasAccessRule:
+    Type: ALIYUN::NAS::AccessRule
+    Properties:
+      SourceCidrIp: 0.0.0.0/0
+      AccessGroupName:
+        Ref: NasAccessGroup
+    DependsOn:
+    - NasAccessGroup
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: cdbd890c-aafe-4acd-b89c-f845552d94c7
+  NasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
+      VpcId:
+        Ref: MasterVpc
+      VSwitchId:
+        Ref: MasterVSwitch
+      FileSystemId:
+        Ref: NasFileSystem
+      NetworkType: Vpc
+      AccessGroupName:
+        Ref: NasAccessGroup
+    DependsOn:
+    - NasAccessRule
+    - NasFileSystem
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 9b95773b-6fae-47d5-96cc-33fabe1cea5e
+  EcsCommand:
+    Type: ALIYUN::ECS::Command
+    Properties:
+      CommandContent:
+        Fn::Base64Encode:
+          Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - CommandWaitConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - "#!/bin/sh \n"
+              - "sleep 20 && cd /root/tmp && bash mount.sh \n"
+              - "#param_name='worker001' \n"
+              - "#hostname=`hostname` \n"
+              - "#if [ $hostname == $param_name ];then \n"
+              - "#    #copy model file \n"
+              - "#    cd /099 && tar xzvf resnet50_tensorflow.tgz -C /mnt \n"
+              - "#    ls /mnt \n"
+              - "#fi \n"
+              - "ros-notify \n"
+      Type: RunShellScript
+      Name:
+        Fn::Join:
+        - '-'
+        - - Master-Command
+          - StackId
+          - Ref: ALIYUN::StackId
+    DependsOn:
+    - NasMountTarget
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: dc52eb6d-8613-4e46-9e3d-4d99bf627166
+  MasterEcsInvocation:
+    Type: ALIYUN::ECS::Invocation
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - MasterInstanceGroup
+        - InstanceIds
+      CommandId:
+        Ref: EcsCommand
+    DependsOn:
+    - EcsCommand
+    - MasterEcsWaitCondition
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1d603cdc-004d-4075-b306-26e1a225b874
+  EcsInvocationWorker:
+    Type: ALIYUN::ECS::Invocation
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - WorkerInstanceGroup
+        - InstanceIds
+      CommandId:
+        Ref: EcsCommand
+    DependsOn:
+    - EcsCommand
+    - WorkerEcsWaitCondition
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 6d92e08b-362c-457b-a3e5-53c006138fdd
+Outputs:
+  CenInstanceId:
+    Value:
+      Fn::GetAtt:
+      - CenInstance
+      - CenId
+  MasterVpcId:
+    Value:
+      Fn::GetAtt:
+      - MasterVpc
+      - VpcId
+  MasterInstancePrivateIp:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - MasterInstanceGroup
+        - PrivateIps
+  MasterInstancePublicIp:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - MasterInstanceGroup
+        - PublicIps
+  WorkerVpcId:
+    Value:
+      Fn::GetAtt:
+      - WorkerVpc
+      - VpcId
+  WorkerInstancePrivateIp:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - WorkerInstanceGroup
+        - PrivateIps
+  WorkerInstancePublicIp:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - WorkerInstanceGroup
+        - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - MasterVSwitchZoneId
+      - MasterVSwitchCidrBlock
+      - WorkerVSwitchZoneId
+      - WorkerVSwitchCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - MasterInstanceType
+      - WorkerInstanceType
+      - ImageId
+      - SystemDiskCategory
+      - SystemDiskSize
+      - InternetBandwidth
+      - Password
+      - ResourceGroupId
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:solution:机器学习&人工智能:混合云使用飞天AI加速工具
+  ALIYUN::ROS::Designer:
+    6c3a91bc-0660-4abd-9729-f6eb8530d254:
+      size:
+        width: 273.5732421875
+        height: 498
+      position:
+        x: 466
+        y: 176
+      z: 0
+      embeds:
+      - 90aa2317-ae44-4bac-bed6-939e0ab5916e
+      - 0a181e46-4ef4-4529-b336-5071350d0570
+      - 1d603cdc-004d-4075-b306-26e1a225b874
+      - 966680bc-3c20-43e8-84e9-0af2226a043a
+      - 9b95773b-6fae-47d5-96cc-33fabe1cea5e
+      - d2466e9e-2a0b-4255-98a0-1350b05cda06
+      - cdbd890c-aafe-4acd-b89c-f845552d94c7
+      - 3f46cba9-2f37-4599-b464-9a7c08ad1222
+      - 92513718-48d9-44a8-ae96-5550910ad4ac
+    51a8d519-c529-473f-a6b9-a41435d5527f:
+      size:
+        width: 279.859375
+        height: 504
+      position:
+        x: 1017
+        y: 172
+      z: 0
+      embeds:
+      - e6c78fdf-88d5-4a85-92f8-b41ed18f94e3
+      - 17213b8f-8cb6-4a79-9c27-39607c1d6087
+    92513718-48d9-44a8-ae96-5550910ad4ac:
+      size:
+        width: 170.529296875
+        height: 252
+      position:
+        x: 507
+        y: 300
+      z: 1
+      embeds:
+      - 3f46cba9-2f37-4599-b464-9a7c08ad1222
+      - 9b95773b-6fae-47d5-96cc-33fabe1cea5e
+    17213b8f-8cb6-4a79-9c27-39607c1d6087:
+      size:
+        width: 156.1015625
+        height: 171
+      position:
+        x: 1088
+        y: 375
+      z: 1
+      embeds:
+      - 3a33cc57-0ac7-4467-9036-f3b8026a78a7
+    dfaf7757-32f0-478f-a9f8-e56d96a12da5:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 373
+        y: 438
+      z: 0
+    c7f05162-7643-4115-a404-7ab91f038da9:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 373
+        y: 582
+      z: 0
+    de882c62-331f-44ef-8133-ed8ef37b3cbd:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1329
+        y: 429
+      z: 0
+    cf73f037-4151-4b3a-9c4a-22d9eac434b3:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1329
+        y: 577
+      z: 0
+    a94d64f0-e192-4e17-b5eb-680a4bc283aa:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1329
+        y: 196
+      z: 0
+    4b27d03b-278a-4270-8ef7-3039a2ab7c25:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1329
+        y: 320
+      z: 0
+    1f44d11f-d9c5-43cb-b3ca-ba3a83107f29:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 739
+        y: 574
+      z: 0
+    dc97442a-0887-4682-9427-4d88faeb761d:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 958
+        y: 574
+      z: 0
+    90aa2317-ae44-4bac-bed6-939e0ab5916e:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 560
+        y: 580
+      z: 1
+    e6c78fdf-88d5-4a85-92f8-b41ed18f94e3:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1137
+        y: 575
+      z: 1
+    3f46cba9-2f37-4599-b464-9a7c08ad1222:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 560
+        y: 434
+      z: 2
+    3a33cc57-0ac7-4467-9036-f3b8026a78a7:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1137
+        y: 434
+      z: 2
+    6a33aba9-eb19-46ae-9920-cad31c9dd104:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 843
+        y: 199
+      z: 0
+    0a181e46-4ef4-4529-b336-5071350d0570:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 708
+        y: 199
+      z: 1
+    f0349f72-db6c-4da6-a385-d52faf5fe15b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 989
+        y: 199
+      z: 0
+    d2466e9e-2a0b-4255-98a0-1350b05cda06:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 376
+        y: 185
+      z: 1
+    966680bc-3c20-43e8-84e9-0af2226a043a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 846
+        y: 321
+      z: 1
+    9b95773b-6fae-47d5-96cc-33fabe1cea5e:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 562
+        y: 321
+      z: 2
+    cdbd890c-aafe-4acd-b89c-f845552d94c7:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 376
+        y: 321
+      z: 1
+    dc52eb6d-8613-4e46-9e3d-4d99bf627166:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 845
+        y: 434
+      z: 0
+    1d603cdc-004d-4075-b306-26e1a225b874:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 709
+        y: 434
+      z: 1
+    6d92e08b-362c-457b-a3e5-53c006138fdd:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 991
+        y: 434
+      z: 0
+    c84b65b0-421e-48ce-9547-81d9992230c8:
+      source:
+        id: dfaf7757-32f0-478f-a9f8-e56d96a12da5
+      target:
+        id: c7f05162-7643-4115-a404-7ab91f038da9
+      z: 1
+    6264db94-ca3a-457b-abc4-5b6888a75abd:
+      source:
+        id: de882c62-331f-44ef-8133-ed8ef37b3cbd
+      target:
+        id: cf73f037-4151-4b3a-9c4a-22d9eac434b3
+      z: 1
+    33496063-5729-42ea-baf7-c1a814e548e8:
+      source:
+        id: 1f44d11f-d9c5-43cb-b3ca-ba3a83107f29
+      target:
+        id: dc97442a-0887-4682-9427-4d88faeb761d
+      z: 1
+    0f483031-bdf8-407d-bcc5-8ec377c186f1:
+      source:
+        id: 3f46cba9-2f37-4599-b464-9a7c08ad1222
+      target:
+        id: 90aa2317-ae44-4bac-bed6-939e0ab5916e
+      z: 1
+    ccdf0cf9-94c1-4479-848f-e38b24f3d4dd:
+      source:
+        id: 3a33cc57-0ac7-4467-9036-f3b8026a78a7
+      target:
+        id: e6c78fdf-88d5-4a85-92f8-b41ed18f94e3
+      z: 1
+    0f38ab5b-da81-4629-a935-874a0970695b:
+      source:
+        id: 0a181e46-4ef4-4529-b336-5071350d0570
+      target:
+        id: 6a33aba9-eb19-46ae-9920-cad31c9dd104
+      z: 1
+    2aaa4bfd-676d-41c5-80d6-5ce327ff2b61:
+      source:
+        id: f0349f72-db6c-4da6-a385-d52faf5fe15b
+      target:
+        id: 6a33aba9-eb19-46ae-9920-cad31c9dd104
+      z: 1
+    bce00592-ebd7-4417-9905-e65c6db09903:
+      source:
+        id: 9b95773b-6fae-47d5-96cc-33fabe1cea5e
+      target:
+        id: 966680bc-3c20-43e8-84e9-0af2226a043a
+      z: 1
+    f65a7eb1-6079-4812-9f79-e47c131588ca:
+      source:
+        id: 1d603cdc-004d-4075-b306-26e1a225b874
+      target:
+        id: dc52eb6d-8613-4e46-9e3d-4d99bf627166
+      z: 1
+    7dc17a85-b73e-4a1f-a203-8bc75e03023d:
+      source:
+        id: 1d603cdc-004d-4075-b306-26e1a225b874
+      target:
+        id: 3f46cba9-2f37-4599-b464-9a7c08ad1222
+      z: 1
+    206173ab-8296-4db4-86af-9c8f8febacb7:
+      source:
+        id: 6d92e08b-362c-457b-a3e5-53c006138fdd
+      target:
+        id: dc52eb6d-8613-4e46-9e3d-4d99bf627166
+      z: 1
+    617c25c3-3381-4f62-a942-bed7a9cfcddf:
+      source:
+        id: 6d92e08b-362c-457b-a3e5-53c006138fdd
+      target:
+        id: 3a33cc57-0ac7-4467-9036-f3b8026a78a7
+      z: 1
+    ed4e5f7b-9e5c-407c-a724-b682e8db4665:
+      source:
+        id: a94d64f0-e192-4e17-b5eb-680a4bc283aa
+      target:
+        id: 4b27d03b-278a-4270-8ef7-3039a2ab7c25
+      z: 1
+    efb6a5f7-f791-4597-a09a-76c83859c0f2:
+      source:
+        id: cdbd890c-aafe-4acd-b89c-f845552d94c7
+      target:
+        id: 9b95773b-6fae-47d5-96cc-33fabe1cea5e
+      z: 1
+    e6822697-55db-4bb3-83af-27c5dcf96ef0:
+      source:
+        id: d2466e9e-2a0b-4255-98a0-1350b05cda06
+      target:
+        id: cdbd890c-aafe-4acd-b89c-f845552d94c7
+      z: 1

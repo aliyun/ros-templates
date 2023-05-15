@@ -1,0 +1,383 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates an ECS and mount multiple uninitialized data disks.
+Parameters:
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_6
+  VpcName:
+    Type: String
+    Label: Vpc Name
+    Description: The VPC name
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    Default: myvpc
+    MinLength: 2
+    MaxLength: 128
+  SecondDataDiskCategory:
+    Type: String
+    Label: Second Data Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  SystemDiskSize:
+    Type: Number
+    Label: System Disk Size
+    Description: 'Disk size of the system disk, range from 20 to 500 GB. If you specify
+      with your own image, make sure the system disk size bigger than image size. '
+    Default: 40
+  Password:
+    Type: String
+    Label: ECS Instance Password
+    Description: The login password of ECS instances
+    ConstraintDescription: Consist of 8 to 30 characters of alphanumeric characters.
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+    Confirm: true
+  FirstDataDiskName:
+    Type: String
+    Label: First Data Disk Name
+    Description: Display name of the first disk, [2, 128] English or Chinese characters,
+      must start with a letter or Chinese in size, can contain numbers, '_' or '.',
+      '-'.
+    Default: DataDisk_1
+  ZoneId:
+    Type: String
+    Label: Zone Id
+    Description: The available zone Id, <a href='#/product/cn-beijing/list/zoneList'
+      target='_blank'>View the available zones</a>
+  MountPoint:
+    Type: String
+    Label: Mount Point
+    Description: The mount point of data disk
+  DestinationCidrBlock:
+    Type: String
+    Label: Destination CidrBlock
+    Description: Route destination network, for example 192.168.1.0/24 or 192.168.1.0
+    Default: 192.168.1.0
+  SecondDataDiskSize:
+    Type: Number
+    Label: Second Data Disk Size
+    Description: 'The size of the Second volume, unit in GB.Value range: cloud: [5,2000],
+      cloud_efficiency: [20,32768], cloud_ssd: [20,32768], ephemeral_ssd: [5,800].The
+      value should be equal to or greater than the specific snapshot.'
+    Default: 40
+  VSwitchCidrBlock:
+    Type: String
+    Label: VSwitch CidrBlock
+    Description: VSwitch subnet which is within VPC
+    Default: 10.0.10.0/24
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+  SecurityGroupName:
+    Type: String
+    Label: Security Group Name
+    Description: The security group name
+    Default: mysecuritygroup
+  VpcCidrBlock:
+    Type: String
+    Label: Vpc CidrBlock
+    Description: |-
+      The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:
+      10.0.0.0/8
+      172.16.0.0/12 (Default)
+      192.168.0.0/16
+    Default: 10.0.0.0/8
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  FirstDataDiskCategory:
+    Type: String
+    Label: First Data Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  SystemDiskDiskName:
+    Type: String
+    Label: System Disk Name
+    Description: Name of created system disk.
+    Default: SystemDisk
+  FirstDataDiskSize:
+    Type: Number
+    Label: First Data Disk Size
+    Description: 'The size of the first volume, unit in GB.Value range: cloud: [5,2000],
+      cloud_efficiency: [20,32768], cloud_ssd: [20,32768], ephemeral_ssd: [5,800].The
+      value should be equal to or greater than the specific snapshot.'
+    Default: 40
+  TotalDataDisk:
+    Type: String
+    Label: Total Data Disk
+    Description: The number of disks mounted in instance
+  SecondDataDiskName:
+    Type: String
+    Label: Second Data Disk Name
+    Description: Second Data Disk Name
+    Default: DataDisk_2
+  SystemDiskCategory:
+    Type: String
+    Label: System Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: VpcName
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Ref: SecurityGroupName
+  NewEip:
+    Type: ALIYUN::ECS::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: 1
+  SecurityGroupIngress:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: all
+      NicType: intranet
+      PortRange: -1/-1
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      AllocatePublicIP: 'false'
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      Password:
+        Ref: Password
+      DiskMappings:
+      - Category:
+          Ref: FirstDataDiskCategory
+        DiskName:
+          Ref: FirstDataDiskName
+        Size:
+          Ref: FirstDataDiskSize
+      - Category:
+          Ref: SecondDataDiskCategory
+        DiskName:
+          Ref: SecondDataDiskName
+        Size:
+          Ref: SecondDataDiskSize
+      SystemDiskDiskName:
+        Ref: SystemDiskDiskName
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Join:
+        - ''
+        - - '#!/bin/sh
+
+            '
+          - 'logs=~/mount_logs
+
+            '
+          - 'i=1
+
+            '
+          - total=
+          - Ref: TotalDataDisk
+          - '
+
+            '
+          - mountpoint=
+          - Ref: MountPoint
+          - '
+
+            '
+          - 'while [ $i -le $total ]
+
+            '
+          - 'do
+
+            '
+          - '    j=`echo $i|awk ''{printf "%c", 97+$i}''`
+
+            '
+          - 'fdisk -S 56 /dev/vd$j <<ESXU
+
+            '
+          - 'n
+
+            '
+          - 'p
+
+            '
+          - '1
+
+            '
+          - '
+
+            '
+          - '
+
+            '
+          - 'w
+
+            '
+          - 'ESXU
+
+            '
+          - '    echo "/dev/vd$j is fdisked!" >> $logs
+
+            '
+          - '    mkfs.ext4 /dev/vd${j}1
+
+            '
+          - '    if [ $? -eq 0 ];then
+
+            '
+          - '        echo "/dev/vd${j}1 is formated!" >> $logs
+
+            '
+          - '    fi
+
+            '
+          - '    touch ~/test_ftab
+
+            '
+          - '    mkdir $mountpoint$i
+
+            '
+          - 'cat << ESXU > ~/test_ftab
+
+            '
+          - '/dev/vd${j}1         $mountpoint$i       ext4       defaults        0
+            0
+
+            '
+          - 'ESXU
+
+            '
+          - '    cat ~/test_ftab >> /etc/fstab
+
+            '
+          - '    mount -a
+
+            '
+          - '    chmod -R 777 $mountpoint$i
+
+            '
+          - '    rm -rf ~/test_ftab
+
+            '
+          - '    echo "/dev/vd${j}1 is mounted!" >> $logs
+
+            '
+          - '    let i+=1
+
+            '
+          - 'done
+
+            '
+      InstanceType:
+        Ref: InstanceType
+  EIPBind:
+    Type: ALIYUN::ECS::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: WebServer
+      AllocationId:
+        Ref: NewEip
+  SecurityGroupEgress:
+    Type: ALIYUN::ECS::SecurityGroupEgress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      IpProtocol: all
+      DestCidrIp: 0.0.0.0/0
+      NicType: intranet
+      PortRange: -1/-1
+Outputs:
+  SecurityGroupId:
+    Description: generated security group id for security group.
+    Value:
+      Fn::GetAtt:
+      - SecurityGroup
+      - SecurityGroupId
+  InstanceId:
+    Description: The instance id of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - InstanceId
+  ZoneId:
+    Description: Zone id of created instance.
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - ZoneId
+  VSwitchId:
+    Description: Id of created VSwitch.
+    Value:
+      Fn::GetAtt:
+      - VSwitch
+      - VSwitchId
+  NewEipId:
+    Description: ID that Aliyun assigns to represent the allocation of the address
+      for use with VPC. Returned only for VPC elastic IP addresses.
+    Value:
+      Fn::GetAtt:
+      - NewEip
+      - AllocationId
+  VpcId:
+    Description: Id of created VPC.
+    Value:
+      Fn::GetAtt:
+      - Vpc
+      - VpcId

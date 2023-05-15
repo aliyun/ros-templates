@@ -1,0 +1,132 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  AcceleratorId:
+    Type: String
+    Label:
+      en: Accelerator ID
+      zh-cn: 加速实例ID
+    AssociationProperty: ALIYUN::GA::Accelerator::AcceleratorId
+  BasicBandwidthPackageId:
+    Type: String
+    Label:
+      en: Basic bandwidth package ID
+      zh-cn: 基础带宽包ID
+    AssociationProperty: ALIYUN::GA::BandwidthPackage::BandwidthPackageId
+  CrossDomainBandwidthPackageId:
+    Type: String
+    Label:
+      en: cross domain bandwidth package ID
+      zh-cn: 跨域带宽包ID
+    AssociationProperty: ALIYUN::GA::BandwidthPackage::BandwidthPackageId
+  EndpointIp:
+    Type: String
+    Label:
+      en: EndpointIp
+      zh-cn: 终端节点IP
+    Description:
+      en: The IP of the backend service that needs to be accelerated.
+      zh-cn: 需要加速的后端服务的IP。
+    AllowedPattern: ^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$
+Resources:
+  BasicBandwidthPackageAcceleratorAddition:
+    Type: ALIYUN::GA::BandwidthPackageAcceleratorAddition
+    Properties:
+      BandwidthPackageId:
+        Ref: BasicBandwidthPackageId
+      AcceleratorId:
+        Ref: AcceleratorId
+  CrossDomainBandwidthPackageAcceleratorAddition:
+    Type: ALIYUN::GA::BandwidthPackageAcceleratorAddition
+    Properties:
+      BandwidthPackageId:
+        Ref: CrossDomainBandwidthPackageId
+      AcceleratorId:
+        Ref: AcceleratorId
+    DependsOn: BasicBandwidthPackageAcceleratorAddition
+  IpSets:
+    Type: ALIYUN::GA::IpSets
+    Properties:
+      AccelerateRegion:
+      - IpVersion: IPv4
+        Bandwidth: 2
+        AccelerateRegionId: cn-hangzhou
+      AcceleratorId:
+        Ref: AcceleratorId
+    DependsOn: CrossDomainBandwidthPackageAcceleratorAddition
+  Listener:
+    Type: ALIYUN::GA::Listener
+    Properties:
+      PortRanges:
+      - FromPort: 80
+        ToPort: 81
+      Protocol: tcp
+      AcceleratorId:
+        Ref: AcceleratorId
+      Name: TrialTutorialListener
+      ClientAffinity: NONE
+    DependsOn: IpSets
+  EndpointGroup:
+    Type: ALIYUN::GA::EndpointGroup
+    Properties:
+      EndpointGroupRegion: ap-southeast-1
+      AcceleratorId:
+        Ref: AcceleratorId
+      EndpointConfigurations:
+      - Type: Ip
+        Endpoint:
+          Ref: EndpointIp
+        Weight: 100
+      Name: TrialTutorialEndpointGroup
+      ListenerId:
+        Ref: Listener
+Outputs:
+  BasicBandwidthPackageId:
+    Description:
+      en: The ID of the basic bandwidth package
+      zh-cn: 基础带宽包ID
+    Value:
+      Fn::GetAtt:
+      - BasicBandwidthPackageAcceleratorAddition
+      - BandwidthPackageId
+  CrossDomainBandwidthPackageId:
+    Description:
+      en: The ID of the cross domain bandwidth package
+      zh-cn: 跨域带宽包ID
+    Value:
+      Fn::GetAtt:
+      - CrossDomainBandwidthPackageAcceleratorAddition
+      - BandwidthPackageId
+  AcceleratorId:
+    Description:
+      en: The ID of the Global Accelerator instance
+      zh-cn: 全球加速实例ID
+    Value:
+      Fn::GetAtt:
+      - BasicBandwidthPackageAcceleratorAddition
+      - AcceleratorId
+  EndpointGroupId:
+    Description:
+      en: The ID of the endpoint group
+      zh-cn: 终端节点ID
+    Value:
+      Fn::GetAtt:
+      - EndpointGroup
+      - EndpointGroupId
+  ListenerId:
+    Description:
+      en: The ID of the listener
+      zh-cn: 监听ID
+    Value:
+      Fn::GetAtt:
+      - Listener
+      - ListenerId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - AcceleratorId
+      - BasicBandwidthPackageId
+      - CrossDomainBandwidthPackageId
+      - EndpointIp
+    TemplateTags:
+    - acs:document:试用教程:加速访问指定IP的后端服务

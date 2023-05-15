@@ -1,0 +1,405 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: This template deploys custom image for single instance, supports creating new
+    VPC and specifying VPC
+  zh-cn: 单实例自定义镜像部署，带数据盘，公网IP可选（支持创建新VPC和指定VPC）
+Conditions:
+  CreateVpcConditions:
+    Fn::Equals:
+    - true
+    - Ref: WhetherCreateVpc
+  IfAllocatePublicIP:
+    Fn::Equals:
+    - Ref: AllocatePublicIP
+    - true
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  WhetherCreateVpc:
+    Type: Boolean
+    Label:
+      en: WhetherCreateVpc
+      zh-cn: 是否新建VPC
+    Default: false
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR IPv4 Block
+      zh-cn: 专有网络IPv4网段
+    Description:
+      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use
+        the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${WhetherCreateVpc}
+          - true
+    Default: 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: VpcCidrBlock
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${WhetherCreateVpc}
+          - true
+    Default: 192.168.1.0/24
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${WhetherCreateVpc}
+          - false
+    Default: ''
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${WhetherCreateVpc}
+          - false
+    Default: ''
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    Description:
+      en: The long cycle of purchasing resources. <br>Week is a Week and Month is
+        a Month. <br> The default value is month.<br><b><font color='red'> When ECS
+        instance types are PrePaid valid </b></font>
+      zh-cn: 购买资源时长的周期。<br>Week为周，Month为月<br>默认值为月<br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  DataDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 数据盘类型
+      en: Data disk type
+    AssociationProperty: ALIYUN::ECS::Disk::DataDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: EcsInstanceType
+      ZoneId: ZoneId
+      LocaleKey: DiskCategory
+  DataDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 数据盘空间
+      en: Data disk space
+    Description:
+      zh-cn: ECS实例数据盘大小，单位为GiB。取值范围：20~32768
+      en: 'ECS Instance disk size, range of values: 20-32768, units: GB'
+    Default: 200
+    MinValue: 20
+    MaxValue: 32768
+  AllocatePublicIP:
+    Type: Boolean
+    Label:
+      zh-cn: 开启公网IP
+      en: allocate public ip
+    Default: true
+  InternetMaxBandwidthOut:
+    Type: Number
+    Label:
+      zh-cn: 流量公网带宽
+      en: Internet Max Bandwidth Out
+    Description:
+      zh-cn: 取值范围0-100, 0为不开公网ip
+      en: no public ip if zero
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${AllocatePublicIP}
+          - true
+    Default: 5
+    MinValue: 0
+    MaxValue: 100
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Condition: CreateVpcConditions
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: ALIYUN::StackName
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Condition: CreateVpcConditions
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::If:
+        - CreateVpcConditions
+        - Ref: EcsVpc
+        - Ref: VpcId
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::If:
+        - CreateVpcConditions
+        - Ref: EcsVpc
+        - Ref: VpcId
+      VSwitchId:
+        Fn::If:
+        - CreateVpcConditions
+        - Ref: EcsVSwitch
+        - Ref: VSwitchId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      IoOptimized: optimized
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 200
+      DiskMappings:
+      - Category:
+          Ref: DataDiskCategory
+        Size:
+          Ref: DataDiskSize
+      MaxAmount: 1
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      InternetMaxBandwidthOut:
+        Fn::If:
+        - IfAllocatePublicIP
+        - Ref: InternetMaxBandwidthOut
+        - 0
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 300
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+      CommandContent:
+        Fn::Sub:
+        - |
+          #!/bin/bash
+          # 1. 如果使用了数据盘，需要对数据盘进行格式化，并挂载到指定目录，这里假定挂载到/data
+          init_and_mount_data_disk() {
+            local fs_type=$1
+            local mount_point=$2
+
+            # 找出磁盘设备（排除分区）
+            devices=(`lsblk -o NAME,FSTYPE --noheadings --nodeps | awk '$2 == "" {print $1}'`)
+            # 找出不存在文件系统的磁盘设备
+            for device in ${!devices[@]};
+            do
+              lsblk -o NAME,FSTYPE --noheadings  | awk '$2 != "" {print $1}' | grep ${!device}
+              if [[ $? -eq 1 ]]; then
+                data_disk=${!device}
+                break
+              fi
+            done
+
+            # 为数据盘创建文件系统
+            mkfs -t ${!fs_type} /dev/${!data_disk}
+
+            cp /etc/fstab /etc/fstab.bak
+            mkdir ${!mount_point}
+            # 更新/etc/fstab并挂载磁盘
+            echo `blkid /dev/${!data_disk} | awk '{print $2}' | sed 's/\\\"//g'` ${!mount_point} ext4 defaults 0 0 >> /etc/fstab
+            mount -a
+          }
+
+          # 挂盘到/data
+          init_and_mount_data_disk ext4 /data
+
+          # 2. 安装软件，或者对软件进行初始化配置，比如将数据文件目录指定到数据盘目录
+          # yum install -y nginx
+
+          # 3. 如果需要开机自启动，请添加系统服务并启用
+          # systemctl enable nginx.service
+
+          # 4. 配置启动脚本或者启动系统服务
+          # systemctl start nginx.service
+
+          # 5. 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+          # 脚本里任何地方如果发现执行失败，使用以下命令返回FAILURE和错误信息
+          # ${CurlCli} -d "{\"Data\" : \"error message\", \"status\" : \"FAILURE\"}"
+        - CurlCli:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+      Type: RunShellScript
+      Timeout: 300
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - WhetherCreateVpc
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - VpcId
+      - VSwitchId
+      Label:
+        default:
+          zh-cn: 选择已有基础资源配置
+          en: Choose existing Infrastructure Configuration
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        default:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+    - Parameters:
+      - EcsInstanceType
+      - InstancePassword
+      - DataDiskCategory
+      - DataDiskSize
+      - AllocatePublicIP
+      - InternetMaxBandwidthOut
+      Label:
+        default:
+          en: Instance
+          zh-cn: ECS实例配置
+    TemplateTags:
+    - acs:example:ISV软件部署:单实例自定义镜像部署带数据盘公网IP可选

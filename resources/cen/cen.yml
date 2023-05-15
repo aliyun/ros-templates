@@ -1,0 +1,326 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test Cen
+Parameters:
+  CenName:
+    Type: String
+    Description: CenInstance Name.
+    Default: mytest
+  Priority:
+    Type: Number
+    Default: 3
+  VpcName:
+    Type: String
+    Default: mytest
+  VSwitchName:
+    Type: String
+    Default: mytest
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  GeographicRegionAId:
+    Type: String
+    Description: The other area A to connect.
+    Default: China
+    AllowedValues:
+    - China
+    - North-America
+    - Asia-Pacific
+    - Europe
+    - Australia
+  GeographicRegionBId:
+    Type: String
+    Description: The other area B to connect.
+    Default: China
+    AllowedValues:
+    - China
+    - North-America
+    - Asia-Pacific
+    - Europe
+    - Australia
+  Bandwidth:
+    Type: Number
+    Description: The bandwidth in Mbps of the bandwidth package. The bandwidth cannot
+      be less than 2 Mbps.
+    Default: 2
+    MinValue: 2
+    MaxValue: 1000
+  OppositeRegionId:
+    Type: String
+    Description: The ID of the other interconnected region.
+    Default: cn-beijing
+  OppositeChildInstanceId:
+    Type: String
+    Description: The ID of the network to attach.
+  DestinationRouteTableIds:
+    Type: String
+    Description: The ID of the network to attach.
+  BandwidthLimit:
+    Type: Number
+    Description: 'The bandwidth configured for the interconnected regions communication.
+      Minimal value: 1'
+    Default: 1
+    MinValue: 1
+  CcnName:
+    Type: String
+    Description: The name can contain 2 to 128 characters including a-z, A-Z, 0-9,
+      chinese, underlines, and hyphens. The name must start with an English letter,
+      but cannot start with http:// or https://.
+    Default: test123321
+  CenUid:
+    Type: String
+  TransmitDirection:
+    Type: String
+    Description: "The direction in which the route map is applied. Valid values: \n\
+      \ RegionIn: Routes are advertised to CEN gateways. \n For example, routes are\
+      \ advertised from network instances deployed in the current region or other\
+      \ regions to the gateways deployed in the current region. \n RegionOut: Routes\
+      \ are advertised from CEN gateways. \n For example, routes are advertised from\
+      \ gateways deployed in the current region to network instances or gateways deployed\
+      \ in other regions."
+    Default: RegionIn
+  MapResult:
+    Type: String
+    Description: "The route map behavior after all conditions are matched. Valid values:\
+      \ \n Permit: allows the routes that are matched. \n Deny: rejects the routes\
+      \ that are matched."
+    Default: Permit
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: VpcName
+      CidrBlock: 192.168.0.0/16
+  Vpc2:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+        - ''
+        - - VpcName
+          - Ref: ALIYUN::StackId
+      CidrBlock: 192.168.0.0/16
+  VpcDestination:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: VpcName
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock: 192.168.100.0/24
+      VSwitchName:
+        Ref: VSwitchName
+  CenInstance:
+    Type: ALIYUN::CEN::CenInstance
+    Properties:
+      Name:
+        Ref: CenName
+  CenBandPackage:
+    Type: ALIYUN::CEN::CenBandwidthPackage
+    Properties:
+      GeographicRegionAId:
+        Ref: GeographicRegionAId
+      GeographicRegionBId:
+        Ref: GeographicRegionBId
+      Bandwidth:
+        Ref: Bandwidth
+      BandwidthPackageChargeType: POSTPAY
+  CenBandwidthPackageAssociation:
+    Type: ALIYUN::CEN::CenBandwidthPackageAssociation
+    Properties:
+      CenId:
+        Ref: CenInstance
+      CenBandwidthPackageId:
+        Ref: CenBandPackage
+    DependsOn:
+    - CenBandPackage
+    - CenInstance
+  CenInstanceAttachmentLocalVpc:
+    Type: ALIYUN::CEN::CenInstanceAttachment
+    Properties:
+      ChildInstanceRegionId:
+        Ref: ALIYUN::Region
+      ChildInstanceType: VPC
+      ChildInstanceId:
+        Ref: Vpc
+      CenId:
+        Ref: CenInstance
+    DependsOn:
+    - CenInstance
+    - VSwitch
+  CenInstanceAttachmentOppositeVpc:
+    Type: ALIYUN::CEN::CenInstanceAttachment
+    Properties:
+      ChildInstanceRegionId:
+        Ref: OppositeRegionId
+      ChildInstanceType: VPC
+      ChildInstanceId:
+        Ref: OppositeChildInstanceId
+      CenId:
+        Ref: CenInstance
+    DependsOn:
+    - CenInstance
+    - Vpc
+  CenBandwidthLimit:
+    Type: ALIYUN::CEN::CenBandwidthLimit
+    Properties:
+      OppositeRegionId:
+        Ref: OppositeRegionId
+      CenId:
+        Ref: CenInstance
+      BandwidthLimit:
+        Ref: BandwidthLimit
+      LocalRegionId:
+        Ref: ALIYUN::Region
+    DependsOn:
+    - CenBandwidthPackageAssociation
+    - CenInstanceAttachmentLocalVpc
+    - CenInstanceAttachmentOppositeVpc
+  RouteEntry:
+    Type: ALIYUN::CEN::RouteEntry
+    Properties:
+      ChildInstanceRegionId:
+        Ref: ALIYUN::Region
+      CenId:
+        Ref: CenInstance
+      DestinationCidrBlock: 192.168.100.0/24
+      ChildInstanceRouteTableId:
+        Fn::GetAtt:
+        - Vpc
+        - RouteTableId
+      ChildInstanceType: VPC
+      ChildInstanceId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+    DependsOn:
+    - CenBandwidthLimit
+  CloudConnectNetwork:
+    Type: ALIYUN::SAG::CloudConnectNetwork
+    Properties:
+      Description: Test
+      Name:
+        Ref: CcnName
+  GrantCcnToCen:
+    Type: ALIYUN::SAG::GrantCcnToCen
+    Properties:
+      CenInstanceId:
+        Fn::GetAtt:
+        - CenInstance
+        - CenId
+      CenUid:
+        Ref: CenUid
+      CcnInstanceId:
+        Fn::GetAtt:
+        - CloudConnectNetwork
+        - CcnId
+    DependsOn:
+    - CenInstance
+    - CloudConnectNetwork
+  GrantInstanceToCen:
+    Type: ALIYUN::VPC::GrantInstanceToCen
+    Properties:
+      InstanceId:
+        Ref: Vpc
+      CenOwnerId:
+        Ref: CenUid
+      CenId:
+        Fn::GetAtt:
+        - CenInstance
+        - CenId
+      InstanceType: VPC
+    DependsOn: CenInstance
+  CENCenRouteMap:
+    Type: ALIYUN::CEN::CenRouteMap
+    Properties:
+      Description: Test123
+      SourceInstanceIdsReverseMatch: true
+      TransmitDirection:
+        Ref: TransmitDirection
+      MatchCommunitySet:
+      - '65501:1'
+      SourceRegionIds:
+      - Ref: ALIYUN::Region
+      CommunityMatchMode: Include
+      CenRegionId:
+        Ref: ALIYUN::Region
+      SourceRouteTableIds:
+      - Fn::GetAtt:
+        - Vpc
+        - RouteTableId
+      DestinationRouteTableIds:
+      - Ref: DestinationRouteTableIds
+      SourceInstanceIds:
+      - Ref: Vpc
+      - Ref: Vpc2
+      DestinationInstanceIds:
+      - Ref: OppositeChildInstanceId
+      Priority:
+        Ref: Priority
+      CenId:
+        Ref: CenInstance
+      NextPriority: 20
+      DestinationInstanceIdsReverseMatch: false
+      MapResult:
+        Ref: MapResult
+      SourceChildInstanceTypes:
+      - VPC
+      DestinationChildInstanceTypes:
+      - VPC
+      DestinationCidrBlocks:
+      - 1.1.1.0/10
+      CidrMatchMode: Include
+      RouteTypes:
+      - System
+      MatchAsns:
+      - 65501
+      AsPathMatchMode: Include
+      CommunityOperateMode: Additive
+      OperateCommunitySet:
+      - '65501:1'
+      Preference: 22
+      PrependAsPath:
+      - '65501'
+    DependsOn:
+    - CenInstanceAttachmentLocalVpc
+    - GrantCcnToCen
+    - GrantInstanceToCen
+    - RouteEntry
+Outputs:
+  CenId:
+    Value:
+      Fn::GetAtt:
+      - CenInstance
+      - CenId
+  CenBandwidthPackageId:
+    Description: The ID of the bandwidth package.
+    Value:
+      Fn::GetAtt:
+      - CenBandPackage
+      - CenBandwidthPackageId
+  CcnId:
+    Description: The ID of the CCN instance.
+    Value:
+      Fn::GetAtt:
+      - CloudConnectNetwork
+      - CcnId
+  InstanceId:
+    Description: The ID of the network instance.
+    Value:
+      Fn::GetAtt:
+      - GrantInstanceToCen
+      - InstanceId
+  RouteMapId:
+    Description: The ID of the route map.
+    Value:
+      Fn::GetAtt:
+      - CENCenRouteMap
+      - RouteMapId

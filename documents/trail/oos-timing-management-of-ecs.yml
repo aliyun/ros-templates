@@ -1,0 +1,108 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  EcsInstanceIds:
+    Type: CommaDelimitedList
+    Label:
+      en: The ECS instance to execute the command
+      zh-cn: 待执行命令的ECS实例
+    Description:
+      en: Please select running ECS instances.
+      zh-cn: 请选择运行中状态的ECS实例。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+  ExecuteTime:
+    Type: String
+    Label:
+      en: Timing type
+      zh-cn: 定时类型
+    AssociationProperty: ALIYUN::OOS::Component::TimerTrigger
+Resources:
+  OosRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: OosRole-${ALIYUN::StackId}
+      Policies:
+      - PolicyName:
+          Fn::Sub: OosPolicy-${ALIYUN::StackId}
+        PolicyDocument:
+          Version: '1'
+          Statement:
+          - Action:
+            - ecs:RunCommand
+            - ecs:DescribeInstances
+            - ecs:DescribeInvocationResults
+            - ecs:DescribeInvocations
+            Resource:
+            - '*'
+            Effect: Allow
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            RAM:
+            - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+            Service:
+            - oos.aliyuncs.com
+  Execution:
+    Type: ALIYUN::OOS::Execution
+    Properties:
+      Parameters:
+        timerTrigger:
+          Ref: ExecuteTime
+        OOSAssumeRole:
+          Fn::GetAtt:
+          - OosRole
+          - RoleName
+        templateParameters:
+          username: ''
+          rateControl:
+            MaxErrors: 0
+            Mode: Concurrency
+            Concurrency: 10
+          regionId:
+            Ref: ALIYUN::Region
+          workingDir: /root
+          commandType: RunShellScript
+          windowsPasswordName: ''
+          commandContent: "#!/bin/bash\n# Show top processes sorted by cpu usage\n\
+            # [ECS] ACS-ECS-CpuTopNProcessList-for-linux.sh - Provided by Alibaba\
+            \ Cloud ECS\n# Version: 1.0\n# \n# The Count of Processes Listed: '{{PROCESS_NUM}}'\n\
+            TOPN=10\nif [ \"$TOPN\" == \"\" ]\nthen\nTOPN='10'\nfi\nps auxw | head\
+            \ -1; ps auxw | grep -v PID | sort -rn -k3 | head -$TOPN"
+          enableParameter: false
+          timeout: 600
+          targets:
+            ResourceIds:
+              Ref: EcsInstanceIds
+            RegionId:
+              Ref: ALIYUN::Region
+            Type: ResourceIds
+        templateName: ACS-ECS-BulkyRunCommand
+      TemplateName: ACS-ECS-ScheduleToExecuteTemplate
+  ResourceCleaner:
+    Type: ALIYUN::ROS::ResourceCleaner
+    Properties:
+      Action: Scan+CleanUp
+      CleanUpTimeout: 120
+      Resources:
+      - ResourceType: RAM:Role
+        ResourceId:
+          Fn::GetAtt:
+          - OosRole
+          - RoleId
+        RegionId: center
+      - ResourceType: RAM:ManagedPolicy
+        ResourceId:
+          Fn::Sub: OosPolicy-${ALIYUN::StackId}
+        RegionId: center
+    DependsOn: Execution
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - EcsInstanceIds
+      - ExecuteTime
+    TemplateTags:
+    - acs:document:试用教程:OOS实现ECS的定时管理

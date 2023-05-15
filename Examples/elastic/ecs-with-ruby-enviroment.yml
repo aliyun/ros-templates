@@ -1,0 +1,322 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates a Ruby on Rails stack using a single ECS instance with a local
+  MySQL database for storage. This example creates a simple hello world application
+  from the template. *** WARNING *** This template only supports CentOS-7. When 'rvm
+  install 2.3.1' may take long time.
+Parameters:
+  VpcName:
+    Type: String
+    Label: Vpc Name
+    Description: Name of VPC
+    ConstraintDescription: '[2, 128] English or Chinese characters'
+    Default: MyVpcName
+    MinLength: 2
+    MaxLength: 128
+  DBRootPassword:
+    Type: String
+    Label: DB Root Password
+    Description: Root password for MySQL
+    ConstraintDescription: must contain only alphanumeric characters.
+    AllowedPattern: '[a-zA-Z0-9]*'
+    MinLength: '1'
+    MaxLength: '41'
+    NoEcho: true
+    Confirm: true
+  ZoneId:
+    Type: String
+    Label: The ECS Available Zone ID
+    Description: The ECS Available Zone ID, Notice:Whether cloned ecs Type is supported
+      in the available zone.<a href='#/product/cn-beijing/list/zoneList' target='_blank'>View
+      zoneid info</a>
+  VSwitchCidrBlock:
+    Type: String
+    Label: VSwitch CidrBlock
+    Description: CIDR Block of created VSwitch, It must belong to itself VPC CIDR
+      block.
+    Default: 10.0.10.0/24
+  InstanceType:
+    Type: String
+    Label: Ecs Instance type
+    Description: WebServer ECS instance type, The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    ConstraintDescription: Must be a valid ECS instance type.
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.c5.xlarge
+    - ecs.g5.large
+    - ecs.g5.xlarge
+  IoOptimized:
+    Type: String
+    Label: Io Optimized
+    Description: The 'optimized' instance can provide better IO performance. Support
+      'none' and 'optimized' only.
+    Default: optimized
+    AllowedValues:
+    - none
+    - optimized
+  DBPassword:
+    Type: String
+    Label: DB Password
+    Description: Password MySQL database access
+    ConstraintDescription: Must contain only alphanumeric characters.
+    AllowedPattern: '[a-zA-Z0-9]*'
+    MinLength: '1'
+    MaxLength: '41'
+    NoEcho: true
+    Confirm: true
+  VpcCidrBlock:
+    Type: String
+    Label: The VPC Cidrblock
+    Description: |-
+      The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:
+      10.0.0.0/8
+      172.16.0.0/12 (Default)
+      192.168.0.0/16
+    Default: 10.0.0.0/8
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  InstancePassword:
+    Type: String
+    Label: Instance Password
+    Description: The login password of ECS instances
+    ConstraintDescription: Consist of 8 to 41 characters of alphanumeric characters
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: '8'
+    MaxLength: '41'
+    NoEcho: true
+    Confirm: true
+  SystemDiskCategory:
+    Type: String
+    Label: System Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  DBName:
+    Type: String
+    Label: DB Name
+    Description: MySQL database name
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric
+      characters.
+    Default: MyDatabase
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: '1'
+    MaxLength: '64'
+  InstanceName:
+    Type: String
+    Label: Instance Name
+    Description: The name of ECS instance
+    Default: MyEcsInstance
+  DBUser:
+    Type: String
+    Label: DB Username
+    Description: Username for MySQL database access
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric
+      characters.
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: '1'
+    MaxLength: '16'
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: VpcName
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  WebServerSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupEgress:
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: WebServerSecurityGroup
+      ImageId: centos_7
+      IoOptimized:
+        Ref: IoOptimized
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WebServerConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/bash
+
+              '
+            - dbname=
+            - Ref: DBName
+            - '
+
+              '
+            - dbuser=
+            - Ref: DBUser
+            - '
+
+              '
+            - dbpassword=
+            - Ref: DBPassword
+            - '
+
+              '
+            - dbrootpassword=
+            - Ref: DBRootPassword
+            - " \n"
+            - 'export HOME=/root
+
+              '
+            - 'export PATH=$PATH:/usr/local/bin
+
+              '
+            - "curl -sSL https://get.rvm.io | bash \n"
+            - "source /etc/profile.d/rvm.sh \n"
+            - "rvm install 2.3.1 \n"
+            - "source /etc/profile.d/rvm.sh \n"
+            - "rvm --default use 2.3.1 \n"
+            - "gem update --system \n"
+            - "gem install rails \n"
+            - " \n"
+            - "# install mysql in centos-7 \n"
+            - "yum -y install mysql mysql-server mysql-devel mysql-libs \n"
+            - "yum -y install mariadb-server mariadb-client \n"
+            - "systemctl start mariadb.service \n"
+            - "systemctl enable mariadb.service \n"
+            - " \n"
+            - "# set mysql root password \n"
+            - "mysqladmin -u root password \"$dbrootpassword\" \n"
+            - "$(mysql $dbname -u root --password=\"$dbrootpassword\" >/dev/null 2>&1\
+              \ </dev/null); (( $? != 0 )) \n"
+            - " \n"
+            - "# create database \n"
+            - "touch /tmp/setup.mysql \n"
+            - "echo CREATE USER \"$dbuser\"@\"localhost\" IDENTIFIED BY \"'$dbpassword'\"\
+              \\; >> /tmp/setup.mysql \n"
+            - "echo GRANT ALL ON $dbname.* TO \"$dbuser\"@\"localhost\"\\; >> /tmp/setup.mysql\
+              \ \n"
+            - "echo FLUSH PRIVILEGES\\; >> /tmp/setup.mysql \n"
+            - "chmod 400 /tmp/setup.mysql \n"
+            - " \n"
+            - "mysql -u root --password=\"$dbrootpassword\" < /tmp/setup.mysql \n"
+            - "$(mysql $dbname -u root --password=\"$dbrootpassword\" >/dev/null 2>&1\
+              \ </dev/null); (( $? != 0 )) \n"
+            - " \n"
+            - "# install application \n"
+            - "touch /tmp/database.yml \n"
+            - "echo development: >> /tmp/database.yml \n"
+            - "echo \"  adapter: mysql2\" >> /tmp/database.yml \n"
+            - "echo \"  encoding: utf8\" >> /tmp/database.yml \n"
+            - "echo \"  reconnect: false\" >> /tmp/database.yml \n"
+            - "echo \"  pool: 5\" >> /tmp/database.yml \n"
+            - "echo \"  database: $dbname\"  >> /tmp/database.yml \n"
+            - "echo \"  username: $dbuser\"  >> /tmp/database.yml \n"
+            - "echo \"  password: $dbpassword\" >> /tmp/database.yml \n"
+            - "echo \"  socket: /var/lib/mysql/mysql.sock\"  >> /tmp/database.yml\
+              \ \n"
+            - "chmod 400 /tmp/database.yml \n"
+            - " \n"
+            - "source /etc/profile.d/rvm.sh \n"
+            - "rvm use 2.3.1 \n"
+            - "/usr/local/rvm/scripts/rvm use 2.3.1 \n"
+            - "cd /root \n"
+            - " \n"
+            - "# Kill the rails server if it is running to allow update \n"
+            - "if pgrep ruby &> /dev/null ; then pkill -TERM ruby ; fi \n"
+            - " \n"
+            - "# Create a new application, with therubyracer javascript library \n"
+            - "rails new sample -d mysql --skip-spring --skip-bundle --force \n"
+            - "cd /root/sample \n"
+            - "sed -i 's/^# \\(.*therubyracer.*$\\)/\\1/' Gemfile \n"
+            - "bundle install \n"
+            - " \n"
+            - "yum -y install nodejs \n"
+            - "rails generate scaffold Note title:string body:text --force \n"
+            - " \n"
+            - "cd config \n"
+            - "mv database.yml database.yml.bak \n"
+            - "cd .. \n"
+            - "mv /tmp/database.yml config \n"
+            - "rake db:create db:migrate \n"
+            - " \n"
+            - "# Startup the application \n"
+            - "source /etc/profile.d/rvm.sh \n"
+            - "rvm use 2.3.1 \n"
+            - "/usr/local/rvm/scripts/rvm use 2.3.1 \n"
+            - " \n"
+            - "cd /root/sample \n"
+            - " \n"
+            - "rails server --binding 0.0.0.0 -p 80 -d \n"
+            - " \n"
+            - "# cleanup \n"
+            - "# rm -f /tmp/setup.mysql \n"
+            - 'ros-notify -d ''{"data" : "Install Ruby on rails."}''
+
+              '
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+  WebServerConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WebServerGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: WebServerConditionHandle
+      Timeout: 3600
+      Count: 1
+    DependsOn: WebServer
+Outputs:
+  WebsiteURL:
+    Description: URL for newly created Ruby on Rails application
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - WebServer
+          - PublicIp
+        - /notes

@@ -1,0 +1,514 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates a wordpress cluster
+Parameters:
+  ImageId:
+    Type: String
+    Label: ECS Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+    AllowedValues:
+    - ecs.c5.large
+    - ecs.g5.large
+    - ecs.c5.xlarge
+    - ecs.g5.xlarge
+  InstancePassword:
+    Type: String
+    Label: ECS Instance Password
+    Description: The root password of ECS instance. The password is a string of 8
+      to 30 characters and must contain uppercase/lowercase letters, numbers.
+    ConstraintDescription: Consist of 8 to 30 alphanumeric.
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+    Confirm: true
+  VSwitchCidrBlock:
+    Type: String
+    Label: The VSwitch Cidrblock
+    Description: CIDR Block of created VSwitch, It must belong to itself VPC CIDR
+      block.
+    Default: 10.0.10.0/24
+  VpcCidrBlock:
+    Type: String
+    Label: The VPC Cidrblock
+    Description: |-
+      The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:
+      10.0.0.0/8
+      172.16.0.0/12 (Default)
+      192.168.0.0/16
+    Default: 10.0.0.0/8
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  NumberOfNode:
+    Type: Number
+    Label: Number Of Node
+    Description: Number of wordpress instances.
+    Default: 3
+  DBInstanceClass:
+    Type: String
+    Label: Rds Instance Class
+    Description: Database instance type. Refer the RDS database instance type.<a href='https://help.aliyun.com/document_detail/26312.html'
+      target='_blank'>View RDS resources type</a>
+    Default: rds.mysql.t1.small
+    AllowedValues:
+    - rds.mysql.t1.small
+    - rds.mysql.s1.small
+    - rds.mysql.s2.large
+    - rds.mysql.s2.xlarge
+    - rds.mysql.s3.large
+    - rds.mysql.m1.medium
+    - rds.mysql.c1.large
+    - rds.mysql.c1.xlarge
+    - rds.mysql.c2.xlarge
+    - rds.mysql.c2.xlp2
+  Engine:
+    Type: String
+    Label: Database Instance Engine Type
+    Description: Database instance engine type. Support MySQL/SQLServer/PostgreSQL/PPAS/MariaDB
+      now.
+    Default: MySQL
+    AllowedValues:
+    - MySQL
+  EngineVersion:
+    Type: String
+    Label: Database Engine Version
+    Description: MySQL:5.5/5.6; SQLServer:2008r2; PostgreSQL:9.4; PPAS:9.3
+    Default: '5.6'
+    AllowedValues:
+    - '5.5'
+    - '5.6'
+  DBInstanceStorage:
+    Type: Number
+    Label: Database Instance Storage Size
+    Description: 'Incrementing in every 5G, unit: GB'
+    ConstraintDescription: 'Incrementing in every 5G, unit: GB'
+    Default: 50
+    MinValue: 5
+    MaxValue: 2000
+  SLBInternetChargeType:
+    Type: String
+    Label: SLB Internet ChargeType
+    Description: Internet charge type
+    Default: paybytraffic
+    AllowedValues:
+    - paybybandwidth
+    - paybytraffic
+  ZoneId:
+    Type: String
+    Label: Zone Id
+    Description: Available Zone Id, <a href='#/product/cn-beijing/list/zoneList' target='_blank'>View
+      zoneid info</a>
+  DBName:
+    Type: String
+    Label: DB Name
+    Description: Name of WordPress database
+    ConstraintDescription: Consist of 2 to 64 characters of lowercase letters, underline.
+      Must begin with a letter and be end with an alphanumeric character
+    Default: wordpress
+    AllowedPattern: '[a-z]{1}[a-z0-9-_]*[a-z0-9]{1}'
+    MinLength: '2'
+    MaxLength: '64'
+  DBUser:
+    Type: String
+    Label: DB Username
+    Description: Username of WordPress database
+    ConstraintDescription: Consist of 2 to 16 characters of lowercase letters, underline.
+      Must begin with a letter and be end with an alphanumeric character
+    Default: wpuser
+    AllowedPattern: '[a-z]{1}[a-z0-9_]*[a-z0-9]{1}'
+    MinLength: '2'
+    MaxLength: '16'
+  DBPassword:
+    Type: String
+    Description: The password of WordPress database consists of 6 to 32 characters
+      of alphanumeric characters, hyphen and underline
+    ConstraintDescription: Consist of 6 to 32 characters of alphanumeric characters,
+      hyphen and underline
+    AllowedPattern: '[a-zA-Z0-9-_]*'
+    MinLength: '6'
+    MaxLength: '32'
+    NoEcho: true
+    Confirm: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName: wordpress_cluster
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: wordpress_cluster_sg
+      SecurityGroupIngress:
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+        PortRange: 22/22
+        Priority: 1
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+        PortRange: 80/80
+        Priority: 1
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupEgress:
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+  ECSSnatGateWay:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Fn::GetAtt:
+        - SecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      InternetMaxBandwidthOut: 80
+      Tags:
+      - Value: ecs_snat_gateway
+        Key: ECS_SNAT_GATEWAY
+      Password:
+        Ref: InstancePassword
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - ECSSnatGateWayConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - '
+
+              '
+            - PostRouting=
+            - Ref: VSwitchCidrBlock
+            - '
+
+              '
+            - SourceRouting=`ifconfig eth0|grep inet|awk '{print $2}'|tr -d 'addr:'`
+            - '
+
+              '
+            - "echo 'net.ipv4.ip_forward=1'>> /etc/sysctl.conf \n"
+            - "sysctl -p \n"
+            - "iptables -t nat -I POSTROUTING -s $PostRouting -j SNAT --to-source\
+              \ $SourceRouting \n"
+            - 'apt-get update
+
+              '
+            - 'apt-get install -y curl
+
+              '
+            - 'ros-notify -d ''{"data" : " docker swarm created"}''
+
+              '
+      InstanceType:
+        Ref: InstanceType
+  ECSSnatGateWayConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  ECSSnatGateWayGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: ECSSnatGateWayConditionHandle
+      Timeout: 600
+      Count: 1
+    DependsOn: ECSSnatGateWay
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VPCId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBMappings:
+      - DBName:
+          Ref: DBName
+        CharacterSetName: utf8
+      DBInstanceDescription: DataBase
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      Engine:
+        Ref: Engine
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUsername:
+        Ref: DBUser
+      EngineVersion:
+        Ref: EngineVersion
+      SecurityIPList: 0.0.0.0/0
+    DependsOn: ECSSnatGateWayGroupWaitCondition
+  VRoute:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      NextHopId:
+        Fn::GetAtt:
+        - ECSSnatGateWay
+        - InstanceId
+      RouteId:
+        Fn::GetAtt:
+        - Vpc
+        - VRouterId
+      RouteTableId:
+        Fn::GetAtt:
+        - Vpc
+        - RouteTableId
+      DestinationCidrBlock: 0.0.0.0/0
+  LoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName: wordpress_cluster_slb
+  AttachEcs:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServers:
+      - ServerId:
+          Fn::Select:
+          - '0'
+          - Fn::GetAtt:
+            - WebServerGroup
+            - InstanceIds
+        Weight: 100
+      - ServerId:
+          Fn::Select:
+          - '1'
+          - Fn::GetAtt:
+            - WebServerGroup
+            - InstanceIds
+        Weight: 100
+      - ServerId:
+          Fn::Select:
+          - '2'
+          - Fn::GetAtt:
+            - WebServerGroup
+            - InstanceIds
+        Weight: 100
+      LoadBalancerId:
+        Ref: LoadBalancer
+  WebServerGroupConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WebServerGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: false
+      MinAmount:
+        Ref: NumberOfNode
+      Password:
+        Ref: InstancePassword
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WebServerGroupConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - '
+
+              '
+            - DatabaseUser=
+            - Ref: DBUser
+            - '
+
+              '
+            - DatabasePwd=
+            - Ref: DBPassword
+            - '
+
+              '
+            - DatabaseName=
+            - Ref: DBName
+            - '
+
+              '
+            - DatabaseHost=
+            - Fn::GetAtt:
+              - Database
+              - InnerConnectionString
+            - '
+
+              '
+            - 'WebRootPath=''/var/www/html''
+
+              '
+            - 'ApacheIndex=''Options Indexes FollowSymLinks''
+
+              '
+            - 'ApacheIndexReplace=''Options FollowSymLinks''
+
+              '
+            - 'mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
+
+              '
+            - 'wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+
+              '
+            - 'yum makecache
+
+              '
+            - 'yum install -y curl httpd mysql-server php56 php56-php-mysql
+
+              '
+            - '#yum install -y curl httpd mysql-server php56 php-common php-mysql
+
+              '
+            - 'yum install -y php56-php-gd php56-php-imap php56-php-ldap php56-php-odbc
+              php56-php-xmlrpc
+
+              '
+            - '#yum install -y php-gd php-imap php-ldap php-odbc php-pear php-xml
+              php-xmlrpc
+
+              '
+            - 'chkconfig httpd on
+
+              '
+            - 'wget http://wordpress.org/latest.tar.gz
+
+              '
+            - 'tar -xzvf latest.tar.gz
+
+              '
+            - 'sed -i "s/database_name_here/$DatabaseName/" wordpress/wp-config-sample.php
+
+              '
+            - 'sed -i "s/username_here/$DatabaseUser/" wordpress/wp-config-sample.php
+
+              '
+            - 'sed -i "s/password_here/${DatabasePwd:-$DatabasePwdDef}/" wordpress/wp-config-sample.php
+
+              '
+            - 'sed -i "s/localhost/$DatabaseHost/" wordpress/wp-config-sample.php
+
+              '
+            - 'mv wordpress/wp-config-sample.php wordpress/wp-config.php
+
+              '
+            - 'cp -a wordpress/* $WebRootPath
+
+              '
+            - 'rm -rf wordpress*
+
+              '
+            - 'service httpd stop
+
+              '
+            - 'usermod -d $WebRootPath apache &>/dev/null
+
+              '
+            - 'chown apache:apache -R $WebRootPath
+
+              '
+            - 'sed -i "s/$ApacheIndex/$ApacheIndexReplace/" /etc/httpd/conf/httpd.conf
+
+              '
+            - 'service httpd start
+
+              '
+            - 'ros-notify -d ''{"data" : "Install Wordpress"}''
+
+              '
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      SystemDiskCategory: cloud_ssd
+      MaxAmount:
+        Ref: NumberOfNode
+    DependsOn: Database
+  WebServerGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: WebServerGroupConditionHandle
+      Timeout: 600
+      Count:
+        Ref: NumberOfNode
+    DependsOn: WebServerGroup
+  CreateListener_80:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Scheduler: wrr
+      HealthCheck:
+        Timeout: 5
+        Interval: 2
+        HealthyThreshold: 3
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+        UnhealthyThreshold: 3
+      LoadBalancerId:
+        Ref: LoadBalancer
+      BackendServerPort: '80'
+      Protocol: http
+      ListenerPort: '80'
+      Bandwidth: 100
+Outputs:
+  JumpHostIp:
+    Description: The jump host IP.
+    Value:
+      Fn::GetAtt:
+      - ECSSnatGateWay
+      - PublicIp
+  WordPressUrl:
+    Description: WordPress URL
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - LoadBalancer
+          - IpAddress
+        - :80

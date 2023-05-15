@@ -1,0 +1,176 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates one VPC, VSwitch, security group, ECS instance, and route. The
+  user needs to specify the image ID.
+Parameters:
+  ImageId:
+    Type: String
+    Label: Ecs Image Id
+    Description: Image Id, represents the image resource to startup the ECS instance,
+      <a href='#/product/cn-beijing/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label: Ecs Image Type
+    Description: The ECS instance type, <a href='#/product/cn-beijing/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.c5.large
+  IoOptimized:
+    Type: String
+    Label: Io Optimized
+    Description: IO optimized, optimized is for the IO optimized instance type
+    Default: optimized
+    AllowedValues:
+    - none
+    - optimized
+  SystemDiskCategory:
+    Type: String
+    Label: System Disk Category
+    Description: 'System disk category: average cloud disk(cloud), efficient cloud
+      disk(cloud_efficiency) or SSD cloud disk(cloud_ssd)'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+  ZoneId:
+    Type: String
+    Label: Zone Id
+    Description: The available zone, <a href='#/product/cn-beijing/list/zoneList'
+      target='_blank'>View available zones</a>
+  SecurityGroupName:
+    Type: String
+    Label: Security Group Name
+    Description: The security group name
+  VpcCidrBlock:
+    Type: String
+    Label: Vpc Cidr Block
+    Description: |-
+      The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets:
+      10.0.0.0/8
+      172.16.0.0/12 (Default)
+      192.168.0.0/16
+    Default: 10.0.0.0/8
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VpcName:
+    Type: String
+    Label: Vpc Name
+    Description: The VPC name
+    ConstraintDescription: '[2, 128] English or Chinese letters'
+    MinLength: 2
+    MaxLength: 128
+  VSwitchCidrBlock:
+    Type: String
+    Label: VSwitch Cidr Block
+    Description: The VSwitch subnet which must be within VPC
+    Default: 10.0.10.0/24
+  DestinationCidrBlock:
+    Type: String
+    Label: Destination Cidr Block
+    Description: The destination subnet of route, such as, 192.168.1.0/24 or 192.168.1.0
+    Default: 192.168.1.0
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: VpcName
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Ref: SecurityGroupName
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized:
+        Ref: IoOptimized
+      SystemDisk_Category:
+        Ref: SystemDiskCategory
+  VRoute:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      RouteId:
+        Fn::GetAtt:
+        - Vpc
+        - VRouterId
+      RouteTableId:
+        Fn::GetAtt:
+        - Vpc
+        - RouteTableId
+      DestinationCidrBlock:
+        Ref: DestinationCidrBlock
+      NextHopId:
+        Ref: WebServer
+Outputs:
+  InstanceId:
+    Description: The instance id of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - InstanceId
+  PublicIp:
+    Description: Public IP address of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - PublicIp
+  SecurityGroupId:
+    Description: generated security group id for security group.
+    Value:
+      Fn::GetAtt:
+      - SecurityGroup
+      - SecurityGroupId
+  VpcId:
+    Description: Id of created VPC.
+    Value:
+      Fn::GetAtt:
+      - Vpc
+      - VpcId
+  VRouterId:
+    Description: Router id of created VPC.
+    Value:
+      Fn::GetAtt:
+      - Vpc
+      - VRouterId
+  RouteTableId:
+    Description: The router table id of created VPC.
+    Value:
+      Fn::GetAtt:
+      - Vpc
+      - RouteTableId
+  VSwitchId:
+    Description: Id of created VSwitch.
+    Value:
+      Fn::GetAtt:
+      - VSwitch
+      - VSwitchId

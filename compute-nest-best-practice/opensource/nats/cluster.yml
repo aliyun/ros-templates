@@ -1,0 +1,552 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: NATS Clustering Deploy (JetStream Enabled)
+  zh-cn: NATS集群化部署(JetStream)
+Conditions:
+  IfAllocatePublicIp:
+    Fn::Equals:
+    - Ref: AllocatePublicIp
+    - true
+  IfAutoCreateSecurityGroup:
+    Fn::Equals:
+    - Ref: AutoCreateSecurityGroup
+    - true
+Parameters:
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    Description:
+      en: When the resource purchase duration is Month, the value of Period ranges
+        from 1 to 9
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private
+        Cloud
+      zh-cn: 现有虚拟专有网络的实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private
+        Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+  AutoCreateSecurityGroup:
+    Type: Boolean
+    Label:
+      zh-cn: 自动创建安全组
+      en: auto create security group
+    Default: true
+  SecurityGroupId:
+    Type: String
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+    Description:
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+      zh-cn: 现有业务安全组的实例ID
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${AutoCreateSecurityGroup}
+          - false
+    Default: ''
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+  SystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  DataDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 数据盘空间
+      en: Data Disk Space
+    Description:
+      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 200
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  AllocatePublicIp:
+    Type: Boolean
+    Label:
+      zh-cn: 开启公网IP
+      en: allocate public ip
+    Default: false
+  InternetChargeType:
+    Type: String
+    Label:
+      zh-cn: 流量付费类型
+      en: Internet Charge Type
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${AllocatePublicIp}
+          - true
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  InternetMaxBandwidthOut:
+    Type: Number
+    Label:
+      zh-cn: 流量公网带宽
+      en: Internet Max Bandwidth Out
+    Description:
+      zh-cn: 取值范围0-100, 0为不开公网ip
+      en: no public ip if zero
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${AllocatePublicIp}
+          - true
+    Default: 10
+    MinValue: 0
+    MaxValue: 100
+  NatsPassword:
+    Type: String
+    Label:
+      en: NATS Password for user 'admin'
+      zh-cn: NATS密码
+    Description:
+      en: Nats password for user 'admin', Length 8-30, must contain three(Capital
+        letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: Nats 默认admin账号的密码,长度22-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    ConstraintDescription:
+      en: Length 22-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度22-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 22
+    MaxLength: 30
+    NoEcho: true
+  ClusterNodeAmount:
+    Type: Number
+    Label:
+      zh-cn: Nats 集群节点数目
+      en: Amount of Nats Cluster
+    Description:
+      zh-cn: Nats 集群节点数目
+      en: The node amount of Nats Cluster.
+    ConstraintDescription:
+      zh-cn: '[3, 11] 内的奇数,最多支持11个节点'
+      en: An integer within [3, 11]
+    Default: 3
+    AllowedValues:
+    - 3
+    - 5
+    - 7
+    - 9
+    - 11
+Resources:
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Condition: IfAutoCreateSecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      SecurityGroupEgress:
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+      SecurityGroupIngress:
+        Fn::If:
+        - IfAllocatePublicIp
+        - - PortRange: 4222/4222
+            Priority: 1
+            SourceCidrIp: 0.0.0.0/0
+            IpProtocol: tcp
+            NicType: internet
+        - Ref: ALIYUN::NoValue
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 3
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 300
+  WaitConditionCommandHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitConditionCommand:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 3
+      Handle:
+        Ref: WaitConditionCommandHandle
+      Timeout: 300
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Fn::If:
+        - IfAutoCreateSecurityGroup
+        - Ref: EcsSecurityGroup
+        - Ref: SecurityGroupId
+      ImageId: centos_7
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
+      IoOptimized: optimized
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      DiskMappings:
+      - Category: cloud_essd
+        Size:
+          Ref: DataDiskSize
+      MaxAmount:
+        Ref: ClusterNodeAmount
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP:
+        Ref: AllocatePublicIp
+      InternetMaxBandwidthOut:
+        Fn::If:
+        - IfAllocatePublicIp
+        - Ref: InternetMaxBandwidthOut
+        - 0
+      InternetChargeType:
+        Ref: InternetChargeType
+      UserData:
+        Fn::Sub:
+        - |
+          #!/bin/bash
+          # 挂盘到/data
+          cat >> /root/InitDataDisk.sh << "EOF"
+          #!/bin/bash
+          echo "p
+          n
+          p
+
+
+
+          w
+          " |  fdisk -u /dev/vdb
+          EOF
+          /bin/bash /root/InitDataDisk.sh
+          rm -f /root/InitDataDisk.sh
+          mkfs -t ext4 /dev/vdb1
+          cp /etc/fstab /etc/fstab.bak
+          mkdir /data
+          echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /data ext4 defaults 0 0 >> /etc/fstab
+          mount -a
+
+
+          # 这里配置安装脚本
+          wget '{{ computenest::file::nats_server }}'
+          wget '{{ computenest::file::nats_cli }}'
+          tar -zxf nats-0.0.35-linux-amd64.tar.gz -C /tmp
+          tar -zxf nats-server-v2.9.15-linux-amd64.tar.gz -C /tmp
+          cp /tmp/nats-server-v2.9.15-linux-amd64/nats-server /usr/bin/
+          cp /tmp/nats-0.0.35-linux-amd64/nats /usr/bin/
+          # 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+        - CurlCli:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+          RegionId:
+            Ref: ALIYUN::Region
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+      CommandContent:
+        Fn::Sub:
+        - |
+          #!/bin/bash
+          set -x
+          localIp=$(curl http://100.100.100.200/latest/meta-data/private-ipv4|sed 's/\./-/g')
+          hostName=$(curl http://100.100.100.200/latest/meta-data/hostname)
+          serverName="$hostName-$localIp"
+
+          mkdir /etc/nats
+          mkdir /data/nats-storage
+
+          encryptedPasswd=$(nats server passwd -p ${NatsSysPassword})
+          routes=""
+          for nodeIP in $(echo "${NatsNodeIps}" |sed 's/,/\n/g')
+          do
+            routes="$routes
+                nats-route://$nodeIP:4248"
+          done
+
+          cat >> /etc/nats/nats.conf << EOF
+          server_name=$serverName
+          listen: 0.0.0.0:4222
+          http: 8222
+          accounts {
+            \$SYS {
+              users = [
+                { user: "admin",
+                  pass: "$encryptedPasswd"
+                }
+              ]
+            }
+          }
+
+          jetstream {
+             store_dir=/data/nats-storage
+          }
+
+          cluster {
+            name: C1
+            listen: 0.0.0.0:4248
+            routes = [
+                $routes
+            ]
+          }
+          EOF
+          # 配置启动脚本
+          cat >> /etc/systemd/system/natsd.service << "EOF"
+          [Unit]
+          Description=natsd.service
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/nats-server --config /etc/nats/nats.conf
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+          systemctl daemon-reload
+
+          # 配置启动脚本
+          systemctl enable natsd
+          systemctl start natsd
+
+          # 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+        - NatsNodeIps:
+            Fn::Join:
+            - ','
+            - Fn::GetAtt:
+              - EcsInstanceGroup
+              - PrivateIps
+          NatsSysPassword:
+            Ref: NatsPassword
+          CurlCli:
+            Fn::GetAtt:
+            - WaitConditionCommandHandle
+            - CurlCli
+      Type: RunShellScript
+      Timeout: '300'
+    DependsOn: WaitCondition
+Outputs:
+  PrivateEndpoint:
+    Description:
+      zh-cn: 内网IP地址
+      en: Private IP Addresses
+    Value:
+      Fn::Sub:
+      - nats://${natsAddr}:4222
+      - natsAddr:
+          Fn::Join:
+          - :4222,nats://
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - PrivateIps
+  PublicEndpoint:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Condition: IfAllocatePublicIp
+    Value:
+      Fn::Sub:
+      - nats://${natsAddr}:4222
+      - natsAddr:
+          Fn::Join:
+          - :4222,nats://
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        default:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - VpcId
+      - VSwitchId
+      - AutoCreateSecurityGroup
+      - SecurityGroupId
+      Label:
+        default:
+          zh-cn: 选择已有基础资源配置
+          en: Choose existing Infrastructure Configuration
+    - Parameters:
+      - EcsInstanceType
+      - SystemDiskSize
+      - DataDiskSize
+      - InstancePassword
+      Label:
+        default:
+          en: Instance Configuration
+          zh-cn: ECS实例配置
+    - Parameters:
+      - AllocatePublicIp
+      - InternetChargeType
+      - InternetMaxBandwidthOut
+      Label:
+        default:
+          en: Network Configurate
+          zh-cn: ECS网络配置
+    - Parameters:
+      - NatsPassword
+      - ClusterNodeAmount
+      Label:
+        default:
+          en: Nats Cluster Config
+          zh-cn: Nats 集群配置

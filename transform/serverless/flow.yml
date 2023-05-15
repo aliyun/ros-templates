@@ -1,0 +1,57 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Serverless-2018-04-03
+Parameters:
+  BucketName:
+    Type: String
+  FunctionName:
+    Type: String
+  ServiceName:
+    Type: String
+Resources:
+  MyService:
+    Type: Aliyun::Serverless::Service
+    Properties:
+      Description: This is demo service
+      ServiceName:
+        Ref: ServiceName
+    MyFunction:
+      Type: Aliyun::Serverless::Function
+      Properties:
+        Handler: index.handler
+        FunctionName:
+          Ref: FunctionName
+        CodeUri: oss://test-transform/image-crawler.zip
+        Description: Hello world with python2.7!
+        Runtime: python2.7
+        Timeout: 300
+        EnvironmentVariables:
+          OSSEndpoint: oss-cn-hangzhou.aliyuncs.com
+          BucketName:
+            Ref: BucketName
+  MyFlow:
+    Type: Aliyun::Serverless::Flow
+    Properties:
+      Description: This is demo flow
+      Policies:
+      - AliyunFCInvocationAccess
+      - Version: '1'
+        Statement:
+        - Effect: Allow
+          Action: '*'
+          Resource: '*'
+      Definition:
+        Fn::Sub: |-
+          version: v1beta1
+          type: flow
+          steps:
+            - type: task
+              resourceArn: acs:fc:${ALIYUN::Region}:${ALIYUN::TenantId}:services/${ServiceName}.LATEST/functions/${FunctionName}
+              name: Test1
+    DependsOn:
+    - MyService
+Outputs:
+  MyFlowId:
+    Value:
+      Fn::GetAtt:
+      - MyFlow
+      - Id

@@ -1,0 +1,184 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates a set of ECS instance, and consider it as the machine group of
+  the related project logtail in Log Serivce.
+Parameters:
+  IoOptimized:
+    Type: String
+    Label: Io Optimized
+    Description: The 'optimized' instance can provide better IO performance. Support
+      'none' and 'optimized' only, default is 'optimized'.
+    Default: optimized
+    AllowedValues:
+    - none
+    - optimized
+  ImageId:
+    Type: String
+    Label: Image Id
+    Description: Image Id, represents the image resource to startup one ECS instance,
+      <a href='#/product/cn-shenzhen/list/imageList' target='_blank'>View image resources</a>
+    Default: centos_7
+  SecurityGroupName:
+    Type: String
+    Label: Security Group Name
+    Description: Security Group Name
+  Password:
+    Type: String
+    Label: ECS Password
+    Description: The login password of ECS instance
+    ConstraintDescription: Consist of 8 to 30 characters of alphanumeric characters
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  MinAmount:
+    Type: Number
+    Label: Min Amount
+    Description: The minimum of ECS instances, must be less than or equal to the maximum.
+    ConstraintDescription: The integer within [1, 100]
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  AllocatePublicIP:
+    Type: Boolean
+    Label: Allocate Public IP
+    Description: Whether allocate the public internet IP or not.
+    Default: true
+  MaxAmount:
+    Type: Number
+    Label: Max Amount
+    Description: The maximum of ECS instances, must be greater than or equal to the
+      minimum.
+    ConstraintDescription: The integer within [1, 100]
+    MinValue: 1
+    MaxValue: 100
+  InternetChargeType:
+    Type: String
+    Label: Internet ChargeType
+    Description: Instance internet access charge type.Support 'PayByBandwidth' and
+      'PayByTraffic' only. Default is PayByTraffic
+    Default: PayByBandwidth
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  InstanceName:
+    Type: String
+    Label: ECS Instance Name
+    Description: The ECS instance name
+    Default: ecsInstance
+  InstanceType:
+    Type: String
+    Label: Instance Type
+    Description: The ECS instance type, <a href='#/product/cn-shenzhen/list/typeList'
+      target='_blank'>View instance types</a>
+    Default: ecs.n4.large
+  SystemDisk_Category:
+    Type: String
+    Label: System Disk Category
+    Description: 'System disk category, allowed values: cloud|cloud_efficiency|cloud_ssd|ephemeral_ssd'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud
+    - cloud_efficiency
+    - cloud_ssd
+    - ephemeral_ssd
+  SlsProjectName:
+    Type: String
+    Label: SLS Project Name
+    Description: The existing project name in SlS
+  SlsGroupName:
+    Type: String
+    Label: SLS Group Name
+    Description: The machine group name to be created in SLS, which not be repeated
+      with any exising name.
+  SlsConfigName:
+    Type: String
+    Label: SLS Config Name
+    Description: The existing logtail name in SlS, which is the name of configuration
+      to apply the machine group.
+Resources:
+  securityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName:
+        Ref: SecurityGroupName
+  ecsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      SecurityGroupId:
+        Fn::GetAtt:
+        - securityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      IoOptimized:
+        Ref: IoOptimized
+      Password:
+        Ref: Password
+      MinAmount:
+        Ref: MinAmount
+      AllocatePublicIP:
+        Ref: AllocatePublicIP
+      MaxAmount:
+        Ref: MaxAmount
+      InternetChargeType:
+        Ref: InternetChargeType
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      SystemDisk_Category:
+        Ref: SystemDisk_Category
+  MachineGroup:
+    Type: ALIYUN::SLS::MachineGroup
+    Properties:
+      GroupAttribute: ''
+      GroupName:
+        Ref: SlsGroupName
+      MachineIdentifyType: ip
+      MachineList:
+        Fn::GetAtt:
+        - ecsInstanceGroup
+        - PublicIps
+      ProjectName:
+        Ref: SlsProjectName
+  ApplyConfigToMachineGroup:
+    Type: ALIYUN::SLS::ApplyConfigToMachineGroup
+    Properties:
+      ConfigName:
+        Ref: SlsConfigName
+      GroupName:
+        Fn::GetAtt:
+        - MachineGroup
+        - GroupName
+      ProjectName:
+        Ref: SlsProjectName
+Outputs:
+  SecurityGroupId:
+    Value:
+      Fn::GetAtt:
+      - securityGroup
+      - SecurityGroupId
+  InstanceIds:
+    Description: The instance id list of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - InstanceIds
+  PublicIps:
+    Description: Public IP address list of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - PublicIps
+  ZoneIds:
+    Description: Zone id of created instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - ZoneIds
+  InnerIps:
+    Description: Inner IP address list of the specified instance. Only for classical
+      instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - InnerIps

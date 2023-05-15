@@ -1,0 +1,1151 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: DDC for Aliyun
+Conditions:
+  BothCondition:
+    Fn::And:
+    - CreateSlaveUcp
+    - CreateUbuntu
+  CreateSlaveUcp:
+    Fn::Not:
+      Fn::Equals:
+      - 0
+      - Ref: ControllerSlaveMaxAmount
+  CreateUbuntu:
+    Fn::Equals:
+    - ubuntu_16
+    - Ref: ImageId
+Mappings:
+  FunctionMap:
+    InstallDocker:
+      Function: |
+        sed -i 's/Acquire::http::Proxy/#Acquire::http::Proxy/' /etc/apt/apt.conf
+        apt-get update
+        apt-get install -y apt-transport-https linux-image-extra-virtual curl unzip jq
+        apt-get install -y software-properties-common
+        curl -fsSL "${docker_ee_url}/ubuntu/gpg" | sudo apt-key add -
+        sudo apt-key fingerprint 6D085F96
+        add-apt-repository "deb [arch=amd64] $docker_ee_url/ubuntu $(lsb_release -cs) stable-$EngineVersion"
+        apt-get update
+        apt-get -y install docker-ee
+        sed -i "s#ExecStart=/usr/bin/dockerd#ExecStart=/usr/bin/dockerd --registry-mirror=https://6udu7vtl.mirror.aliyuncs.com --log-driver=json-file --log-opt max-size=100m --log-opt max-file=10#g" /lib/systemd/system/docker.service
+        systemctl enable docker.service
+        systemctl restart docker.service
+        usermod -aG docker $USER
+Parameters:
+  DockerEEURL:
+    Type: String
+    Label:
+      zh-cn: Docker EE下载地址
+      en: Docker EE URL
+    Description:
+      en: User's Docker EE installation URL; If not, you can apply for a trial, see
+        detail：<a href='https://www.docker.com/' target='_blank'><font color='blue'><b>Docker
+        Enterprise Trial</font></b>
+      zh-cn: Docker EE下载地址；如无，可申请试用，详见：<a href='https://www.docker.com/' target='_blank'><font
+        color='blue'><b>Docker Enterprise Trial</font></b>
+  EngineVersion:
+    Type: String
+    Label:
+      zh-cn: Docker版本
+      en: Docker Engine Version
+    Description:
+      en: Docker Enterprise Container Engine Version
+      zh-cn: Docker版本
+    Default: '18.09'
+    AllowedValues:
+    - '18.09'
+    - '17.06'
+  UCPVersion:
+    Type: String
+    Label:
+      zh-cn: Docker UCP版本
+      en: Docker UCP Version
+    Description:
+      en: Docker Universal Control Plane Version
+      zh-cn: Docker UCP版本
+    Default: 3.1.7
+    AllowedValues:
+    - latest
+    - 3.1.7
+    - 3.0.2
+  UCPAdminUserName:
+    Type: String
+    Label:
+      zh-cn: UCP用户名
+      en: UCP Admin Username
+    Description:
+      en: The username of Universal Control Plane (UCP) administrator, default is
+        'admin'
+      zh-cn: Docker UCP用户名
+    Default: admin
+  UCPAdminPassword:
+    Type: String
+    Label:
+      zh-cn: Docker UCP密码
+      en: UCP Admin Password
+    Description:
+      en: The administrator password of Universal Control Plane (UCP). The password
+        is a string of 8 to 30 characters and must contain uppercase/lowercase letters,
+        numbers.
+      zh-cn: Docker UCP密码，必须包含大小写字母和数字，长度为8~30位。
+    ConstraintDescription:
+      zh-cn: 包含大小写字母和数字，长度为8~30位。
+      en: Contains upper and lower case letters and numbers, the length is 8 to 30.
+    AllowedPattern: '[a-zA-Z0-9]*'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+  VSwitchZone:
+    Type: String
+    Label:
+      zh-cn: 可用区
+      en: Availability Zone
+    Description:
+      zh-cn: 可用区ID;<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID;<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  ImageId:
+    Type: String
+    Label:
+      zh-cn: 镜像ID
+      en: Image
+    Description:
+      en: Image ID, Please use ubuntu_16 image, the rest of the image does not install
+        the relevant software and applications, see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID，请使用ubuntu_16镜像，其余镜像不安装相关软件及应用，详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: ubuntu_16
+  InstancePassword:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      en: Instance specifications,</br>see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance Support Type</b></font></a>
+      zh-cn: 实例规格，</br>详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    Default: slb.s1.small
+  DTRVersion:
+    Type: String
+    Label:
+      zh-cn: Docker DTR版本
+      en: Docker DTR Version
+    Description:
+      en: Docker Trusted Registry Version
+      zh-cn: Docker DTR版本
+    Default: 2.6.6
+    AllowedValues:
+    - latest
+    - 2.6.6
+    - 2.5.3
+  DTRInstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+    Description:
+      zh-cn: 填写可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the availability zone;</b></font><br>general
+        specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note: a few
+        zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZone
+  DTRSystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: DTR 系统盘类型
+      en: DTR System Disk Category
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  DTRMaxAmount:
+    Type: Number
+    Label:
+      zh-cn: DTR节点的数量
+      en: Number of DTR
+    Description:
+      en: The number of Docker Trusted Registry (DTR) nodes.
+      zh-cn: Docker可信注册中心(DTR)节点的数量。
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  ControllerInstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+    Description:
+      zh-cn: 填写可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the availability zone;</b></font><br>general
+        specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note: a few
+        zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZone
+  ControllerSystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 控制器系统盘类别
+      en: Controller System Disk Category
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  ControllerSlaveMaxAmount:
+    Type: Number
+    Label:
+      zh-cn: 从控制器数量
+      en: Number of Slave Controller
+    Description:
+      en: Select an additional Swarm Manager node (0, 2 or 4) to make the cluster,
+        includes 1, 3 or 5 Swarm Manager nodes, constitute a highly available deployment.
+      zh-cn: 选择一个额外的集群管理器节点（0、2或4），使集群包括1、3或5个集群管理器节点，构成高可用性部署。
+    Default: 0
+    AllowedValues:
+    - 0
+    - 2
+    - 4
+  WorkerInstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+    Description:
+      zh-cn: 填写可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the availability zone;</b></font><br>general
+        specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note: a few
+        zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZone
+  WorkerSystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: Worker 系统盘类
+      en: Worker System Disk Category
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  WorkerMaxAmount:
+    Type: Number
+    Label:
+      zh-cn: 集群工作节点数
+      en: Number of Worker
+    Description:
+      en: The number of Swarm Worker nodes.
+      zh-cn: 集群工作节点数。
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+Resources:
+  DTRConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Condition: CreateUbuntu
+    Properties: {}
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/8
+  DefaultSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      Description: DDC default security group
+      SecurityGroupIngress:
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+        PortRange: 22/22
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+        PortRange: 443/443
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+        PortRange: 80/80
+      - SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+        PortRange: 2377/2377
+      SecurityGroupEgress:
+      - IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+  PubSubnet:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZone
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock: 10.18.0.0/24
+  DTRLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName: DTRLoadBalancer
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      AddressType: internet
+  ControllerLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName: ControllerLoadBalancer
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      AddressType: internet
+    DependsOn: DTRLoadBalancer
+  EipSNat:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: 5
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: PubSubnet
+      NatGatewayName: NatGateway
+  EIpSnatAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: EipSNat
+    DependsOn: NatGateway
+  SNatEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatIp:
+        Fn::GetAtt:
+        - EipSNat
+        - EipAddress
+      SourceVSwitchId:
+        Fn::GetAtt:
+        - PubSubnet
+        - VSwitchId
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+    DependsOn:
+    - ControllerLoadBalancer
+    - EIpSnatAssociation
+  Controller:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: PubSubnet
+      SecurityGroupId:
+        Fn::GetAtt:
+        - DefaultSecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: 'false'
+      SystemDiskCategory:
+        Ref: ControllerSystemDiskCategory
+      UserData:
+        Fn::If:
+        - CreateUbuntu
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - ControllerConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - '#!/bin/sh
+
+                '
+              - EngineVersion='
+              - Ref: EngineVersion
+              - '''
+
+                '
+              - ucp_admin_username='
+              - Ref: UCPAdminUserName
+              - '''
+
+                '
+              - ucp_admin_password='
+              - Ref: UCPAdminPassword
+              - '''
+
+                '
+              - controller_slb_ip='
+              - Fn::GetAtt:
+                - ControllerLoadBalancer
+                - IpAddress
+              - '''
+
+                '
+              - docker_ee_url='
+              - Ref: DockerEEURL
+              - '''
+
+                '
+              - 'ip_addr=`ip addr | grep eth0 | grep -o ''[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/''
+                | cut -d ''/'' -f 1`
+
+                '
+              - 'host_name=`hostname`
+
+                '
+              - "sed -i '/^127.0.0.1        localhost/d' /etc/hosts \n"
+              - "echo \"127.0.0.1        localhost        $host_name\" >> /etc/hosts\
+                \ \n"
+              - Fn::FindInMap:
+                - FunctionMap
+                - InstallDocker
+                - Function
+              - '#docker image pull docker/ucp:'
+              - Ref: UCPVersion
+              - " \n"
+              - 'docker container run --rm -i --name ucp -v /var/run/docker.sock:/var/run/docker.sock
+                docker/ucp:'
+              - Ref: UCPVersion
+              - ' install --host-address $ip_addr --admin-username $ucp_admin_username
+                --admin-password $ucp_admin_password --san $controller_slb_ip | tee
+                -a /tmp/ucp_install_log
+
+                '
+              - 'worker_token=`docker swarm join-token -q worker`
+
+                '
+              - 'manager_token=`docker swarm join-token -q manager`
+
+                '
+              - 'echo $worker_token, $manager_token > /tmp/tokens
+
+                '
+              - 'cmd="ros-notify -d ''{\"id\" : \"tokens\", \"data\" : [\"$worker_token\",
+                \"$manager_token\"]}''"
+
+                '
+              - 'eval $cmd
+
+                '
+        - Ref: ALIYUN::NoValue
+      InstanceType:
+        Ref: ControllerInstanceType
+    DependsOn: SNatEntry
+  DTRNode:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: PubSubnet
+      SecurityGroupId:
+        Fn::GetAtt:
+        - DefaultSecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: 'false'
+      SystemDiskCategory:
+        Ref: DTRSystemDiskCategory
+      UserData:
+        Fn::If:
+        - CreateUbuntu
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - DTRConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - '#!/bin/sh
+
+                '
+              - EngineVersion='
+              - Ref: EngineVersion
+              - '''
+
+                '
+              - ucp_admin_username='
+              - Ref: UCPAdminUserName
+              - '''
+
+                '
+              - ucp_admin_password='
+              - Ref: UCPAdminPassword
+              - '''
+
+                '
+              - tokens='
+              - Fn::GetAtt:
+                - ControllerWaitCondition
+                - Data
+              - '''
+
+                '
+              - ucp_controller_ip='
+              - Fn::GetAtt:
+                - Controller
+                - PrivateIp
+              - '''
+
+                '
+              - controller_slb_ip='
+              - Fn::GetAtt:
+                - ControllerLoadBalancer
+                - IpAddress
+              - '''
+
+                '
+              - dtr_slb_ip='
+              - Fn::GetAtt:
+                - DTRLoadBalancer
+                - IpAddress
+              - '''
+
+                '
+              - docker_ee_url='
+              - Ref: DockerEEURL
+              - '''
+
+                '
+              - 'ip_addr=`ip addr | grep eth0 | grep -o ''[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/''
+                | cut -d ''/'' -f 1`
+
+                '
+              - 'host_name=`hostname`
+
+                '
+              - "sed -i '/^127.0.0.1        localhost/d' /etc/hosts \n"
+              - "echo \"127.0.0.1        localhost        $host_name\" >> /etc/hosts\
+                \ \n"
+              - Fn::FindInMap:
+                - FunctionMap
+                - InstallDocker
+                - Function
+              - 'echo $tokens > /tmp/tokens
+
+                '
+              - 'token=`echo "$tokens" | jq ''.tokens''[0] | xargs echo `
+
+                '
+              - "echo $token > /tmp/worker_token \n"
+              - 'docker swarm join --token=$token ${ucp_controller_ip}:2377
+
+                '
+              - 'sleep 30
+
+                '
+              - '#docker image pull docker/dtr:'
+              - Ref: DTRVersion
+              - " \n"
+              - 'docker container run -i --rm docker/dtr:'
+              - Ref: DTRVersion
+              - ' install --ucp-url https://$controller_slb_ip:443 --ucp-node $host_name
+                --dtr-external-url https://$dtr_slb_ip:443 --ucp-username $ucp_admin_username
+                --ucp-password $ucp_admin_password --ucp-insecure-tls | tee -a /tmp/dtr_install_log
+
+                '
+              - 'echo $token > /tmp/fin_worker_token
+
+                '
+              - |
+                if [ -z $token ]; then
+                    data="Join-Token fetch failed"
+                else
+                    data="Join-Token token success"
+                fi
+              - 'cmd="ros-notify -d ''{\"data\" : \"$data\"}''"
+
+                '
+              - 'echo $cmd > /tmp/cmd_line
+
+                '
+              - 'eval $cmd
+
+                '
+              - 'echo $? > /tmp/eval_res
+
+                '
+        - Ref: ALIYUN::NoValue
+      MaxAmount:
+        Ref: DTRMaxAmount
+      InstanceType:
+        Ref: DTRInstanceType
+    DependsOn: Controller
+  DTRWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Condition: CreateUbuntu
+    Properties:
+      Handle:
+        Ref: DTRConditionHandle
+      Timeout: 1800
+      Count:
+        Ref: DTRMaxAmount
+    DependsOn: DTRNode
+  ControllerSlave:
+    Type: ALIYUN::ECS::InstanceGroup
+    Condition: CreateSlaveUcp
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: PubSubnet
+      SecurityGroupId:
+        Fn::GetAtt:
+        - DefaultSecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: 'false'
+      SystemDiskCategory:
+        Ref: ControllerSystemDiskCategory
+      UserData:
+        Fn::If:
+        - CreateUbuntu
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - ControllerSlaveConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - '#!/bin/sh
+
+                '
+              - EngineVersion='
+              - Ref: EngineVersion
+              - '''
+
+                '
+              - tokens='
+              - Fn::GetAtt:
+                - ControllerWaitCondition
+                - Data
+              - '''
+
+                '
+              - ucp_controller_ip='
+              - Fn::GetAtt:
+                - Controller
+                - PrivateIp
+              - '''
+
+                '
+              - docker_ee_url='
+              - Ref: DockerEEURL
+              - '''
+
+                '
+              - 'ip_addr=`ip addr | grep eth0 | grep -o ''[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/''
+                | cut -d ''/'' -f 1`
+
+                '
+              - 'host_name=`hostname`
+
+                '
+              - "sed -i '/^127.0.0.1        localhost/d' /etc/hosts \n"
+              - "echo \"127.0.0.1        localhost        $host_name\" >> /etc/hosts\
+                \ \n"
+              - Fn::FindInMap:
+                - FunctionMap
+                - InstallDocker
+                - Function
+              - 'echo $tokens > /tmp/tokens
+
+                '
+              - 'token=`echo "$tokens" | jq ''.tokens''[1] | xargs echo `
+
+                '
+              - "echo $token > /tmp/manager_token \n"
+              - 'cmd="ros-notify -d ''{\"data" : \"$token\"}'' | tee /tmp/test_tee"
+
+                '
+              - 'eval $cmd
+
+                '
+              - 'echo $? > /tmp/eval_res
+
+                '
+              - 'docker swarm join --token=$token ${ucp_controller_ip}:2377
+
+                '
+              - 'echo $token > /tmp/fin_manager_token
+
+                '
+        - Ref: ALIYUN::NoValue
+      MaxAmount:
+        Ref: ControllerSlaveMaxAmount
+      InstanceType:
+        Ref: ControllerInstanceType
+    DependsOn: DTRWaitCondition
+  ControllerSlaveConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Condition: BothCondition
+    Properties: {}
+  ControllerSlaveWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Condition: BothCondition
+    Properties:
+      Handle:
+        Ref: ControllerSlaveConditionHandle
+      Timeout: 4000
+      Count:
+        Ref: ControllerSlaveMaxAmount
+    DependsOn: ControllerSlave
+  ControllerLoadBalancerListener443:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      HealthCheck:
+        Timeout: '2'
+        Port: '443'
+        Interval: '5'
+        HealthyThreshold: '2'
+        UnhealthyThreshold: '4'
+      LoadBalancerId:
+        Ref: ControllerLoadBalancer
+      BackendServerPort: '443'
+      Protocol: tcp
+      Bandwidth: -1
+      ListenerPort: '443'
+    DependsOn: ControllerLoadBalancer
+  ControllerSLBAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+      - Fn::GetAtt:
+        - Controller
+        - InstanceId
+      LoadBalancerId:
+        Ref: ControllerLoadBalancer
+  WorkerLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName: WorkerLoadBalancer
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      AddressType: internet
+  ControllerConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Condition: CreateUbuntu
+    Properties: {}
+  WorkerConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Condition: CreateUbuntu
+    Properties: {}
+  EipForward:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: 5
+  EIpForwardAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: EipForward
+    DependsOn: EIpSnatAssociation
+  WorkerNode:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: PubSubnet
+      SecurityGroupId:
+        Fn::GetAtt:
+        - DefaultSecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: 'false'
+      SystemDiskCategory:
+        Ref: WorkerSystemDiskCategory
+      UserData:
+        Fn::If:
+        - CreateUbuntu
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - WorkerConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - '#!/bin/sh
+
+                '
+              - EngineVersion='
+              - Ref: EngineVersion
+              - '''
+
+                '
+              - tokens='
+              - Fn::GetAtt:
+                - ControllerWaitCondition
+                - Data
+              - '''
+
+                '
+              - ucp_controller_ip='
+              - Fn::GetAtt:
+                - Controller
+                - PrivateIp
+              - '''
+
+                '
+              - docker_ee_url='
+              - Ref: DockerEEURL
+              - '''
+
+                '
+              - 'ip_addr=`ip addr | grep eth0 | grep -o ''[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/''
+                | cut -d ''/'' -f 1`
+
+                '
+              - 'host_name=`hostname`
+
+                '
+              - "sed -i '/^127.0.0.1        localhost/d' /etc/hosts \n"
+              - "echo \"127.0.0.1        localhost        $host_name\" >> /etc/hosts\
+                \ \n"
+              - Fn::FindInMap:
+                - FunctionMap
+                - InstallDocker
+                - Function
+              - 'echo $tokens > /tmp/tokens
+
+                '
+              - 'token=`echo "$tokens" | jq ''.tokens''[0] | xargs echo `
+
+                '
+              - "echo $token > /tmp/worker_token \n"
+              - 'cmd="ros-notify -d ''{\"data\" : \"$token\"}''"
+
+                '
+              - 'eval $cmd
+
+                '
+              - 'docker swarm join --token=$token ${ucp_controller_ip}:2377
+
+                '
+              - 'echo $token > /tmp/fin_worker_token
+
+                '
+        - Ref: ALIYUN::NoValue
+      MaxAmount:
+        Ref: WorkerMaxAmount
+      InstanceType:
+        Ref: WorkerInstanceType
+    DependsOn: Controller
+  JumpHost:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: PubSubnet
+      SecurityGroupId:
+        Fn::GetAtt:
+        - DefaultSecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: 'false'
+      SystemDiskCategory:
+        Ref: ControllerSystemDiskCategory
+      InstanceType:
+        Ref: ControllerInstanceType
+    DependsOn: WorkerNode
+  ForwardEntry:
+    Type: ALIYUN::ECS::ForwardEntry
+    Properties:
+      IpProtocol: TCP
+      ExternalIp:
+        Fn::GetAtt:
+        - EipForward
+        - EipAddress
+      ForwardTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - ForwardTableId
+      ExternalPort: '22'
+      InternalPort: '22'
+      InternalIp:
+        Fn::GetAtt:
+        - JumpHost
+        - PrivateIp
+    DependsOn: EIpForwardAssociation
+  DTRLoadBalancerListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      HealthCheck:
+        Timeout: '2'
+        Port: '443'
+        Interval: '5'
+        HealthyThreshold: '2'
+        UnhealthyThreshold: '4'
+      LoadBalancerId:
+        Ref: DTRLoadBalancer
+      BackendServerPort: '443'
+      Protocol: tcp
+      Bandwidth: -1
+      ListenerPort: '443'
+    DependsOn: DTRLoadBalancer
+  ControllerWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Condition: CreateUbuntu
+    Properties:
+      Handle:
+        Ref: ControllerConditionHandle
+      Timeout: 1500
+      Count: 1
+    DependsOn: Controller
+  WorkerWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Condition: CreateUbuntu
+    Properties:
+      Handle:
+        Ref: WorkerConditionHandle
+      Timeout: 4000
+      Count:
+        Ref: WorkerMaxAmount
+    DependsOn: WorkerNode
+  ControllerSlaveSLBAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Condition: CreateSlaveUcp
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - ControllerSlave
+        - InstanceIds
+      LoadBalancerId:
+        Ref: ControllerLoadBalancer
+  ControllerLoadBalancerListener2377:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Persistence:
+        StickySession: 'on'
+        PersistenceTimeout: 600
+      HealthCheck:
+        Timeout: '2'
+        Port: '2377'
+        Interval: '5'
+        HealthyThreshold: '2'
+        UnhealthyThreshold: '4'
+      LoadBalancerId:
+        Ref: ControllerLoadBalancer
+      BackendServerPort: '2377'
+      Protocol: tcp
+      Bandwidth: -1
+      ListenerPort: '2377'
+    DependsOn: ControllerLoadBalancer
+  DTRSLBAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - DTRNode
+        - InstanceIds
+      LoadBalancerId:
+        Ref: DTRLoadBalancer
+  WorkerSLBAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - WorkerNode
+        - InstanceIds
+      LoadBalancerId:
+        Ref: WorkerLoadBalancer
+Outputs:
+  GetJoinTokenResult:
+    Description: Get join-token result
+    Condition: CreateUbuntu
+    Value:
+      Fn::GetAtt:
+      - DTRWaitCondition
+      - Data
+  ControllerLoadBalancerIp:
+    Description: Public ip for controller service
+    Condition: CreateUbuntu
+    Value:
+      Fn::Join:
+      - ''
+      - - https://
+        - Fn::GetAtt:
+          - ControllerLoadBalancer
+          - IpAddress
+        - :443
+  JumpHostIp:
+    Description: Jump host IP
+    Value:
+      Fn::GetAtt:
+      - EipForward
+      - EipAddress
+  DTRLoadBalancerIp:
+    Description: Public ip for DTR service
+    Condition: CreateUbuntu
+    Value:
+      Fn::Join:
+      - ''
+      - - https://
+        - Fn::GetAtt:
+          - DTRLoadBalancer
+          - IpAddress
+        - :443
+  WorkerLoadBalancerIp:
+    Description: Public ip for Worker service
+    Value:
+      Fn::GetAtt:
+      - WorkerLoadBalancer
+      - IpAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - DockerEEURL
+      - EngineVersion
+      Label:
+        default: Docker
+    - Parameters:
+      - UCPVersion
+      - UCPAdminUserName
+      - UCPAdminPassword
+      Label:
+        default: UCP
+    - Parameters:
+      - VSwitchZone
+      - ImageId
+      - InstancePassword
+      Label:
+        default: ECS
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        default: SLB
+    - Parameters:
+      - DTRVersion
+      - DTRInstanceType
+      - DTRSystemDiskCategory
+      - DTRMaxAmount
+      Label:
+        default: 'ECS: DTR'
+    - Parameters:
+      - ControllerInstanceType
+      - ControllerSystemDiskCategory
+      - ControllerSlaveMaxAmount
+      Label:
+        default: 'ECS: Controller'
+    - Parameters:
+      - WorkerInstanceType
+      - WorkerSystemDiskCategory
+      - WorkerMaxAmount
+      Label:
+        default: 'ECS: Worker'
+    TemplateTags:
+    - acs:example:容器:基于DockerEE一键部署DDC
