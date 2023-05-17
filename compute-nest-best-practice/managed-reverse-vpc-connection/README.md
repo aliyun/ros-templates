@@ -1,11 +1,11 @@
 ## 场景说明
 本文介绍了在计算巢全托管服务私网反向访问的最佳实践，基于PrivateLink，您可以跨VPC打通从服务商到用户服务的私网链路。
 
-**部署预览**
+部署预览
 
 ![deploy_1.jpg](deploy_1.jpg)
 
-**部署结果**
+部署结果
 
 ![result_1.jpg](result_1.jpg)
 ![result_2.jpg](result_2.jpg)
