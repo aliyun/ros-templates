@@ -16,7 +16,7 @@
   * 绑定NatGateway和EIP
   * 配置NatGateway中的源地址转换表
 
-部署模版详见template.yaml
+部署模版详见template.yml
 
 ## 运维
 
