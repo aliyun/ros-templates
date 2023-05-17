@@ -1,0 +1,67 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Configure the AliyunROSStackGroupExecutionRole to enable use of your
+  account as a target account in Alibaba Cloud ROS StackGroup.
+Conditions:
+  CurrentAccount:
+    Fn::Equals:
+    - Ref: AdministrationAccountId
+    - ''
+Parameters:
+  ExecutionRoleName:
+    Type: String
+    Description:
+      en: Execution role name of target account
+      zh-cn: 为目标账号创建执行角色的名称
+    Default: AliyunROSStackGroupExecutionRole
+  AdministrationAccountId:
+    Type: String
+    Description:
+      en: Administration account ID. If not, authorize the current account
+      zh-cn: 管理员主账号ID，不填则授权给当前账号
+    Default: ''
+Resources:
+  AliyunROSStackGroupExecutionRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            RAM:
+            - Fn::Join:
+              - ''
+              - - 'acs:ram::'
+                - Fn::If:
+                  - CurrentAccount
+                  - Ref: ALIYUN::TenantId
+                  - Ref: AdministrationAccountId
+                - :root
+        Version: 1
+      RoleName:
+        Ref: ExecutionRoleName
+  AttachPolicy:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      PolicyName: AdministratorAccess
+      PolicyType: System
+      RoleName:
+        Fn::GetAtt:
+        - AliyunROSStackGroupExecutionRole
+        - RoleName
+Outputs:
+  ExecutionRoleName:
+    Value:
+      Fn::GetAtt:
+      - AliyunROSStackGroupExecutionRole
+      - RoleName
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ExecutionRoleName
+      - AdministrationAccountId
+      Label:
+        default: RAM
+    TemplateTags:
+    - acs:example:安全:创建StackGroup目标账号权限

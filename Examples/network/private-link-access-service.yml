@@ -10,11 +10,11 @@ Parameters:
       en: Availability Zone
       zh-cn: 可用区
     Description:
-      zh-cn: 可用区ID，目前，仅部分地域支持私网连接。更多信息，请参见<a href='https://help.aliyun.com/document_detail/193819.html'><font
-        color='red'><b>支持私网连接的地域和可用区</b></font></a>。
       en: Availability Zone Id,Currently, only some regions support private network
         connections. For more information,<a href='https://help.aliyun.com/document_detail/193819.html'
         target='_blank'><b><font color='red'>View region and zone info</font></b></a>.
+      zh-cn: 可用区ID，目前，仅部分地域支持私网连接。更多信息，请参见<a href='https://help.aliyun.com/document_detail/193819.html'><font
+        color='red'><b>支持私网连接的地域和可用区</b></font></a>。
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
   PrivateLinkClientName:
     Type: String
@@ -40,13 +40,13 @@ Parameters:
       en: Instance Type
       zh-cn: 实例类型
     Description:
-      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
-        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
-        color='blue'>实例规格族</font></a></b>
       en: 'Fill in specifications that can be used under the VSwitch availability
         zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
         a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
         target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
@@ -67,8 +67,8 @@ Parameters:
         <font color=''green''>本地SSD盘</font>]'
     AssociationProperty: ALIYUN::ECS::Disk::DataDiskCategory
     AssociationPropertyMetadata:
-      ZoneId: ${ZoneId}
       InstanceType: ${InstanceType}
+      ZoneId: ${ZoneId}
   Password:
     Type: String
     Label:
@@ -94,12 +94,27 @@ Resources:
       CidrBlock: 192.168.0.0/16
       VpcName:
         Ref: PrivateLinkClientName
-  ServerVpc:
-    Type: ALIYUN::ECS::VPC
+  ClientSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
-      CidrBlock: 192.168.0.0/16
-      VpcName:
-        Ref: PrivateLinkServerName
+      VpcId:
+        Ref: ClientVpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        Policy: accept
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: intranet
+        Policy: accept
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName:
+        Ref: PrivateLinkClientName
   ClientVsw:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -107,61 +122,9 @@ Resources:
         Ref: ZoneId
       VpcId:
         Ref: ClientVpc
-      VSwitchName:
-        Ref: PrivateLinkClientName
       CidrBlock: 192.168.1.0/24
-  ServerVsw:
-    Type: ALIYUN::ECS::VSwitch
-    Properties:
-      ZoneId:
-        Ref: ZoneId
-      VpcId:
-        Ref: ServerVpc
       VSwitchName:
         Ref: PrivateLinkClientName
-      CidrBlock: 192.168.2.0/24
-  ClientSecurityGroup:
-    Type: ALIYUN::ECS::SecurityGroup
-    Properties:
-      VpcId:
-        Ref: ClientVpc
-      SecurityGroupName:
-        Ref: PrivateLinkClientName
-      SecurityGroupIngress:
-      - Policy: accept
-        PortRange: -1/-1
-        IpProtocol: all
-        NicType: intranet
-        SourceCidrIp: 0.0.0.0/0
-        Priority: 1
-      SecurityGroupEgress:
-      - Policy: accept
-        PortRange: -1/-1
-        IpProtocol: all
-        NicType: intranet
-        Priority: 1
-        DestCidrIp: 0.0.0.0/0
-  ServerSecurityGroup:
-    Type: ALIYUN::ECS::SecurityGroup
-    Properties:
-      VpcId:
-        Ref: ServerVpc
-      SecurityGroupName:
-        Ref: PrivateLinkServerName
-      SecurityGroupIngress:
-      - Policy: accept
-        PortRange: -1/-1
-        IpProtocol: all
-        NicType: intranet
-        SourceCidrIp: 0.0.0.0/0
-        Priority: 1
-      SecurityGroupEgress:
-      - Policy: accept
-        PortRange: -1/-1
-        IpProtocol: all
-        NicType: intranet
-        Priority: 1
-        DestCidrIp: 0.0.0.0/0
   ClientEcs:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
@@ -174,22 +137,70 @@ Resources:
       SecurityGroupId:
         Ref: ClientSecurityGroup
       ImageId: win2016_1607_x64_dtc_zh-cn_40G_alibase_20211115.vhd
-      MaxAmount: 1
-      InstanceType:
-        Ref: InstanceType
+      AllocatePublicIP: true
       InstanceName:
         Ref: PrivateLinkClientName
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthOut: 5
+      IoOptimized: optimized
+      MaxAmount: 1
+      NetworkType: vpc
       Password:
         Ref: Password
-      IoOptimized: optimized
       SystemDiskCategory:
         Ref: SystemDiskCategory
-      NetworkType: vpc
-      AllocatePublicIP: true
-      InternetMaxBandwidthOut: 5
-  WebServerConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: {}
+  ServerVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Ref: PrivateLinkServerName
+  ServerVsw:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: ServerVpc
+      CidrBlock: 192.168.2.0/24
+      VSwitchName:
+        Ref: PrivateLinkClientName
+  SLB:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: ServerVpc
+      VSwitchId:
+        Ref: ServerVsw
+      AddressType: intranet
+      LoadBalancerName:
+        Ref: PrivateLinkServerName
+      LoadBalancerSpec: slb.s1.small
+      MasterZoneId:
+        Ref: ZoneId
+      PayType: PayOnDemand
+  ServerSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: ServerVpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        Policy: accept
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: intranet
+        Policy: accept
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName:
+        Ref: PrivateLinkServerName
   ServerEcs:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
@@ -202,18 +213,18 @@ Resources:
       SecurityGroupId:
         Ref: ServerSecurityGroup
       ImageId: Centos_7
-      MaxAmount: 2
-      InstanceType:
-        Ref: InstanceType
       InstanceName:
         Ref: PrivateLinkServerName
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthOut: 0
+      IoOptimized: optimized
+      MaxAmount: 2
+      NetworkType: vpc
       Password:
         Ref: Password
-      IoOptimized: optimized
       SystemDiskCategory:
         Ref: SystemDiskCategory
-      NetworkType: vpc
-      InternetMaxBandwidthOut: 0
       UserData:
         Fn::Join:
         - '
@@ -236,73 +247,51 @@ Resources:
           - systemctl enable nginx
           - Fn::Sub: '${WebServerConditionHandle.CurlCli} -d ''{"data" : "Install
               nginx web."}'''
-  WebServerWaitCondition:
-    Type: ALIYUN::ROS::WaitCondition
-    Properties:
-      Timeout: 1800
-      Count: 2
-      Handle:
-        Ref: WebServerConditionHandle
-    DependsOn: ServerEcs
-  SLB:
-    Type: ALIYUN::SLB::LoadBalancer
-    Properties:
-      VpcId:
-        Ref: ServerVpc
-      VSwitchId:
-        Ref: ServerVsw
-      AddressType: intranet
-      LoadBalancerName:
-        Ref: PrivateLinkServerName
-      MasterZoneId:
-        Ref: ZoneId
-      LoadBalancerSpec: slb.s1.small
-      PayType: PayOnDemand
   VServerGroup:
     Type: ALIYUN::SLB::VServerGroup
     Properties:
-      VServerGroupName:
-        Ref: PrivateLinkServerName
       BackendServers:
-      - ServerId:
+      - Port: '80'
+        ServerId:
           Fn::Select:
           - '0'
           - Fn::GetAtt:
             - ServerEcs
             - InstanceIds
-        Port: '80'
-      - ServerId:
+      - Port: '80'
+        ServerId:
           Fn::Select:
           - '1'
           - Fn::GetAtt:
             - ServerEcs
             - InstanceIds
-        Port: '80'
       LoadBalancerId:
         Ref: SLB
+      VServerGroupName:
+        Ref: PrivateLinkServerName
   SlbListener:
     Type: ALIYUN::SLB::Listener
     Properties:
-      Protocol: tcp
-      ListenerPort: '80'
-      Bandwidth: -1
       BackendServerPort: 80
+      Bandwidth: -1
+      ListenerPort: '80'
       LoadBalancerId:
         Ref: SLB
+      Protocol: tcp
       VServerGroupId:
         Ref: VServerGroup
   VpcEndpointService:
     Type: ALIYUN::PrivateLink::VpcEndpointService
     Properties:
-      ServiceDescription:
-        Ref: PrivateLinkServerName
+      AutoAcceptEnabled: true
       Resource:
-      - ZoneId:
-          Ref: ZoneId
-        ResourceId:
+      - ResourceId:
           Ref: SLB
         ResourceType: slb
-      AutoAcceptEnabled: true
+        ZoneId:
+          Ref: ZoneId
+      ServiceDescription:
+        Ref: PrivateLinkServerName
   VpcEndpoint:
     Type: ALIYUN::PrivateLink::VpcEndpoint
     Properties:
@@ -315,16 +304,22 @@ Resources:
       ServiceId:
         Ref: VpcEndpointService
       Zone:
-      - ZoneId:
-          Ref: ZoneId
-        VSwitchId:
+      - VSwitchId:
           Ref: ClientVsw
+        ZoneId:
+          Ref: ZoneId
+  WebServerConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WebServerWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 2
+      Handle:
+        Ref: WebServerConditionHandle
+      Timeout: 1800
+    DependsOn: ServerEcs
 Outputs:
-  VpcEndpointDomain:
-    Value:
-      Fn::GetAtt:
-      - VpcEndpoint
-      - EndpointDomain
   ClientIP:
     Value:
       Fn::Select:
@@ -332,6 +327,11 @@ Outputs:
       - Fn::GetAtt:
         - ClientEcs
         - PublicIps
+  VpcEndpointDomain:
+    Value:
+      Fn::GetAtt:
+      - VpcEndpoint
+      - EndpointDomain
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:

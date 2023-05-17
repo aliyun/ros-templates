@@ -1,0 +1,289 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Deploy the RabbitMQ (3.8.4) service on the ECS host, which is an open source
+    AMQP-implemented message middleware service that supports a variety of client
+    connections with robust, stable, easy-to-use, cross-platform, multilingual features
+  zh-cn: 在ECS主机上部署RabbitMQ（3.8.4）服务，RabbitMQ是一个开源AMQP实现的消息中间件服务，支持多种客户端连接，具备健壮、稳定、易用、跨平台、支持多种语言的特性
+Parameters:
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VPC:
+    Type: String
+    Label:
+      en: Existing VPC Instance ID
+      zh-cn: 现有VPC的实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx)from console-Virtual Private
+        Cloud
+      zh-cn: 现有虚拟专有网络的实例ID,控制台-VPC-专有网络下查询
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitch:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 网络交换机ID
+    Description:
+      en: Please search the business vswitch ID starting with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VPC
+      ZoneId: VSwitchZoneId
+  SecurityGroup:
+    Type: String
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+    Description:
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VPC
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 40
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  MaxQueueNumber:
+    Type: Number
+    Label:
+      en: Number of Queues
+      zh-cn: Queue数量
+    Description:
+      en: 'Single Vhost Creates Queue Quantity, Value Range: 1~2000'
+      zh-cn: 单Vhost创建的Queue数量，取值范围：[1, 2000]
+    Default: 100
+    MinValue: 1
+    MaxValue: 2000
+  HighWatermark:
+    Type: String
+    Label:
+      en: Flow Control Limits
+      zh-cn: 流控限制
+    Description:
+      en: 'RabbitMQ service uses a certain threshold of system memory, it activates
+        a memory alarm and triggers a flow control mechanism, with optional configurations:
+        0.4 (40%), 0.6 (60%), 0.8 (80%)'
+      zh-cn: RabbitMQ服务占用系统内存达到一定阈值时，会启动内存报警，触发流控机制，可选配置：0.4（40%），0.6（60%），0.8（80%）
+    Default: '0.4'
+    AllowedValues:
+    - '0.4'
+    - '0.6'
+    - '0.8'
+  RabbitMQAdminName:
+    Type: String
+    Label:
+      en: Administrator Username
+      zh-cn: 管理员用户名
+    Description:
+      en: RabbitMQ Administrator Username
+      zh-cn: RabbitMQ管理员用户名
+    Default: admin
+  RabbitMQAdminPassword:
+    Type: String
+    Label:
+      en: Administrator User Login Password
+      zh-cn: 管理员用户登录密码
+    Description:
+      en: RabbitMQ administrator user login password, length 8-30
+      zh-cn: RabbitMQ管理员用户登录密码,长度8-30
+    ConstraintDescription:
+      en: Length 8-30
+      zh-cn: 长度8-30
+    NoEcho: true
+Resources:
+  RabbitMQServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7
+      AllocatePublicIP: true
+      InstanceName: RabbitMQServer
+      InstanceType:
+        Ref: InstanceType
+      MaxAmount: 1
+      Password:
+        Ref: Password
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh'
+            - " \n"
+            - "yum update -y \n"
+            - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/RabbitMQ/erlang-23.0.2-1.el7.x86_64.rpm\
+              \ \n"
+            - "rpm -Uvh erlang-23.0.2-1.el7.x86_64.rpm \n"
+            - "yum -y install socat \n"
+            - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/RabbitMQ/rabbitmq-server-3.8.4-1.el7.noarch.rpm\
+              \ \n"
+            - "rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc\
+              \ \n"
+            - "rpm -Uvh rabbitmq-server-3.8.4-1.el7.noarch.rpm \n"
+            - "rabbitmq-plugins enable rabbitmq_management \n"
+            - 'echo vm_memory_high_watermark.relative = '
+            - Ref: HighWatermark
+            - ">> /etc/rabbitmq/rabbitmq.conf \n"
+            - "service rabbitmq-server restart \n"
+            - "chkconfig rabbitmq-server on \n"
+            - 'rabbitmqctl add_user '
+            - Ref: RabbitMQAdminName
+            - ' '
+            - Ref: RabbitMQAdminPassword
+            - '
+
+              '
+            - 'rabbitmqctl set_user_tags '
+            - Ref: RabbitMQAdminName
+            - " administrator \n"
+            - 'rabbitmqctl set_permissions -p / '
+            - Ref: RabbitMQAdminName
+            - " \".*\" \".*\" \".*\" \n"
+            - 'rabbitmqctl set_vhost_limits -p / ''{"max-queues":'
+            - Ref: MaxQueueNumber
+            - "}' \n"
+            - "ros-notify -d \"{\\\"Data\\\" : \\\"SUCCESS\\\", \\\"Status\\\" : \\\
+              \"SUCCESS\\\"}\" \n"
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 1800
+Outputs:
+  RabbitMQWebUrl:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::Select:
+          - '0'
+          - Fn::GetAtt:
+            - RabbitMQServer
+            - PublicIps
+        - :15672
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VSwitchZoneId
+      - VPC
+      - VSwitch
+      - SecurityGroup
+      Label:
+        default:
+          en: Infrastructure Configuration
+          zh-cn: 基础资源配置（必填）
+    - Parameters:
+      - InstanceType
+      - SystemDiskCategory
+      - SystemDiskSize
+      - Password
+      - MaxQueueNumber
+      - HighWatermark
+      - RabbitMQAdminName
+      - RabbitMQAdminPassword
+      Label:
+        default:
+          en: RabbitMQ Configuration
+          zh-cn: RabbitMQ 配置（必填）
+    TemplateTags:
+    - acs:example:弹性计算:RabbitMQ单机版(已有VPC)

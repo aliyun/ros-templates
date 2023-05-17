@@ -1,0 +1,1272 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Deploy a Hadoop environment on 3 ECS instances. One ECS instance plays role
+    of master node, and the other 2 instances play role of worker node. *** WARNING
+    *** Only test in CentOS-7. Maybe stopping firewall is needed. The deploying time
+    mainly depends on the speed of downloading jdk and hadoop packages.
+  zh-cn: 在3个ECS实例上部署Hadoop环境。 一个ECS实例扮演master节点的角色，另外两个实例扮演worker节点的角色。 ***警告***仅在CentOS-7中进行测试。
+    也许需要停止防火墙。 部署时间主要取决于jdk和hadoop软件包的下载速度。
+Parameters:
+  VpcName:
+    Type: String
+    Label:
+      en: VPC Name
+      zh-cn: 专有网络名称
+    Description:
+      en: Name of VPC, [2, 128] English or Chinese characters, must start with a letter
+        or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: VPC 名称，[2，128]英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    ConstraintDescription:
+      en: '[2, 128] English or Chinese characters'
+      zh-cn: '[2, 128] 英文或中文字符'
+    Default: MyVPC
+    MinLength: 2
+    MaxLength: 128
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: VPC的IP地址范围；<br>您可以使用以下IP地址范围及其子网：<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: CIDR Block of created VSwitch,It must belong to itself VPC CIDR Block.
+      zh-cn: 创建的虚拟交换机的子网，它必须属于自己的VPC网段内
+    Default: 192.168.1.0/24
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区
+    Description:
+      en: ECS Available Zone ID,</font><a href='https://www.alibabacloud.com/help/doc-detail/123712.html'
+        target='_blank'><b> View region and zone info</b><font color='blue'></a>
+      zh-cn: ECS 可用区ID,</font><a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  InstanceName:
+    Type: String
+    Label:
+      en: Instance Name
+      zh-cn: ECS实例名称
+    Description:
+      en: The name of ECS instance,[2, 128] English or Chinese characters, must start
+        with a letter or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: ECS实例名称，[2，128]英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    Default: ecsinstance
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: ECS实例规格
+    Description:
+      en: The ECS instance type,go to the product console to ensure the current instance
+        is available, <font><a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
+        target='_blank'><b>View instance types</b></font color='blue'></a>
+      zh-cn: ECS实例类型，进入产品控制台确保当前实例可用, <font><a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b>查看实例类型</b></font color='blue'></a>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+    Default: ecs.c5.large
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: Instance System Disk Category
+      zh-cn: ECS系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  ImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: ECS镜像
+    Description:
+      en: Image ID, represents the image resource to startup one ECS instance, <font><a
+        href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'><b>View
+        image resources</b></font color='blue'></a>
+      zh-cn: 镜像ID，ECS实例的镜像资源, <font><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><b>查看镜像资源</b></font color='blue'></a>
+    Default: centos_7
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: ECS登录密码
+    Description:
+      en: The Instance Name，A maximum of 16 characters, consisting of lowercase letters,
+        Numbers, underscores, letters beginning, letters or Numbers ending.
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  MasterName:
+    Type: String
+    Label:
+      en: Master Name
+      zh-cn: Master节点名称
+    Description:
+      en: Master hostname, [2, 128] English or Chinese characters, must start with
+        a letter or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: 主机名，[2，128]英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    Default: master.hadoop
+  HadoopHome:
+    Type: String
+    Label:
+      en: Hadoop Home
+      zh-cn: Hadoop安装目录
+    Description:
+      en: HADOOP_HOME directory should be new.
+      zh-cn: Hadoop 主目录必须是新的
+    Default: /usr/local/hadoop/hadoop-2.7.7
+  Slave1Name:
+    Type: String
+    Label:
+      en: Slave 1 Name
+      zh-cn: Slave1节点名称
+    Description:
+      en: Slave 1 hostname, [2, 128] English or Chinese characters, must start with
+        a letter or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: 从机1名称，[2，128]英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    Default: slave1.hadoop
+  Slave2Name:
+    Type: String
+    Label:
+      en: Slave 2 Name
+      zh-cn: Slave2节点名称
+    Description:
+      en: Slave 2 hostname, [2, 128] English or Chinese characters, must start with
+        a letter or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: 从机2名称，[2，128]英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    Default: slave2.hadoop
+  HadoopUrl:
+    Type: String
+    Label:
+      en: Hadoop Url
+      zh-cn: Hadoop下载地址
+    Description:
+      en: The official download path of .tar.gz
+      zh-cn: .tar.gz的官方下载路径
+    Default: https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common/hadoop-2.7.7/hadoop-2.7.7.tar.gz
+    AllowedValues:
+    - https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common/hadoop-2.7.7/hadoop-2.7.7.tar.gz
+    - http://apache.claz.org/hadoop/common/hadoop-2.7.7/hadoop-2.7.7.tar.gz
+Resources:
+  EipSNat:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth: 5
+      InternetChargeType: PayByTraffic
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d910d9f4-4e43-4041-91b7-dbcd07c50632
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: VpcName
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: b6d9f4e1-14a3-4022-817a-b2dddcb17ada
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 46612f8f-df5e-4bcc-bf40-074043a68c2a
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - VSwitch
+        - VSwitchId
+      Description: My NAT Gateway
+      NatGatewayName: nat_gateway_1
+    DependsOn: VSwitch
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 39f70e6c-a7b4-4473-b407-07f461e03d23
+  EIpSnatAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: EipSNat
+    DependsOn: NatGateway
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d92324dc-db61-44ca-8c00-08475f973c9f
+  EipForward:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth: 5
+      InternetChargeType: PayByTraffic
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 506a163b-1c58-4ad5-9066-92b7edfdedce
+  EIpForwardAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: EipForward
+    DependsOn: EIpSnatAssociation
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e2e08de0-323e-49a7-b053-5041fdc6f0f3
+  SNatEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatIp:
+        Fn::GetAtt:
+        - EipSNat
+        - EipAddress
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SourceVSwitchId:
+        Fn::GetAtt:
+        - VSwitch
+        - VSwitchId
+    DependsOn: EIpSnatAssociation
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2159c0c9-c9a3-47c0-ae83-8ca4f87e2156
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 898f58f1-ef94-405c-bb18-a4c4f7abc3ab
+  Slave1:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - Slave1ConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/bash \n"
+            - "# set -e \n"
+            - Slave1Name=
+            - Ref: Slave1Name
+            - '
+
+              '
+            - "hostnamectl --static set-hostname \"$Slave1Name\" \n"
+            - "export HOME=/root \n"
+            - "export HOSTNAME=`hostname` \n"
+            - "ip_addr=`ifconfig eth0 | awk '/inet /{print $2}'` \n"
+            - "cd /root \n"
+            - "rm -rf .ssh \n"
+            - "ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+            - "cd /root/.ssh \n"
+            - "rm -f * \n"
+            - "echo '-----BEGIN RSA PRIVATE KEY-----' > id_rsa \n"
+            - "echo 'MIIEowIBAAKCAQEAzfQ/QHwWB1njU9+Wu3RYi9g+g5rydSpAE0klefTJuZjtcaic'\
+              \ >> id_rsa \n"
+            - "echo 'SCeBN5avih8UToZ148+Ef2YzOtoosqluZpoYLCPSpAqr8pmviBJIU3vfu9mnDG9L'\
+              \ >> id_rsa \n"
+            - "echo 'oevT6K8w3wCBRCmqu+vc0Tpju/EeCuYK3+8w7e2I6F3+zIYzhhX3qmkocje7ACnV'\
+              \ >> id_rsa \n"
+            - "echo 'yh2DB/2m3sogTMc0RT+5y3kJAnC6TOIlGsYjOOkPbEF3Ifn1o4ZjOFOmQlcRJer4'\
+              \ >> id_rsa \n"
+            - "echo '1E6rTdXAxS2uDNMFBCf9Xyx7O9J+ELTCAXc4h7AE6WLdQb5Apzv4t1KswCAtRenP'\
+              \ >> id_rsa \n"
+            - "echo '1xGcUYY8I/JUT2VvBWtQJennrk9jrPZUFDcmcwIDAQABAoIBAAwzDZQaRYvF7UtI'\
+              \ >> id_rsa \n"
+            - "echo 'kTslVyFhe8J76SS7jfQWfxvMPi66OkZjQG6duG+8g0VhNei42j7WSfjp6trvlT2P'\
+              \ >> id_rsa \n"
+            - "echo '/7QgKJJkxNNmtmy2Ycljm9kmG0ibSePYq9g5ieHcjr6G3yFUfoKHJBtYpBO74pWu'\
+              \ >> id_rsa \n"
+            - "echo 'rrI5DuLpERUCjFc9E8w7fOIhPH4XZ6wk/EmPxHTgxZk+aMvqptyPSbUyiUOvCiZf'\
+              \ >> id_rsa \n"
+            - "echo 'MD0ircs9vgtslMVDlz9m6CoiNz6B3Yf6eLRoGGMiGnsQzZHIfnHCMX8i65Jc+TvQ'\
+              \ >> id_rsa \n"
+            - "echo 'fLopIHzwBwI55xpcOIBRgYiEAQJhLsSNSFugoxMcwe9RalTGGS21HOQu4b3ZylKM'\
+              \ >> id_rsa \n"
+            - "echo '8ofEVKECgYEA/Y4MzN04wAsM1yNuHN+9sdiVLG28LWH3dgpcXqa9gyNsWs9Gf8uf'\
+              \ >> id_rsa \n"
+            - "echo 'qbuvQGeKDRXCW93wO1jO+pCYVrkyY3l+KhBKIqmkJT5gFsa8dBUvEBLALiHNg3+o'\
+              \ >> id_rsa \n"
+            - "echo 'jR2Vqsemk8kMZA8zfJ3FKcMb1pt4S2GqepqsdC3DgzIIsxufCh7jSzsCgYEAz/Cv'\
+              \ >> id_rsa \n"
+            - "echo 'Z7gAdSFC8q6QxFxSyhfZwGA6QW6ZU7rZv9ZdGySvZg+vHbpNVmQ0BAQzJui3Qs9u'\
+              \ >> id_rsa \n"
+            - "echo 'XQMpYafXWzKsPzG6ZWvYXTF7fuxlovvG8Qd2A2QnGtGMB9YtQMHVqbsUDwxMjiTn'\
+              \ >> id_rsa \n"
+            - "echo 'VBZILkDf+WCwQ98P5UMoumI0goIcNZ+AXhcqrikCgYBkSwLvKfYfqH9Mvfv5Odsr'\
+              \ >> id_rsa \n"
+            - "echo '9NKUv1c20FB1BYYh/mxp6eIbTW/CbwXZup6IqCvoHxpBAlna77b3T6iibSDsTgtE'\
+              \ >> id_rsa \n"
+            - "echo 'kirw6Q8/mBukBrpWZGa4QeJ4nPBQuncuUmx4H/7Y6CaZkZW5DiMF8OIbEmYT0y7+'\
+              \ >> id_rsa \n"
+            - "echo 'zh222r9CLtFYH23aL/uSLwKBgQCS1xyG2eE41aw5RBznDWtJW15iA5If8sJD5ocu'\
+              \ >> id_rsa \n"
+            - "echo 'eWp2aImUQS8ghxdmEozI6U5WA7CmdWUyObFXTPc/Z6FLXwqJ5IZ+CRt0neuIFNSA'\
+              \ >> id_rsa \n"
+            - "echo 'EQy9iFQ1FBUW06BRQpBns7yOg9jr6BOTxchjIV0I9caDp1nKRIrWU9NQ9iCFnYVA'\
+              \ >> id_rsa \n"
+            - "echo '7IsvQQKBgFxgF7UOhwaiMb/ATSuhm2v9kVvRPEO9umdo7YJ9I4L09lYbAtpcnusQ'\
+              \ >> id_rsa \n"
+            - "echo 'fIROYL25VeEMgYcQyInc3Fm/sgJdbXQnUy+3QbbCcBCmcLj27LPQyxuu7p9hbPPT'\
+              \ >> id_rsa \n"
+            - "echo 'Mxx37OmYvOkSVTQz0T9HfDGvOJgt4t4cXD4T/7ewk62p6jdpSQrt' >> id_rsa\
+              \ \n"
+            - "echo '-----END RSA PRIVATE KEY-----' >> id_rsa \n"
+            - "echo 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDN9D9AfBYHWeNT35a7dFiL2D6DmvJ1KkATSSV59Mm5mO1xqJxIJ4E3lq+KHxROhnXjz4R/ZjM62iiyqW5mmhgsI9KkCqvyma+IEkhTe9+72acMb0uh69PorzDfAIFEKaq769zROmO78R4K5grf7zDt7YjoXf7MhjOGFfeqaShyN7sAKdXKHYMH/abeyiBMxzRFP7nLeQkCcLpM4iUaxiM46Q9sQXch+fWjhmM4U6ZCVxEl6vjUTqtN1cDFLa4M0wUEJ/1fLHs70n4QtMIBdziHsATpYt1BvkCnO/i3UqzAIC1F6c/XEZxRhjwj8lRPZW8Fa1Al6eeuT2Os9lQUNyZz\
+              \ root@iZ2zee53wf4ndvajz30cdvZ' > id_rsa.pub \n"
+            - "cp id_rsa.pub authorized_keys \n"
+            - "chmod 600 authorized_keys \n"
+            - "chmod 600 id_rsa \n"
+            - "sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/'\
+              \ /etc/ssh/ssh_config \n"
+            - "sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/ssh_config\
+              \ \n"
+            - "service sshd restart \n"
+            - 'ros-notify -d ''{"data" : "Install Hadoop."}''
+
+              '
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0f5339fe-ee76-42a3-978f-6aabefc4294a
+  Slave1ConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e5375b69-14cd-48fb-aa26-12cdc177dfc6
+  Slave1WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: Slave1ConditionHandle
+      Timeout: 1800
+    DependsOn: Slave1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: bffbd7dc-7ff3-4b5b-a8a9-bde99c829f74
+  Slave2:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - Slave2ConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/bash \n"
+            - "# set -e \n"
+            - Slave2Name=
+            - Ref: Slave2Name
+            - '
+
+              '
+            - "hostnamectl --static set-hostname \"$Slave2Name\" \n"
+            - "export HOME=/root \n"
+            - "export HOSTNAME=`hostname` \n"
+            - "ip_addr=`ifconfig eth0 | awk '/inet /{print $2}'` \n"
+            - "cd /root \n"
+            - "rm -rf .ssh \n"
+            - "ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+            - "cd /root/.ssh \n"
+            - "rm -f * \n"
+            - "echo '-----BEGIN RSA PRIVATE KEY-----' > id_rsa \n"
+            - "echo 'MIIEowIBAAKCAQEAzfQ/QHwWB1njU9+Wu3RYi9g+g5rydSpAE0klefTJuZjtcaic'\
+              \ >> id_rsa \n"
+            - "echo 'SCeBN5avih8UToZ148+Ef2YzOtoosqluZpoYLCPSpAqr8pmviBJIU3vfu9mnDG9L'\
+              \ >> id_rsa \n"
+            - "echo 'oevT6K8w3wCBRCmqu+vc0Tpju/EeCuYK3+8w7e2I6F3+zIYzhhX3qmkocje7ACnV'\
+              \ >> id_rsa \n"
+            - "echo 'yh2DB/2m3sogTMc0RT+5y3kJAnC6TOIlGsYjOOkPbEF3Ifn1o4ZjOFOmQlcRJer4'\
+              \ >> id_rsa \n"
+            - "echo '1E6rTdXAxS2uDNMFBCf9Xyx7O9J+ELTCAXc4h7AE6WLdQb5Apzv4t1KswCAtRenP'\
+              \ >> id_rsa \n"
+            - "echo '1xGcUYY8I/JUT2VvBWtQJennrk9jrPZUFDcmcwIDAQABAoIBAAwzDZQaRYvF7UtI'\
+              \ >> id_rsa \n"
+            - "echo 'kTslVyFhe8J76SS7jfQWfxvMPi66OkZjQG6duG+8g0VhNei42j7WSfjp6trvlT2P'\
+              \ >> id_rsa \n"
+            - "echo '/7QgKJJkxNNmtmy2Ycljm9kmG0ibSePYq9g5ieHcjr6G3yFUfoKHJBtYpBO74pWu'\
+              \ >> id_rsa \n"
+            - "echo 'rrI5DuLpERUCjFc9E8w7fOIhPH4XZ6wk/EmPxHTgxZk+aMvqptyPSbUyiUOvCiZf'\
+              \ >> id_rsa \n"
+            - "echo 'MD0ircs9vgtslMVDlz9m6CoiNz6B3Yf6eLRoGGMiGnsQzZHIfnHCMX8i65Jc+TvQ'\
+              \ >> id_rsa \n"
+            - "echo 'fLopIHzwBwI55xpcOIBRgYiEAQJhLsSNSFugoxMcwe9RalTGGS21HOQu4b3ZylKM'\
+              \ >> id_rsa \n"
+            - "echo '8ofEVKECgYEA/Y4MzN04wAsM1yNuHN+9sdiVLG28LWH3dgpcXqa9gyNsWs9Gf8uf'\
+              \ >> id_rsa \n"
+            - "echo 'qbuvQGeKDRXCW93wO1jO+pCYVrkyY3l+KhBKIqmkJT5gFsa8dBUvEBLALiHNg3+o'\
+              \ >> id_rsa \n"
+            - "echo 'jR2Vqsemk8kMZA8zfJ3FKcMb1pt4S2GqepqsdC3DgzIIsxufCh7jSzsCgYEAz/Cv'\
+              \ >> id_rsa \n"
+            - "echo 'Z7gAdSFC8q6QxFxSyhfZwGA6QW6ZU7rZv9ZdGySvZg+vHbpNVmQ0BAQzJui3Qs9u'\
+              \ >> id_rsa \n"
+            - "echo 'XQMpYafXWzKsPzG6ZWvYXTF7fuxlovvG8Qd2A2QnGtGMB9YtQMHVqbsUDwxMjiTn'\
+              \ >> id_rsa \n"
+            - "echo 'VBZILkDf+WCwQ98P5UMoumI0goIcNZ+AXhcqrikCgYBkSwLvKfYfqH9Mvfv5Odsr'\
+              \ >> id_rsa \n"
+            - "echo '9NKUv1c20FB1BYYh/mxp6eIbTW/CbwXZup6IqCvoHxpBAlna77b3T6iibSDsTgtE'\
+              \ >> id_rsa \n"
+            - "echo 'kirw6Q8/mBukBrpWZGa4QeJ4nPBQuncuUmx4H/7Y6CaZkZW5DiMF8OIbEmYT0y7+'\
+              \ >> id_rsa \n"
+            - "echo 'zh222r9CLtFYH23aL/uSLwKBgQCS1xyG2eE41aw5RBznDWtJW15iA5If8sJD5ocu'\
+              \ >> id_rsa \n"
+            - "echo 'eWp2aImUQS8ghxdmEozI6U5WA7CmdWUyObFXTPc/Z6FLXwqJ5IZ+CRt0neuIFNSA'\
+              \ >> id_rsa \n"
+            - "echo 'EQy9iFQ1FBUW06BRQpBns7yOg9jr6BOTxchjIV0I9caDp1nKRIrWU9NQ9iCFnYVA'\
+              \ >> id_rsa \n"
+            - "echo '7IsvQQKBgFxgF7UOhwaiMb/ATSuhm2v9kVvRPEO9umdo7YJ9I4L09lYbAtpcnusQ'\
+              \ >> id_rsa \n"
+            - "echo 'fIROYL25VeEMgYcQyInc3Fm/sgJdbXQnUy+3QbbCcBCmcLj27LPQyxuu7p9hbPPT'\
+              \ >> id_rsa \n"
+            - "echo 'Mxx37OmYvOkSVTQz0T9HfDGvOJgt4t4cXD4T/7ewk62p6jdpSQrt' >> id_rsa\
+              \ \n"
+            - "echo '-----END RSA PRIVATE KEY-----' >> id_rsa \n"
+            - "echo 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDN9D9AfBYHWeNT35a7dFiL2D6DmvJ1KkATSSV59Mm5mO1xqJxIJ4E3lq+KHxROhnXjz4R/ZjM62iiyqW5mmhgsI9KkCqvyma+IEkhTe9+72acMb0uh69PorzDfAIFEKaq769zROmO78R4K5grf7zDt7YjoXf7MhjOGFfeqaShyN7sAKdXKHYMH/abeyiBMxzRFP7nLeQkCcLpM4iUaxiM46Q9sQXch+fWjhmM4U6ZCVxEl6vjUTqtN1cDFLa4M0wUEJ/1fLHs70n4QtMIBdziHsATpYt1BvkCnO/i3UqzAIC1F6c/XEZxRhjwj8lRPZW8Fa1Al6eeuT2Os9lQUNyZz\
+              \ root@iZ2zee53wf4ndvajz30cdvZ' > id_rsa.pub \n"
+            - "cp id_rsa.pub authorized_keys \n"
+            - "chmod 600 authorized_keys \n"
+            - "chmod 600 id_rsa \n"
+            - "sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/'\
+              \ /etc/ssh/ssh_config \n"
+            - "sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/ssh_config\
+              \ \n"
+            - "service sshd restart \n"
+            - 'ros-notify -d ''{"data" : "Install Hadoop."}''
+
+              '
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1c75eeb8-877b-4420-b85a-3accb3b2d7f2
+  Slave2ConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 30b37e0f-fa01-4e16-931e-7fdb567634d0
+  Slave2WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: Slave2ConditionHandle
+      Timeout: 1800
+    DependsOn: Slave2
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: caeb9a88-c55d-451b-8ed5-f052046b3ed9
+  Master:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: false
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - MasterConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/bash \n"
+            - "# set -e \n"
+            - ipaddr_slave1=
+            - Fn::GetAtt:
+              - Slave1
+              - PrivateIp
+            - '
+
+              '
+            - ipaddr_slave2=
+            - Fn::GetAtt:
+              - Slave2
+              - PrivateIp
+            - '
+
+              '
+            - HADOOP_HOME=
+            - Ref: HadoopHome
+            - '
+
+              '
+            - HadoopUrl=
+            - Ref: HadoopUrl
+            - '
+
+              '
+            - MasterName=
+            - Ref: MasterName
+            - '
+
+              '
+            - Slave1Name=
+            - Ref: Slave1Name
+            - '
+
+              '
+            - Slave2Name=
+            - Ref: Slave2Name
+            - '
+
+              '
+            - "hostnamectl --static set-hostname \"$MasterName\" \n"
+            - "export HOME=/root \n"
+            - "export HOSTNAME=`hostname` \n"
+            - "ip_addr=`ifconfig eth0 | awk '/inet /{print $2}'` \n"
+            - "cd /root \n"
+            - "rm -rf .ssh \n"
+            - "ssh-keygen -t rsa -P '' -f '/root/.ssh/id_rsa' \n"
+            - "cd /root/.ssh \n"
+            - "mv id_rsa bak.id_rsa \n"
+            - "mv id_rsa.pub bak.id_rsa.pub \n"
+            - "echo '-----BEGIN RSA PRIVATE KEY-----' > id_rsa \n"
+            - "echo 'MIIEowIBAAKCAQEAzfQ/QHwWB1njU9+Wu3RYi9g+g5rydSpAE0klefTJuZjtcaic'\
+              \ >> id_rsa \n"
+            - "echo 'SCeBN5avih8UToZ148+Ef2YzOtoosqluZpoYLCPSpAqr8pmviBJIU3vfu9mnDG9L'\
+              \ >> id_rsa \n"
+            - "echo 'oevT6K8w3wCBRCmqu+vc0Tpju/EeCuYK3+8w7e2I6F3+zIYzhhX3qmkocje7ACnV'\
+              \ >> id_rsa \n"
+            - "echo 'yh2DB/2m3sogTMc0RT+5y3kJAnC6TOIlGsYjOOkPbEF3Ifn1o4ZjOFOmQlcRJer4'\
+              \ >> id_rsa \n"
+            - "echo '1E6rTdXAxS2uDNMFBCf9Xyx7O9J+ELTCAXc4h7AE6WLdQb5Apzv4t1KswCAtRenP'\
+              \ >> id_rsa \n"
+            - "echo '1xGcUYY8I/JUT2VvBWtQJennrk9jrPZUFDcmcwIDAQABAoIBAAwzDZQaRYvF7UtI'\
+              \ >> id_rsa \n"
+            - "echo 'kTslVyFhe8J76SS7jfQWfxvMPi66OkZjQG6duG+8g0VhNei42j7WSfjp6trvlT2P'\
+              \ >> id_rsa \n"
+            - "echo '/7QgKJJkxNNmtmy2Ycljm9kmG0ibSePYq9g5ieHcjr6G3yFUfoKHJBtYpBO74pWu'\
+              \ >> id_rsa \n"
+            - "echo 'rrI5DuLpERUCjFc9E8w7fOIhPH4XZ6wk/EmPxHTgxZk+aMvqptyPSbUyiUOvCiZf'\
+              \ >> id_rsa \n"
+            - "echo 'MD0ircs9vgtslMVDlz9m6CoiNz6B3Yf6eLRoGGMiGnsQzZHIfnHCMX8i65Jc+TvQ'\
+              \ >> id_rsa \n"
+            - "echo 'fLopIHzwBwI55xpcOIBRgYiEAQJhLsSNSFugoxMcwe9RalTGGS21HOQu4b3ZylKM'\
+              \ >> id_rsa \n"
+            - "echo '8ofEVKECgYEA/Y4MzN04wAsM1yNuHN+9sdiVLG28LWH3dgpcXqa9gyNsWs9Gf8uf'\
+              \ >> id_rsa \n"
+            - "echo 'qbuvQGeKDRXCW93wO1jO+pCYVrkyY3l+KhBKIqmkJT5gFsa8dBUvEBLALiHNg3+o'\
+              \ >> id_rsa \n"
+            - "echo 'jR2Vqsemk8kMZA8zfJ3FKcMb1pt4S2GqepqsdC3DgzIIsxufCh7jSzsCgYEAz/Cv'\
+              \ >> id_rsa \n"
+            - "echo 'Z7gAdSFC8q6QxFxSyhfZwGA6QW6ZU7rZv9ZdGySvZg+vHbpNVmQ0BAQzJui3Qs9u'\
+              \ >> id_rsa \n"
+            - "echo 'XQMpYafXWzKsPzG6ZWvYXTF7fuxlovvG8Qd2A2QnGtGMB9YtQMHVqbsUDwxMjiTn'\
+              \ >> id_rsa \n"
+            - "echo 'VBZILkDf+WCwQ98P5UMoumI0goIcNZ+AXhcqrikCgYBkSwLvKfYfqH9Mvfv5Odsr'\
+              \ >> id_rsa \n"
+            - "echo '9NKUv1c20FB1BYYh/mxp6eIbTW/CbwXZup6IqCvoHxpBAlna77b3T6iibSDsTgtE'\
+              \ >> id_rsa \n"
+            - "echo 'kirw6Q8/mBukBrpWZGa4QeJ4nPBQuncuUmx4H/7Y6CaZkZW5DiMF8OIbEmYT0y7+'\
+              \ >> id_rsa \n"
+            - "echo 'zh222r9CLtFYH23aL/uSLwKBgQCS1xyG2eE41aw5RBznDWtJW15iA5If8sJD5ocu'\
+              \ >> id_rsa \n"
+            - "echo 'eWp2aImUQS8ghxdmEozI6U5WA7CmdWUyObFXTPc/Z6FLXwqJ5IZ+CRt0neuIFNSA'\
+              \ >> id_rsa \n"
+            - "echo 'EQy9iFQ1FBUW06BRQpBns7yOg9jr6BOTxchjIV0I9caDp1nKRIrWU9NQ9iCFnYVA'\
+              \ >> id_rsa \n"
+            - "echo '7IsvQQKBgFxgF7UOhwaiMb/ATSuhm2v9kVvRPEO9umdo7YJ9I4L09lYbAtpcnusQ'\
+              \ >> id_rsa \n"
+            - "echo 'fIROYL25VeEMgYcQyInc3Fm/sgJdbXQnUy+3QbbCcBCmcLj27LPQyxuu7p9hbPPT'\
+              \ >> id_rsa \n"
+            - "echo 'Mxx37OmYvOkSVTQz0T9HfDGvOJgt4t4cXD4T/7ewk62p6jdpSQrt' >> id_rsa\
+              \ \n"
+            - "echo '-----END RSA PRIVATE KEY-----' >> id_rsa \n"
+            - "echo 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDN9D9AfBYHWeNT35a7dFiL2D6DmvJ1KkATSSV59Mm5mO1xqJxIJ4E3lq+KHxROhnXjz4R/ZjM62iiyqW5mmhgsI9KkCqvyma+IEkhTe9+72acMb0uh69PorzDfAIFEKaq769zROmO78R4K5grf7zDt7YjoXf7MhjOGFfeqaShyN7sAKdXKHYMH/abeyiBMxzRFP7nLeQkCcLpM4iUaxiM46Q9sQXch+fWjhmM4U6ZCVxEl6vjUTqtN1cDFLa4M0wUEJ/1fLHs70n4QtMIBdziHsATpYt1BvkCnO/i3UqzAIC1F6c/XEZxRhjwj8lRPZW8Fa1Al6eeuT2Os9lQUNyZz\
+              \ root@iZ2zee53wf4ndvajz30cdvZ' > id_rsa.pub \n"
+            - "cp id_rsa.pub authorized_keys \n"
+            - "chmod 600 authorized_keys \n"
+            - "chmod 600 id_rsa \n"
+            - "sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/'\
+              \ /etc/ssh/ssh_config \n"
+            - "sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/ssh_config\
+              \ \n"
+            - "service sshd restart \n"
+            - "scp -r /root/.ssh/bak.*  root@$ipaddr_slave1:/root/.ssh/  \n"
+            - "scp -r /root/.ssh/bak.*  root@$ipaddr_slave2:/root/.ssh/  \n"
+            - "ssh root@$ipaddr_slave1 \"cd /root/.ssh; rm -f id_rsa; mv bak.id_rsa\
+              \ id_rsa; rm -f id_rsa.pub; mv bak.id_rsa.pub id_rsa.pub; rm -f authorized_keys;\
+              \ cp id_rsa.pub authorized_keys; chmod 600 authorized_keys; chmod 600\
+              \ id_rsa; exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"cd /root/.ssh; rm id_rsa; mv bak.id_rsa id_rsa;\
+              \ rm id_rsa.pub; mv bak.id_rsa.pub id_rsa.pub; rm authorized_keys; cp\
+              \ id_rsa.pub authorized_keys; chmod 600 authorized_keys; chmod 600 id_rsa;\
+              \ exit\" \n"
+            - "cd /root/.ssh \n rm id_rsa \n mv bak.id_rsa id_rsa \n rm id_rsa.pub\
+              \ \n mv bak.id_rsa.pub id_rsa.pub \n rm authorized_keys \n cp id_rsa.pub\
+              \ authorized_keys \n chmod 600 authorized_keys \n chmod 600 id_rsa \n\
+              \ cd \n"
+            - " \n"
+            - "echo $ip_addr $MasterName >> /etc/hosts \n"
+            - "echo $ipaddr_slave1 $Slave1Name >> /etc/hosts \n"
+            - "echo $ipaddr_slave2 $Slave2Name >> /etc/hosts \n"
+            - "ssh root@$ipaddr_slave1 \"echo $ip_addr $MasterName >> /etc/hosts;\
+              \ exit\" \n"
+            - "ssh root@$ipaddr_slave1 \"echo $ipaddr_slave1 $Slave1Name >> /etc/hosts;\
+              \ exit\" \n"
+            - "ssh root@$ipaddr_slave1 \"echo $ipaddr_slave2 $Slave2Name >> /etc/hosts;\
+              \ exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"echo $ip_addr $MasterName >> /etc/hosts;\
+              \ exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"echo $ipaddr_slave1 $Slave1Name >> /etc/hosts;\
+              \ exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"echo $ipaddr_slave2 $Slave2Name >> /etc/hosts;\
+              \ exit\" \n"
+            - " \n"
+            - "cd /root \n"
+            - "yum -y install aria2 \n"
+            - "yum -y install java \n"
+            - "ssh root@$ipaddr_slave1 \"yum -y install java; exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"yum -y install java; exit\" \n"
+            - " \n"
+            - "cd /root \n"
+            - "aria2c $HadoopUrl \n"
+            - "mkdir -p $HADOOP_HOME \ntar zxvf hadoop-*.tar.gz -C $HADOOP_HOME \n\
+              cd $HADOOP_HOME \nmv hadoop-*.*/* ./ \nrmdir hadoop-*.* \n"
+            - "echo >> /etc/profile \n"
+            - "echo export HADOOP_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_MAPRED_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_COMMON_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native >>\
+              \ /etc/profile \n"
+            - "echo export YARN_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_HDFS_HOME=$HADOOP_HOME >> /etc/profile \n"
+            - "echo export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop >> /etc/profile\
+              \ \n"
+            - "echo export HADOOP_OPTS=-Djava.library.path=$HADOOP_HOME/lib:$HADOOP_HOME/lib/native\
+              \ >> /etc/profile \n"
+            - "echo export PATH=$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH >> /etc/profile\
+              \ \n"
+            - "echo export CLASSPATH=.:$CLASSPATH:$HADOOP_HOME/lib >> /etc/profile\
+              \ \n"
+            - "source /etc/profile \n"
+            - " \n"
+            - "mkdir -p $HADOOP_HOME/tmp \n"
+            - "mkdir -p $HADOOP_HOME/dfs/name \n"
+            - "mkdir -p $HADOOP_HOME/dfs/data \n"
+            - "echo >> /etc/profile \n"
+            - "JAVA_HOME=`find /usr/lib/jvm -name 'java-1.8.0-openjdk-1.8.0*'` \n"
+            - "echo export JAVA_HOME=$JAVA_HOME/jre   >> /etc/profile \n"
+            - "echo export JRE_HOME=$JAVA_HOME/jre  >> /etc/profile \n"
+            - "source /etc/profile \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp hadoop-env.sh bak.hadoop-env.sh \n"
+            - "sed -i '/export JAVA_HOME=/{s/^/# /}' hadoop-env.sh \n"
+            - "sed -i \"/# export JAVA_HOME=/a export JAVA_HOME=$JAVA_HOME\" hadoop-env.sh\
+              \ \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp core-site.xml bak.core-site.xml \n"
+            - "echo '<configuration>' > core-site.xml \n"
+            - "echo '  <property>' >> core-site.xml \n"
+            - "echo '    <name>hadoop.tmp.dir</name>' >> core-site.xml \n"
+            - "echo \"    <value>$HADOOP_HOME/tmp</value>\" >> core-site.xml \n"
+            - "echo '  </property>' >> core-site.xml \n"
+            - "echo '' >> core-site.xml \n"
+            - "echo '  <property>' >> core-site.xml \n"
+            - "echo '    <name>fs.default.name</name>' >> core-site.xml \n"
+            - "echo \"    <value>hdfs://$ip_addr:9000</value>\" >> core-site.xml \n"
+            - "echo '  </property>' >> core-site.xml \n"
+            - "echo '</configuration>' >> core-site.xml \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp hdfs-site.xml bak.hdfs-site.xml \n"
+            - "echo '<configuration>' > hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.namenode.name.dir</name>' >> hdfs-site.xml \n"
+            - "echo \"    <value>file://$HADOOP_HOME/dfs/name</value>\" >> hdfs-site.xml\
+              \ \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.datanode.data.dir</name>' >> hdfs-site.xml \n"
+            - "echo \"    <value>file://$HADOOP_HOME/dfs/data</value>\" >> hdfs-site.xml\
+              \ \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.replication</name>' >> hdfs-site.xml \n"
+            - "echo '    <value>1</value>' >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.nameservices</name>' >> hdfs-site.xml \n"
+            - "echo '    <value>hadoop-cluster1</value>' >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.namenode.secondary.http-address</name>' >> hdfs-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:50090</value>\" >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '' >> hdfs-site.xml \n"
+            - "echo '  <property>' >> hdfs-site.xml \n"
+            - "echo '    <name>dfs.webhdfs.enabled</name>' >> hdfs-site.xml \n"
+            - "echo '    <value>true</value>' >> hdfs-site.xml \n"
+            - "echo '  </property>' >> hdfs-site.xml \n"
+            - "echo '</configuration>' >> hdfs-site.xml \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp mapred-site.xml.template  mapred-site.xml \n"
+            - "echo '<configuration>' > mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.framework.name</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo '    <value>yarn</value>' >> mapred-site.xml \n"
+            - "echo '    <final>true</final>' >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.jobtracker.http.address</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:50030</value>\" >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.jobhistory.address</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:10020</value>\" >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapreduce.jobhistory.webapp.address</name>' >> mapred-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:19888</value>\" >> mapred-site.xml \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '' >> mapred-site.xml \n"
+            - "echo '  <property>' >> mapred-site.xml \n"
+            - "echo '    <name>mapred.job.tracker</name>' >> mapred-site.xml \n"
+            - "echo \"    <value>http://$ip_addr:9001</value>\" >> mapred-site.xml\
+              \ \n"
+            - "echo '  </property>' >> mapred-site.xml \n"
+            - "echo '</configuration>' >> mapred-site.xml \n"
+            - " \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "cp yarn-site.xml bak.yarn-site.xml \n"
+            - "echo '<configuration>' > yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.hostname</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.nodemanager.aux-services</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo '    <value>mapreduce_shuffle</value>' >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8032</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.scheduler.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8030</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.resource-tracker.address</name>'\
+              \ >> yarn-site.xml \n"
+            - "echo \"    <value>$ip_addr:8031</value>\" >> yarn-site.xml \n"
+            - "echo '    </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.admin.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8033</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '  <property>' >> yarn-site.xml \n"
+            - "echo '    <name>yarn.resourcemanager.webapp.address</name>' >> yarn-site.xml\
+              \ \n"
+            - "echo \"    <value>$ip_addr:8088</value>\" >> yarn-site.xml \n"
+            - "echo '  </property>' >> yarn-site.xml \n"
+            - "echo '</configuration>' >> yarn-site.xml \n"
+            - "sed -i 304s/'$JAVA'/'java'/ /usr/local/hadoop/hadoop-2.7.7/bin/hdfs\
+              \ \n"
+            - " \n"
+            - "ssh root@$ipaddr_slave1 \"mkdir -p $HADOOP_HOME; echo export HADOOP_HOME=$HADOOP_HOME\
+              \ >> /etc/profile; echo export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin\
+              \ >> /etc/profile; source /etc/profile;exit\" \n"
+            - "ssh root@$ipaddr_slave2 \"mkdir -p $HADOOP_HOME; echo export HADOOP_HOME=$HADOOP_HOME\
+              \ >> /etc/profile; echo export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin\
+              \ >> /etc/profile; source /etc/profile;exit\" \n"
+            - "scp -r $HADOOP_HOME/*  root@$ipaddr_slave1:$HADOOP_HOME \n"
+            - "scp -r $HADOOP_HOME/*  root@$ipaddr_slave2:$HADOOP_HOME \n"
+            - "cd $HADOOP_HOME/etc/hadoop \n"
+            - "echo $ipaddr_slave1 > slaves \n"
+            - "echo $ipaddr_slave2 >> slaves \n"
+            - " \n"
+            - "cd /root \n"
+            - "hadoop namenode -format \n"
+            - "systemctl stop  firewalld \n"
+            - "start-dfs.sh \n"
+            - "start-yarn.sh \n"
+            - 'ros-notify -d ''{"data" : "Install Hadoop."}''
+
+              '
+    DependsOn:
+    - SNatEntry
+    - Slave1WaitCondition
+    - Slave2WaitCondition
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 96c6590c-58d9-4a0d-9e67-7803b16aaeb4
+  ForwardEntry:
+    Type: ALIYUN::ECS::ForwardEntry
+    Properties:
+      ExternalIp:
+        Fn::GetAtt:
+        - EipForward
+        - EipAddress
+      ExternalPort: Any
+      ForwardTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - ForwardTableId
+      InternalIp:
+        Fn::GetAtt:
+        - Master
+        - PrivateIp
+      InternalPort: Any
+      IpProtocol: Any
+    DependsOn:
+    - EIpForwardAssociation
+    - Master
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 00ff5a48-f222-4595-a3b6-7414838c178f
+  MasterConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1d67480f-20c5-4326-845a-159dab70ee21
+  MasterWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: MasterConditionHandle
+      Timeout: 7200
+    DependsOn: Master
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 16a0c447-b749-4da0-9e2b-95f1b1611a21
+Outputs:
+  WebsiteURL:
+    Description: URL for newly created Hadoop environment.
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - EipForward
+          - EipAddress
+        - :50070
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcName
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - ZoneId
+      - InstanceName
+      - InstanceType
+      - SystemDiskCategory
+      - ImageId
+      - InstancePassword
+      Label:
+        default: ECS
+    - Parameters:
+      - MasterName
+      - HadoopHome
+      - Slave1Name
+      - Slave2Name
+      - HadoopUrl
+      Label:
+        default: Hadoop
+    TemplateTags:
+    - acs:example:大数据:部署Hadoop分布式开发环境
+  ALIYUN::ROS::Designer:
+    00ff5a48-f222-4595-a3b6-7414838c178f:
+      position:
+        x: 133
+        y: 250
+      size:
+        height: 60
+        width: 60
+      z: 0
+    06cd4b68-e32e-44be-b752-aaed0d8db652:
+      source:
+        id: 16a0c447-b749-4da0-9e2b-95f1b1611a21
+      target:
+        id: 1d67480f-20c5-4326-845a-159dab70ee21
+      z: 1
+    0f3cadf0-765f-4237-b40f-fa8a284d7afe:
+      source:
+        id: 00ff5a48-f222-4595-a3b6-7414838c178f
+      target:
+        id: 39f70e6c-a7b4-4473-b407-07f461e03d23
+      z: 1
+    0f5339fe-ee76-42a3-978f-6aabefc4294a:
+      position:
+        x: 445
+        y: 251
+      size:
+        height: 60
+        width: 60
+      z: 2
+    1089c328-ff87-429f-aaa4-0825f192455e:
+      source:
+        id: e2e08de0-323e-49a7-b053-5041fdc6f0f3
+      target:
+        id: 39f70e6c-a7b4-4473-b407-07f461e03d23
+      z: 1
+    16a0c447-b749-4da0-9e2b-95f1b1611a21:
+      position:
+        x: 726
+        y: 95
+      size:
+        height: 60
+        width: 60
+      z: 0
+    17a59772-dfbd-44d2-8ca2-4c44f57baddd:
+      source:
+        id: 2159c0c9-c9a3-47c0-ae83-8ca4f87e2156
+      target:
+        id: 39f70e6c-a7b4-4473-b407-07f461e03d23
+      z: 1
+    1c75eeb8-877b-4420-b85a-3accb3b2d7f2:
+      position:
+        x: 546
+        y: 250
+      size:
+        height: 60
+        width: 60
+      z: 2
+    1d67480f-20c5-4326-845a-159dab70ee21:
+      position:
+        x: 913
+        y: 95
+      size:
+        height: 60
+        width: 60
+      z: 0
+    2159c0c9-c9a3-47c0-ae83-8ca4f87e2156:
+      position:
+        x: 544
+        y: 136
+      size:
+        height: 60
+        width: 60
+      z: 2
+    30b37e0f-fa01-4e16-931e-7fdb567634d0:
+      position:
+        x: 916
+        y: 304
+      size:
+        height: 60
+        width: 60
+      z: 0
+    3298cc13-9935-433d-996c-ec338d06e94a:
+      source:
+        id: 1c75eeb8-877b-4420-b85a-3accb3b2d7f2
+      target:
+        id: 898f58f1-ef94-405c-bb18-a4c4f7abc3ab
+      z: 1
+    3598d6e4-721f-4b72-b351-5ed4b7be2fe8:
+      source:
+        id: 00ff5a48-f222-4595-a3b6-7414838c178f
+      target:
+        id: 506a163b-1c58-4ad5-9066-92b7edfdedce
+      z: 1
+    39f70e6c-a7b4-4473-b407-07f461e03d23:
+      position:
+        x: 342
+        y: 136
+      size:
+        height: 60
+        width: 60
+      z: 2
+    46612f8f-df5e-4bcc-bf40-074043a68c2a:
+      embeds:
+      - 0f5339fe-ee76-42a3-978f-6aabefc4294a
+      - 1c75eeb8-877b-4420-b85a-3accb3b2d7f2
+      - 2159c0c9-c9a3-47c0-ae83-8ca4f87e2156
+      - 39f70e6c-a7b4-4473-b407-07f461e03d23
+      - 96c6590c-58d9-4a0d-9e67-7803b16aaeb4
+      position:
+        x: 305
+        y: 92
+      size:
+        height: 251
+        width: 322
+      z: 1
+    506a163b-1c58-4ad5-9066-92b7edfdedce:
+      position:
+        x: 133
+        y: 136
+      size:
+        height: 60
+        width: 60
+      z: 0
+    80279467-8d2e-4920-8af4-e2050bc17de0:
+      source:
+        id: caeb9a88-c55d-451b-8ed5-f052046b3ed9
+      target:
+        id: 30b37e0f-fa01-4e16-931e-7fdb567634d0
+      z: 1
+    898f58f1-ef94-405c-bb18-a4c4f7abc3ab:
+      position:
+        x: 445
+        y: 370
+      size:
+        height: 60
+        width: 60
+      z: 1
+    96c6590c-58d9-4a0d-9e67-7803b16aaeb4:
+      position:
+        x: 345
+        y: 250
+      size:
+        height: 60
+        width: 60
+      z: 2
+    9829fd2c-191c-40dc-bd7f-f1f62800ae4b:
+      source:
+        id: e2e08de0-323e-49a7-b053-5041fdc6f0f3
+      target:
+        id: 506a163b-1c58-4ad5-9066-92b7edfdedce
+      z: 1
+    b05db7d9-8f41-4d16-ae4b-3baa04ab45e5:
+      source:
+        id: 96c6590c-58d9-4a0d-9e67-7803b16aaeb4
+      target:
+        id: 898f58f1-ef94-405c-bb18-a4c4f7abc3ab
+      z: 1
+    b20d6b39-dcda-43bd-ab17-bc2de4be9f31:
+      source:
+        id: d92324dc-db61-44ca-8c00-08475f973c9f
+      target:
+        id: 39f70e6c-a7b4-4473-b407-07f461e03d23
+      z: 1
+    b6d9f4e1-14a3-4022-817a-b2dddcb17ada:
+      embeds:
+      - 46612f8f-df5e-4bcc-bf40-074043a68c2a
+      - 898f58f1-ef94-405c-bb18-a4c4f7abc3ab
+      position:
+        x: 286
+        y: 52
+      size:
+        height: 399
+        width: 417
+      z: 0
+    bc7d19e4-e5ee-43bd-8847-a83896217daa:
+      source:
+        id: 2159c0c9-c9a3-47c0-ae83-8ca4f87e2156
+      target:
+        id: d910d9f4-4e43-4041-91b7-dbcd07c50632
+      z: 1
+    bffbd7dc-7ff3-4b5b-a8a9-bde99c829f74:
+      position:
+        x: 726
+        y: 199
+      size:
+        height: 60
+        width: 60
+      z: 0
+    c70507f2-a29a-42a3-aaff-11e4951d7b46:
+      source:
+        id: d92324dc-db61-44ca-8c00-08475f973c9f
+      target:
+        id: d910d9f4-4e43-4041-91b7-dbcd07c50632
+      z: 1
+    caeb9a88-c55d-451b-8ed5-f052046b3ed9:
+      position:
+        x: 723
+        y: 304
+      size:
+        height: 60
+        width: 60
+      z: 0
+    d70eb456-e5ad-4420-967a-2f7b92dc931a:
+      source:
+        id: bffbd7dc-7ff3-4b5b-a8a9-bde99c829f74
+      target:
+        id: e5375b69-14cd-48fb-aa26-12cdc177dfc6
+      z: 1
+    d729c1cd-968a-44c0-8506-30538655ffb9:
+      source:
+        id: 0f5339fe-ee76-42a3-978f-6aabefc4294a
+      target:
+        id: 898f58f1-ef94-405c-bb18-a4c4f7abc3ab
+      z: 1
+    d910d9f4-4e43-4041-91b7-dbcd07c50632:
+      position:
+        x: 544
+        y: -16
+      size:
+        height: 60
+        width: 60
+      z: 0
+    d92324dc-db61-44ca-8c00-08475f973c9f:
+      position:
+        x: 342
+        y: -16
+      size:
+        height: 60
+        width: 60
+      z: 0
+    e2e08de0-323e-49a7-b053-5041fdc6f0f3:
+      position:
+        x: 133
+        y: 27
+      size:
+        height: 60
+        width: 60
+      z: 0
+    e5375b69-14cd-48fb-aa26-12cdc177dfc6:
+      position:
+        x: 911
+        y: 199
+      size:
+        height: 60
+        width: 60
+      z: 0
+    ed3cd78c-b240-4359-b305-bc8058d644f8:
+      source:
+        id: 00ff5a48-f222-4595-a3b6-7414838c178f
+      target:
+        id: 96c6590c-58d9-4a0d-9e67-7803b16aaeb4
+      z: 1

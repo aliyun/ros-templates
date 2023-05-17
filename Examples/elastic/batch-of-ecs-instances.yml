@@ -1,0 +1,526 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: This template supports bulk creation of ECS instances for pay-per-view or annual
+    package months, and supports scenarios where you already have a VPC, VSW, SG,
+    or new VPC, VSW, SG
+  zh-cn: 此模板支持批量创建按量付费或包年包月的ECS实例，并且支持选择已有VPC，VSW，SG或新建VPC，VSW，SG的场景
+Conditions:
+  CreatePrepay:
+    Fn::Equals:
+    - null
+    - Ref: ECSPeriod
+  CreateSg:
+    Fn::Not:
+      Fn::Equals:
+      - null
+      - Ref: SecurityGroupName
+  CreateVpc:
+    Fn::Not:
+      Fn::Equals:
+      - null
+      - Ref: VpcCidrBlock
+  CreateVsw:
+    Fn::Not:
+      Fn::Equals:
+      - null
+      - Ref: VSwitchCidrBlock
+Parameters:
+  VpcId:
+    Type: String
+    Label:
+      en: Existing VPC ID
+      zh-cn: 现有VPC的实例ID
+    Description:
+      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
+      zh-cn: 控制台-VPC-专有网络下查询
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Default: null
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Zone ID
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability ID for existing switches
+      zh-cn: 现有交换机的可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 网络交换机ID
+    Description:
+      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${VSwitchZoneId}
+    Default: null
+  SecurityGroupId:
+    Type: String
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+    Description:
+      en: Please search the business security group ID starts with(sg-xxx)from console-ECS-Network
+        & Security
+      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+    Default: null
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: New proprietary network IP address segment range, recommended use of the
+        following IP address segments<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      zh-cn: 新建专有网络IP地址段范围，推荐使用以下的IP地址段<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: null
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: null
+  SecurityGroupName:
+    Type: String
+    Label:
+      en: Security Group Name
+      zh-cn: 安全组名称
+    Description:
+      en: 2 to 128 English or Chinese characters in length.Must start with size letters
+        or Chinese, not http:// and https://, can contain Numbers, dots (.), underscores
+        (_) and hyphens (-).
+      zh-cn: 长度为2~128个英文或中文字符。必须以大小字母或中文开头，不能以http://和https://开头,可包含数字、点（.）、下划线（_）和连字符（-）。
+    Default: null
+  Count:
+    Type: Number
+    Label:
+      en: Number of ECS hosts
+      zh-cn: ECS主机数量
+    Description:
+      en: Number of ECS hosts
+      zh-cn: ECS主机数量
+    Default: 2
+  ECSPeriodUnit:
+    Type: String
+    Label:
+      en: ECS Purchase duration of prepaid resources.
+      zh-cn: 云服务器预付费资源的购买周期
+    Description:
+      en: 'ECS Purchase time and period of prepaid resource, value: [Week, Month].'
+      zh-cn: 云服务器预付费资源的购买时长周期，取值：[Week（周）, Month（月）]
+    Default: null
+    AllowedValues:
+    - Week
+    - Month
+  ECSPeriod:
+    Type: Number
+    Label:
+      en: ECS Purchase time of prepaid resources.
+      zh-cn: 云服务器预付费资源的购买时长
+    Description:
+      en: 'When the purchase cycle of prepaid resource is week, the value range is:
+        [1,2,3,4]; when the purchase cycle of prepaid resource is month, the value
+        is: [1,2,3,4,5,6,7,8,9,12,24,36,48,60].'
+      zh-cn: 云服务器预付费资源的购买时长，当预付费资源的购买周期为Week时，取值范围：[1，2，3，4]; 当预付费资源的购买周期为Month时，取值：[1，2，3，4，5，6，7，8，9，12，24，36，48，60]。
+    Default: null
+    MinValue: 1
+    MaxValue: 60
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>规格详见：<a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b><font color='blue'>实例规格族</font></a></b>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${VSwitchZoneId}
+  EcsImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    AssociationProperty: ALIYUN::ECS::Instance::ImageId
+    Default: centos_7
+  InstanceName:
+    Type: String
+    Label:
+      en: Instance Name
+      zh-cn: ECS实例名称
+    Description:
+      en: The name of ECS instance,[2, 128] English or Chinese characters, must start
+        with a letter or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: ECS实例名称，[2，128]英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    Default: k8s-node-[1,3]-alibabacloud
+  HostName:
+    Type: String
+    Label:
+      en: Host Name
+      zh-cn: 主机名
+    Description:
+      en: Linux system, 2-64 characters in length, cannot use (.) or (-) symbols consecutically
+        and cannot begin or end with a dot (.) or a hyphen (-). Upper and lower case
+        letters, Numbers, or hyphens (-) are allowed.
+      zh-cn: Linux系统，长度2-64个字符，不能连续使用(.)或(-)符号并且不能以点号(.)或连字符(-)开头或结尾，允许使用大小写字母、数字或连字符(-)。
+    Default: k8s-node-[1,3]-alibabacloud
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      ZoneId: ${VSwitchZoneId}
+  SystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 40-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+    Default: 40
+  DataDiskCategory:
+    Type: String
+    Label:
+      en: Data Disk Type
+      zh-cn: 数据盘盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::DataDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      ZoneId: ${VSwitchZoneId}
+  DataDiskSize:
+    Type: Number
+    Label:
+      en: Data Disk Space
+      zh-cn: 数据盘空间
+    Description:
+      en: 'ECS Instance disk size, range of values: 20-32768, units: GB'
+      zh-cn: ECS实例数据盘大小，单位为GiB。取值范围：20~32768
+    Default: 100
+    MinValue: 20
+    MaxValue: 32768
+  RetentionDay:
+    Type: Number
+    Label:
+      en: Retention time of the Snapshot Policy.
+      zh-cn: 快照备份策略的保留时间
+    Description:
+      en: 'The retention time for automatic snapshots in days. Value range: s1, 65536,
+        -1: Permanently saved..'
+      zh-cn: 自动快照备份策略的保留时间，单位为天。取值范围：[1, 65536]，-1：永久保存。
+    Default: 10
+  TimePoint:
+    Type: Json
+    Label:
+      en: The Point in time at which the Snapshot Policy was created.
+      zh-cn: 快照备份策略的创建时间点
+    Description:
+      en: 'The creation point in hours of the creation of the automatic snapshot,
+        with a range of values: .0, 23, representing a total of 24 points in time
+        from 00:00 to 23:00. Multiple points in time are available . . . 0, 1, ...
+        23) indicates.'
+      zh-cn: 自动快照备份策略的创建时间点，单位为小时，取值范围：[0, 23]，代表 00:00 至 23:00 共 24 个时间点。多个时间点可用
+        ["0", "1", … "23"]表示。
+    Default:
+    - '0'
+  RepeatWeekday:
+    Type: Json
+    Label:
+      en: The Duplicate Date of the Snapshot Policy.
+      zh-cn: 快照备份策略的重复日期
+    Description:
+      en: 'The recurring date of the automatic snapshot, in days and the period of
+        the week. Value range: s1, 7, such as 1 for Monday, multiple points in time
+        in a format similar to s1, 2, ... 7 is indicated.'
+      zh-cn: 自动快照备份策略的重复日期，单位为天，周期为星期。取值范围：[1, 7]，如 1 表示周一，多个时间点用一个格式类似 ["1", "2",
+        … "7"] 表示。
+    Default:
+    - '1'
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  AutoSnapshotPolicy:
+    Type: ALIYUN::ECS::AutoSnapshotPolicy
+    Properties:
+      AutoSnapshotPolicyName: MyAutoSnapshotPolicy
+      RepeatWeekdays:
+        Ref: RepeatWeekday
+      RetentionDays:
+        Ref: RetentionDay
+      TimePoints:
+        Ref: TimePoint
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 37f39842-8c75-49f6-985f-b87e1d19e959
+  ECSInstances:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::If:
+        - CreateVpc
+        - Ref: Vpc
+        - Ref: VpcId
+      VSwitchId:
+        Fn::If:
+        - CreateVsw
+        - Ref: VSwitch
+        - Ref: VSwitchId
+      SecurityGroupId:
+        Fn::If:
+        - CreateSg
+        - Ref: SecurityGroup
+        - Ref: SecurityGroupId
+      ImageId:
+        Ref: EcsImageId
+      AllocatePublicIP: true
+      DiskMappings:
+      - Category:
+          Ref: DataDiskCategory
+        Size:
+          Ref: DataDiskSize
+      HostName:
+        Ref: HostName
+      InstanceChargeType:
+        Fn::If:
+        - CreatePrepay
+        - PostPaid
+        - PrePaid
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      MaxAmount:
+        Ref: Count
+      Password:
+        Ref: Password
+      Period:
+        Ref: ECSPeriod
+      PeriodUnit:
+        Ref: ECSPeriodUnit
+      SystemDiskAutoSnapshotPolicyId:
+        Ref: AutoSnapshotPolicy
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3d97f557-f6c2-475f-bdca-942c45e583b5
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Condition: CreateSg
+    Properties:
+      VpcId:
+        Fn::If:
+        - CreateVpc
+        - Ref: Vpc
+        - Ref: VpcId
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName:
+        Ref: SecurityGroupName
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: de0e55c1-4cf9-4647-bbdd-6e1c8deba4cd
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Condition: CreateVsw
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Fn::If:
+        - CreateVpc
+        - Ref: Vpc
+        - Ref: VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: cc854ba9-a556-4503-8c21-e52165d2ecde
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Condition: CreateVpc
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ccfeb4a0-28d4-4c68-949e-d7d920b5256c
+Outputs:
+  InstanceIds:
+    Value:
+      Fn::GetAtt:
+      - ECSInstances
+      - InstanceIds
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcId
+      - VSwitchZoneId
+      - VSwitchId
+      - SecurityGroupId
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - SecurityGroupName
+      Label:
+        default:
+          en: Infrastructure Configuration
+          zh-cn: 基础资源配置（必填）
+    - Parameters:
+      - Count
+      - ECSPeriodUnit
+      - ECSPeriod
+      - InstanceType
+      - EcsImageId
+      - InstanceName
+      - HostName
+      - SystemDiskCategory
+      - SystemDiskSize
+      - DataDiskCategory
+      - DataDiskSize
+      - RetentionDay
+      - TimePoint
+      - RepeatWeekday
+      - Password
+      Label:
+        default:
+          en: ECS Configuration
+          zh-cn: ECS 配置（必填）
+    TemplateTags:
+    - acs:example:弹性计算:批量创建ECS实例(可选已有/新建VPC与按量付费/包年包月模式)
+  ALIYUN::ROS::Designer:
+    37f39842-8c75-49f6-985f-b87e1d19e959:
+      position:
+        x: 110
+        y: -37
+      size:
+        height: 60
+        width: 60
+      z: 1
+    3d97f557-f6c2-475f-bdca-942c45e583b5:
+      position:
+        x: -125
+        y: -37
+      size:
+        height: 60
+        width: 60
+      z: 1
+    7f78105a-849a-452c-be8e-582800fd838c:
+      source:
+        id: 3d97f557-f6c2-475f-bdca-942c45e583b5
+      target:
+        id: 37f39842-8c75-49f6-985f-b87e1d19e959
+      z: 1
+    af7924e8-1d52-4afe-ae95-ba487301da0b:
+      source:
+        id: 3d97f557-f6c2-475f-bdca-942c45e583b5
+      target:
+        id: de0e55c1-4cf9-4647-bbdd-6e1c8deba4cd
+      z: 1
+    cc854ba9-a556-4503-8c21-e52165d2ecde:
+      position:
+        x: -190
+        y: -59
+      size:
+        height: 304
+        width: 429.8799743652344
+      z: 1
+    ccfeb4a0-28d4-4c68-949e-d7d920b5256c:
+      embeds:
+      - de0e55c1-4cf9-4647-bbdd-6e1c8deba4cd
+      - 3d97f557-f6c2-475f-bdca-942c45e583b5
+      - 37f39842-8c75-49f6-985f-b87e1d19e959
+      - cc854ba9-a556-4503-8c21-e52165d2ecde
+      position:
+        x: -265
+        y: -132
+      size:
+        height: 435
+        width: 551.2639770507812
+      z: 0
+    de0e55c1-4cf9-4647-bbdd-6e1c8deba4cd:
+      position:
+        x: -125
+        y: 155
+      size:
+        height: 60
+        width: 60
+      z: 1

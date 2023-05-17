@@ -1,0 +1,445 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 'Alibaba Cloud ROS Sample Template: RDS instance + ECS instance + access for
+    Intranet'
+  zh-cn: 阿里云资源编排示例模板：RDS实例+ ECS实例+内联网访问
+Parameters:
+  VpcName:
+    Type: String
+    Label:
+      en: VPC Name
+      zh-cn: 虚拟专有网络名称
+    Description:
+      en: VPC name, 2 to 128 characters in length, beginning with size letters or
+        Chinese characters, including Numbers, '_' or '-'.
+      zh-cn: VPC名称，长度为2-128个字符，以大小字母或中文开头，可包含数字、“_”或“-”。
+    ConstraintDescription:
+      en: '[2, 128] English or Chinese characters'
+      zh-cn: '[2, 128] 英文或中文字符'
+    Default: MyVpc
+    MinLength: 2
+    MaxLength: 128
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC Cidrblock
+      zh-cn: VPC网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR block form. You can use the
+        following IP address ranges and their subnets: 10.0.0.0/8 172.16.0.0/12  192.168.0.0/16'
+      zh-cn: 专有网络的网段，可选值：10.0.0.0/8，172.16.0.0/12，192.168.0.0/16。
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CidrBlock
+      zh-cn: VSwitch网段
+    Description:
+      en: VSwitch subnet which is within VPC.
+      zh-cn: 交换机网段，必须为VPC子网段。
+    Default: 192.168.1.0/24
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+        or not.
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  ImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: 镜像ID
+    Description:
+      en: Image ID, represents the image resource to startup one ECS instance, <font><a
+        href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'><b>View
+        image resources</b></font color='blue'></a>
+      zh-cn: 镜像ID，ECS实例的镜像资源, <font><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><b>查看镜像资源</b></font color='blue'></a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+  InstanceName:
+    Type: String
+    Label:
+      en: Instance Name
+      zh-cn: 实例名称
+    Description:
+      en: The Instance Name，A maximum of 16 characters, consisting of lowercase letters,
+        Numbers, underscores, letters beginning, letters or Numbers ending.
+      zh-cn: 实例名称，最多16个字符，由小写字母、数字、下划线、字母开头、字母或数字结尾。
+    Default: TestName
+    MinLength: 1
+    MaxLength: 16
+  SystemDiskName:
+    Type: String
+    Label:
+      en: System Disk Name
+      zh-cn: 系统磁盘名称
+    Description:
+      en: The name of system disk
+      zh-cn: 系统磁盘名称
+    Default: systemdiskname
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统磁盘类别
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: The Instance Name，A maximum of 16 characters, consisting of lowercase letters,
+        Numbers, underscores, letters beginning, letters or Numbers ending.
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例类型
+    Description:
+      en: The RDS instance class.
+      zh-cn: 数据库实例类型
+    Default: rds.mysql.t1.small
+    AllowedValues:
+    - rds.mysql.t1.small
+    - rds.mys2.small
+    - rds.mys2.mid
+    - rds.mys2.standard
+    - rds.mys2.large
+    - rds.mys2.xlarge
+    - rds.mys2.2xlarge
+    - rds.mys2.4xlarge
+    - rds.mys2.8xlarge
+    - rds.mss1.small
+    - rds.mss1.mid
+    - rds.mss1.standard
+    - rds.mss1.large
+    - rds.mss1.xlarge
+    - rds.mss1.2xlarge
+    - rds.mss1.4xlarge
+    - rds.mss1.8xlarge
+    - rds.pg.t1.small
+    - rds.pg.s1.small
+    - rds.pg.s2.large
+    - rds.pg.s3.large
+    - rds.pg.c1.large
+    - rds.pg.c1.xlarge
+    - rds.ppas.s3.large
+    - rds.ppas.m1.medium
+    - rds.ppas.c1.xlarge
+    - rds.ppas.c2.xlarge
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: Type And Version
+      zh-cn: 类型与版本号
+    Description:
+      en: Database instance engine type, default is 'Mysql'.Support MySQL/SQLServer/PostgreSQL/PPAS/MariaDB
+        now.
+      zh-cn: 数据库实例引擎类型，默认为Mysql，现在支持Mysql/SQLServer/PostgreSQL/PPAS/MariaDB。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.6
+    - SQLServer-2008r2
+    - PostgreSQL-9.4
+    - PPAS-9.3
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: Instance Storage
+      zh-cn: 实例存储
+    Description:
+      en: 'Incrementing in every 5G, unit: GB'
+      zh-cn: 每5G递增，单位：GB
+    ConstraintDescription:
+      en: '[5, 2000] Incrementing in every 5G, unit: GB'
+      zh-cn: '[5, 2000] 每 5G 递增，单位：GB'
+    Default: 5
+    MinValue: 5
+    MaxValue: 2000
+  DBInstanceNetType:
+    Type: String
+    Label:
+      en: Instance Net Type
+      zh-cn: 实例网络类型
+    Description:
+      en: Instance Net Type
+      zh-cn: 实例网络类型
+    Default: Intranet
+    AllowedValues:
+    - Intranet
+    - Internet
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: VpcName
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ab903ec0-53ea-452e-b042-d8364e663835
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f91d2a99-b358-4a91-8341-b0d0dd78ca55
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: MySecurityGroup
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e5921d70-d3ba-4222-bcaa-0792552a4977
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      DiskMappings:
+      - Category: cloud_ssd
+        Size: 20
+      - DiskName: ecs_disk
+        Size: 20
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      Password:
+        Ref: Password
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskDescription: systemdiskdescription
+      SystemDisk_DiskName:
+        Ref: SystemDiskName
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d9968214-ffbd-405d-88d9-7fbadfd7d2d5
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceNetType:
+        Ref: DBInstanceNetType
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      SecurityIPList:
+        Fn::GetAtt:
+        - WebServer
+        - PrivateIp
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3ef60566-6c25-47bf-9c37-a44f1d74ac0b
+Outputs:
+  DBInstanceId:
+    Value:
+      Fn::GetAtt:
+      - Database
+      - DBInstanceId
+  PublicConnectionString:
+    Value:
+      Fn::GetAtt:
+      - Database
+      - PublicConnectionString
+  PublicPort:
+    Value:
+      Fn::GetAtt:
+      - Database
+      - PublicPort
+  WebServerId:
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - InstanceId
+  WebServerPrivateIp:
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - PrivateIp
+  WebServerPublicIp:
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - PublicIp
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcName
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - ZoneId
+      Label:
+        default:
+          en: VPC
+          zh-cn: 专有网络
+    - Parameters:
+      - ImageId
+      - InstanceType
+      - InstanceName
+      - SystemDiskName
+      - SystemDiskCategory
+      - Password
+      Label:
+        default:
+          en: ECS
+          zh-cn: 云服务器
+    - Parameters:
+      - DBInstanceClass
+      - DBInstanceEngineAndVersion
+      - DBInstanceStorage
+      - DBInstanceNetType
+      Label:
+        default:
+          en: RDS
+          zh-cn: 数据库
+    TemplateTags:
+    - acs:example:弹性计算:创建ECS和RDS并将ECS加入RDS白名单
+  ALIYUN::ROS::Designer:
+    36bcf0d0-f726-4ed7-9406-556d981e00ad:
+      source:
+        id: 3ef60566-6c25-47bf-9c37-a44f1d74ac0b
+      target:
+        id: d9968214-ffbd-405d-88d9-7fbadfd7d2d5
+      z: 1
+    3ef60566-6c25-47bf-9c37-a44f1d74ac0b:
+      position:
+        x: 444
+        y: 143
+      size:
+        height: 60
+        width: 60
+      z: 0
+    67d50fd1-1d91-4fcc-b1ec-85ad50798223:
+      source:
+        id: d9968214-ffbd-405d-88d9-7fbadfd7d2d5
+      target:
+        id: e5921d70-d3ba-4222-bcaa-0792552a4977
+      z: 1
+    ab903ec0-53ea-452e-b042-d8364e663835:
+      embeds:
+      - f91d2a99-b358-4a91-8341-b0d0dd78ca55
+      - e5921d70-d3ba-4222-bcaa-0792552a4977
+      position:
+        x: 197
+        y: 66
+      size:
+        height: 290
+        width: 222
+      z: 0
+    d9968214-ffbd-405d-88d9-7fbadfd7d2d5:
+      position:
+        x: 279
+        y: 143
+      size:
+        height: 60
+        width: 60
+      z: 2
+    e5921d70-d3ba-4222-bcaa-0792552a4977:
+      position:
+        x: 279
+        y: 272
+      size:
+        height: 60
+        width: 60
+      z: 1
+    f91d2a99-b358-4a91-8341-b0d0dd78ca55:
+      embeds:
+      - d9968214-ffbd-405d-88d9-7fbadfd7d2d5
+      position:
+        x: 224
+        y: 91
+      size:
+        height: 156
+        width: 170
+      z: 1

@@ -1,0 +1,459 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Create Anycast flexible public network, bind the newly created SLB, and
+  mount the newly created ecs to the SLB.
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR IPv4 Block
+      zh-cn: 专有网络IPv4网段
+    Description:
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use
+        the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      en: Must belong to the subnet segment of VPC.
+      zh-cn: 必须属于VPC的子网段。
+    Default: 192.168.1.0/24
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: VSwitch available area id, <a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b><font color='blue'>View region and zone info</font></b></a>.
+      zh-cn: VSwitch可用区ID，</font><a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>。
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  Name:
+    Type: String
+    Label:
+      en: Anycast EIP Name
+      zh-cn: Anycast 弹性公网名称
+    Description:
+      en: Anycast EIP instance name,Start with upper and lower letters or Chinese,
+        and can contain numbers, underscores (_) or dashes (-).
+      zh-cn: Anycast 弹性公网名称, 以大小字母或中文开头，可包含数字，下划线（_）或短划线（-）。
+    Default: auto_name
+    AllowedPattern: '[0-9A-Za-z\_\-]+$'
+  SecurityGroupName:
+    Type: String
+    Label:
+      en: Security Group Name
+      zh-cn: 安全组名称
+    Description:
+      en: The security group name, consists of 2~128 letters, Chinese characters,
+        Numbers, dots (.), underscores (_) and hyphens (-).
+      zh-cn: 安全组名称，由2~128个字母、汉字、数字、点（.）、下划线（_）和连字符（-）组成。
+    Default: ROS_SG
+  LoadBalancerAddressType:
+    Type: String
+    Label:
+      en: Address Type
+      zh-cn: 地址类型
+    Description:
+      en: The address type of the load balancer. "intranet" or "internet".
+      zh-cn: '负载均衡器的地址类型。intranet: 内网， internet: 外网。'
+    Default: intranet
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Specification
+      zh-cn: 规格
+    Description:
+      en: Load balancing specification, <a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><font color='blue'><b>Slb spec detail</b></font>.</a>
+      zh-cn: 负载均衡规格，<a href='https://help.aliyun.com/document_detail/85939.html' target='_blank'><font
+        color='blue'><b>规格详情</b></font></a>。
+    Default: slb.s1.small
+  HealthCheck:
+    Type: Json
+    Label:
+      en: HealthCheck
+      zh-cn: 健康状况检
+    Description:
+      en: Properties set by health check.
+      zh-cn: 健康状况检查设置的属性。
+    Default: |-
+      {
+        "Interval": 2,
+        "URI": "/",
+        "HttpCode": "http_2xx,http_3xx",
+        "HealthyThreshold": 3,
+        "Timeout": 5,
+        "UnhealthyThreshold": 3,
+        "Port": 22
+      }
+  Protocol:
+    Type: String
+    Label:
+      en: Protocol
+      zh-cn: 传输协议
+    Description:
+      en: 'The load balancer transport protocol used for routing: tcp or udp.'
+      zh-cn: 用于路由的负载均衡器传输协议：tcp或udp。
+    Default: tcp
+    AllowedValues:
+    - tcp
+    - udp
+  ECSImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，Please use Centos7, see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 请使用Centos7, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    AssociationProperty: ALIYUN::ECS::Instance::ImageId
+    Default: ubuntu_14
+  ECSInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  ECSDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  InstanceChargeType:
+    Type: String
+    Label:
+      en: Instance Charge Type
+      zh-cn: 实例的付费方式
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[PostPaid: <font
+        color=''green''>Pay as you go.</font>]<br> [PrePaid: <font color=''green''>Prepaid,
+        monthly subscription.</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[PostPaid: <font color=''green''>按量付费。</font>]<br>[PrePaid:
+        <font color=''green''>预付费，包年包月。</font>]'
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  ECSSysDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 20-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[20, 500], 单位：GB。
+    Default: 20
+    MinValue: 20
+    MaxValue: 500
+  Count:
+    Type: Number
+    Label:
+      en: Count
+      zh-cn: 数量
+    Description:
+      en: The number of ECS to be created.
+      zh-cn: 需要创建的ecs的数量。
+    Default: 1
+    MinValue: 1
+    MaxValue: 140
+  ECSPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    Default: null
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  KeyPairName:
+    Type: String
+    Label:
+      en: Key Pair Name
+      zh-cn: 密钥对名称
+    Description:
+      en: If it is a Windows ECS instance, ignore this parameter. The default is blank.<br>If
+        you have filled in <font color='green'>key pair name</font>, <font color='green'>instance
+        password</font> will still be set to the instance, but the password login
+        method in the Linux system will be forbidden.<br><font color='red'>Please
+        enter the name of the existing key pair. If you use the instance password
+        Login, the key pair name does not need to be filled in</font>
+      zh-cn: 如果是Windows ECS实例，则忽略该参数。默认为空。<br>如果已填写<font color='green'>密钥对名称</font>，<font
+        color='green'>实例密码</font>的内容仍会被设置到实例中，但是Linux系统中的密码登录方式会被禁止。<br><font color='red'>请输入已有密钥对的名称。如使用实例密码登录，密钥对名称不需要填写</font>
+    Default: null
+Resources:
+  AnycastEip:
+    Type: ALIYUN::VPC::AnycastEIP
+    Properties:
+      InstanceChargeType: PostPaid
+      InternetChargeType: PayByTraffic
+      Name:
+        Ref: Name
+      ServiceLocation: international
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName:
+        Ref: SecurityGroupName
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    DependsOn: EcsVpc
+  ECSInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Fn::GetAtt:
+        - EcsSecurityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ECSImageId
+      AllocatePublicIP: 'false'
+      InstanceChargeType:
+        Ref: InstanceChargeType
+      InstanceType:
+        Ref: ECSInstanceType
+      IoOptimized: optimized
+      KeyPairName:
+        Ref: KeyPairName
+      MaxAmount:
+        Ref: Count
+      Password:
+        Ref: ECSPassword
+      SystemDiskCategory:
+        Ref: ECSDiskCategory
+      SystemDiskSize:
+        Ref: ECSSysDiskSize
+    DependsOn:
+    - EcsSecurityGroup
+    - EcsVSwitch
+  SlbLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      AddressType:
+        Ref: LoadBalancerAddressType
+      LoadBalancerName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      PayType: PayOnDemand
+    DependsOn: EcsVSwitch
+  ECSAttachmentSlb:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - ECSInstanceGroup
+        - InstanceIds
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+    DependsOn:
+    - ECSInstanceGroup
+    - SlbLoadBalancer
+  AnycastEIPAssociation:
+    Type: ALIYUN::VPC::AnycastEIPAssociation
+    Properties:
+      AnycastId:
+        Ref: AnycastEip
+      BindInstanceId:
+        Ref: SlbLoadBalancer
+      BindInstanceRegionId:
+        Ref: ALIYUN::Region
+      BindInstanceType: SlbInstance
+    DependsOn:
+    - AnycastEip
+    - ECSAttachmentSlb
+  Listener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      BackendServerPort: 80
+      Bandwidth: -1
+      HealthCheck:
+        Ref: HealthCheck
+      ListenerPort: 0
+      LoadBalancerId:
+        Ref: SlbLoadBalancer
+      PortRange:
+      - EndPort: 65535
+        StartPort: 1
+      Protocol:
+        Ref: Protocol
+      Scheduler: tch
+    DependsOn:
+    - AnycastEIPAssociation
+Outputs:
+  AnycastId:
+    Description: Anycast EIP instance ID
+    Value:
+      Fn::GetAtt:
+      - AnycastEip
+      - AnycastId
+  IpAddress:
+    Description: Anycase IP address
+    Value:
+      Fn::GetAtt:
+      - AnycastEip
+      - IpAddress
+  Name:
+    Description: Anycast EIP instance name
+    Value:
+      Fn::GetAtt:
+      - AnycastEip
+      - Name
+  OrderId:
+    Description: Order ID
+    Value:
+      Fn::GetAtt:
+      - AnycastEip
+      - OrderId
+  SlbLoadBalancerId:
+    Description: The id of load balance created.
+    Value:
+      Fn::GetAtt:
+      - SlbLoadBalancer
+      - LoadBalancerId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - VSwitchZoneId
+      - Name
+      - SecurityGroupName
+      Label:
+        default:
+          en: SecurityGroup
+          zh-cn: 网络
+    - Parameters:
+      - LoadBalancerAddressType
+      - LoadBalancerSpec
+      - HealthCheck
+      - Protocol
+      Label:
+        default:
+          en: SLB
+          zh-cn: 负载均衡、弹性公网
+    - Parameters:
+      - ECSImageId
+      - ECSInstanceType
+      - ECSDiskCategory
+      - InstanceChargeType
+      - ECSSysDiskSize
+      - Count
+      - ECSPassword
+      - KeyPairName
+      Label:
+        default:
+          en: ECS
+          zh-cn: 云服务器
+    TemplateTags:
+    - acs:example:弹性计算:创建AnycastEIP绑定新建的SLB挂载新建ECS(新建VPC)

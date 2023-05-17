@@ -1,0 +1,398 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Deploy Kong stack on 1 ECS instance, Please use foreign region as default,
+  Because Kong's download source is foreign source. *** WARNING *** Only support CentOS-7.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Available Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: ECS Available Zone ID,<br><b>note： <font color='blue'>Before selecting,
+        please confirm that the Availability Zone supports the specification of creating
+        ECS resources</font></b>
+      zh-cn: ECS可用区ID,<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  KongDownloadUrl:
+    Type: String
+    Label:
+      en: Kong Download Url
+      zh-cn: Kong下载地址
+    Description:
+      en: kong-.rpm download path.
+      zh-cn: kong-*.rpm下载路径
+    Default: https://download.konghq.com/gateway-1.x-centos-7/Packages/k/kong-1.0.3.el7.noarch.rpm
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+  PostgreSQLDownloadUrl:
+    Type: String
+    Label:
+      en: PostgreSQL Download Url
+      zh-cn: PostgreSQL下载地址
+    Description:
+      en: The download path of PostgreSQL-*.rpm
+      zh-cn: PostgreSQL-*.rpm的下载路径
+    Default: https://download.postgresql.org/pub/repos/yum/9.5/redhat/rhel-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+  DBName:
+    Type: String
+    Label:
+      en: DB Name
+      zh-cn: 数据库名称
+    Description:
+      en: Kong use PostgreSQL database name, [1, 64] English or Chinese characters,
+        must start with a letter or Chinese in size, can contain numbers, '_' or '.',
+        '-'.
+      zh-cn: Kong使用的PostgreSQL数据库名称，[1, 64] 英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    ConstraintDescription:
+      en: Must begin with a letter and contain only alphanumeric characters.
+      zh-cn: 必须以字母开头并且只包含字母数字字符。
+    Default: kong
+    MinLength: 1
+    MaxLength: 64
+  DBUser:
+    Type: String
+    Label:
+      en: DB Username
+      zh-cn: 数据库用户名称
+    Description:
+      en: Kong use username for PostgreSQL database access.It consists of lowercase
+        letters, numbers and underscores (_), and begins with a letter. Not longer
+        than 16 characters.
+      zh-cn: Kong使用的PostgreSQL数据库访问的用户名。它由小写字母、数字和下划线（_）组成，以字母开头。不超过16个字符。
+    ConstraintDescription:
+      en: Must begin with a letter and contain only alphanumeric characters.
+      zh-cn: 必须以字母开头并且只包含字母数字字符。
+    Default: kong
+    MinLength: 1
+    MaxLength: 16
+  DBPassword:
+    Type: String
+    Label:
+      en: DB Password
+      zh-cn: 数据库用户访问密码
+    Description:
+      en: Kong use PostgreSql user password, consisting of letters, numbers, and underline(_),
+        8 to 32 characters in length.
+      zh-cn: Kong使用的PostgreSQL用户密码，数据库访问大小写字母、数字和下划线（_），8-32个字符。
+    ConstraintDescription:
+      en: Consisting of letters, numbers, and underline(_), 8 to 32 characters in
+        length
+      zh-cn: 由字母、数字和下划线(_)组成，长度为8到32个字符
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4d45dc9f-18f8-469b-8eb7-5ee98cb465f5
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: dd0398bd-2a94-40d3-a32a-83e5a463452a
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      CidrBlock: 192.168.1.0/24
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d63ab522-69bc-433a-81d2-2e882df0e107
+  KongServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthOut: 80
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - RosConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/bash \n"
+            - KongDownloadPath=
+            - Ref: KongDownloadUrl
+            - '
+
+              '
+            - PostgreSQLUrl=
+            - Ref: PostgreSQLDownloadUrl
+            - '
+
+              '
+            - dbname=
+            - Ref: DBName
+            - '
+
+              '
+            - dbuser=
+            - Ref: DBUser
+            - '
+
+              '
+            - dbpassword=
+            - Ref: DBPassword
+            - '
+
+              '
+            - "export HOME=/root \n"
+            - "export HOSTNAME=`hostname` \n"
+            - "yum install -y pcre pcre-devel zlib zlib-devel openssl openssl-devel\
+              \ \n"
+            - "yum install -y $PostgreSQLUrl \n"
+            - "yum install -y postgresql95-server postgresql95-contrib \n"
+            - "/usr/pgsql-9.5/bin/postgresql95-setup initdb \n"
+            - "systemctl enable postgresql-9.5.service \n"
+            - "systemctl start postgresql-9.5.service \n"
+            - "adduser $dbuser \n"
+            - "echo create user $dbuser with password \"'$dbpassword'\" \\; > /tmp/setup.mysql\
+              \ \n"
+            - "echo create database $dbname owner \"$dbuser\" \\; >> /tmp/setup.mysql\
+              \ \n"
+            - "echo grant all privileges on database $dbname to \"$dbuser\" \\; >>\
+              \ /tmp/setup.mysql \n"
+            - "su - postgres -c \"psql -d postgres -U postgres -f /tmp/setup.mysql\"\
+              \ \n"
+            - "rm -rf /tmp/setup.mysql \n"
+            - "systemctl restart postgresql-9.5.service \n"
+            - "yum install -y epel-release \n"
+            - "yum install -y $KongDownloadPath \n"
+            - "cp /etc/kong/kong.conf.default /etc/kong/kong.conf \n"
+            - "echo database = postgres >> /etc/kong/kong.conf \n"
+            - "echo pg_host = 127.0.0.1 >> /etc/kong/kong.conf \n"
+            - "echo pg_port = 5432 >> /etc/kong/kong.conf \n"
+            - "echo pg_user = $dbuser >> /etc/kong/kong.conf \n"
+            - "echo pg_password = $dbpassword >> /etc/kong/kong.conf \n"
+            - "echo pg_database = $dbname >> /etc/kong/kong.conf \n"
+            - "echo admin_listen = 0.0.0.0:8001 >> /etc/kong/kong.conf \n"
+            - "echo listen_addresses = \\'*\\' >> /var/lib/pgsql/9.5/data/postgresql.conf\
+              \ \n"
+            - "sed -i 's/ident/trust/g' /var/lib/pgsql/9.5/data/pg_hba.conf \n"
+            - "systemctl restart postgresql-9.5.service \n"
+            - "kong migrations bootstrap \n"
+            - "/usr/local/bin/kong start \n"
+            - "sleep 10 \n"
+            - "curl -IL http://127.0.0.1:8001 \n"
+            - "if [[ $? -eq 0 ]]; then \n"
+            - "    ros-notify \n"
+            - "fi \n"
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8218aea5-80de-4807-875f-37098bb69d9d
+  RosConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0be6ede6-109c-4f56-9228-7154ddf78879
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosConditionHandle
+      Timeout: 1800
+    DependsOn: KongServer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 55a8115b-3ef8-415c-9567-5356060356c9
+Outputs:
+  KongServerAddress:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - KongServer
+          - PublicIp
+        - :8001
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - KongDownloadUrl
+      - InstanceType
+      - SystemDiskCategory
+      - InstancePassword
+      Label:
+        default:
+          en: Kong host Configuration
+          zh-cn: Kong 主机配置（必填）
+    - Parameters:
+      - PostgreSQLDownloadUrl
+      - DBName
+      - DBUser
+      - DBPassword
+      Label:
+        default:
+          en: Database Configuration
+          zh-cn: 数据库配置（必填）
+    TemplateTags:
+    - acs:example:网络:一键部署Kong网关应用实例
+  ALIYUN::ROS::Designer:
+    0be6ede6-109c-4f56-9228-7154ddf78879:
+      position:
+        x: 904
+        y: 274
+      size:
+        height: 60
+        width: 60
+      z: 0
+    4d45dc9f-18f8-469b-8eb7-5ee98cb465f5:
+      embeds:
+      - d63ab522-69bc-433a-81d2-2e882df0e107
+      - dd0398bd-2a94-40d3-a32a-83e5a463452a
+      position:
+        x: 477
+        y: 248
+      size:
+        height: 331
+        width: 363.0537109375
+      z: 0
+    55a8115b-3ef8-415c-9567-5356060356c9:
+      position:
+        x: 904
+        y: 468
+      size:
+        height: 60
+        width: 60
+      z: 0
+    8218aea5-80de-4807-875f-37098bb69d9d:
+      position:
+        x: 620
+        y: 460
+      size:
+        height: 60
+        width: 60
+      z: 2
+    d5f5c50b-bd24-4a8a-8950-88ef1bb4d3bb:
+      source:
+        id: 8218aea5-80de-4807-875f-37098bb69d9d
+      target:
+        id: dd0398bd-2a94-40d3-a32a-83e5a463452a
+      z: 1
+    d63ab522-69bc-433a-81d2-2e882df0e107:
+      embeds:
+      - 8218aea5-80de-4807-875f-37098bb69d9d
+      position:
+        x: 571
+        y: 414
+      size:
+        height: 152
+        width: 156
+      z: 1
+    dd0398bd-2a94-40d3-a32a-83e5a463452a:
+      position:
+        x: 620
+        y: 282
+      size:
+        height: 60
+        width: 60
+      z: 1
+    f1a82b37-b4aa-4cad-bd3d-abda93f003bc:
+      source:
+        id: 55a8115b-3ef8-415c-9567-5356060356c9
+      target:
+        id: 0be6ede6-109c-4f56-9228-7154ddf78879
+      z: 1

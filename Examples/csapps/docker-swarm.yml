@@ -10,8 +10,8 @@ Parameters:
   InstancePassword:
     Type: String
     Label:
-      zh-cn: 实例密码
       en: Instance Password
+      zh-cn: 实例密码
     Description:
       en: '8~30 characters, consists of uppercase letter, lowercase letter, number
         or special characters such as ( ) ` ~ ! @ # $ % ^ & * - + = | { } [ ] : ;
@@ -40,8 +40,8 @@ Parameters:
   PubSubnetZoneId:
     Type: String
     Label:
-      zh-cn: 可用区
       en: Pub Subnet Zone ID
+      zh-cn: 可用区
     Description:
       en: Available Zone ID
       zh-cn: 可用区
@@ -49,8 +49,8 @@ Parameters:
   ManagerInstanceType:
     Type: String
     Label:
-      zh-cn: Manager ECS实例规格
       en: Manager ECS Instance Type
+      zh-cn: Manager ECS实例规格
     Description:
       en: 'ECS instance type, <a href=''https://www.alibabacloud.com/help/doc-detail/25378.html''
         target=''_blank''>View instance types</a>, please confirm the instance type
@@ -63,8 +63,8 @@ Parameters:
   ManagerSystemDiskCategory:
     Type: String
     Label:
-      zh-cn: Manager系统盘类型
       en: Manager System Disk Category
+      zh-cn: Manager系统盘类型
     Description:
       en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
         <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
@@ -86,8 +86,8 @@ Parameters:
   ManagerImageId:
     Type: String
     Label:
-      zh-cn: Manager镜像ID
       en: Manager ECS Image ID
+      zh-cn: Manager镜像ID
     Description:
       en: Image ID, represents the image resource to startup one ECS instance, <a
         href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'>View
@@ -98,8 +98,8 @@ Parameters:
   AdditionalManagerSize:
     Type: Number
     Label:
-      zh-cn: manager数量
       en: Additional Manager Size
+      zh-cn: manager数量
     Description:
       en: Number of additional Swarm manager nodes.
       zh-cn: manager数量
@@ -111,8 +111,8 @@ Parameters:
   NodeInstanceType:
     Type: String
     Label:
-      zh-cn: 节点实例规格
       en: Node ECS Instance Type
+      zh-cn: 节点实例规格
     Description:
       en: 'Node ECS instance type, <a href=''https://www.alibabacloud.com/help/doc-detail/25378.html''
         target=''_blank''>View instance types</a>, please confirm the instance type
@@ -125,8 +125,8 @@ Parameters:
   NodeSystemDiskCategory:
     Type: String
     Label:
-      zh-cn: 节点系统盘类型
       en: Node System Disk Category
+      zh-cn: 节点系统盘类型
     Description:
       en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
         <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
@@ -148,8 +148,8 @@ Parameters:
   NodeImageId:
     Type: String
     Label:
-      zh-cn: Node镜像ID
       en: Node ECS Image ID
+      zh-cn: Node镜像ID
     Description:
       en: Image ID, represents the image resource to startup one ECS instance, <a
         href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'>View
@@ -160,8 +160,8 @@ Parameters:
   ClusterSize:
     Type: Number
     Label:
-      zh-cn: node数量
       en: Cluster Size
+      zh-cn: node数量
     Description:
       en: Number of worker nodes in the Swarm (1-100).
       zh-cn: node数量
@@ -169,13 +169,54 @@ Parameters:
     MinValue: '1'
     MaxValue: '100'
 Resources:
+  SubAccount:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Join:
+        - ''
+        - - SubAccount
+          - Ref: ALIYUN::StackId
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+        - SubAccount
+        - UserName
+  ECSManagePolicy:
+    Type: ALIYUN::RAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action:
+          - ecs:*
+          Effect: Allow
+          Resource:
+          - '*'
+        - Action:
+          - vpc:DescribeVpcs
+          - vpc:DescribeVSwitches
+          Effect: Allow
+          Resource:
+          - '*'
+        Version: '1'
+      PolicyName:
+        Fn::Join:
+        - ''
+        - - ECSManagePolicy
+          - Ref: ALIYUN::StackId
+      Users:
+      - Fn::GetAtt:
+        - SubAccount
+        - UserName
   ExternalLoadBalancer:
     Type: ALIYUN::SLB::LoadBalancer
     Properties:
+      AddressType: internet
       LoadBalancerName: ExternalLoadBalancer
       LoadBalancerSpec:
         Ref: LoadBalancerSpec
-      AddressType: internet
   Vpc:
     Type: ALIYUN::ECS::VPC
     Properties:
@@ -191,12 +232,12 @@ Resources:
         Ref: Vpc
       Description: Node SecurityGroup
       SecurityGroupIngress:
-      - PortRange: 22/22
+      - IpProtocol: tcp
+        PortRange: 22/22
         SourceCidrIp: 0.0.0.0/0
-        IpProtocol: tcp
-      - PortRange: 80/80
+      - IpProtocol: tcp
+        PortRange: 80/80
         SourceCidrIp: 0.0.0.0/0
-        IpProtocol: tcp
   ManagerVpcSG:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
@@ -204,39 +245,39 @@ Resources:
         Ref: Vpc
       Description: Manager SecurityGroup
       SecurityGroupIngress:
-      - PortRange: 22/22
+      - IpProtocol: tcp
+        PortRange: 22/22
         SourceCidrIp: 0.0.0.0/0
-        IpProtocol: tcp
-      - SourceGroupId:
-          Fn::GetAtt:
-          - NodeVpcSG
-          - SecurityGroupId
+      - IpProtocol: tcp
         PortRange: 2375/2375
-        IpProtocol: tcp
-      - SourceGroupId:
+        SourceGroupId:
           Fn::GetAtt:
           - NodeVpcSG
           - SecurityGroupId
+      - IpProtocol: tcp
         PortRange: 2377/2377
-        IpProtocol: tcp
-      - SourceGroupId:
+        SourceGroupId:
           Fn::GetAtt:
           - NodeVpcSG
           - SecurityGroupId
+      - IpProtocol: udp
         PortRange: 4789/4789
-        IpProtocol: udp
-      - SourceGroupId:
+        SourceGroupId:
           Fn::GetAtt:
           - NodeVpcSG
           - SecurityGroupId
+      - IpProtocol: tcp
         PortRange: 7946/7946
-        IpProtocol: tcp
-      - SourceGroupId:
+        SourceGroupId:
           Fn::GetAtt:
           - NodeVpcSG
           - SecurityGroupId
+      - IpProtocol: udp
         PortRange: 7946/7946
-        IpProtocol: udp
+        SourceGroupId:
+          Fn::GetAtt:
+          - NodeVpcSG
+          - SecurityGroupId
   PubSubnet:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -264,7 +305,15 @@ Resources:
         - SecurityGroupId
       ImageId:
         Ref: ManagerImageId
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: ManagerInstanceType
       IoOptimized: optimized
+      MaxAmount: '1'
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: ManagerSystemDiskCategory
       UserData:
         Fn::Replace:
         - ros-notify:
@@ -392,62 +441,6 @@ Resources:
             - 'echo $ssh_keys > /tmp/ssh_keys
 
               '
-      SystemDiskCategory:
-        Ref: ManagerSystemDiskCategory
-      AllocatePublicIP: false
-      InstanceType:
-        Ref: ManagerInstanceType
-      MaxAmount: '1'
-      Password:
-        Ref: InstancePassword
-  ExtSLBAttachmentMaster:
-    Type: ALIYUN::SLB::BackendServerAttachment
-    Properties:
-      BackendServerList:
-        Fn::GetAtt:
-        - Master
-        - InstanceIds
-      LoadBalancerId:
-        Ref: ExternalLoadBalancer
-  NatGateway:
-    Type: ALIYUN::VPC::NatGateway
-    Properties:
-      VpcId:
-        Fn::GetAtt:
-        - Vpc
-        - VpcId
-      VSwitchId:
-        Ref: PubSubnet
-      NatGatewayName: NatGateway
-  NatGatewayEIP:
-    Type: ALIYUN::VPC::EIP
-    Properties:
-      InternetChargeType: PayByTraffic
-      Bandwidth: 10
-  NatGatewayEIPBind:
-    Type: ALIYUN::VPC::EIPAssociation
-    Properties:
-      InstanceId:
-        Ref: NatGateway
-      AllocationId:
-        Ref: NatGatewayEIP
-    DependsOn:
-    - NatGateway
-    - NatGatewayEIP
-  NodeGroupConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: {}
-  MasterConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: {}
-  MasterWaitCondition:
-    Type: ALIYUN::ROS::WaitCondition
-    Properties:
-      Timeout: 600
-      Count: 2
-      Handle:
-        Ref: MasterConditionHandle
-    DependsOn: Master
   ManagerGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
@@ -461,7 +454,16 @@ Resources:
         - SecurityGroupId
       ImageId:
         Ref: ManagerImageId
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: ManagerInstanceType
       IoOptimized: optimized
+      MaxAmount:
+        Ref: AdditionalManagerSize
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: ManagerSystemDiskCategory
       UserData:
         Fn::Replace:
         - ros-notify:
@@ -600,15 +602,6 @@ Resources:
             - 'tar -xzf /tmp/host_keys.tar.gz
 
               '
-      SystemDiskCategory:
-        Ref: ManagerSystemDiskCategory
-      AllocatePublicIP: false
-      InstanceType:
-        Ref: ManagerInstanceType
-      MaxAmount:
-        Ref: AdditionalManagerSize
-      Password:
-        Ref: InstancePassword
     DependsOn: Master
   ExtSLBAttachmentManagerGroup:
     Type: ALIYUN::SLB::BackendServerAttachment
@@ -619,32 +612,15 @@ Resources:
         - InstanceIds
       LoadBalancerId:
         Ref: ExternalLoadBalancer
-  ManagerGroupConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: {}
-  SwarmWideSG:
-    Type: ALIYUN::ECS::SecurityGroup
+  ExtSLBAttachmentMaster:
+    Type: ALIYUN::SLB::BackendServerAttachment
     Properties:
-      VpcId:
-        Ref: Vpc
-      Description: Wide open
-      SecurityGroupIngress:
-      - PortRange: -1/-1
-        SourceCidrIp:
-          Fn::FindInMap:
-          - VpcCidrs
-          - vpc
-          - cidr
-        IpProtocol: all
-    DependsOn: NodeVpcSG
-  MasterAddSwarmWideSG:
-    Type: ALIYUN::ECS::JoinSecurityGroup
-    Properties:
-      SecurityGroupId:
-        Ref: SwarmWideSG
-      InstanceId:
-        Ref: Master
-    DependsOn: ManagerGroup
+      BackendServerList:
+        Fn::GetAtt:
+        - Master
+        - InstanceIds
+      LoadBalancerId:
+        Ref: ExternalLoadBalancer
   NodeGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
@@ -658,7 +634,16 @@ Resources:
         - SecurityGroupId
       ImageId:
         Ref: NodeImageId
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: NodeInstanceType
       IoOptimized: optimized
+      MaxAmount:
+        Ref: ClusterSize
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: NodeSystemDiskCategory
       UserData:
         Fn::Replace:
         - ros-notify:
@@ -743,82 +728,7 @@ Resources:
             - 'echo $token > ~/worker_token
 
               '
-      SystemDiskCategory:
-        Ref: NodeSystemDiskCategory
-      AllocatePublicIP: false
-      InstanceType:
-        Ref: NodeInstanceType
-      MaxAmount:
-        Ref: ClusterSize
-      Password:
-        Ref: InstancePassword
     DependsOn: Master
-  NodeAddSwarmWideSG:
-    Type: ALIYUN::ECS::JoinSecurityGroup
-    Properties:
-      SecurityGroupId:
-        Ref: SwarmWideSG
-      InstanceIdList:
-        Fn::GetAtt:
-        - NodeGroup
-        - InstanceIds
-  ManagerGroupWaitCondition:
-    Type: ALIYUN::ROS::WaitCondition
-    Properties:
-      Timeout: 300
-      Count: 1
-      Handle:
-        Ref: ManagerGroupConditionHandle
-    DependsOn: ManagerGroup
-  NodeGroupWaitCondition:
-    Type: ALIYUN::ROS::WaitCondition
-    Properties:
-      Timeout: 300
-      Count: 1
-      Handle:
-        Ref: NodeGroupConditionHandle
-    DependsOn: NodeGroup
-  SubAccount:
-    Type: ALIYUN::RAM::User
-    Properties:
-      UserName:
-        Fn::Join:
-        - ''
-        - - SubAccount
-          - Ref: ALIYUN::StackId
-  AccessKey:
-    Type: ALIYUN::RAM::AccessKey
-    Properties:
-      UserName:
-        Fn::GetAtt:
-        - SubAccount
-        - UserName
-  ExternalLoadBalancerListener:
-    Type: ALIYUN::SLB::Listener
-    Properties:
-      Persistence:
-        StickySession: 'on'
-        PersistenceTimeout: 600
-      ListenerPort: '7'
-      Bandwidth: -1
-      HealthCheck:
-        UnhealthyThreshold: '4'
-        Timeout: '2'
-        HealthyThreshold: '2'
-        Port: '2375'
-        Interval: '5'
-      LoadBalancerId:
-        Ref: ExternalLoadBalancer
-      Protocol: tcp
-      BackendServerPort: '2375'
-    DependsOn: ExternalLoadBalancer
-  SSHLoadBalancer:
-    Type: ALIYUN::SLB::LoadBalancer
-    Properties:
-      LoadBalancerName: SSHLoadBalancer
-      LoadBalancerSpec:
-        Ref: LoadBalancerSpec
-      AddressType: internet
   ExtSLBAttachmentNodeGroup:
     Type: ALIYUN::SLB::BackendServerAttachment
     Properties:
@@ -828,51 +738,40 @@ Resources:
         - InstanceIds
       LoadBalancerId:
         Ref: ExternalLoadBalancer
-  SSHLoadBalancerListener:
+  ExternalLoadBalancerListener:
     Type: ALIYUN::SLB::Listener
     Properties:
-      Persistence:
-        StickySession: 'on'
-        PersistenceTimeout: 1000
-      ListenerPort: '22'
+      BackendServerPort: '2375'
       Bandwidth: -1
       HealthCheck:
-        UnhealthyThreshold: '4'
-        Timeout: '2'
         HealthyThreshold: '2'
-        Port: '22'
         Interval: '5'
+        Port: '2375'
+        Timeout: '2'
+        UnhealthyThreshold: '4'
+      ListenerPort: '7'
       LoadBalancerId:
-        Ref: SSHLoadBalancer
+        Ref: ExternalLoadBalancer
+      Persistence:
+        PersistenceTimeout: 600
+        StickySession: 'on'
       Protocol: tcp
-      BackendServerPort: '22'
-    DependsOn: SSHLoadBalancer
-  ECSManagePolicy:
-    Type: ALIYUN::RAM::ManagedPolicy
+    DependsOn: ExternalLoadBalancer
+  SwarmWideSG:
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
-      PolicyName:
-        Fn::Join:
-        - ''
-        - - ECSManagePolicy
-          - Ref: ALIYUN::StackId
-      PolicyDocument:
-        Version: '1'
-        Statement:
-        - Action:
-          - ecs:*
-          Resource:
-          - '*'
-          Effect: Allow
-        - Action:
-          - vpc:DescribeVpcs
-          - vpc:DescribeVSwitches
-          Resource:
-          - '*'
-          Effect: Allow
-      Users:
-      - Fn::GetAtt:
-        - SubAccount
-        - UserName
+      VpcId:
+        Ref: Vpc
+      Description: Wide open
+      SecurityGroupIngress:
+      - IpProtocol: all
+        PortRange: -1/-1
+        SourceCidrIp:
+          Fn::FindInMap:
+          - VpcCidrs
+          - vpc
+          - cidr
+    DependsOn: NodeVpcSG
   ManagerAddSwarmWideSG:
     Type: ALIYUN::ECS::JoinSecurityGroup
     Properties:
@@ -883,45 +782,154 @@ Resources:
         - ManagerGroup
         - InstanceIds
     DependsOn: ManagerGroup
-  SSHSLBAttachmentMaster:
-    Type: ALIYUN::SLB::BackendServerAttachment
+  ManagerGroupConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  ManagerGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
     Properties:
-      BackendServerList:
+      Count: 1
+      Handle:
+        Ref: ManagerGroupConditionHandle
+      Timeout: 300
+    DependsOn: ManagerGroup
+  MasterAddSwarmWideSG:
+    Type: ALIYUN::ECS::JoinSecurityGroup
+    Properties:
+      SecurityGroupId:
+        Ref: SwarmWideSG
+      InstanceId:
+        Ref: Master
+    DependsOn: ManagerGroup
+  MasterConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  MasterWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 2
+      Handle:
+        Ref: MasterConditionHandle
+      Timeout: 600
+    DependsOn: Master
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
         Fn::GetAtt:
-        - Master
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: PubSubnet
+      NatGatewayName: NatGateway
+  NatGatewayEIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth: 10
+      InternetChargeType: PayByTraffic
+  NatGatewayEIPBind:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: NatGatewayEIP
+    DependsOn:
+    - NatGateway
+    - NatGatewayEIP
+  NodeAddSwarmWideSG:
+    Type: ALIYUN::ECS::JoinSecurityGroup
+    Properties:
+      SecurityGroupId:
+        Ref: SwarmWideSG
+      InstanceIdList:
+        Fn::GetAtt:
+        - NodeGroup
         - InstanceIds
-      LoadBalancerId:
-        Ref: SSHLoadBalancer
+  NodeGroupConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  NodeGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: NodeGroupConditionHandle
+      Timeout: 300
+    DependsOn: NodeGroup
   SLBManagePolicy:
     Type: ALIYUN::RAM::ManagedPolicy
     Properties:
+      PolicyDocument:
+        Statement:
+        - Action:
+          - slb:*
+          Effect: Allow
+          Resource:
+          - '*'
+        - Action:
+          - ecs:DescribeInstances
+          Effect: Allow
+          Resource:
+          - '*'
+        - Action:
+          - cms:QueryMetric
+          Effect: Allow
+          Resource:
+          - '*'
+        Version: '1'
       PolicyName:
         Fn::Join:
         - ''
         - - SLBManagePolicy
           - Ref: ALIYUN::StackId
-      PolicyDocument:
-        Version: '1'
-        Statement:
-        - Action:
-          - slb:*
-          Resource:
-          - '*'
-          Effect: Allow
-        - Action:
-          - ecs:DescribeInstances
-          Resource:
-          - '*'
-          Effect: Allow
-        - Action:
-          - cms:QueryMetric
-          Resource:
-          - '*'
-          Effect: Allow
       Users:
       - Fn::GetAtt:
         - SubAccount
         - UserName
+  SNatEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatIp:
+        Fn::GetAtt:
+        - NatGatewayEIP
+        - EipAddress
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SourceVSwitchId:
+        Fn::GetAtt:
+        - PubSubnet
+        - VSwitchId
+    DependsOn:
+    - NatGatewayEIPBind
+  SSHLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      AddressType: internet
+      LoadBalancerName: SSHLoadBalancer
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+  SSHLoadBalancerListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      BackendServerPort: '22'
+      Bandwidth: -1
+      HealthCheck:
+        HealthyThreshold: '2'
+        Interval: '5'
+        Port: '22'
+        Timeout: '2'
+        UnhealthyThreshold: '4'
+      ListenerPort: '22'
+      LoadBalancerId:
+        Ref: SSHLoadBalancer
+      Persistence:
+        PersistenceTimeout: 1000
+        StickySession: 'on'
+      Protocol: tcp
+    DependsOn: SSHLoadBalancer
   SSHSLBAttachmentManagerGroup:
     Type: ALIYUN::SLB::BackendServerAttachment
     Properties:
@@ -931,35 +939,27 @@ Resources:
         - InstanceIds
       LoadBalancerId:
         Ref: SSHLoadBalancer
-  SNatEntry:
-    Type: ALIYUN::ECS::SNatEntry
+  SSHSLBAttachmentMaster:
+    Type: ALIYUN::SLB::BackendServerAttachment
     Properties:
-      SourceVSwitchId:
+      BackendServerList:
         Fn::GetAtt:
-        - PubSubnet
-        - VSwitchId
-      SNatTableId:
-        Fn::GetAtt:
-        - NatGateway
-        - SNatTableId
-      SNatIp:
-        Fn::GetAtt:
-        - NatGatewayEIP
-        - EipAddress
-    DependsOn:
-    - NatGatewayEIPBind
+        - Master
+        - InstanceIds
+      LoadBalancerId:
+        Ref: SSHLoadBalancer
 Outputs:
-  SSHLoadBalancerIp:
-    Description: Public ip of slb for ssh
-    Value:
-      Fn::GetAtt:
-      - SSHLoadBalancer
-      - IpAddress
   ExternalLoadBalancerIp:
     Description: Public ip for docker service
     Value:
       Fn::GetAtt:
       - ExternalLoadBalancer
+      - IpAddress
+  SSHLoadBalancerIp:
+    Description: Public ip of slb for ssh
+    Value:
+      Fn::GetAtt:
+      - SSHLoadBalancer
       - IpAddress
 Metadata:
   ALIYUN::ROS::Interface:

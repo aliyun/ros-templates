@@ -1,0 +1,440 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 'Alibaba Cloud ROS sample template: Create a standard Kubernetes proprietary
+    cluster using the container service Kubernetes on existing virtual proprietary
+    networks, switches, and security group base resources. You can create cluster
+    management and work nodes in its entirety, creating full control over the entire
+    cluster.'
+  zh-cn: 阿里巴巴 Cloud ROS 示例方案模板：在已有虚拟专有网络、交换机和安全组基础资源上，使用容器服务Kubernetes版创建一个标准的 Kubernetes
+    专有版集群。您可以完整地创建集群管理节点和工作节点，对整个集群享有完全控制能力。
+Parameters:
+  VpcId:
+    Type: String
+    Label:
+      en: Existing VPC ID
+      zh-cn: 现有VPC的实例ID
+    Description:
+      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
+      zh-cn: 控制台-VPC-专有网络下查询
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  SecurityGroupId:
+    Type: String
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+    Description:
+      en: Please search the business security group ID starts with(sg-xxx)from console-ECS-Network
+        & Security
+      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  VSwitchId1:
+    Type: String
+    Label:
+      en: VSwitch 1 ID
+      zh-cn: 虚拟交换机1-ID
+    Description:
+      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches<br><font color='blue'><b>To ensure that the cluster
+        is highly available, it is recommended to select virtual switches for different
+        Availability Zones</b></font>
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询<br><font color='blue'><b>为保证集群高可用，建议选择不同可用区的虚拟交换机</b></font>
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  VSwitchId2:
+    Type: String
+    Label:
+      en: VSwitch 2 ID
+      zh-cn: 虚拟交换机2-ID
+    Description:
+      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  VSwitchId3:
+    Type: String
+    Label:
+      en: VSwitch 3 ID
+      zh-cn: 虚拟交换机3-ID
+    Description:
+      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  ClusterName:
+    Type: String
+    Label:
+      en: Cluster Name
+      zh-cn: 集群名称
+    Description:
+      en: The name is 1 to 63 characters and can contain numbers, Chinese characters,
+        English characters, or midscores (-).
+      zh-cn: 名称为1~63个字符，可包含数字、汉字、英文字符或中划线（-）。
+  KubernetesVersion:
+    Type: String
+    Label:
+      en: Kubernetes Version
+      zh-cn: Kubernetes 版本
+    Description:
+      en: Kubernetes Version
+      zh-cn: Kubernetes版本, <b><a href='https://help.aliyun.com/document_detail/185269.html'
+        target='_blank'><font color='blue'>版本说明</font></a></b>
+    Default: 1.18.8-aliyun.1
+    AllowedValues:
+    - 1.14.8-aliyun.1
+    - 1.16.9-aliyun.1
+    - 1.18.8-aliyun.1
+  AddonName:
+    Type: String
+    Label:
+      en: Network plug-in
+      zh-cn: 网络插件
+    Description:
+      en: Network plug-in<br><font color='blue'><b><a href='https://www.alibabacloud.com/help/en/doc-detail/97467.html'
+        target='_blank'>How to select the network plug-in for the Kubernetes cluster</a></b></font>
+      zh-cn: 网络插件<br><a href='https://help.aliyun.com/document_detail/97467.html'
+        target='_blank'><b><font color='blue'>如何选择 Kubernetes 集群的网络插件</font></b></a>
+    Default: Flannel
+  PodCidr:
+    Type: String
+    Label:
+      en: Pod Network CIDR
+      zh-cn: Pod 网络 CIDR
+    Description:
+      en: 'Please fill in a valid private segment, i.e. the following segments and
+        their subnets: 10.0.0.0/8, 172.16-31.0.0/12-16, 192.168.0.0/16<br> which cannot
+        duplicate the network segments already used by clusters in VPC and VPC Kunetberes.
+        <font color=''blue''><b>Cannot be modified after successful creation</b></font>'
+      zh-cn: 请填写有效的私有网段，即以下网段及其子网：10.0.0.0/8，172.16-31.0.0/12-16，192.168.0.0/16<br>不能与
+        VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
+    Default: 172.20.0.0/16
+  ServiceCidr:
+    Type: String
+    Label:
+      en: Service CIDR
+      zh-cn: Service CIDR
+    Description:
+      en: 'Optional range: 10.0.0.0/16-24, 172.16-31.0.0/16-24, 192.168.0.0/16-24<br>
+        cannot duplicate segments already used by existing Kubernetes clusters in
+        VPC and VPC.<font color=''blue''><b>Cannot be modified after successful creation</b></font>'
+      zh-cn: 可选范围：10.0.0.0/16-24，172.16-31.0.0/16-24，192.168.0.0/16-24<br>不能与 VPC
+        及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
+    Default: 172.21.0.0/20
+  SnatEntry:
+    Type: Boolean
+    Label:
+      en: Configure SNAT
+      zh-cn: 配置SNAT
+    Description:
+      en: Configure SNAT for a proprietary network<br>If nodes, apps, etc. in your
+        cluster need access to the public network, check this item and we'll create
+        a NAT gateway for you and automatically configure the SNAT rules.<b><a href='https://www.alibabacloud.com/help/en/doc-detail/48126.html'
+        target='_blank'><font color='blue'>NAT gateway charge details</font></a></b>
+      zh-cn: 为专有网络配置 SNAT<br>若您集群内的节点、应用等需要访问公网，勾选该项后我们将为您创建 NAT 网关并自动配置 SNAT 规则。<b><a
+        href='https://help.aliyun.com/document_detail/48126.html' target='_blank'><font
+        color='blue'>NAT 网关收费详情</font></a></b>
+    Default: true
+  EndpointPublicAccess:
+    Type: Boolean
+    Label:
+      en: Public Access
+      zh-cn: 公网访问
+    Description:
+      en: Using the EIP Exposure API Server <br> creates an intranet SLB instance
+        for API Server by default, and removing the instance will make API Server
+        innible<br><br><font color='blue'><b>choose not to be open, you cannot access
+        cluster API Server over an extranet</b><front>
+      zh-cn: 使用 EIP 暴露 API Server<br>默认将为 API Server 创建一个内网 SLB 实例，若删除该实例会导致 API Server
+        无法访问<br><font color='blue'><b>选择不开放时，则无法通过外网访问集群 API Server</b><front>
+    Default: false
+  CloudMonitorFlags:
+    Type: Boolean
+    Label:
+      en: Monitor Plug-in
+      zh-cn: 监控插件
+    Description:
+      en: Install the cloud monitoring plug-in on the ECS node .
+      zh-cn: 在 ECS 节点上安装云监控插件
+    Default: true
+  SshFlags:
+    Type: Boolean
+    Label:
+      en: Public Network SSH Login
+      zh-cn: 公网SSH登录
+    Description:
+      en: Whether to open the public network SSH login .
+      zh-cn: 是否开放公网SSH登录
+    Default: true
+  MasterCount:
+    Type: Number
+    Label:
+      en: Instance Count
+      zh-cn: 实例数量
+    Description:
+      en: Master Instance Count
+      zh-cn: Master实例数量
+    Default: 3
+    AllowedValues:
+    - 3
+    - 5
+  MasterInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: It is recommended to use the configuration 4vCPU 8GiB or above, low configuration
+        may result in unsuccessful cluster creation<br><font color='blue'><b>Before
+        selecting the model please confirm that the current available zone under the
+        model is in stock, some models need to be reported in advance.</b></font>
+      zh-cn: 建议使用配置4vCPU 8GiB或以上的规格，配置过低可能会导致集群创建不成功<br><font color='blue'><b>选择机型前请先确认交换机可用区下该机型是否有货，部分机型需要提前报备</b></font>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  MasterDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类别
+    Description:
+      en: Instance System Disk Category
+      zh-cn: 实例系统盘类别
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_ssd
+    - cloud_efficiency
+  MasterSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Size
+      zh-cn: 系统盘空间
+    Description:
+      en: Instance System Disk Size
+      zh-cn: 实例系统盘空间
+    Default: 120
+    MinValue: 40
+  NumOfNodes:
+    Type: Number
+    Label:
+      en: Amount
+      zh-cn: 数量
+    Description:
+      en: The number of nodes .
+      zh-cn: 节点实例数量。
+    Default: 3
+    MinValue: 0
+    MaxValue: 197
+  WorkerInstanceType1:
+    Type: String
+    Label:
+      en: First Instance Type
+      zh-cn: 实例规格1
+    Description:
+      en: <The node instance first specification<br> before selecting the specification,
+        please confirm whether the model is in stock under the switch availability
+        area, and some models need to be reported in advance .
+      zh-cn: 节点实例第一规格<br>选择规格前请先确认交换机可用区下该机型是否有货，部分机型需要提前报备
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  WorkerInstanceType2:
+    Type: String
+    Label:
+      en: Second Instance Type
+      zh-cn: 实例规格2
+    Description:
+      en: The node instance second specification<br> before selecting the specification,
+        please confirm whether the model is in stock under the switch availability
+        area, and some models need to be reported in advance .
+      zh-cn: 节点实例第二规格<br>选择规格前请先确认交换机可用区下该机型是否有货，部分机型需要提前报备
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  WorkerInstanceType3:
+    Type: String
+    Label:
+      en: Third Instance Type
+      zh-cn: 实例规格3
+    Description:
+      en: Node instance third specification<br> before selecting the specification,
+        please confirm whether the model is in stock under the switch availability
+        area, some models need to be reported in advance .
+      zh-cn: 节点实例第三规格<br>选择规格前请先确认交换机可用区下该机型是否有货，部分机型需要提前报备
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  WorkerDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类别
+    Description:
+      en: Instance System Disk Category
+      zh-cn: 实例系统盘类别
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_ssd
+    - cloud_efficiency
+  WorkerSystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Size
+      zh-cn: 系统盘空间
+    Description:
+      en: Instance System Disk Size
+      zh-cn: 实例系统盘空间
+    Default: 120
+    MinValue: 40
+  LoginPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Login password, Length 8-30, must contain three(Capital letters, lowercase
+        letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  KubernetesCluster:
+    Type: ALIYUN::CS::KubernetesCluster
+    Properties:
+      VpcId:
+        Ref: VpcId
+      MasterVSwitchIds:
+      - Ref: VSwitchId1
+      - Ref: VSwitchId2
+      - Ref: VSwitchId3
+      WorkerVSwitchIds:
+      - Ref: VSwitchId1
+      - Ref: VSwitchId2
+      - Ref: VSwitchId3
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      Addons:
+      - Name:
+          Ref: AddonName
+      CloudMonitorFlags:
+        Ref: CloudMonitorFlags
+      ContainerCidr:
+        Ref: PodCidr
+      DisableRollback: true
+      EndpointPublicAccess:
+        Ref: EndpointPublicAccess
+      KubernetesVersion:
+        Ref: KubernetesVersion
+      LoginPassword:
+        Ref: LoginPassword
+      MasterCount:
+        Ref: MasterCount
+      MasterInstanceTypes:
+      - Ref: MasterInstanceType
+      - Ref: MasterInstanceType
+      - Ref: MasterInstanceType
+      MasterSystemDiskCategory:
+        Ref: MasterDiskCategory
+      MasterSystemDiskSize:
+        Ref: MasterSystemDiskSize
+      Name:
+        Ref: ClusterName
+      NumOfNodes:
+        Ref: NumOfNodes
+      ProxyMode: IPVS
+      ServiceCidr:
+        Ref: ServiceCidr
+      SnatEntry:
+        Ref: SnatEntry
+      SshFlags:
+        Ref: SshFlags
+      TimeoutMins: 60
+      WorkerInstanceTypes:
+      - Ref: WorkerInstanceType1
+      - Ref: WorkerInstanceType2
+      - Ref: WorkerInstanceType3
+      WorkerSystemDiskCategory:
+        Ref: WorkerDiskCategory
+      WorkerSystemDiskSize:
+        Ref: WorkerSystemDiskSize
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2cf544f5-2c84-4d3b-b42a-c834f45c00ff
+Outputs:
+  ClusterId:
+    Value:
+      Fn::GetAtt:
+      - KubernetesCluster
+      - ClusterId
+  TaskId:
+    Value:
+      Fn::GetAtt:
+      - KubernetesCluster
+      - TaskId
+  WorkerRamRoleName:
+    Value:
+      Fn::GetAtt:
+      - KubernetesCluster
+      - WorkerRamRoleName
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcId
+      - SecurityGroupId
+      - VSwitchId1
+      - VSwitchId2
+      - VSwitchId3
+      Label:
+        default:
+          en: Infrastructure Configuration
+          zh-cn: 基础资源配置（必填）
+    - Parameters:
+      - ClusterName
+      - KubernetesVersion
+      - AddonName
+      - PodCidr
+      - ServiceCidr
+      - SnatEntry
+      - EndpointPublicAccess
+      - CloudMonitorFlags
+      - SshFlags
+      Label:
+        default:
+          en: Kubernetes basic information
+          zh-cn: Kubernetes基本信息（必填）
+    - Parameters:
+      - MasterCount
+      - MasterInstanceType
+      - MasterDiskCategory
+      - MasterSystemDiskSize
+      Label:
+        default:
+          en: Master Instance
+          zh-cn: Master实例（必填）
+    - Parameters:
+      - NumOfNodes
+      - WorkerInstanceType1
+      - WorkerInstanceType2
+      - WorkerInstanceType3
+      - WorkerDiskCategory
+      - WorkerSystemDiskSize
+      - LoginPassword
+      Label:
+        default:
+          en: Worker Instance
+          zh-cn: Worker实例
+    TemplateTags:
+    - acs:example:容器:创建一个标准的Kubernetes专有版集群(已有VPC)
+  ALIYUN::ROS::Designer:
+    2cf544f5-2c84-4d3b-b42a-c834f45c00ff:
+      position:
+        x: 60
+        y: 10
+      size:
+        height: 60
+        width: 60
+      z: 0

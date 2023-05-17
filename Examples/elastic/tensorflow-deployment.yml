@@ -1,0 +1,362 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Alibaba Cloud ROS Sample Template:Creates ECS instance and install TensorFlow
+  zh-cn: 阿里云资源编排示例模板：创建ECS实例并安装TensorFlow
+Conditions:
+  gpu_disable:
+    Fn::Equals:
+    - None
+    - Ref: GPUNodeZoneId
+Parameters:
+  EcsAmount:
+    Type: Number
+    Label:
+      en: Nodes Amount
+      zh-cn: 实例的数量
+    Description:
+      en: 'The number of ECS instances will be created,Allowed value: 1~100.'
+      zh-cn: 创建实例的数量，范围1-100。
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  GPUNodeZoneId:
+    Type: String
+    Label:
+      en: Zone of GPU Node
+      zh-cn: GPU节点区域
+    Description:
+      en: Specify zone Id that provides the GPU instance while InstanceType is specified
+        the GPU type.
+      zh-cn: 指定GPU实例的可用区ID，并确定GPU规格库存情况。
+    Default: None
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  EcsImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: 镜像ID
+    Description:
+      en: 'Instance Image ID. see detail: <b><a href=''https://www.alibabacloud.com/help/doc-detail/112977.html''
+        target=''_blank''><font color=''blue''>Find the mirror</font></a></b>'
+      zh-cn: 实例镜像，详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: ubuntu_16
+  EcsPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: TensorFlow_Vpc
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2223bead-5815-4da3-8911-2da43948344a
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        NicType: intranet
+        PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        NicType: intranet
+        PortRange: 6006/6006
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName: TensorFlow_SG
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5369cc09-c5f8-4de2-bd8a-912d29d936bb
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Fn::If:
+        - gpu_disable
+        - Ref: ZoneId
+        - Ref: GPUNodeZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.0.0/16
+      VSwitchName: TensorFlow_VSwitch
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e1e7b319-1ec0-4e45-a0e1-fa7cd1c5e16b
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: EcsImageId
+      AllocatePublicIP: true
+      InstanceType:
+        Ref: EcsInstanceType
+      InternetMaxBandwidthOut: 50
+      MaxAmount:
+        Ref: EcsAmount
+      Password:
+        Ref: EcsPassword
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - RosWaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/sh
+
+              '
+            - gpu_enable=
+            - Fn::If:
+              - gpu_disable
+              - 'no'
+              - 'yes'
+            - '
+
+              '
+            - 'apt-get install -y python-pip python-dev
+
+              '
+            - 'pip install tensorflow
+
+              '
+            - 'if [ $gpu_enable = ''yes'' ]; then
+
+              '
+            - '    pip install tensorflow-gpu
+
+              '
+            - '    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_8.0.61-1_amd64.deb
+
+              '
+            - '    dpkg -i cuda-repo-ubuntu1604_8.0.61-1_amd64.deb
+
+              '
+            - '    apt-get install -y libgd3
+
+              '
+            - '    apt-get update --fix-missing
+
+              '
+            - '    apt-get install -y cuda
+
+              '
+            - '    echo "deb http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64
+              /" > /etc/apt/sources.list.d/nvidia-ml.list
+
+              '
+            - '    apt-get update
+
+              '
+            - '    apt-get install -y --no-install-recommends libcudnn7=7.0.1.13-1+cuda8.0
+
+              '
+            - '    apt-get install -y --no-install-recommends libcudnn7-dev=7.0.1.13-1+cuda8.0
+
+              '
+            - '    cd /usr/local/cuda/lib64
+
+              '
+            - '    ln -s /usr/lib/x86_64-linux-gnu/libcudnn.so.7.0.1 libcudnn.so
+
+              '
+            - '    ln -s /usr/lib/x86_64-linux-gnu/libcudnn.so.7.0.1 libcudnn.so.6
+
+              '
+            - '    cp /usr/lib/x86_64-linux-gnu/libcudnn_static_v7.a .
+
+              '
+            - '    cd -
+
+              '
+            - '    echo export CUDA_HOME=/usr/local/cuda > /root/.bash_profile
+
+              '
+            - '    echo ''export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$CUDA_HOME/lib64:/usr/local/cuda/extras/CUPTI/lib64"''
+              >> /root/.bash_profile
+
+              '
+            - '    echo ''export PATH="$CUDA_HOME/bin:$PATH"'' >>  /root/.bash_profile
+
+              '
+            - '    source /root/.bash_profile
+
+              '
+            - '    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64"
+
+              '
+            - "    export CUDA_HOME=/usr/local/cuda \n"
+            - 'fi
+
+              '
+            - 'tensorboard --logdir=/tmp/tf_logs &
+
+              '
+            - "ros-notify \n"
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3c13d955-a93b-4746-b317-e5b0af32b73b
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d0eb36e7-2d8a-46af-8180-f2b917f2e23c
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count:
+        Ref: EcsAmount
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 1800
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8f64ac08-f2d6-437b-b716-355624041949
+Outputs:
+  tensorflow_nodes_ips:
+    Description:
+      en: Public IP address list of created ecs instance.
+      zh-cn: 已创建的ecs实例的公共IP地址列表。
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup
+      - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - EcsAmount
+      - GPUNodeZoneId
+      - EcsInstanceType
+      - EcsImageId
+      - EcsPassword
+      Label:
+        default:
+          en: ECS
+          zh-cn: 云服务器
+    TemplateTags:
+    - acs:example:人工智能:部署TensorFlow开发环境
+  ALIYUN::ROS::Designer:
+    18edfda9-7473-4e1f-b183-747474d537b1:
+      source:
+        id: 3c13d955-a93b-4746-b317-e5b0af32b73b
+      target:
+        id: 5369cc09-c5f8-4de2-bd8a-912d29d936bb
+      z: 1
+    2223bead-5815-4da3-8911-2da43948344a:
+      embeds:
+      - e1e7b319-1ec0-4e45-a0e1-fa7cd1c5e16b
+      - 5369cc09-c5f8-4de2-bd8a-912d29d936bb
+      position:
+        x: 198
+        y: 71
+      size:
+        height: 324
+        width: 221.0537109375
+      z: 0
+    3c13d955-a93b-4746-b317-e5b0af32b73b:
+      position:
+        x: 278
+        y: 165
+      size:
+        height: 60
+        width: 60
+      z: 2
+    5369cc09-c5f8-4de2-bd8a-912d29d936bb:
+      position:
+        x: 278
+        y: 299
+      size:
+        height: 60
+        width: 60
+      z: 1
+    8f64ac08-f2d6-437b-b716-355624041949:
+      position:
+        x: 91
+        y: 174
+      size:
+        height: 60
+        width: 60
+      z: 0
+    d0eb36e7-2d8a-46af-8180-f2b917f2e23c:
+      position:
+        x: 91
+        y: 302
+      size:
+        height: 60
+        width: 60
+      z: 0
+    da2797b6-e29a-4435-84b1-3ba1d108c70a:
+      source:
+        id: 8f64ac08-f2d6-437b-b716-355624041949
+      target:
+        id: d0eb36e7-2d8a-46af-8180-f2b917f2e23c
+      z: 1
+    e1e7b319-1ec0-4e45-a0e1-fa7cd1c5e16b:
+      embeds:
+      - 3c13d955-a93b-4746-b317-e5b0af32b73b
+      position:
+        x: 221
+        y: 93
+      size:
+        height: 177
+        width: 173
+      z: 1

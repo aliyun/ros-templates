@@ -1,0 +1,1541 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Deploys the WordPress site and the phpMyAdmin app
+  zh-cn: 部署WordPress网站和phpMyAdmin应用程序
+Parameters:
+  BucketName:
+    Type: String
+    Label:
+      en: Bucket Name
+      zh-cn: 存储空间名称
+    Description:
+      en: '3 to 63 characters, not beginning and ending with a hyphen (-), can contain
+        lowercase letters, Numbers and hyphens (-);<br>Note: <font color=''blue''><b>need
+        whole network uniqueness, already existing can not be created.</b></font>'
+      zh-cn: 3到63个字符，不以连字符(-)开头和结尾，可以包含小写字母、数字和连字符(-)；<br>备注：<font color='blue'><b>需要保证整个网络的唯一性，已经存在的无法创建</b></font>
+    ConstraintDescription:
+      en: 3 to 63 characters, not beginning and ending with a hyphen (-), can contain
+        lowercase letters, Numbers and hyphens (-)
+      zh-cn: 3 到 63 个字符，不以连字符 (-) 开头和结尾，可以包含小写字母、数字和连字符 (-)
+    Default: application-wordpress-oss
+    AllowedPattern: ^[a-z0-9]+[a-z0-9\-]*[a-z0-9]+$
+    MinLength: 3
+    MaxLength: 63
+  OSSBucketMountPoint:
+    Type: String
+    Label:
+      en: Bucket Mount Point
+      zh-cn: OSS存储挂载点
+    Description:
+      en: OSS bucket mount point, Application file mount point.
+      zh-cn: OSS存储挂载点，应用程序文件挂载点。
+    Default: /ossbucket
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: Make sure that the available regions support the creation of RDS, SLB, and
+        ECS resource specifications;<br><a href='https://www.alibabacloud.com/help/doc-detail/123712.html'
+        target='_blank'><b><font color='blue'>View region and zone info</font></b></a>.
+      zh-cn: 确保可用区域支持RDS、SLB和ECS资源规格的创建；<br><a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b><font color='blue'>查看可用区信息</font></b></a>.
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  JumpboxInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: Please confirm the inventory of this specification under the available area;
+        <br>See detail：<a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
+        target='_blank'><b><font color='blue'>Instance specification family</font></a></b>
+      zh-cn: 请在可用区域下确认此规格的库存；详见： <a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b><font color='blue'>实例规格族</font></a></b>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+  JumpboxImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: 镜像ID
+    Description:
+      en: Image ID，See detail：<b><a href='https://www.alibabacloud.com/help/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID，详见： <b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
+  JumpboxDataDiskType:
+    Type: String
+    Label:
+      en: Disk Category
+      zh-cn: 磁盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  JumpboxDataDiskSize:
+    Type: Number
+    Label:
+      en: Data Disk Size
+      zh-cn: 数据盘大小
+    Description:
+      en: 'Jumpbox data disk size, Disk unit: GB,default is ''100'', 20~32768.'
+      zh-cn: 堡垒机数据盘大小，磁盘单位： GB, 范围：20-32768。
+    Default: 100
+    MinValue: 20
+    MaxValue: 32768
+  MountPoint:
+    Type: String
+    Label:
+      en: Data Disk Mount Point
+      zh-cn: 数据盘挂载点
+    Description:
+      en: The mount point of data disk.
+      zh-cn: 数据盘挂载点
+    Default: /data
+  JumpboxPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three;<br>special characters include: ()''~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号3个；<br>特殊字符包括:()` ~!@#$%^&*_-+=|{}[];` <>，.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      en: Instance specifications,</br>see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance Support Type</b></font></a>
+      zh-cn: 实例规格，</br>详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    Default: slb.s1.small
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: 'Select the instance specification based on the type of database engine
+        and the available area support;<br>See detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.htm''
+        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>.'
+      zh-cn: '根据数据库引擎类型和可用区域支持选择实例规格;<br>详见: <a href=''https://help.aliyun.com/document_detail/26312.html''
+        target=''_blank''><b><font color=''blue''>实例规格表</font></b></a>.'
+    Default: rds.mysql.s1.small
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: Engine
+      zh-cn: 引擎类型
+    Description:
+      en: Database instance engine type, default is 'Mysql'.
+      zh-cn: 数据库引擎类型， 默认Mysql。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.6
+    - SQLServer-2008r2
+    - PostgreSQL-9.4
+  DBInstanceNetType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: Database instance net type, default is Intranet.Internet for public access,
+        Intranet for private access.
+      zh-cn: 数据库实例网络类型，Internet用于公共访问，Intranet用于私有访问。
+    Default: Intranet
+    AllowedValues:
+    - Intranet
+    - Internet
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: Instance Storage
+      zh-cn: 存储大小
+    Description:
+      en: 'Incrementing in every 5G, unit: GB'
+      zh-cn: 每5GB进行递增，单位:GB
+    ConstraintDescription:
+      en: '[5, 2000] Incrementing in every 5G, unit: GB'
+      zh-cn: '[5, 2000] 每 5G 递增，单位：GB'
+    Default: 10
+    MinValue: 5
+    MaxValue: 2000
+  DBName:
+    Type: String
+    Label:
+      en: Database Name
+      zh-cn: 数据库名称
+    Description:
+      en: Consists of lowercase letters, Numbers and special characters (-_).
+      zh-cn: 由小写字母、数字和特殊字符(-_)组成。
+    ConstraintDescription:
+      en: Consists of lowercase letters, Numbers and special characters (-_), beginning
+        with letters, ending with letters or Numbers, up to 64 characters,
+      zh-cn: 由小写字母、数字和特殊字符(-_)组成，以字母开头，以字母或数字结尾，最多64个字符，
+    Default: dbname
+    AllowedPattern: ^[a-z]+[a-z0-9\-\_]*[a-z0-9]+$
+    MinLength: 1
+    MaxLength: 63
+  MasterUserName:
+    Type: String
+    Label:
+      en: User Name
+      zh-cn: 用户名称
+    Description:
+      en: A maximum of 16 characters, consisting of lowercase letters, Numbers, underscores,
+        letters beginning, letters or Numbers ending.
+      zh-cn: 最多16个字符，包括小写字母、数字、下划线、字母开头、字母或数字结尾。
+    Default: dbname
+    MinLength: 1
+    MaxLength: 16
+  MasterDBPassword:
+    Type: String
+    Label:
+      en: User Password
+      zh-cn: 用户密码
+    Description:
+      en: Large/lowercase letters, Numbers and special characters take up three kinds,
+        8-32 bits.
+      zh-cn: 大/小写字母、数字和特殊字符占3种，8-32位。
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[a-zA-Z0-9-\!\@\#\$\%\^\&\*\(\)\_\+-=]*'
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  TotalDataDisk:
+    Type: String
+    Label:
+      en: Total Data Disk
+      zh-cn: 总数据盘
+    Description:
+      en: The number of disks mounted in instance.
+      zh-cn: 实例挂载的磁盘数量。
+    Default: '1'
+Resources:
+  CreateLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      AddressType: internet
+      InternetChargeType: paybytraffic
+      LoadBalancerName: PublicLoadBalancer
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      MasterZoneId:
+        Ref: ZoneId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 9771aab8-e10a-40c3-8f4c-5cbe5c7cc900
+  CreateListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      BackendServerPort: 80
+      Bandwidth: 1
+      HealthCheck:
+        HealthyThreshold: 3
+        Interval: 2
+        Timeout: 5
+        UnhealthyThreshold: 3
+      ListenerPort: '80'
+      LoadBalancerId:
+        Ref: CreateLoadBalancer
+      Persistence:
+        PersistenceTimeout: 1
+        StickySession: 'off'
+        StickySessionType: insert
+        XForwardedFor: 'on'
+      Protocol: tcp
+      Scheduler: wrr
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 38d112d9-01a7-4d67-b933-5a02299dec6d
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: WordPress-PhpMyAdmin
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 374cd7cc-4bd5-4392-949c-e51b1141ac49
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      VSwitchName: VSwitch1-x
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f8d3243b-66f2-4cf9-9e68-8dfc2a9ae8d1
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: VSwitch1
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceNetType:
+        Ref: DBInstanceNetType
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBMappings:
+      - CharacterSetName: utf8
+        DBName:
+          Ref: DBName
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      MasterUserPassword:
+        Ref: MasterDBPassword
+      MasterUsername:
+        Ref: MasterUserName
+      SecurityIPList: 0.0.0.0/0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 3d0aee34-3a6d-48e7-a0f0-91b21d45c761
+  NatEip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c5106c8c-87e8-44e3-9f3b-6a05c9c207e0
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: VSwitch1
+      Description: NAT_Gateway_OSSFS
+      NatGatewayName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    DependsOn: VSwitch1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8149252a-29fd-49f8-870d-3659de53b681
+  EIPBind:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: NatEip
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 16e1e20c-8495-4ce8-9442-04b32760a44a
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+      DeletionForce: true
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a93c1de5-8a9e-4085-8417-4fa37d754c4c
+  RamUser:
+    Type: ALIYUN::RAM::User
+    Properties:
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - oss:*
+            Effect: Allow
+            Resource:
+            - '*'
+          Version: '1'
+        PolicyName:
+          Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+      UserName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 9736d867-f75b-4f97-8fca-0d9bed345f96
+  RamAK:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+        - RamUser
+        - UserName
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f10609bb-efaa-4f7a-8d8b-c71094a12db3
+    DependOn:
+    - RamUser
+  SecurityGroupDefault:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        NicType: internet
+        PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        NicType: internet
+        PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName: WordPress-PhpMyAdmin
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0f18606d-ef61-4f85-b822-e0d0b30b86f8
+  Jumpbox:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: VSwitch1
+      SecurityGroupId:
+        Ref: SecurityGroupDefault
+      ImageId:
+        Ref: JumpboxImageId
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: JumpboxInstanceType
+      Password:
+        Ref: JumpboxPassword
+      UserData:
+        Fn::Join:
+        - ''
+        - - '#!/bin/sh
+
+            '
+          - 'logs=/var/log/mount_logs
+
+            '
+          - '#wget http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+
+            '
+          - '#rpm -ivh mysql-community-release-el7-5.noarch.rpm
+
+            '
+          - '#yum install mysql-community-client -y
+
+            '
+          - 'ApacheIndexReplace=''Options Indexes FollowSymLinks''
+
+            '
+          - 'mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
+
+            '
+          - 'wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+
+            '
+          - 'yum makecache
+
+            '
+          - "yum install -y unzip zip \n"
+          - "yum install -y curl httpd mysql-server php56 php56-php-mysql \n"
+          - "rpm -Uvh https://mirror.webtatic.com/yum/el7/epel-release.rpm \n"
+          - "rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm \n"
+          - "yum install -y php56w.x86_64 php56w-cli.x86_64 php56w-common.x86_64 php56w-gd.x86_64\
+            \ php56w-imap.x86_64 php56w-ldap.x86_64 php56w-mysql.x86_64 php56w-pdo.x86_64\
+            \ php56w-odbc.x86_64 php56w-process.x86_64 php56w-xml.x86_64 php56w-xmlrpc.x86_64\
+            \ \n"
+          - 'chkconfig httpd on
+
+            '
+          - 'i=1
+
+            '
+          - total=
+          - Ref: TotalDataDisk
+          - '
+
+            '
+          - mountpoint=
+          - Ref: MountPoint
+          - '
+
+            '
+          - 'while [ $i -le $total ]
+
+            '
+          - 'do
+
+            '
+          - '    j=`echo $i|awk ''{printf "%c", 97+$i}''`
+
+            '
+          - 'fdisk -S 56 /dev/vd$j <<ALIYUN
+
+            '
+          - 'n
+
+            '
+          - 'p
+
+            '
+          - '1
+
+            '
+          - '
+
+            '
+          - '
+
+            '
+          - 'w
+
+            '
+          - 'ALIYUN
+
+            '
+          - '    echo "/dev/vd$j is fdisked!" >> $logs
+
+            '
+          - '    mkfs.ext4 /dev/vd${j}1
+
+            '
+          - '    if [ $? -eq 0 ];then
+
+            '
+          - '        echo "/dev/vd${j}1 is formated!" >> $logs
+
+            '
+          - '    fi
+
+            '
+          - '    touch ~/test_ftab
+
+            '
+          - '    mkdir $mountpoint
+
+            '
+          - 'cat << ALIYUN > ~/test_ftab
+
+            '
+          - '/dev/vd${j}1         $mountpoint       ext4       defaults        0 0
+
+            '
+          - 'ALIYUN
+
+            '
+          - '    cat ~/test_ftab >> /etc/fstab
+
+            '
+          - '    mount -a
+
+            '
+          - '    chmod -R 777 $mountpoint
+
+            '
+          - '    rm -rf ~/test_ftab
+
+            '
+          - '    echo "/dev/vd${j}1 is mounted!" >> $logs
+
+            '
+          - '    let i+=1
+
+            '
+          - ossbucket=
+          - Ref: BucketName
+          - '
+
+            '
+          - ossbucketaccesskey=
+          - Fn::GetAtt:
+            - RamAK
+            - AccessKeyId
+          - '
+
+            '
+          - ossbucketsecret=
+          - Fn::GetAtt:
+            - RamAK
+            - AccessKeySecret
+          - '
+
+            '
+          - ossbucketmountpoint=
+          - Ref: OSSBucketMountPoint
+          - '
+
+            '
+          - ossbucketendpoint=
+          - Fn::Join:
+            - ''
+            - - oss-
+              - Ref: ALIYUN::Region
+              - -internal.aliyuncs.com
+          - '
+
+            '
+          - DatabaseUser=
+          - Ref: MasterUserName
+          - '
+
+            '
+          - DatabasePwd=
+          - Ref: MasterDBPassword
+          - '
+
+            '
+          - DatabaseName=
+          - Ref: DBName
+          - '
+
+            '
+          - DatabaseHost=
+          - Fn::GetAtt:
+            - Database
+            - InnerConnectionString
+          - '
+
+            '
+          - 'ApacheIndex=''Options Indexes FollowSymLinks''
+
+            '
+          - 'ApacheIndexReplace=''Options Indexes FollowSymLinks''
+
+            '
+          - '#yum install -y php-gd php-imap php-ldap php-odbc php-pear php-xml php-xmlrpc
+
+            '
+          - 'yum install -y phpmyadmin
+
+            '
+          - 'sed -i "s%localhost%$DatabaseHost%" /etc/phpMyAdmin/config.inc.php
+
+            '
+          - 'sed -i "s%Deny,Allow%Allow,Deny%" /etc/httpd/conf.d/phpMyAdmin.conf
+
+            '
+          - 'sed -i "s%Deny from All%Allow from All%" /etc/httpd/conf.d/phpMyAdmin.conf
+
+            '
+          - 'sed -i "/<RequireAny>/a Require all Granted" /etc/httpd/conf.d/phpMyAdmin.conf
+
+            '
+          - 'chkconfig httpd on
+
+            '
+          - 'service httpd stop
+
+            '
+          - 'wget https://github.com/aliyun/ossfs/releases/download/v1.80.3/ossfs_1.80.3_centos6.5_x86_64.rpm
+
+            '
+          - 'yum install -y ossfs_1.80.3_centos6.5_x86_64.rpm
+
+            '
+          - 'echo $ossbucket:$ossbucketaccesskey:$ossbucketsecret >> /etc/passwd-ossfs
+
+            '
+          - 'chmod 600 /etc/passwd-ossfs
+
+            '
+          - 'mkdir $ossbucketmountpoint
+
+            '
+          - 'chmod -R 755 $ossbucketmountpoint
+
+            '
+          - 'echo #This script will automount the ossbucket
+
+            '
+          - 'echo umount $ossbucketmountpoint >> /usr/local/bin/ossfs-automount.sh
+
+            '
+          - 'echo #Mounting OSS Bucket
+
+            '
+          - 'echo ossfs $ossbucket $ossbucketmountpoint -ourl=http://$ossbucketendpoint
+            -o allow_other -o mp_umask=0022 -ouid=48 -ogid=48 >> /usr/local/bin/ossfs-automount.sh
+
+            '
+          - 'chmod 755 /usr/local/bin/ossfs-automount.sh
+
+            '
+          - 'echo /usr/local/bin/ossfs-automount.sh >> /etc/rc.d/rc.local
+
+            '
+          - 'chmod +x /etc/rc.d/rc.local
+
+            '
+          - '/usr/local/bin/./ossfs-automount.sh
+
+            '
+          - '#wget http://wordpress.org/latest.tar.gz
+
+            '
+          - '#tar -xzvf latest.tar.gz
+
+            '
+          - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/WordPress/WordPress.zip\
+            \ \n"
+          - "unzip WordPress.zip \n"
+          - "mv WordPress-master wordpress \n"
+          - 'sed -i "s%database_name_here%$DatabaseName%" wordpress/wp-config-sample.php
+
+            '
+          - 'sed -i "s%username_here%$DatabaseUser%" wordpress/wp-config-sample.php
+
+            '
+          - 'sed -i "s%password_here%${DatabasePwd:-$DatabasePwdDef}%" wordpress/wp-config-sample.php
+
+            '
+          - 'sed -i "s%localhost%$DatabaseHost%" wordpress/wp-config-sample.php
+
+            '
+          - 'mv wordpress/wp-config-sample.php wordpress/wp-config.php
+
+            '
+          - 'cp -a wordpress/* $ossbucketmountpoint
+
+            '
+          - '#chmod -R 755 /wwwroot/*
+
+            '
+          - "mv wordpress backup-worpress \n"
+          - '#sed -i "s%/var/www/html%$ossbucketmountpoint%" /etc/httpd/conf/httpd.conf
+
+            '
+          - '#sed -i "s%/var/www%$ossbucketmountpoint%" /etc/httpd/conf/httpd.conf
+
+            '
+          - 'sed -i "s%$ApacheIndex%$ApacheIndexReplace%" /etc/httpd/conf/httpd.conf
+
+            '
+          - 'chown apache:apache -R /var/www/html
+
+            '
+          - 'service httpd start
+
+            '
+          - 'done
+
+            '
+    DependsOn:
+    - Database
+    - OssBucket
+    - RamAK
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2da08724-689e-49a8-880f-390f6da67297
+  NewElasticIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 042ba09f-a586-44e1-8e9a-37ef6864e275
+  ElasticIPAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: Jumpbox
+      AllocationId:
+        Ref: NewElasticIP
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 58733be1-49df-4b0d-8e8e-c7948264cdac
+  JumpboxDataDisk:
+    Type: ALIYUN::ECS::Disk
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      DiskCategory:
+        Ref: JumpboxDataDiskType
+      Size:
+        Ref: JumpboxDataDiskSize
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0fef5f8a-2c95-4bdd-b20d-586f1388c7c7
+  JumpboxDataDiskAttachment:
+    Type: ALIYUN::ECS::DiskAttachment
+    Properties:
+      InstanceId:
+        Ref: Jumpbox
+      Device: /dev/xvdb
+      DiskId:
+        Fn::GetAtt:
+        - JumpboxDataDisk
+        - DiskId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: aa791fbd-6a56-4cb1-9af6-cf133e63730f
+  SNatTableEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatIp:
+        Fn::GetAtt:
+        - NatEip
+        - EipAddress
+      SNatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SourceVSwitchId:
+        Fn::GetAtt:
+        - VSwitch1
+        - VSwitchId
+    DependsOn: EIPBind
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 438b9f7b-b608-47b2-858e-69c53da1ea66
+  WebScalingGroup:
+    Type: ALIYUN::ESS::ScalingGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: VSwitch1
+      DBInstanceIds:
+      - Ref: Database
+      LoadBalancerIds:
+      - Ref: CreateLoadBalancer
+      MaxSize: 2
+      MinSize: 2
+    DependsOn:
+    - Database
+    - SecurityGroupDefault
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 689e36ff-b317-4fc6-9771-300a09309979
+  WebScalingConfiguration:
+    Type: ALIYUN::ESS::ScalingConfiguration
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroupDefault
+      ImageId:
+        Ref: JumpboxImageId
+      DiskMappings:
+      - Category:
+          Ref: JumpboxDataDiskType
+        Device: /dev/xvdb
+        Size: 100
+      InstanceType:
+        Ref: JumpboxInstanceType
+      ScalingGroupId:
+        Ref: WebScalingGroup
+      SystemDiskCategory:
+        Ref: JumpboxDataDiskType
+      UserData:
+        Fn::Join:
+        - ''
+        - - '#!/bin/sh
+
+            '
+          - 'i=1
+
+            '
+          - total=
+          - Ref: TotalDataDisk
+          - '
+
+            '
+          - mountpoint=
+          - Ref: MountPoint
+          - '
+
+            '
+          - 'while [ $i -le $total ]
+
+            '
+          - 'do
+
+            '
+          - '    j=`echo $i|awk ''{printf "%c", 97+$i}''`
+
+            '
+          - 'fdisk -S 56 /dev/vd$j <<ALIYUN
+
+            '
+          - 'n
+
+            '
+          - 'p
+
+            '
+          - '1
+
+            '
+          - '
+
+            '
+          - '
+
+            '
+          - 'w
+
+            '
+          - 'ALIYUN
+
+            '
+          - '    echo "/dev/vd$j is fdisked!" >> $logs
+
+            '
+          - '    mkfs.ext4 /dev/vd${j}1
+
+            '
+          - '    if [ $? -eq 0 ];then
+
+            '
+          - '        echo "/dev/vd${j}1 is formated!" >> $logs
+
+            '
+          - '    fi
+
+            '
+          - '    touch ~/test_ftab
+
+            '
+          - '    mkdir $mountpoint
+
+            '
+          - 'cat << ALIYUN > ~/test_ftab
+
+            '
+          - '/dev/vd${j}1         $mountpoint       ext4       defaults        0 0
+
+            '
+          - 'ALIYUN
+
+            '
+          - '    cat ~/test_ftab >> /etc/fstab
+
+            '
+          - '    mount -a
+
+            '
+          - '    chmod -R 777 $mountpoint
+
+            '
+          - '    rm -rf ~/test_ftab
+
+            '
+          - '    echo "/dev/vd${j}1 is mounted!" >> $logs
+
+            '
+          - '    let i+=1
+
+            '
+          - ossbucket=
+          - Ref: BucketName
+          - '
+
+            '
+          - ossbucketaccesskey=
+          - Fn::GetAtt:
+            - RamAK
+            - AccessKeyId
+          - '
+
+            '
+          - ossbucketsecret=
+          - Fn::GetAtt:
+            - RamAK
+            - AccessKeySecret
+          - '
+
+            '
+          - ossbucketmountpoint=
+          - Ref: OSSBucketMountPoint
+          - '
+
+            '
+          - ossbucketendpoint=
+          - Fn::Join:
+            - ''
+            - - oss-
+              - Ref: ALIYUN::Region
+              - -internal.aliyuncs.com
+          - '
+
+            '
+          - DatabaseUser=
+          - Ref: MasterUserName
+          - '
+
+            '
+          - DatabasePwd=
+          - Ref: MasterDBPassword
+          - '
+
+            '
+          - DatabaseName=
+          - Ref: DBName
+          - '
+
+            '
+          - DatabaseHost=
+          - Fn::GetAtt:
+            - Database
+            - InnerConnectionString
+          - '
+
+            '
+          - 'wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+
+            '
+          - 'yum makecache
+
+            '
+          - "yum install -y curl httpd mysql-server php56 php56-php-mysql \n"
+          - "rpm -Uvh https://mirror.webtatic.com/yum/el7/epel-release.rpm \n"
+          - "rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm \n"
+          - "yum install -y php56w.x86_64 php56w-cli.x86_64 php56w-common.x86_64 php56w-gd.x86_64\
+            \ php56w-imap.x86_64 php56w-ldap.x86_64 php56w-mysql.x86_64 php56w-pdo.x86_64\
+            \ php56w-odbc.x86_64 php56w-process.x86_64 php56w-xml.x86_64 php56w-xmlrpc.x86_64\
+            \ \n"
+          - 'chkconfig httpd on
+
+            '
+          - 'service httpd stop
+
+            '
+          - 'DocumentRoot=''/var/www/html''
+
+            '
+          - 'sed -i "s%$DocumentRoot%$ossbucketmountpoint%" /etc/httpd/conf/httpd.conf
+
+            '
+          - 'Directory=''/var/www''
+
+            '
+          - 'sed -i "s%$Directory%$ossbucketmountpoint%" /etc/httpd/conf/httpd.conf
+
+            '
+          - 'wget https://github.com/aliyun/ossfs/releases/download/v1.80.3/ossfs_1.80.3_centos6.5_x86_64.rpm
+
+            '
+          - 'yum install -y ossfs_1.80.3_centos6.5_x86_64.rpm
+
+            '
+          - 'echo $ossbucket:$ossbucketaccesskey:$ossbucketsecret >> /etc/passwd-ossfs
+
+            '
+          - 'chmod 600 /etc/passwd-ossfs
+
+            '
+          - 'mkdir $ossbucketmountpoint
+
+            '
+          - 'chmod -R 755 $ossbucketmountpoint
+
+            '
+          - 'echo #This script will automount the ossbucket
+
+            '
+          - 'echo umount $ossbucketmountpoint >> /usr/local/bin/ossfs-automount.sh
+
+            '
+          - 'echo #Mounting OSS Bucket
+
+            '
+          - 'echo ossfs $ossbucket $ossbucketmountpoint -ourl=http://$ossbucketendpoint
+            -o allow_other -o mp_umask=0022 -ouid=48 -ogid=48 >> /usr/local/bin/ossfs-automount.sh
+
+            '
+          - 'chmod 755 /usr/local/bin/ossfs-automount.sh
+
+            '
+          - 'echo /usr/local/bin/ossfs-automount.sh >> /etc/rc.d/rc.local
+
+            '
+          - 'chmod +x /etc/rc.d/rc.local
+
+            '
+          - '/usr/local/bin/./ossfs-automount.sh
+
+            '
+          - 'chmod -R 755 /wwwroot/*
+
+            '
+          - 'service httpd start
+
+            '
+          - 'done
+
+            '
+    DependsOn:
+    - OssBucket
+    - RamAK
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2e9c2d28-87ad-41e7-a8d7-a86a7e7f6ccc
+  ScalingGroupEnable:
+    Type: ALIYUN::ESS::ScalingGroupEnable
+    Properties:
+      ScalingConfigurationId:
+        Fn::GetAtt:
+        - WebScalingConfiguration
+        - ScalingConfigurationId
+      ScalingGroupId:
+        Fn::GetAtt:
+        - WebScalingGroup
+        - ScalingGroupId
+    DependsOn: Jumpbox
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4c0fc3f7-7b2b-4023-88be-8ae4fa5094ad
+Outputs:
+  DBInstanceId:
+    Description: The instance id of created database instance.
+    Value:
+      Fn::GetAtt:
+      - Database
+      - DBInstanceId
+  InnerConnectString:
+    Description: DB instance connection url by Intranet.
+    Value:
+      Fn::GetAtt:
+      - Database
+      - InnerConnectionString
+  JumpboxEipAddress:
+    Description: IP address of created EIP.
+    Value:
+      Fn::GetAtt:
+      - NewElasticIP
+      - EipAddress
+  JumpboxInstanceId:
+    Description: The instance id of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - Jumpbox
+      - InstanceId
+  LoadBalancerIpAddress:
+    Description: The ip address of the load balancer.
+    Value:
+      Fn::GetAtt:
+      - CreateLoadBalancer
+      - IpAddress
+  PhpAdminUrl:
+    Description: Phpadmin url.
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - NewElasticIP
+          - EipAddress
+        - /phpmyadmin
+        - /index.php
+  PublicPort:
+    Description: Internet port of created DB instance.
+    Value:
+      Fn::GetAtt:
+      - Database
+      - PublicPort
+  RouteTableId:
+    Description: The router table id of created VPC.
+    Value:
+      Fn::GetAtt:
+      - EcsVpc
+      - RouteTableId
+  SecurityGroupId:
+    Description: Generated security group id for security group.
+    Value:
+      Fn::GetAtt:
+      - SecurityGroupDefault
+      - SecurityGroupId
+  VRouterId:
+    Description: Router id of created VPC.
+    Value:
+      Fn::GetAtt:
+      - EcsVpc
+      - VRouterId
+  VSwitchId:
+    Description: Id of created VSwitch.
+    Value:
+      Fn::GetAtt:
+      - VSwitch1
+      - VSwitchId
+  VpcId:
+    Description: Id of created VPC.
+    Value:
+      Fn::GetAtt:
+      - EcsVpc
+      - VpcId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - BucketName
+      - OSSBucketMountPoint
+      Label:
+        default: OSS
+    - Parameters:
+      - ZoneId
+      - JumpboxInstanceType
+      - JumpboxImageId
+      - JumpboxDataDiskType
+      - JumpboxDataDiskSize
+      - MountPoint
+      - JumpboxPassword
+      Label:
+        default: ECS
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        default: SLB
+    - Parameters:
+      - DBInstanceClass
+      - DBInstanceEngineAndVersion
+      - DBInstanceNetType
+      - DBInstanceStorage
+      - DBName
+      - MasterUserName
+      - MasterDBPassword
+      Label:
+        default: RDS
+    TemplateTags:
+    - acs:example:网站:创建一个WordPress可弹性伸缩的集群
+  ALIYUN::ROS::Designer:
+    042ba09f-a586-44e1-8e9a-37ef6864e275:
+      position:
+        x: 917
+        y: 62
+      size:
+        height: 60
+        width: 60
+      z: 0
+    04f8322e-7fe1-49f0-a466-405e1acee8e8:
+      source:
+        id: 2da08724-689e-49a8-880f-390f6da67297
+      target:
+        id: a93c1de5-8a9e-4085-8417-4fa37d754c4c
+      z: 1
+    0bf5905a-3c21-4490-a445-8c09d871cba4:
+      source:
+        id: 58733be1-49df-4b0d-8e8e-c7948264cdac
+      target:
+        id: 2da08724-689e-49a8-880f-390f6da67297
+      z: 1
+    0f18606d-ef61-4f85-b822-e0d0b30b86f8:
+      position:
+        x: 334
+        y: 381
+      size:
+        height: 60
+        width: 60
+      z: 1
+    0fef5f8a-2c95-4bdd-b20d-586f1388c7c7:
+      position:
+        x: 922
+        y: 157
+      size:
+        height: 60
+        width: 60
+      z: 0
+    1073bc67-4ae7-478c-9ecf-51a0868bc0ea:
+      source:
+        id: 2e9c2d28-87ad-41e7-a8d7-a86a7e7f6ccc
+      target:
+        id: 0f18606d-ef61-4f85-b822-e0d0b30b86f8
+      z: 1
+    16e1e20c-8495-4ce8-9442-04b32760a44a:
+      position:
+        x: 56
+        y: 130
+      size:
+        height: 60
+        width: 60
+      z: 0
+    1b3a4f9f-1d86-4f12-95c7-b968217d979b:
+      source:
+        id: 2da08724-689e-49a8-880f-390f6da67297
+      target:
+        id: 3d0aee34-3a6d-48e7-a0f0-91b21d45c761
+      z: 1
+    202f07b0-7656-4a70-ac41-0f28726e8983:
+      source:
+        id: 58733be1-49df-4b0d-8e8e-c7948264cdac
+      target:
+        id: 042ba09f-a586-44e1-8e9a-37ef6864e275
+      z: 1
+    21d4f97e-17d2-4837-8cef-6749f670154a:
+      source:
+        id: 2da08724-689e-49a8-880f-390f6da67297
+      target:
+        id: f10609bb-efaa-4f7a-8d8b-c71094a12db3
+      z: 1
+    2da08724-689e-49a8-880f-390f6da67297:
+      position:
+        x: 334
+        y: 138
+      size:
+        height: 60
+        width: 60
+      z: 2
+    2e9c2d28-87ad-41e7-a8d7-a86a7e7f6ccc:
+      position:
+        x: 464
+        y: 535
+      size:
+        height: 60
+        width: 60
+      z: 0
+    374cd7cc-4bd5-4392-949c-e51b1141ac49:
+      embeds:
+      - 0f18606d-ef61-4f85-b822-e0d0b30b86f8
+      - f8d3243b-66f2-4cf9-9e68-8dfc2a9ae8d1
+      position:
+        x: 193
+        y: 50
+      size:
+        height: 435
+        width: 516.869140625
+      z: 0
+    38d112d9-01a7-4d67-b933-5a02299dec6d:
+      position:
+        x: 919
+        y: 279
+      size:
+        height: 60
+        width: 60
+      z: 0
+    3d0aee34-3a6d-48e7-a0f0-91b21d45c761:
+      position:
+        x: 469
+        y: 194
+      size:
+        height: 60
+        width: 60
+      z: 2
+    438b9f7b-b608-47b2-858e-69c53da1ea66:
+      position:
+        x: 250
+        y: 244
+      size:
+        height: 60
+        width: 60
+      z: 2
+    43d3d6c6-db26-4bfb-b98d-a38827f96703:
+      source:
+        id: 16e1e20c-8495-4ce8-9442-04b32760a44a
+      target:
+        id: 8149252a-29fd-49f8-870d-3659de53b681
+      z: 1
+    4c0fc3f7-7b2b-4023-88be-8ae4fa5094ad:
+      position:
+        x: 621
+        y: 535
+      size:
+        height: 60
+        width: 60
+      z: 0
+    58733be1-49df-4b0d-8e8e-c7948264cdac:
+      position:
+        x: 777
+        y: 62
+      size:
+        height: 60
+        width: 60
+      z: 0
+    6138e564-94df-4a43-95b0-5369f48178a9:
+      source:
+        id: 2da08724-689e-49a8-880f-390f6da67297
+      target:
+        id: 0f18606d-ef61-4f85-b822-e0d0b30b86f8
+      z: 1
+    689e36ff-b317-4fc6-9771-300a09309979:
+      position:
+        x: 464
+        y: 277
+      size:
+        height: 60
+        width: 60
+      z: 2
+    723293a4-7b4e-43f8-83a2-9d452aec9a76:
+      source:
+        id: f10609bb-efaa-4f7a-8d8b-c71094a12db3
+      target:
+        id: 9736d867-f75b-4f97-8fca-0d9bed345f96
+      z: 1
+    777bd33a-43c0-482c-bdfb-db77caf57346:
+      source:
+        id: aa791fbd-6a56-4cb1-9af6-cf133e63730f
+      target:
+        id: 0fef5f8a-2c95-4bdd-b20d-586f1388c7c7
+      z: 1
+    8149252a-29fd-49f8-870d-3659de53b681:
+      position:
+        x: 250
+        y: 130
+      size:
+        height: 60
+        width: 60
+      z: 2
+    9736d867-f75b-4f97-8fca-0d9bed345f96:
+      position:
+        x: 659
+        y: -30
+      size:
+        height: 60
+        width: 60
+      z: 0
+    9771aab8-e10a-40c3-8f4c-5cbe5c7cc900:
+      position:
+        x: 767
+        y: 279
+      size:
+        height: 60
+        width: 60
+      z: 0
+    9df7400a-f468-46f7-8588-b596f0c17209:
+      source:
+        id: 438b9f7b-b608-47b2-858e-69c53da1ea66
+      target:
+        id: c5106c8c-87e8-44e3-9f3b-6a05c9c207e0
+      z: 1
+    a55e227d-ec24-4176-9fe3-97e81afffa2c:
+      source:
+        id: 16e1e20c-8495-4ce8-9442-04b32760a44a
+      target:
+        id: c5106c8c-87e8-44e3-9f3b-6a05c9c207e0
+      z: 1
+    a93c1de5-8a9e-4085-8417-4fa37d754c4c:
+      position:
+        x: 334
+        y: -52
+      size:
+        height: 60
+        width: 60
+      z: 0
+    aa791fbd-6a56-4cb1-9af6-cf133e63730f:
+      position:
+        x: 777
+        y: 157
+      size:
+        height: 60
+        width: 60
+      z: 0
+    ae27b5c3-1086-4e79-8500-f2109d90b7f5:
+      source:
+        id: aa791fbd-6a56-4cb1-9af6-cf133e63730f
+      target:
+        id: 2da08724-689e-49a8-880f-390f6da67297
+      z: 1
+    bf250016-70db-46a3-83bc-65fd2ad4d8c8:
+      source:
+        id: 4c0fc3f7-7b2b-4023-88be-8ae4fa5094ad
+      target:
+        id: 689e36ff-b317-4fc6-9771-300a09309979
+      z: 1
+    c5106c8c-87e8-44e3-9f3b-6a05c9c207e0:
+      position:
+        x: 56
+        y: 244
+      size:
+        height: 60
+        width: 60
+      z: 0
+    cbcd72ca-8ac2-4559-adc1-c51e97937e59:
+      source:
+        id: 38d112d9-01a7-4d67-b933-5a02299dec6d
+      target:
+        id: 9771aab8-e10a-40c3-8f4c-5cbe5c7cc900
+      z: 1
+    e7fd569c-8640-4d11-a250-1f1c77815be1:
+      source:
+        id: 2e9c2d28-87ad-41e7-a8d7-a86a7e7f6ccc
+      target:
+        id: 689e36ff-b317-4fc6-9771-300a09309979
+      z: 1
+    ea68d1b7-3667-48e2-bce3-c69d392d1bb0:
+      source:
+        id: 4c0fc3f7-7b2b-4023-88be-8ae4fa5094ad
+      target:
+        id: 2e9c2d28-87ad-41e7-a8d7-a86a7e7f6ccc
+      z: 1
+    f10609bb-efaa-4f7a-8d8b-c71094a12db3:
+      position:
+        x: 461
+        y: -30
+      size:
+        height: 60
+        width: 60
+      z: 0
+    f8d3243b-66f2-4cf9-9e68-8dfc2a9ae8d1:
+      embeds:
+      - 8149252a-29fd-49f8-870d-3659de53b681
+      - 438b9f7b-b608-47b2-858e-69c53da1ea66
+      - 689e36ff-b317-4fc6-9771-300a09309979
+      - 2da08724-689e-49a8-880f-390f6da67297
+      - 3d0aee34-3a6d-48e7-a0f0-91b21d45c761
+      position:
+        x: 213
+        y: 90
+      size:
+        height: 277
+        width: 363
+      z: 1
+    fd62d752-34e7-4ceb-969e-8472facdee3c:
+      source:
+        id: 438b9f7b-b608-47b2-858e-69c53da1ea66
+      target:
+        id: 8149252a-29fd-49f8-870d-3659de53b681
+      z: 1

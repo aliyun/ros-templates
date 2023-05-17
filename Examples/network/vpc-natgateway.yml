@@ -1,0 +1,475 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 'Alibaba Cloud ROS Sample Template: Create VPC environment and configure NatGateway
+    to ensure ECS access internet and provider service for public.'
+  zh-cn: '阿里云资源编排示例模板: 在VPC网络下创建ECS并配置NatGateway使VPC网络中的ECS可访问外网和提供服务。'
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The VPC CIDR Block; <br>You can use the following IP network segments:
+        <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font
+        color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: VPC的IP网段；<br>您可以使用以下IP地址范围：<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      en: CIDR Block of created VSwitch,It must belong to itself VPC CIDR Block.
+      zh-cn: 创建的虚拟交换机的子网，它必须属于自己的VPC网段内
+    Default: 192.168.1.0/24
+  Bandwidth:
+    Type: Number
+    Label:
+      en: Nat Gateway Bandwidth
+      zh-cn: 网关带宽
+    Description:
+      en: 'EIP Bandwidth for Nat Gateway.Value range: [1,200], unit: Mbps.'
+      zh-cn: Nat网关绑定的EIP带宽。取值范围：1~200， 单位：Mbps。
+    ConstraintDescription:
+      en: 'EIP Bandwidth for Nat Gateway.Value range: [1,200], unit: Mbps.'
+      zh-cn: Nat网关绑定的EIP带宽。取值范围：1~200， 单位：Mbps。
+    Default: 5
+    MinValue: 5
+  ImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，Please use Centos7, see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 请使用Centos7, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  ECSMaxAmount:
+    Type: Number
+    Label:
+      en: The number of ECS instances.
+      zh-cn: ECS实例数量
+    Description:
+      en: ECS Amount.
+      zh-cn: 要创建的ECS实例的数量。
+    Default: 1
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+Resources:
+  EipSNat:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth:
+        Ref: Bandwidth
+      InternetChargeType: PayByTraffic
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e0c98dfb-d8ea-4b19-8391-05b2e38e85a5
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName: test_vpc_entry
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2bc84e50-fee1-4805-b965-c4f787dc78dc
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName: test_vswitch
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ea04b3e7-611b-4e53-a3c6-1cc360fb7312
+  VpcNatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - EcsVSwitch
+        - VSwitchId
+      Description: My NAT Gateway
+      NatGatewayName: nat_gateway_1
+    DependsOn: EcsVSwitch
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8210f492-a841-450e-b0ed-020ec179bdb8
+  EIpSnatAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: VpcNatGateway
+      AllocationId:
+        Ref: EipSNat
+    DependsOn: VpcNatGateway
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e894f95d-fd45-4df6-abb1-1dc30ce87e42
+  EipForward:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth:
+        Ref: Bandwidth
+      InternetChargeType: PayByTraffic
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1e2a51ff-f24e-4c10-ad8b-bc13c7f4efc7
+  EIpForwardAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: VpcNatGateway
+      AllocationId:
+        Ref: EipForward
+    DependsOn: EIpSnatAssociation
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 27429595-d7cf-4b02-948d-960b495a6495
+  EcsForwardEntry:
+    Type: ALIYUN::ECS::ForwardEntry
+    Properties:
+      ExternalIp:
+        Fn::GetAtt:
+        - EipForward
+        - EipAddress
+      ExternalPort: Any
+      ForwardTableId:
+        Fn::GetAtt:
+        - VpcNatGateway
+        - ForwardTableId
+      InternalIp:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - EcsInstanceGroup
+          - PrivateIps
+      InternalPort: Any
+      IpProtocol: Any
+    DependsOn: EIpForwardAssociation
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8c894330-f773-4963-b289-879388f335fd
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 124c9301-5680-4347-bbaf-7c141af93f1f
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      VSwitchId:
+        Fn::GetAtt:
+        - EcsVSwitch
+        - VSwitchId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      MaxAmount:
+        Ref: ECSMaxAmount
+      Password:
+        Ref: Password
+      SystemDiskCategory: cloud_efficiency
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d76ac9e3-4493-404b-986e-e1fce31bead0
+  SNatEntry:
+    Type: ALIYUN::ECS::SNatEntry
+    Properties:
+      SNatIp:
+        Fn::GetAtt:
+        - EipSNat
+        - EipAddress
+      SNatTableId:
+        Fn::GetAtt:
+        - VpcNatGateway
+        - SNatTableId
+      SourceVSwitchId:
+        Fn::GetAtt:
+        - EcsVSwitch
+        - VSwitchId
+    DependsOn: EIpSnatAssociation
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 47ed5a07-4df1-4295-a84c-6a90e6d3d9a1
+Outputs:
+  ExternalIp:
+    Description: The Forward Entry External Ip.
+    Value:
+      Fn::GetAtt:
+      - EipForward
+      - EipAddress
+  SNatIp:
+    Description: The SNat Ip.
+    Value:
+      Fn::GetAtt:
+      - EipSNat
+      - EipAddress
+  WebServerIPs:
+    Description: Private IP address list of created ecs instance. Only for VPC instance.
+    Value:
+      Fn::GetAtt:
+      - EcsInstanceGroup
+      - PrivateIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - Bandwidth
+      Label:
+        default: VPC
+    - Parameters:
+      - ImageId
+      - InstanceType
+      - ECSMaxAmount
+      - Password
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:example:网络:创建ECS并配置NatGateway使VPC网络中的ECS可访问外网和提供服务
+  ALIYUN::ROS::Designer:
+    124c9301-5680-4347-bbaf-7c141af93f1f:
+      position:
+        x: 66
+        y: 248
+      size:
+        height: 60
+        width: 60
+      z: 0
+    1e2a51ff-f24e-4c10-ad8b-bc13c7f4efc7:
+      position:
+        x: 579
+        y: 182
+      size:
+        height: 60
+        width: 60
+      z: 0
+    27429595-d7cf-4b02-948d-960b495a6495:
+      position:
+        x: 414
+        y: 124
+      size:
+        height: 60
+        width: 60
+      z: 0
+    2bc84e50-fee1-4805-b965-c4f787dc78dc:
+      embeds:
+      - ea04b3e7-611b-4e53-a3c6-1cc360fb7312
+      position:
+        x: 42
+        y: 19
+      size:
+        height: 374
+        width: 321
+      z: 0
+    2df47b7f-4aa7-4df0-a29e-a16d544e8a78:
+      source:
+        id: e894f95d-fd45-4df6-abb1-1dc30ce87e42
+      target:
+        id: 8210f492-a841-450e-b0ed-020ec179bdb8
+      z: 1
+    47ed5a07-4df1-4295-a84c-6a90e6d3d9a1:
+      position:
+        x: -74
+        y: 70
+      size:
+        height: 60
+        width: 60
+      z: 0
+    4d82f29f-c134-4af8-8040-40a6114a102c:
+      source:
+        id: 47ed5a07-4df1-4295-a84c-6a90e6d3d9a1
+      target:
+        id: e0c98dfb-d8ea-4b19-8391-05b2e38e85a5
+      z: 1
+    53894035-142f-4e25-a9f9-2c48c9350c98:
+      source:
+        id: 47ed5a07-4df1-4295-a84c-6a90e6d3d9a1
+      target:
+        id: 8210f492-a841-450e-b0ed-020ec179bdb8
+      z: 1
+    6649677d-dee2-4d3d-b533-4c9fa601db1a:
+      source:
+        id: 8c894330-f773-4963-b289-879388f335fd
+      target:
+        id: 1e2a51ff-f24e-4c10-ad8b-bc13c7f4efc7
+      z: 1
+    76a7b125-fbe7-414f-8fe0-53442d6bfbe5:
+      source:
+        id: e894f95d-fd45-4df6-abb1-1dc30ce87e42
+      target:
+        id: e0c98dfb-d8ea-4b19-8391-05b2e38e85a5
+      z: 1
+    771a4d5d-f623-465f-bb2e-6b69ef9fc723:
+      source:
+        id: d76ac9e3-4493-404b-986e-e1fce31bead0
+      target:
+        id: 124c9301-5680-4347-bbaf-7c141af93f1f
+      z: 1
+    807d6392-afdb-46f1-8abf-841a228f071e:
+      source:
+        id: 27429595-d7cf-4b02-948d-960b495a6495
+      target:
+        id: 8210f492-a841-450e-b0ed-020ec179bdb8
+      z: 1
+    8210f492-a841-450e-b0ed-020ec179bdb8:
+      position:
+        x: 213
+        y: 124
+      size:
+        height: 60
+        width: 60
+      z: 2
+    8c894330-f773-4963-b289-879388f335fd:
+      position:
+        x: 415
+        y: 248
+      size:
+        height: 60
+        width: 60
+      z: 0
+    cba3ca09-011a-4acd-930c-a16465e9a452:
+      source:
+        id: 27429595-d7cf-4b02-948d-960b495a6495
+      target:
+        id: 1e2a51ff-f24e-4c10-ad8b-bc13c7f4efc7
+      z: 1
+    d76ac9e3-4493-404b-986e-e1fce31bead0:
+      position:
+        x: 219
+        y: 248
+      size:
+        height: 60
+        width: 60
+      z: 2
+    e0c98dfb-d8ea-4b19-8391-05b2e38e85a5:
+      position:
+        x: -247
+        y: 123
+      size:
+        height: 60
+        width: 60
+      z: 0
+    e894f95d-fd45-4df6-abb1-1dc30ce87e42:
+      position:
+        x: -74
+        y: 204
+      size:
+        height: 60
+        width: 60
+      z: 0
+    ea04b3e7-611b-4e53-a3c6-1cc360fb7312:
+      embeds:
+      - 8210f492-a841-450e-b0ed-020ec179bdb8
+      - d76ac9e3-4493-404b-986e-e1fce31bead0
+      position:
+        x: 161
+        y: 95
+      size:
+        height: 255
+        width: 163
+      z: 1
+    fcc4be3a-5290-41d5-a1da-1d100a6f6feb:
+      source:
+        id: 8c894330-f773-4963-b289-879388f335fd
+      target:
+        id: d76ac9e3-4493-404b-986e-e1fce31bead0
+      z: 1

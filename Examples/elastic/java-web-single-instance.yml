@@ -1,0 +1,308 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: The template installs jdk and tomcat on a new ECS instance.
+  zh-cn: 创建一台ECS实例并安装jdk和tomcat
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>You can use
+        the following IP address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: VPC的IP地址范围；<br>您可以使用以下IP地址范围及其子网：<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0/16]</font>
+    Default: 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: CIDR Block of created VSwitch,It must belong to itself VPC CIDR Block.
+      zh-cn: 创建的虚拟交换机的子网，它必须属于自己的VPC网段内
+    Default: 192.168.1.0/24
+  ImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: ECS镜像ID
+    Description:
+      en: Image ID, represents the image resource to startup one ECS instance, <font><a
+        href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'><b>View
+        image resources</b></font color='blue'></a>
+      zh-cn: 镜像ID，ECS实例的镜像资源, <font><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><b>查看镜像资源</b></font color='blue'></a>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: ECS实例规格
+    Description:
+      en: The ECS instance type,go to the product console to ensure the current instance
+        is available, <font><a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
+        target='_blank'><b>View instance types</b></font color='blue'></a>
+      zh-cn: ECS实例类型，进入产品控制台确保当前实例可用, <font><a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b>查看实例类型</b></font color='blue'></a>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  InstanceSystemDiskCategory:
+    Type: String
+    Label:
+      en: Instance System Disk Category
+      zh-cn: ECS系统盘规格
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      ZoneId: ${ZoneId}
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: ECS实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/.
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+        or not.
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName: Java_Web_VPC
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 250f56b2-b142-4ea9-a904-cbfa9494251a
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 60f8935f-0471-46cc-afad-d9623a401a3a
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a9eb9316-8735-4296-ab82-0654fcbcb208
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName: Java_Web_Instance
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthOut: 80
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: InstanceSystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WebServerConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - '#!/bin/bash
+
+              '
+            - 'cd /root
+
+              '
+            - "yum -y install java \n"
+            - "yum -y install tomcat tomcat-webapps tomcat-admin-webapps \n"
+            - "systemctl start tomcat.service \n"
+            - 'sleep 3
+
+              '
+            - "netstat -ntlp | grep 8080 >> /tmp/access.log \n"
+            - "if [[ $? -eq 0 ]]; \n"
+            - "then \n"
+            - "     ros-notify \n"
+            - "fi \n"
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 97357d84-b2fa-4f0a-afbe-305e7d73afe2
+  WebServerConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 06beb6ea-35d9-4322-9f50-320467b5e4e8
+  WebServerGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WebServerConditionHandle
+      Timeout: 3600
+    DependsOn: WebServer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ac2472d0-703d-4738-9534-8efef03e7fb0
+Outputs:
+  WebsiteURL:
+    Description: URL for newly created Apache Tomcat
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - WebServer
+          - PublicIp
+        - :8080
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - ImageId
+      - InstanceType
+      - InstanceSystemDiskCategory
+      - InstancePassword
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:example:网站:部署JavaWeb开发测试环境
+  ALIYUN::ROS::Designer:
+    06beb6ea-35d9-4322-9f50-320467b5e4e8:
+      position:
+        x: 263
+        y: 261
+      size:
+        height: 60
+        width: 60
+      z: 0
+    250f56b2-b142-4ea9-a904-cbfa9494251a:
+      embeds:
+      - a9eb9316-8735-4296-ab82-0654fcbcb208
+      - 60f8935f-0471-46cc-afad-d9623a401a3a
+      position:
+        x: 388
+        y: 44
+      size:
+        height: 310
+        width: 316
+      z: 0
+    4b377b4f-c42b-4745-b5b4-b645da227564:
+      source:
+        id: ac2472d0-703d-4738-9534-8efef03e7fb0
+      target:
+        id: 06beb6ea-35d9-4322-9f50-320467b5e4e8
+      z: 1
+    60f8935f-0471-46cc-afad-d9623a401a3a:
+      position:
+        x: 613
+        y: 239
+      size:
+        height: 60
+        width: 60
+      z: 1
+    771578ba-c74b-4453-ad66-6d35cffd8fd7:
+      source:
+        id: 97357d84-b2fa-4f0a-afbe-305e7d73afe2
+      target:
+        id: 60f8935f-0471-46cc-afad-d9623a401a3a
+      z: 1
+    97357d84-b2fa-4f0a-afbe-305e7d73afe2:
+      position:
+        x: 449
+        y: 114
+      size:
+        height: 60
+        width: 60
+      z: 2
+    a9eb9316-8735-4296-ab82-0654fcbcb208:
+      embeds:
+      - 97357d84-b2fa-4f0a-afbe-305e7d73afe2
+      position:
+        x: 411
+        y: 74
+      size:
+        height: 153
+        width: 132
+      z: 1
+    ac2472d0-703d-4738-9534-8efef03e7fb0:
+      position:
+        x: 263
+        y: 77
+      size:
+        height: 60
+        width: 60
+      z: 0

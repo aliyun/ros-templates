@@ -1,0 +1,152 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: One security group holds a set of ECS instances with the same configuration,
+  using classic network.
+Parameters:
+  ImageId:
+    Type: String
+    Label:
+      en: ECS Image ID
+      zh-cn: 镜像ID
+    Description:
+      en: Image ID, represents the image resource to startup one ECS instance, <font><a
+        href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'><b>View
+        image resources</b></font color='blue'></a>
+      zh-cn: 镜像ID，ECS实例的镜像资源, <font><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><b>查看镜像资源</b></font color='blue'></a>
+    Default: ubuntu_14
+  InstanceType:
+    Type: String
+    Label:
+      en: ECS Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: The ECS Instance Type, please select the specifications of the classic network
+        and make sure they are available, <font><a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
+        target='_blank'><b>View instance types</b></font color='blue'></a>.
+      zh-cn: ECS实例类型，请选择经典网络的规格并确保可用， <font><a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b>查看实例类型</b></font color='blue'></a>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类别
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  ECSAmount:
+    Type: Number
+    Label:
+      en: Number of ECS
+      zh-cn: ECS实例数量
+    Description:
+      en: Number of ECS instances, range 1-100.
+      zh-cn: ECS实例数量，范围1-100。
+    ConstraintDescription:
+      en: An integer within [1, 100]
+      zh-cn: '[1, 100] 内的整数'
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  Password:
+    Type: String
+    Label:
+      en: ECS Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  securityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties: {}
+  ecsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      SecurityGroupId:
+        Fn::GetAtt:
+        - securityGroup
+        - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: true
+      InstanceName: ecsInstance
+      InstanceType:
+        Ref: InstanceType
+      InternetChargeType: PayByTraffic
+      IoOptimized: optimized
+      MaxAmount:
+        Ref: ECSAmount
+      Password:
+        Ref: Password
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+    DependsOn: securityGroup
+Outputs:
+  InnerIps:
+    Description: Inner IP address list of the specified instance. Only for classical
+      instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - InnerIps
+  InstanceIds:
+    Description: The instance id list of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - InstanceIds
+  PublicIps:
+    Description: Public IP address list of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - PublicIps
+  SecurityGroupId:
+    Description: generated security group id for security group.
+    Value:
+      Fn::GetAtt:
+      - securityGroup
+      - SecurityGroupId
+  ZoneIds:
+    Description: Zone id of created instance.
+    Value:
+      Fn::GetAtt:
+      - ecsInstanceGroup
+      - ZoneIds
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ImageId
+      - InstanceType
+      - SystemDiskCategory
+      - ECSAmount
+      - Password
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:example:弹性计算:使用特定镜像创建一组同配置的经典网络ECS实例

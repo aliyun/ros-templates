@@ -1,0 +1,351 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: One VPC, VSwitch, security group, ECS instance, and route. The user needs
+  to specify the image ID.
+Parameters:
+  VpcName:
+    Type: String
+    Label:
+      en: VPC Name
+      zh-cn: 专有网络名称
+    Description:
+      en: Name of VPC, [2, 128] English or Chinese characters, must start with a letter
+        or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: VPC 名称，[2，128]英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    ConstraintDescription:
+      en: '[2, 128] English or Chinese characters'
+      zh-cn: '[2, 128] 英文或中文字符'
+    Default: MyVPC
+    MinLength: 2
+    MaxLength: 128
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The VPC CIDR Block; <br>You can use the following IP network segments:
+        <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font
+        color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: VPC的IP网段；<br>您可以使用以下IP地址范围：<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0/16]</font>
+    Default: 10.0.0.0/8
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: CIDR Block of created VSwitch,It must belong to itself VPC CIDR  lock.
+      zh-cn: 创建的虚拟交换机的子网，它必须属于自己的VPC网段内
+    Default: 10.0.10.0/24
+  DestinationCidrBlock:
+    Type: String
+    Label:
+      en: Route Destination CIDR Block
+      zh-cn: 路由目标子网
+    Description:
+      en: The destination subnet of route, such as, 192.168.1.0/24 or 192.168.1.0
+      zh-cn: 路由的目标子网，如192.168.1.0/24或192.168.1.0
+    Default: 192.168.1.0
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font><br><font color='blue'><b>2.List of optional
+        models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
+        bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+  SecurityGroupName:
+    Type: String
+    Label:
+      en: Security Group Name
+      zh-cn: 安全组名称
+    Description:
+      en: The security group name, [2, 128] English or Chinese characters, must start
+        with a letter or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: 安全组名称，[2，128]英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    ConstraintDescription:
+      en: '[2, 128] English or Chinese characters'
+      zh-cn: '[2, 128] 英文或中文字符'
+    Default: TestSecurity
+    MinLength: 2
+    MaxLength: 128
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  ImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，Please use Centos7, see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 请使用Centos7, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: VpcName
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ae22bb2a-7506-4b36-b123-9032b4386e77
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Ref: SecurityGroupName
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d51e35d1-e426-493a-9ae3-cb1ac254c9d7
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1dff69a5-b57e-44b9-be63-2691ec4dc7ef
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f7ee3e75-f8bf-429e-8910-588f0478f40b
+  VRoute:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock:
+        Ref: DestinationCidrBlock
+      NextHopId:
+        Ref: EcsInstance
+      RouteId:
+        Fn::GetAtt:
+        - Vpc
+        - VRouterId
+      RouteTableId:
+        Fn::GetAtt:
+        - Vpc
+        - RouteTableId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8466e19f-c820-4d68-9d33-871c5c9457e0
+Outputs:
+  InstanceId:
+    Description: The instance id of created ecs instance
+    Value:
+      Fn::GetAtt:
+      - EcsInstance
+      - InstanceId
+  PublicIp:
+    Description: Public IP address of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - EcsInstance
+      - PublicIp
+  RouteTableId:
+    Description: The router table id of created VPC.
+    Value:
+      Fn::GetAtt:
+      - Vpc
+      - RouteTableId
+  SecurityGroupId:
+    Description: generated security group id for security group.
+    Value:
+      Fn::GetAtt:
+      - SecurityGroup
+      - SecurityGroupId
+  VRouterId:
+    Description: Router id of created VPC.
+    Value:
+      Fn::GetAtt:
+      - Vpc
+      - VRouterId
+  VSwitchId:
+    Description: Id of created VSwitch.
+    Value:
+      Fn::GetAtt:
+      - VSwitch
+      - VSwitchId
+  VpcId:
+    Description: Id of created VPC.
+    Value:
+      Fn::GetAtt:
+      - Vpc
+      - VpcId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcName
+      - VpcCidrBlock
+      - ZoneId
+      - VSwitchCidrBlock
+      - DestinationCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - InstanceType
+      - SecurityGroupName
+      - SystemDiskCategory
+      - ImageId
+      - InstancePassword
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:example:网络:创建VPC类型的ECS并添加一条自定义路由
+  ALIYUN::ROS::Designer:
+    1dff69a5-b57e-44b9-be63-2691ec4dc7ef:
+      embeds:
+      - f7ee3e75-f8bf-429e-8910-588f0478f40b
+      position:
+        x: 562
+        y: 333
+      size:
+        height: 151
+        width: 160
+      z: 1
+    6200d3db-c651-4836-b95f-0c990f9b1470:
+      source:
+        id: f7ee3e75-f8bf-429e-8910-588f0478f40b
+      target:
+        id: d51e35d1-e426-493a-9ae3-cb1ac254c9d7
+      z: 1
+    6f3b5e11-bf67-4472-8e21-573bc15ef180:
+      source:
+        id: 8466e19f-c820-4d68-9d33-871c5c9457e0
+      target:
+        id: f7ee3e75-f8bf-429e-8910-588f0478f40b
+      z: 1
+    8466e19f-c820-4d68-9d33-871c5c9457e0:
+      position:
+        x: 367
+        y: 373
+      size:
+        height: 60
+        width: 60
+      z: 0
+    ae22bb2a-7506-4b36-b123-9032b4386e77:
+      embeds:
+      - 1dff69a5-b57e-44b9-be63-2691ec4dc7ef
+      - d51e35d1-e426-493a-9ae3-cb1ac254c9d7
+      position:
+        x: 486
+        y: 225
+      size:
+        height: 346
+        width: 382
+      z: 0
+    d51e35d1-e426-493a-9ae3-cb1ac254c9d7:
+      position:
+        x: 779
+        y: 373
+      size:
+        height: 60
+        width: 60
+      z: 1
+    f7ee3e75-f8bf-429e-8910-588f0478f40b:
+      position:
+        x: 614
+        y: 373
+      size:
+        height: 60
+        width: 60
+      z: 2

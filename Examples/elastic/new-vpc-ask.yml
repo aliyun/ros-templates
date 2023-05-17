@@ -1,0 +1,120 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Zone ID
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability ID for existing switches
+      zh-cn: 现有交换机的可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: New proprietary network IP address segment range, recommended use of the
+        following IP address segments<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      zh-cn: 新建专有网络IP地址段范围，推荐使用以下的IP地址段<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied
+        by other VSwitches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 192.168.0.0/24
+  KubernetesVersion:
+    Type: String
+    Label:
+      en: ASK Cluster Version
+      zh-cn: ASK集群版本
+    AssociationProperty: ALIYUN::CS::ServerlessKubernetesCluster::KubernetesVersion
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: ALIYUN::StackName
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName:
+        Ref: ALIYUN::StackName
+  Cluster:
+    Type: ALIYUN::CS::ServerlessKubernetesCluster
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchIds:
+      - Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      Addons:
+      - Config: '{"IngressSlbNetworkType":"intranet"}'
+        Name: nginx-ingress-controller
+      EndpointPublicAccess: true
+      KubernetesVersion:
+        Ref: KubernetesVersion
+      Name:
+        Ref: ALIYUN::StackName
+      NatGateway: false
+      ServiceCidr: 172.19.0.0/20
+Outputs:
+  ClusterId:
+    Value:
+      Fn::GetAtt:
+      - Cluster
+      - ClusterId
+  TaskId:
+    Value:
+      Fn::GetAtt:
+      - Cluster
+      - TaskId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VSwitchZoneId
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      Label:
+        default:
+          en: Basic Network Configuration
+          zh-cn: 基础网络配置
+    - Parameters:
+      - KubernetesVersion
+      Label:
+        default:
+          en: ASK Configuration
+          zh-cn: ASK配置

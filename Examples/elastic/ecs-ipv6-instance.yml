@@ -1,0 +1,525 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Create a cloud server with an IPV4/IPV6 stack and automatically assign IPv6
+    public address to the cloud host.
+  zh-cn: 创建一台具备IPV4/IPV6双栈的云服务器，并为云主机自动分配IPv6公网地址。
+Conditions:
+  CreateLinux:
+    Fn::Equals:
+    - centos
+    - Fn::Select:
+      - '0'
+      - Fn::Split:
+        - _
+        - Ref: InstanceImageId
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC IPV4 CIDR Block
+      zh-cn: 专有网络IPV4网段
+    Description:
+      en: New proprietary network IP address segment range, recommended use of the
+        following IP address segments<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      zh-cn: 新建专有网络IP地址段范围，推荐使用以下的IP地址段<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch IPV4 CIDR Block
+      zh-cn: 交换机IPV4网段
+    Description:
+      en: Network segments of new switches, subnets of virtual proprietary networks
+      zh-cn: 新建交换机的网段，所属虚拟专有网络的子网
+    Default: 192.168.0.0/24
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  InstanceImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，<br>Linux System Select：<font color='red'><b>centos_7</b></font>
+        <br>Windows System Select：<font color='red'><b>win2008r2；win2012r2；win2016</b></font>
+      zh-cn: 镜像ID, <br>Linux系统请选择：<font color='red'><b>centos_7</b></font> <br>Windows系统请选择：<font
+        color='red'><b>win2008r2；win2012r2；win2016</b></font>
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  SystemDiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'System disk size, range of values: 20-500, units: GB.'
+      zh-cn: 系统盘大小, 取值范围：[20, 500], 单位：GB。
+    Default: 20
+  InstancePublicIP:
+    Type: Boolean
+    Label:
+      en: Allocate IPV4 Public IP
+      zh-cn: 分配IPV4公网IP
+    Description:
+      en: Whether to assign a IPV4 common IP.
+      zh-cn: 是否分配IPV4公共IP。
+    Default: false
+  InternetChargeType:
+    Type: String
+    Label:
+      en: IPv6 Metric Bandwidth is Billed.
+      zh-cn: IPv6公网带宽的计费方式
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[PayByTraffic: <font
+        color=''green''>Billing by Usage</font>]<br>[PayByBandwidth: <font color=''green''>Billing
+        by Bandwidth</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[PayByTraffic: <font color=''green''>按流量计费</font>]<br>[PayByBandwidth:
+        <font color=''green''>按带宽计费</font>]'
+    Default: PayByBandwidth
+    AllowedValues:
+    - PayByTraffic
+    - PayByBandwidth
+  IPV6Bandwidth:
+    Type: Number
+    Label:
+      en: IPv6 Network Gateway Public Network Bandwidth
+      zh-cn: IPv6网关公网带宽
+    Description:
+      en: 'IPv6 network Gateway public network bandwidth, value range: s1, 5000, in
+        Mbps. When the public network bandwidth billing method is based on the use
+        of traffic billing value range of 1 to 2000Mbps, when the public network bandwidth
+        billing method is metered by bandwidth when the value range is 1 to 5000Mbps.'
+      zh-cn: IPv6网关公网带宽, 取值范围：[1, 5000], 单位：Mbps。当公网带宽计费方式为按使用流量计费时取值范围为1~2000Mbps，当公网带宽计费方式为按带宽计费时取值范围为1~5000Mbps。
+    Default: 10
+  IPV6GateWaySpec:
+    Type: String
+    Label:
+      en: Specifications for the IPv6 Gateway
+      zh-cn: IPv6网关的规格
+    Description:
+      en: 'IPv6 gateway specifications, optional values: Small (free version), Medium
+        (enterprise version), Large (enterprise enhancement version)'
+      zh-cn: IPv6网关的规格,可选值：Small（免费版），Medium（企业版），Large（企业增强版）
+    Default: Small
+    AllowedValues:
+    - Small
+    - Medium
+    - Large
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_auto
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      EnableIpv6: true
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 115aa714-425f-4f78-b761-c8e5c150823b
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+        PortRange: 22/22
+        Priority: 1
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+        PortRange: 3389/3389
+        Priority: 1
+      - IpProtocol: all
+        Ipv6DestCidrIp: ::/0
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        NicType: internet
+        PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        NicType: intranet
+        PortRange: 3389/3389
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: all
+        Ipv6SourceCidrIp: ::/0
+        NicType: intranet
+        PortRange: -1/-1
+        Priority: 1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 44bb135d-2053-4986-975b-a473e4c6b9c0
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      Ipv6CidrBlock: 0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a8949b63-2253-4608-afbb-ab6c5fa98918
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Ref: InstanceImageId
+      AllocatePublicIP:
+        Ref: InstancePublicIP
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      UserData:
+        Fn::If:
+        - CreateLinux
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - WaitConditionHandle
+              - CurlCli
+          - Fn::Join:
+            - ''
+            - - '#!/bin/sh'
+              - " \n"
+              - "cd /opt \n"
+              - "wget http://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/rhel/ecs-utils-ipv6\
+                \ \n"
+              - "chmod +x ./ecs-utils-ipv6 \n"
+              - "./ecs-utils-ipv6 \n"
+              - "ros-notify -d \"{\\\"Data\\\" : \\\"SUCCESS\\\", \\\"Status\\\" :\
+                \ \\\"SUCCESS\\\"}\" \n"
+        - Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+              - WaitConditionHandle
+              - PowerShellCurlCli
+          - Fn::Join:
+            - ''
+            - - "[powershell]\r\n"
+              - "New-Item -Path \"C:\\set_ipv6\" -Force -type directory\r\n"
+              - "cd C:\\set_ipv6 \r\n"
+              - "$install_dir=\"C:\\set_ipv6\" \r\n"
+              - "$install_path = \"$install_dir\\ecs-utils-ipv6.exe\" \r\n"
+              - "$tool_url = 'http://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/win/64/ecs-utils-ipv6.exe'\
+                \ \r\n"
+              - "Invoke-WebRequest -uri $tool_url -OutFile $install_path \r\n"
+              - "Unblock-File $install_path \r\n"
+              - "Start-Process -FilePath \"$install_path\" -ArgumentList \"--noenterkey\"\
+                \ -NoNewWindow \r\n"
+              - "ros-notify\r\n"
+    DependsOn:
+    - EcsSecurityGroup
+    - EcsVSwitch
+    - EcsVpc
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 52b79414-601b-4a00-81d0-749e0c714560
+  EcsAssignIpv6Addresses:
+    Type: ALIYUN::ECS::AssignIpv6Addresses
+    Properties:
+      NetworkInterfaceId:
+        Fn::GetAtt:
+        - EcsInstance
+        - PrimaryNetworkInterfaceId
+      Ipv6AddressCount: 1
+    DependsOn:
+    - EcsInstance
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5bb5d231-f72e-4261-803c-1b3d5306b701
+  VpcIpv6Gateway:
+    Type: ALIYUN::VPC::Ipv6Gateway
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      Name: MyIpv6Gateway
+      Spec:
+        Ref: IPV6GateWaySpec
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e308bd39-4dd1-440d-a4c2-cce7bf7cb2df
+  VpcIpv6InternetBandwidth:
+    Type: ALIYUN::VPC::Ipv6InternetBandwidth
+    Properties:
+      Bandwidth:
+        Ref: IPV6Bandwidth
+      InternetChargeType:
+        Ref: InternetChargeType
+      Ipv6AddressId:
+        Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - EcsAssignIpv6Addresses
+          - Ipv6AddressIds
+      Ipv6GatewayId:
+        Ref: VpcIpv6Gateway
+    DependsOn:
+    - EcsAssignIpv6Addresses
+    - VpcIpv6Gateway
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 83bb1843-c8b6-46a1-804e-25f36c9c99c3
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 177bf596-5126-4119-9f95-09ccbc237661
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 900
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 460d6e5d-1867-4075-8758-a35fee965206
+Outputs:
+  EcsInstanceId:
+    Description: EcsInstance InstanceId
+    Value:
+      Fn::GetAtt:
+      - EcsInstance
+      - InstanceId
+  EcsInstanceIpv6Address:
+    Description: EcsInstance Ipv6Address
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - EcsAssignIpv6Addresses
+        - Ipv6Addresses
+  EcsInstancePrivateIp:
+    Description: EcsInstance PrivateIp
+    Value:
+      Fn::GetAtt:
+      - EcsInstance
+      - PrivateIp
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - VSwitchZoneId
+      - InstanceImageId
+      - InstanceType
+      - SystemDiskSize
+      - InstancePublicIP
+      - InternetChargeType
+      - IPV6Bandwidth
+      - IPV6GateWaySpec
+      - SystemDiskCategory
+      - InstancePassword
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:example:网络:创建绑定IPV4/IPV6双栈的云服务器
+  ALIYUN::ROS::Designer:
+    115aa714-425f-4f78-b761-c8e5c150823b:
+      embeds:
+      - a8949b63-2253-4608-afbb-ab6c5fa98918
+      - 44bb135d-2053-4986-975b-a473e4c6b9c0
+      - e308bd39-4dd1-440d-a4c2-cce7bf7cb2df
+      position:
+        x: 113
+        y: 1
+      size:
+        height: 404
+        width: 403.8095703125
+      z: 0
+    177bf596-5126-4119-9f95-09ccbc237661:
+      position:
+        x: -3
+        y: 52
+      size:
+        height: 60
+        width: 60
+      z: 0
+    44bb135d-2053-4986-975b-a473e4c6b9c0:
+      position:
+        x: 205
+        y: 52
+      size:
+        height: 60
+        width: 60
+      z: 1
+    460d6e5d-1867-4075-8758-a35fee965206:
+      position:
+        x: -3
+        y: 235
+      size:
+        height: 60
+        width: 60
+      z: 0
+    52b79414-601b-4a00-81d0-749e0c714560:
+      position:
+        x: 206
+        y: 238
+      size:
+        height: 60
+        width: 60
+      z: 2
+    5bb5d231-f72e-4261-803c-1b3d5306b701:
+      position:
+        x: 565
+        y: 238
+      size:
+        height: 60
+        width: 60
+      z: 0
+    6c500ed8-6b4b-4e28-af77-b3216773e115:
+      source:
+        id: 460d6e5d-1867-4075-8758-a35fee965206
+      target:
+        id: 177bf596-5126-4119-9f95-09ccbc237661
+      z: 1
+    83bb1843-c8b6-46a1-804e-25f36c9c99c3:
+      position:
+        x: 565
+        y: 49
+      size:
+        height: 60
+        width: 60
+      z: 0
+    8bf0e384-18e0-46c0-835f-1f9ede4322cf:
+      source:
+        id: 83bb1843-c8b6-46a1-804e-25f36c9c99c3
+      target:
+        id: e308bd39-4dd1-440d-a4c2-cce7bf7cb2df
+      z: 1
+    a8949b63-2253-4608-afbb-ab6c5fa98918:
+      embeds:
+      - 52b79414-601b-4a00-81d0-749e0c714560
+      position:
+        x: 140
+        y: 163
+      size:
+        height: 180
+        width: 177
+      z: 1
+    d852ed1d-2538-40f9-9407-898eff582d4a:
+      source:
+        id: 83bb1843-c8b6-46a1-804e-25f36c9c99c3
+      target:
+        id: 5bb5d231-f72e-4261-803c-1b3d5306b701
+      z: 1
+    de01b11b-fa66-4b85-a672-d553f322d9f9:
+      source:
+        id: 5bb5d231-f72e-4261-803c-1b3d5306b701
+      target:
+        id: 52b79414-601b-4a00-81d0-749e0c714560
+      z: 1
+    dfc26b41-4bcf-4f65-8cf4-094eb9e13231:
+      source:
+        id: 52b79414-601b-4a00-81d0-749e0c714560
+      target:
+        id: 44bb135d-2053-4986-975b-a473e4c6b9c0
+      z: 1
+    e308bd39-4dd1-440d-a4c2-cce7bf7cb2df:
+      position:
+        x: 362
+        y: 49
+      size:
+        height: 60
+        width: 60
+      z: 1

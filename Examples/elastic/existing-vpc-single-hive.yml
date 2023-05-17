@@ -1,0 +1,658 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 'Alibaba Cloud ROS sample template: Create an ECS (Hive) and bind elastic IP
+    on existing virtual proprietary networks, switches, and security group base resources.
+    Java jdk version is 1.8.0, Haddop version is 2.7.7, Hive version 2.3.7, and MySQL
+    driver version 5.1.48.'
+  zh-cn: 阿里巴巴 Cloud ROS 示例方案模板：在已有虚拟专有网络、交换机和安全组基础资源上，创建一台ECS(Hive)并绑定弹性IP；Java jdk版本是1.8.0，Hadoop版本是2.7.7，Hive版本是2.3.7，MySQL驱动版本5.1.48。
+Parameters:
+  VpcId:
+    Type: String
+    Label:
+      en: Existing VPC ID
+      zh-cn: 现有VPC的实例ID
+    Description:
+      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
+      zh-cn: 控制台-VPC-专有网络下查询
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Zone ID
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability ID for existing switches
+      zh-cn: 现有交换机的可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 网络交换机ID
+    Description:
+      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+      ZoneId: VSwitchZoneId
+  SecurityGroupId:
+    Type: String
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+    Description:
+      en: Please search the business security group ID starts with(sg-xxx)from console-ECS-Network
+        & Security
+      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the
+        current available zone under the model is in stock, some models need to be
+        reported in advance</b></font>]<br><font color='blue'><b>2.List of optional
+        models</font>]<br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB
+        Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPSS</font>]<br></b>[ecs.c5.xlarge
+        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
+        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
+        color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
+        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
+        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
+        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+  InstanceImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: 镜像ID
+    Description:
+      en: Image ID，See detail：<b><a href='https://www.alibabacloud.com/help/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    Default: centos_7
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  BindWidth:
+    Type: Number
+    Label:
+      en: Public IP Bandwidth
+      zh-cn: 公网IP带宽值
+    Description:
+      en: 'Public network IP bandwidth，unit: Mbps'
+      zh-cn: 公网IP带宽值，单位：Mbps
+    Default: 5
+    MinValue: 1
+    MaxValue: 100
+  DiskCategory:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 磁盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  DiskSize:
+    Type: Number
+    Label:
+      en: System Disk Space
+      zh-cn: 系统盘空间
+    Description:
+      en: 'The size of the instance system disk, in GiB. Value range: 40 to 500'
+      zh-cn: 实例系统盘大小，单位为GiB，取值范围：40~500
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  MysqlPassword:
+    Type: String
+    Label:
+      en: DB root Password
+      zh-cn: DB root用户密码
+    Description:
+      en: Self-built MySQL database root user login password, length 8-32, must contain
+        four entries (uppercase, lowercase, number,! Special symbol in $@$!%*?&
+      zh-cn: 自建MySQL数据库root用户登录密码,长度8-32，必须包含四项（大写字母、小写字母、数字、 $@$!%*?& 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-32, must contain four items (uppercase, lowercase, number,! Special
+        symbol in $@$!%*?&).
+      zh-cn: 长度8-32，必须包含四项（大写字母、小写字母、数字、 $@$!%*?& 中的特殊符号）。
+    AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[$@$!%*?&])[A-Za-z\d$@$!%*?&]{8,}
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+Resources:
+  VpcEip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth:
+        Ref: BindWidth
+      InternetChargeType: PayByTraffic
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4b58c6d8-95e4-4e1b-91de-1c85963070f1
+  EipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAtt:
+          - HiveServer
+          - InstanceIds
+      AllocationId:
+        Ref: VpcEip
+    DependsOn:
+    - VpcEip
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 623afd38-c9d7-4fce-b1ef-2abd77fb8cc7
+  HiveServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId:
+        Ref: InstanceImageId
+      AllocatePublicIP: false
+      HostName: Hive-[0,3]
+      InstanceChargeType: PostPaid
+      InstanceName: Hive-[0,3]
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthIn:
+        Ref: BindWidth
+      InternetMaxBandwidthOut:
+        Ref: BindWidth
+      IoOptimized: optimized
+      MaxAmount: 1
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: DiskCategory
+      SystemDiskSize:
+        Ref: DiskSize
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - RosWaitConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/sh \n"
+            - "set -e \n"
+            - "sleep 10 \n"
+            - "OSS_NAME=\"ros-template-resources\" \n"
+            - "OSS_REGION=\"cn-beijing\" \n"
+            - "JDK_RPM=\"jdk-8u251-linux-i586.rpm\" \n"
+            - "BASH_PATH=\"/etc/profile\" \n"
+            - "ENDPOINT=\".aliyuncs.com\" \n"
+            - "ENV_DIR=\"/software\" \n"
+            - "HOST_IP=$(ifconfig eth0 | awk '/inet /{print $2}') \n"
+            - DB_ROOT_PWD="
+            - Ref: MysqlPassword
+            - "\" \n"
+            - "PORT=\"3306\" \n"
+            - " \n"
+            - "installJavaAndConfig() { \n"
+            - "    # install \n"
+            - "    yum -y install glibc.i686 expect \n"
+            - "    wget https://${OSS_NAME}.oss-${OSS_REGION}${ENDPOINT}/JDK/${JDK_RPM}\
+              \ \n"
+            - "    rpm -Uvh ${JDK_RPM} && rm -f ${JDK_RPM} \n"
+            - "    # config \n"
+            - "    JAVA_HOME=$(find / -name jdk1.8.0_*) \n"
+            - "    echo \"export JAVA_HOME=${JAVA_HOME}\" >>${BASH_PATH} \n"
+            - "    echo \"export JRE_HOME=${JAVA_HOME}/jre\" >>${BASH_PATH} \n"
+            - "    echo \"export CLASSPATH=.:${JAVA_HOME}/lib:${JAVA_HOME}/jre/lib\"\
+              \ >>${BASH_PATH} \n"
+            - "    echo \"export PATH=${JAVA_HOME}/bin:$PATH\" >>${BASH_PATH} \n"
+            - "    source ${BASH_PATH} \n"
+            - "} \n"
+            - " \n"
+            - "createEnv() { \n"
+            - "    mkdir -p ${ENV_DIR} \n"
+            - "} \n"
+            - " \n"
+            - "installAndConfigHadoop() { \n"
+            - "    # download \n"
+            - "    HADOOP_HOME=${ENV_DIR}/hadoop \n"
+            - "    wget https://${OSS_NAME}.oss-${OSS_REGION}${ENDPOINT}/Hadoop/hadoop-2.7.7.tar.gz\
+              \ \n"
+            - "    tar -zxvf hadoop-2.7.7.tar.gz -C ${ENV_DIR} && cd ${ENV_DIR} &&\
+              \ mv hadoop-2.7.7 hadoop \n"
+            - "    echo \"export HADOOP_HOME=${HADOOP_HOME}\" >>${BASH_PATH} \n"
+            - "    echo \"export PATH=${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:$PATH\"\
+              \ >>${BASH_PATH} \n"
+            - "    source ${BASH_PATH} \n"
+            - "    # config core-site.xml \n"
+            - "    cd ${HADOOP_HOME}/etc/hadoop/ \n"
+            - "    mv core-site.xml bak.core-site.xml \n"
+            - '    cat >core-site.xml<<EOF
+
+              '
+            - "<configuration> \n"
+            - "  <property> \n"
+            - "    <name>fs.defaultFS</name> \n"
+            - "    <value>hdfs://HOST_IP:9000</value> \n"
+            - "  </property> \n"
+            - "  <property> \n"
+            - "    <name>hadoop.tmp.dir</name> \n"
+            - "    <value>/software/tmp</value> \n"
+            - "  </property> \n"
+            - "</configuration> \n"
+            - 'EOF
+
+              '
+            - " \n"
+            - "    sed -i \"s/HOST_IP/${HOST_IP}/\" core-site.xml \n"
+            - "    #sed -i \"s%ENV_DIR%/software%\" core-site.xml \n"
+            - "    # hdfs-site.xml \n"
+            - "    mv hdfs-site.xml bak.hdfs-site.xml \n"
+            - '    cat >hdfs-site.xml<<EOF
+
+              '
+            - "<configuration> \n"
+            - "  <property> \n"
+            - "    <name>dfs.replication</name> \n"
+            - "    <value>1</value> \n"
+            - "  </property> \n"
+            - "</configuration> \n"
+            - 'EOF
+
+              '
+            - " \n"
+            - "    # config mapred-site.xml \n"
+            - "    cd ${HADOOP_HOME}/etc/hadoop/ \n"
+            - '    cat >mapred-site.xml<<EOF
+
+              '
+            - "<configuration> \n"
+            - "    <property> \n"
+            - "        <name>mapreduce.framework.name</name> \n"
+            - "        <value>yarn</value> \n"
+            - "    </property> \n"
+            - "</configuration> \n"
+            - 'EOF
+
+              '
+            - " \n"
+            - "    # config yarn-site.xml \n"
+            - '    cat >yarn-site.xml<<EOF
+
+              '
+            - "<configuration> \n"
+            - "    <property> \n"
+            - "        <name>yarn.nodemanager.aux-services</name> \n"
+            - "        <value>mapreduce_shuffle</value> \n"
+            - "    </property> \n"
+            - "</configuration> \n"
+            - 'EOF
+
+              '
+            - " \n"
+            - "    # config java home \n"
+            - "    sed -i 's/export JAVA_HOME=/#export JAVA_HOME=/' hadoop-env.sh\
+              \ \n"
+            - "    sed -i \"/#export JAVA_HOME=/a export JAVA_HOME=${JAVA_HOME}\"\
+              \ hadoop-env.sh \n"
+            - "    sed -i \"/#export JAVA_HOME=/a export JAVA_HOME=${JAVA_HOME}\"\
+              \ mapred-env.sh \n"
+            - "    sed -i \"/#export JAVA_HOME=/a export JAVA_HOME=${JAVA_HOME}\"\
+              \ yarn-env.sh \n"
+            - "    cd ~ \n"
+            - "} \n"
+            - " \n"
+            - "configSSH() { \n"
+            - "    ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa \n"
+            - "    cat ~/.ssh/id_rsa.pub >>~/.ssh/authorized_keys \n"
+            - "    chmod 0600 ~/.ssh/authorized_keys \n"
+            - "    echo '#!/bin/bash' >>ssh_copy.sh \n"
+            - "    echo 'expect <<EOF' >>ssh_copy.sh \n"
+            - "    echo 'set timeout 150' >>ssh_copy.sh \n"
+            - "    echo 'spawn ssh-copy-id -i /root/.ssh/id_rsa.pub $1' >>ssh_copy.sh\
+              \ \n"
+            - "    echo 'expect {' >>ssh_copy.sh \n"
+            - "    echo '\"yes/no\" {' >>ssh_copy.sh \n"
+            - "    echo 'send \"yes\n\"' >>ssh_copy.sh \n"
+            - "    echo '}' >>ssh_copy.sh \n"
+            - "    echo '}' >>ssh_copy.sh \n"
+            - "    echo 'expect eof' >>ssh_copy.sh \n"
+            - "    echo 'EOF' >>ssh_copy.sh \n"
+            - "    chmod +x ssh_copy.sh \n"
+            - "    bash ssh_copy.sh localhost \n"
+            - "    bash ssh_copy.sh 0.0.0.0 \n"
+            - "} \n"
+            - " \n"
+            - "startHadoop() { \n"
+            - "    cd ${HADOOP_HOME} \n"
+            - "    bin/hdfs namenode -format \n"
+            - "    echo '#!/bin/bash' >>start-dfs.sh \n"
+            - "    echo 'expect <<EOF' >>start-dfs.sh \n"
+            - "    echo 'set timeout 150' >>start-dfs.sh \n"
+            - "    echo \"spawn ${HADOOP_HOME}/sbin/start-dfs.sh\" >>start-dfs.sh\
+              \ \n"
+            - "    echo 'expect {' >>start-dfs.sh \n"
+            - "    echo '\"yes/no\" {' >>start-dfs.sh \n"
+            - "    echo 'send \"yes\\n\"' >>start-dfs.sh \n"
+            - "    echo '}' >>start-dfs.sh \n"
+            - "    echo '}' >>start-dfs.sh \n"
+            - "    echo 'expect eof' >>start-dfs.sh \n"
+            - "    echo 'EOF' >>start-dfs.sh \n"
+            - "    chmod +x start-dfs.sh \n"
+            - "    bash start-dfs.sh \n"
+            - "    #sbin/start-dfs.sh \n"
+            - "    rm -f start-dfs.sh \n"
+            - "    sbin/start-yarn.sh \n"
+            - "} \n"
+            - " \n"
+            - "installAndStartMysql() { \n"
+            - "    wget http://repo.mysql.com/mysql57-community-release-el7-11.noarch.rpm\
+              \ \n"
+            - "    rpm -ivh mysql57-community-release-el7-11.noarch.rpm --nodeps --force\
+              \ \n"
+            - "    yum install mysql-community-server -y \n"
+            - "    #    systemctl start mysqld \n"
+            - "    ##config \n"
+            - "    #    systemctl stop mysqld \n"
+            - "    sed -i \"/\\[mysqld\\]/a \\skip-grant-tables\" /etc/my.cnf \n"
+            - "    systemctl start mysqld \n"
+            - "    echo \"use mysql;\" >user.sql \n"
+            - "    echo \"update user set authentication_string=password('${DB_ROOT_PWD}')\
+              \ where User='root' and Host='localhost';\" >>user.sql \n"
+            - "    echo \"flush privileges;\" >>user.sql \n"
+            - "    #    mysql -u root -p${DB_ROOT_PWD} --connect-expired-password\
+              \ <user.sql \n"
+            - "    mysql -u root <user.sql \n"
+            - "    sed -i 's/skip-grant-tables/#skip-grant-tables/' /etc/my.cnf \n"
+            - "    systemctl restart mysqld \n"
+            - "    rm -f user.sql \n"
+            - "    echo \"set password = password('${DB_ROOT_PWD}');\" >user.sql \n"
+            - "    mysql -u root -p${DB_ROOT_PWD} --connect-expired-password <user.sql\
+              \ \n"
+            - "    rm -f user.sql \n"
+            - "    echo \"GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY\
+              \ '${DB_ROOT_PWD}' WITH GRANT OPTION;\" >user.sql \n"
+            - "    echo \"flush privileges;\" >>user.sql \n"
+            - "    mysql -u root -p${DB_ROOT_PWD} --connect-expired-password <user.sql\
+              \ \n"
+            - "    rm -f user.sql \n"
+            - "    ##config \n"
+            - "} \n"
+            - " \n"
+            - "installAndConfigHive() { \n"
+            - "    wget https://${OSS_NAME}.oss-${OSS_REGION}${ENDPOINT}/Hadoop/apache-hive-2.3.7-bin.tar.gz\
+              \ \n"
+            - "    tar -zxvf apache-hive-2.3.7-bin.tar.gz -C ${ENV_DIR} \n"
+            - "    cd ${ENV_DIR} && mv apache-hive-2.3.7-bin hive \n"
+            - "    ## config \n"
+            - "    echo \"export HIVE_HOME=${ENV_DIR}/hive\" >>${BASH_PATH} \n"
+            - "    echo \"export PATH=${ENV_DIR}/hive/bin:$PATH\" >>${BASH_PATH} \n"
+            - "    source ${BASH_PATH} \n"
+            - "    # config hive-site.xml \n"
+            - "    cd ${ENV_DIR}/hive/conf \n"
+            - '    cat >hive-site.xml<<EOF
+
+              '
+            - "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?> \n"
+            - "<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?> \n"
+            - "<configuration> \n"
+            - " <property> \n"
+            - "    <name>javax.jdo.option.ConnectionURL</name> \n"
+            - "    <value>jdbc:mysql://HOST_IP_PORT/hive_metadata?&amp;createDatabaseIfNotExist=true&amp;characterEncoding=UTF-8&amp;useSSL=false</value>\
+              \ \n"
+            - " </property> \n"
+            - "<property> \n"
+            - "    <name>javax.jdo.option.ConnectionUserName</name> \n"
+            - "    <value>root</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "    <name>javax.jdo.option.ConnectionPassword</name> \n"
+            - "    <value>DB_ROOT_PWD</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "    <name>javax.jdo.option.ConnectionDriverName</name> \n"
+            - "    <value>com.mysql.jdbc.Driver</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "    <name>datanucleus.schema.autoCreateAll</name> \n"
+            - "    <value>true</value> </property> \n"
+            - "<property> \n"
+            - "    <name>hive.metastore.schema.verification</name> \n"
+            - "    <value>false</value> \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "  <name>hive.server2.webui.host</name> \n"
+            - "  <value>${HOST_IP}</value> \n"
+            - "  <description>The host address the HiveServer2 WebUI will listen on</description>\
+              \ \n"
+            - "</property> \n"
+            - "<property> \n"
+            - "  <name>hive.server2.webui.port</name> \n"
+            - "  <value>10001</value> \n"
+            - "  <description>The port the HiveServer2 WebUI will listen on. This\
+              \ can beset to 0 or a negative integer to disable the web UI</description>\
+              \ \n"
+            - "</property> \n"
+            - "</configuration> \n"
+            - 'EOF
+
+              '
+            - " \n"
+            - "    sed -i \"s/HOST_IP_PORT/${HOST_IP}:${PORT}/\" hive-site.xml \n"
+            - "    sed -i \"s/DB_ROOT_PWD/${DB_ROOT_PWD}/\" hive-site.xml \n"
+            - "    # config hive-site.sh \n"
+            - "    cp hive-env.sh.template hive-env.sh \n"
+            - "    echo \"HADOOP_HOME=${ENV_DIR}/hadoop\" >>hive-env.sh \n"
+            - "    echo \"export HIVE_CONF_DIR=${ENV_DIR}/hive/conf\" >>hive-env.sh\
+              \ \n"
+            - "} \n"
+            - " \n"
+            - "installAndConfigJavaMysql() { \n"
+            - "    wget https://${OSS_NAME}.oss-${OSS_REGION}${ENDPOINT}/MySQL/mysql-connector-java-5.1.48.tar.gz\
+              \ \n"
+            - "    tar -zxvf mysql-connector-java-5.1.48.tar.gz -C ${ENV_DIR}/hive/lib\
+              \ \n"
+            - "    cp ${ENV_DIR}/hive/lib/mysql-connector-java-5.1.48/mysql-connector-java-5.1.48-bin.jar\
+              \ ${ENV_DIR}/hive/lib/ \n"
+            - "    rm -rf ${ENV_DIR}/hive/lib/mysql-connector-java-5.1.48 \n"
+            - "} \n"
+            - " \n"
+            - "startHive() { \n"
+            - "    schematool -initSchema -dbType mysql \n"
+            - "    bash ${ENV_DIR}/hive/bin/hive --service metastore & \n"
+            - "    bash ${ENV_DIR}/hive/bin/hive --service hiveserver2 & \n"
+            - "} \n"
+            - " \n"
+            - "main() { \n"
+            - "    installJavaAndConfig \n"
+            - "    createEnv \n"
+            - "    installAndConfigHadoop \n"
+            - "    configSSH \n"
+            - "    startHadoop \n"
+            - "    installAndStartMysql \n"
+            - "    installAndConfigHive \n"
+            - "    installAndConfigJavaMysql \n"
+            - "    startHive \n"
+            - "} \n"
+            - " \n"
+            - "main \n"
+            - " \n"
+            - "result=$(hive -e \"show databases;\") \n"
+            - "if [[ ${result} -eq \"default\" ]]; then \n"
+            - "    ros-notify \n"
+            - "fi \n"
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2e3cee51-dd38-4ded-9d3d-b9323335cc22
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a6693057-555e-423a-a792-e04532cbf477
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 1800
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: c8cd85d7-0384-43ce-a8b1-8d504347c3b5
+Outputs:
+  EcsInstanceId:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - HiveServer
+        - InstanceIds
+  EcsPrivateIp:
+    Value:
+      Fn::Select:
+      - '0'
+      - Fn::GetAtt:
+        - HiveServer
+        - PrivateIps
+  EcsPublicIp:
+    Value:
+      Fn::GetAtt:
+      - VpcEip
+      - EipAddress
+  HiveWebSiteURL:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - VpcEip
+          - EipAddress
+        - :10001
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcId
+      - VSwitchZoneId
+      - VSwitchId
+      - SecurityGroupId
+      Label:
+        default:
+          en: Infrastructure Configuration
+          zh-cn: 基础资源配置（必填）
+    - Parameters:
+      - InstanceType
+      - InstanceImageId
+      - InstancePassword
+      - BindWidth
+      - DiskCategory
+      - DiskSize
+      - MysqlPassword
+      Label:
+        default:
+          en: Hive Configuration
+          zh-cn: Hive 配置（必填）
+    TemplateTags:
+    - acs:example:弹性计算:Hive单机版(已有VPC)
+  ALIYUN::ROS::Designer:
+    08ab9c8e-d583-455d-b5be-1bf0061f7e33:
+      source:
+        id: c8cd85d7-0384-43ce-a8b1-8d504347c3b5
+      target:
+        id: a6693057-555e-423a-a792-e04532cbf477
+      z: 1
+    2e3cee51-dd38-4ded-9d3d-b9323335cc22:
+      position:
+        x: -139
+        y: 173
+      size:
+        height: 60
+        width: 60
+      z: 0
+    4b58c6d8-95e4-4e1b-91de-1c85963070f1:
+      position:
+        x: -397
+        y: 172
+      size:
+        height: 60
+        width: 60
+      z: 0
+    623afd38-c9d7-4fce-b1ef-2abd77fb8cc7:
+      position:
+        x: -270
+        y: 172
+      size:
+        height: 60
+        width: 60
+      z: 0
+    a6693057-555e-423a-a792-e04532cbf477:
+      position:
+        x: 25
+        y: 333
+      size:
+        height: 60
+        width: 60
+      z: 0
+    c8cd85d7-0384-43ce-a8b1-8d504347c3b5:
+      position:
+        x: 25
+        y: 35
+      size:
+        height: 60
+        width: 60
+      z: 0
+    e785fe77-b2f3-469b-b9a3-65a67b82fd4a:
+      source:
+        id: 623afd38-c9d7-4fce-b1ef-2abd77fb8cc7
+      target:
+        id: 4b58c6d8-95e4-4e1b-91de-1c85963070f1
+      z: 1

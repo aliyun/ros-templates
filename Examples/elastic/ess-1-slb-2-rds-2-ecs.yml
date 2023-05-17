@@ -1,0 +1,351 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Create 1 SLB, 1 ESS and 1 RDS, create 2 ECS Instances by ESS. Attach
+  ECS Instances and ESS to the SLB.
+Parameters:
+  EcsImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: 镜像ID
+    Description:
+      en: Image ID, represents the image resource to startup one ECS instance, <font><a
+        href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'><b>View
+        image resources</b></font color='blue'></a>
+      zh-cn: 镜像ID，ECS实例的镜像资源，详见：<font><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><b>查看镜像资源</b></font color='blue'></a>
+    AssociationProperty: ALIYUN::ECS::Instance:ImageId
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: The ECS instance type,go to the product console to ensure the current instance
+        is available, <font><a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
+        target='_blank'><b>View instance types</b></font color='blue'></a>.
+      zh-cn: ECS实例类型，进入产品控制台确保当前实例可用, 详见：<a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b>查看实例类型</b></a>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  EcsInternetChargeType:
+    Type: String
+    Label:
+      en: Internet Charge Type
+      zh-cn: 网络类型
+    Description:
+      en: The charge type of public internet instance
+      zh-cn: 实例的收费类型，paybytraffic：按流量付费，paybybandwidth：按带宽付费
+    Default: paybytraffic
+    AllowedValues:
+    - paybytraffic
+    - paybybandwidth
+  EcsSystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类别
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  RdsDBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: Select the instance specification based on the type of database engine and
+        the available area support;<br>see detail,<a href='https://www.alibabacloud.com/help/doc-detail/26312.html'
+        target='_blank'><b>Instance specification sheet</b></a>
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>详见：<a href='https://help.aliyun.com/document_detail/26312.html'
+        target='_blank'><b>实例规格表</b></a>
+    Default: rds.mysql.s1.small
+  RdsDBInstanceNetType:
+    Type: String
+    Label:
+      en: Network Type
+      zh-cn: 网络类型
+    Description:
+      en: Database instance net type, Internet for public access, Intranet for private
+        access.
+      zh-cn: 数据库实例网络类型，Internet用于公共访问，Intranet用于私网访问。
+    AllowedValues:
+    - Internet
+    - Intranet
+  RdsDBInstanceStorage:
+    Type: Number
+    Label:
+      en: RDS Instance Storage
+      zh-cn: RDS 实例存储
+    Description:
+      en: 'Incrementing in every 5G, unit: GB'
+      zh-cn: 每5G递增，单位：GB。
+    ConstraintDescription:
+      en: 'Incrementing in every 5G, unit: GB'
+      zh-cn: 每5G递增，单位：GB。
+    Default: 5
+    MinValue: 5
+    MaxValue: 2000
+  DBInstanceEngineAndVersion:
+    Type: String
+    Label:
+      en: Engine And Version
+      zh-cn: 引擎类型及版本
+    Description:
+      en: Database instance engine type, default is 'Mysql'.Support MySQL/SQLServer/PostgreSQL/PPAS/MariaDB
+        now.
+      zh-cn: 数据库实例引擎类型，默认为Mysql，现在支持Mysql/SQLServer/PostgreSQL/PPAS/MariaDB。
+    Default: MySQL-5.6
+    AllowedValues:
+    - MySQL-5.6
+    - SQLServer-2008r2
+    - PostgreSQL-9.4
+    - PPAS-9.3
+  RdsSecurityIPList:
+    Type: String
+    Label:
+      en: Security IP List
+      zh-cn: ECS实例IP列表
+    Description:
+      en: The ECS instances IP list access database, separated by commas, do not be
+        repeated
+      zh-cn: ECS实例IP列表，访问数据库，用逗号分隔，不重复。
+    Default: 0.0.0.0/0
+  EssDefaultCooldown:
+    Type: Number
+    Label:
+      en: Default Cooldown
+      zh-cn: 冷却时间
+    Description:
+      en: The Default cooldown in seconds
+      zh-cn: 默认冷却时间（秒）
+    Default: 300
+  EssMaxSize:
+    Type: Number
+    Label:
+      en: Max Size
+      zh-cn: ECS实例的最大值
+    Description:
+      en: The maximum of ECS instances in scaling group
+      zh-cn: 缩放组中的ECS实例的最大值
+    Default: 2
+    MinValue: 1
+    MaxValue: 100
+  EssMinSize:
+    Type: Number
+    Label:
+      en: Min Size
+      zh-cn: ECS实例的最小值
+    Description:
+      en: The minimum of ECS instances in scaling group
+      zh-cn: 缩放组中的ECS实例的最小值
+    Default: 2
+    MinValue: 1
+    MaxValue: 100
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Instance Specification
+      zh-cn: 实例规格
+    Description:
+      en: Instance specifications, see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html'
+        target='_blank'><b><font color='blue'>Performance support type</b></font></a>
+      zh-cn: 实例规格，详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
+        target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+    Default: slb.s1.small
+Resources:
+  LoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      AddressType: internet
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+  CreateListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      BackendServerPort: 8080
+      Bandwidth: 50
+      HealthCheck:
+        HealthyThreshold: 3
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+        Interval: 2
+        Timeout: 5
+        UnhealthyThreshold: 3
+      ListenerPort: '80'
+      LoadBalancerId:
+        Ref: LoadBalancer
+      Protocol: http
+      Scheduler: wrr
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: myvpc
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Fn::Select:
+        - '0'
+        - Fn::GetAZs:
+            Ref: ALIYUN::Region
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/16
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: RdsDBInstanceClass
+      DBInstanceNetType:
+        Ref: RdsDBInstanceNetType
+      DBInstanceStorage:
+        Ref: RdsDBInstanceStorage
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      SecurityIPList:
+        Ref: RdsSecurityIPList
+  SG:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: SG-ESS
+  SSHKeyPair:
+    Type: ALIYUN::ECS::SSHKeyPair
+    Properties:
+      KeyPairName:
+        Fn::Sub: ess-${ALIYUN::StackId}
+  LaunchTemplate:
+    Type: ALIYUN::ECS::LaunchTemplate
+    Properties:
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SG
+      ImageId:
+        Ref: EcsImageId
+      InstanceType:
+        Ref: EcsInstanceType
+      KeyPairName:
+        Ref: SSHKeyPair
+      LaunchTemplateName:
+        Fn::Sub: ess-${ALIYUN::StackId}
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+    DependsOn: SSHKeyPair
+  ScalingGroup:
+    Type: ALIYUN::ESS::ScalingGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceIds:
+      - Fn::GetAtt:
+        - Database
+        - DBInstanceId
+      DefaultCooldown:
+        Ref: EssDefaultCooldown
+      LaunchTemplateId:
+        Ref: LaunchTemplate
+      LoadBalancerIds:
+      - Fn::GetAtt:
+        - LoadBalancer
+        - LoadBalancerId
+      MaxSize:
+        Ref: EssMaxSize
+      MinSize:
+        Ref: EssMinSize
+    DependsOn:
+    - CreateListener
+    - LaunchTemplate
+  ScalingGroupEnable:
+    Type: ALIYUN::ESS::ScalingGroupEnable
+    Properties:
+      ScalingGroupId:
+        Ref: ScalingGroup
+    DependsOn: ScalingGroup
+  Attachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::GetAtt:
+        - ScalingGroupEnable
+        - ScalingInstances
+      LoadBalancerId:
+        Ref: LoadBalancer
+Outputs:
+  DBInstanceId:
+    Value:
+      Fn::GetAtt:
+      - Database
+      - DBInstanceId
+  PublicConnectionString:
+    Value:
+      Fn::GetAtt:
+      - Database
+      - PublicConnectionString
+  PublicPort:
+    Value:
+      Fn::GetAtt:
+      - Database
+      - PublicPort
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - EcsImageId
+      - EcsInstanceType
+      - EcsInternetChargeType
+      - EcsSystemDiskCategory
+      Label:
+        default: ECS
+    - Parameters:
+      - RdsDBInstanceClass
+      - RdsDBInstanceNetType
+      - RdsDBInstanceStorage
+      - DBInstanceEngineAndVersion
+      - RdsSecurityIPList
+      Label:
+        default: RDS
+    - Parameters:
+      - EssDefaultCooldown
+      - EssMaxSize
+      - EssMinSize
+      Label:
+        default: ESS
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        default:
+          en: SLB
+          zh-cn: 负载均衡
+    TemplateTags:
+    - acs:example:弹性计算:通过ESS管理SLB、RDS和ECS实例

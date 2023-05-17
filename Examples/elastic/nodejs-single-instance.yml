@@ -1,0 +1,386 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: This template show how to deploy a Node.js environment and do a test based on
+    a new ECS instance. ***WARNING***, this template only supports CentOS.
+  zh-cn: 该模板用于部署Node.js环境并基于新的ECS实例进行测试。***警告***，此模板仅支持CentOS。
+Parameters:
+  VpcName:
+    Type: String
+    Label:
+      en: VPC Name
+      zh-cn: VPC名称
+    Description:
+      en: Name of VPC, [2, 128] English or Chinese characters, must start with a letter
+        or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: VPC 名称，[2，128]英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    ConstraintDescription:
+      en: '[2, 128] English or Chinese characters'
+      zh-cn: '[2, 128] 英文或中文字符'
+    Default: DefaultVPCTest
+    MinLength: 2
+    MaxLength: 128
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: VPC网段
+    Description:
+      en: 'The VPC IP network segment; <br>You can use the following IP network segments:
+        <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font
+        color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: VPC的IP网段；<br>您可以使用以下IP网段：<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: CIDR Block of created VSwitch,It must belong to itself VPC CIDR Block.
+      zh-cn: 创建的虚拟交换机的子网，它必须属于自己的VPC网段内
+    Default: 192.168.1.0/24
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区
+    Description:
+      en: ECS Available Zone ID,</font><a href='https://www.alibabacloud.com/help/doc-detail/123712.html'
+        target='_blank'><b> View region and zone info</b><font color='blue'></a>.
+      zh-cn: ECS可用区ID,</font><a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>.
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  ImageId:
+    Type: String
+    Label:
+      en: Image ID
+      zh-cn: 镜像ID
+    Description:
+      en: Image ID, represents the image resource to startup one ECS instance, <font><a
+        href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'><b>View
+        image resources</b></font color='blue'></a>
+      zh-cn: 镜像ID，ECS实例的镜像资源, <font><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><b>查看镜像资源</b></font color='blue'></a>
+    Default: centos_7
+  InstanceName:
+    Type: String
+    Label:
+      en: Instance Name
+      zh-cn: ECS实例名称
+    Description:
+      en: The name of ECS instance, [2, 128] English or Chinese characters, must start
+        with a letter or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: ECS实例名称，[2，128]英文或中文字符，必须以字母或中文开头，可以包含数字、下划线或“.”、“-”。
+    Default: DefaultECSInstanceTest
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: ECS实例规格
+    Description:
+      en: The ECS instance type,go to the product console to ensure the current instance
+        is available, <font><a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
+        target='_blank'><b>View instance types</b></font color='blue'></a>.
+      zh-cn: ECS实例类型，进入产品控制台确保当前实例可用, <font><a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b>查看实例类型</b></font color='blue'></a>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+    Default: ecs.c5.large
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: Instance System Disk Category
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: ECS实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/.
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  NodejsUrl:
+    Type: String
+    Label:
+      en: Nodejs Url
+      zh-cn: Nodejs地址
+    Description:
+      en: Download path.
+      zh-cn: 下载路径
+    Default: https://nodejs.org/dist/v6.9.5/node-v6.9.5-linux-x64.tar.xz
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: VpcName
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7bb2c65d-4ffb-4d7a-a516-c3e2b2df89bd
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupEgress:
+      - DestCidrIp: 0.0.0.0/0
+        IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+      SecurityGroupIngress:
+      - IpProtocol: all
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e9186c23-cbfc-483e-9d3f-c09ccfbd78b7
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: afa532c5-54ab-4115-acd3-ca989d117b60
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Ref: InstanceName
+      InstanceType:
+        Ref: InstanceType
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      UserData:
+        Fn::Replace:
+        - ros-notify:
+            Fn::GetAtt:
+            - WebServerConditionHandle
+            - CurlCli
+        - Fn::Join:
+          - ''
+          - - "#!/bin/bash \n"
+            - NodejsUrl=
+            - Ref: NodejsUrl
+            - '
+
+              '
+            - "cd /root \n"
+            - "yum -y install aria2 \n"
+            - "aria2c $NodejsUrl \n"
+            - "tar xvf node-v6.9.5-linux-x64.tar.xz \n"
+            - "ln -s /root/node-v6.9.5-linux-x64/bin/node /usr/local/bin/node \n"
+            - "ln -s /root/node-v6.9.5-linux-x64/bin/npm /usr/local/bin/npm \n"
+            - " \n"
+            - "yum -y install git \n"
+            - "git clone https://github.com/cnpm/nvm.git ~/.nvm && cd ~/.nvm && git\
+              \ checkout `git describe --abbrev=0 --tags` \n"
+            - " \n"
+            - "echo \". ~/.nvm/nvm.sh\" >> /etc/profile \n"
+            - "source /etc/profile \n"
+            - " \n"
+            - "nvm list-remote \n"
+            - "nvm install v6.9.5 \n"
+            - "nvm install v7.4.0 \n"
+            - " \n"
+            - "nvm ls \n"
+            - "nvm use v7.4.0 \n"
+            - " \n"
+            - "cd /root \n"
+            - "touch example.js \n"
+            - "Hostname=`hostname` \n"
+            - "Port=3000 \n"
+            - "echo \"const http = require('http');\" >> example.js \n"
+            - "echo \"const hostname = '$Hostname';\" >> example.js \n"
+            - "echo \"const port = '$Port';\" >> example.js \n"
+            - "echo \"const server = http.createServer((req, res) => {\"  >> example.js\
+              \ \n"
+            - "echo \"res.statusCode = 200;\" >> example.js \n"
+            - "echo \"res.setHeader('Content-Type', 'text/plain');\" >> example.js\
+              \ \n"
+            - "echo \"res.end('Hello World');\" >> example.js \n"
+            - "echo \"});\" >> example.js \n"
+            - "echo \"server.listen(port, hostname, () => {\" >> example.js \n"
+            - "echo \"});\"  >> example.js \n"
+            - " \n"
+            - "node /root/example.js & \n"
+            - 'ros-notify -d ''{"data" : "Install Node.js."}''
+
+              '
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 9105476e-936a-4c60-84cc-8e37c7c38ffb
+  WebServerConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 8f6e360b-6f3d-4236-8d7b-3ee6ef8ccb33
+  WebServerGroupWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WebServerConditionHandle
+      Timeout: 3600
+    DependsOn: WebServer
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 54d36aab-8d28-480a-9f0b-295ddd7bc7d0
+Outputs:
+  WebsiteURL:
+    Description: URL for newly created testing Node.js program.
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - WebServer
+          - PublicIp
+        - :3000
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - VpcName
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      Label:
+        default: VPC
+    - Parameters:
+      - ZoneId
+      - ImageId
+      - InstanceName
+      - InstanceType
+      - SystemDiskCategory
+      - InstancePassword
+      Label:
+        default: ECS
+    - Parameters:
+      - NodejsUrl
+      Label:
+        default: Nodejs
+    TemplateTags:
+    - acs:example:网站:部署Node.js开发测试环境
+  ALIYUN::ROS::Designer:
+    37e70ecc-1c3a-4dcc-9db6-7be93d810ef2:
+      source:
+        id: 54d36aab-8d28-480a-9f0b-295ddd7bc7d0
+      target:
+        id: 8f6e360b-6f3d-4236-8d7b-3ee6ef8ccb33
+      z: 1
+    54d36aab-8d28-480a-9f0b-295ddd7bc7d0:
+      position:
+        x: 498
+        y: 95
+      size:
+        height: 60
+        width: 60
+      z: 0
+    7bb2c65d-4ffb-4d7a-a516-c3e2b2df89bd:
+      embeds:
+      - afa532c5-54ab-4115-acd3-ca989d117b60
+      - e9186c23-cbfc-483e-9d3f-c09ccfbd78b7
+      position:
+        x: 193
+        y: 50
+      size:
+        height: 311
+        width: 237
+      z: 0
+    8f6e360b-6f3d-4236-8d7b-3ee6ef8ccb33:
+      position:
+        x: 498
+        y: 253
+      size:
+        height: 60
+        width: 60
+      z: 0
+    9105476e-936a-4c60-84cc-8e37c7c38ffb:
+      position:
+        x: 283
+        y: 128
+      size:
+        height: 60
+        width: 60
+      z: 2
+    afa532c5-54ab-4115-acd3-ca989d117b60:
+      embeds:
+      - 9105476e-936a-4c60-84cc-8e37c7c38ffb
+      position:
+        x: 245
+        y: 88
+      size:
+        height: 144
+        width: 131
+      z: 1
+    b7b870b0-9860-45c6-9cec-6b11a2a14a97:
+      source:
+        id: 9105476e-936a-4c60-84cc-8e37c7c38ffb
+      target:
+        id: e9186c23-cbfc-483e-9d3f-c09ccfbd78b7
+      z: 1
+    e9186c23-cbfc-483e-9d3f-c09ccfbd78b7:
+      position:
+        x: 283
+        y: 266
+      size:
+        height: 60
+        width: 60
+      z: 1

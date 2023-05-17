@@ -1,74 +1,191 @@
 ROSTemplateFormatVersion: '2015-09-01'
-Description: Clones ECS Instance And DataBase Disk
+Description: Clone ECS Instance
+Conditions:
+  CreateNewDisk:
+    Fn::Equals:
+    - Ref: CloneMode
+    - CloneEcsDisk
+  CreateNewEcsInstance:
+    Fn::Equals:
+    - Ref: CloneMode
+    - CloneEcsInstance
 Parameters:
-  SourceEcsDataDiskId:
+  CloneMode:
     Type: String
-    Label: Source ECS data disk ID
-    Description: Create snapshot based on source ECS data disk
-  SourceEcsSystemDiskId:
+    Label:
+      en: Clone Mode
+      zh-cn: 克隆模式
+    AllowedValues:
+    - CloneEcsDisk
+    - CloneEcsInstance
+  SourceEcsDiskId:
     Type: String
-    Label: Source ECS system disk ID
-    Description: Create custom image based on source ECS system disk
+    Label:
+      en: Source ECS Disk ID
+      zh-cn: 源ECS磁盘ID
+    Description:
+      en: Create a new disk based on the source ECS disk
+      zh-cn: 基于源ECS磁盘创建新磁盘
+    AssociationProperty: ALIYUN::ECS::Disk::DiskId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${CloneMode}
+          - CloneEcsDisk
+    Default: null
   SourceEcsInstanceId:
     Type: String
-    Label: Source ECS Instance ID
-    Description: Source ECS Instance
-  LoginPassword:
+    Label:
+      en: Source ECS Instance ID
+      zh-cn: 源ECS实例ID
+    Description:
+      en: Source ECS Instance
+      zh-cn: 源ECS实例ID
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${CloneMode}
+          - CloneEcsInstance
+    Default: null
+  ZoneId:
     Type: String
-    Label: ECS Login Password
-    Description: ECS Login Password
-    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
-    MinLength: 8
-    MaxLength: 41
-    NoEcho: true
-    Confirm: true
+    Label:
+      en: Create an Availability Zone for the disk
+      zh-cn: 新建磁盘的可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${CloneMode}
+          - CloneEcsDisk
+    Default: null
+  ECSDiskCategory:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 磁盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${CloneMode}
+          - CloneEcsDisk
+    Default: null
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
   NumberOfClonedEcs:
     Type: Number
-    Label: Number of Cloned ECS
-    Description: The number of nodes will be cloned
+    Label:
+      en: Number of Cloned ECS
+      zh-cn: 将克隆的节点数
+    Description:
+      en: The number of nodes will be cloned
+      zh-cn: 将克隆的节点数
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${CloneMode}
+          - CloneEcsInstance
     Default: 1
     MinValue: 1
     MaxValue: 100
+  LoginPassword:
+    Type: String
+    Label:
+      en: ECS Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/.
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${CloneMode}
+          - CloneEcsInstance
+    Default: null
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
 Resources:
-  SystemDiskSnapshot:
+  DiskSnapshot:
     Type: ALIYUN::ECS::Snapshot
+    Condition: CreateNewDisk
     Properties:
-      Timeout: 300
       DiskId:
-        Ref: SourceEcsSystemDiskId
-  CustomImage:
-    Type: ALIYUN::ECS::CustomImage
+        Ref: SourceEcsDiskId
+  CloneEcsDisk:
+    Type: ALIYUN::ECS::Disk
+    Condition: CreateNewDisk
     Properties:
+      ZoneId:
+        Ref: ZoneId
+      DiskCategory:
+        Ref: ECSDiskCategory
       SnapshotId:
-        Ref: SystemDiskSnapshot
-  DataDiskSnapshot:
-    Type: ALIYUN::ECS::Snapshot
-    Properties:
-      DiskId:
-        Ref: SourceEcsDataDiskId
-  NewEcsInstance:
+        Fn::GetAtt:
+        - DiskSnapshot
+        - SnapshotId
+  CloneEcsInstance:
     Type: ALIYUN::ECS::InstanceGroupClone
+    Condition: CreateNewEcsInstance
     Properties:
-      ImageId:
-        Ref: CustomImage
-      DiskMappings:
-      - SnapshotId:
-          Fn::GetAtt:
-          - DataDiskSnapshot
-          - SnapshotId
-        Size: 20
-      MinAmount:
-        Ref: NumberOfClonedEcs
-      SourceInstanceId:
-        Ref: SourceEcsInstanceId
       MaxAmount:
         Ref: NumberOfClonedEcs
       Password:
         Ref: LoginPassword
+      SourceInstanceId:
+        Ref: SourceEcsInstanceId
 Outputs:
-  NewEcsInstanceIds:
-    Description: New Instance Id.
+  NewDiskId:
+    Condition: CreateNewDisk
     Value:
       Fn::GetAtt:
-      - NewEcsInstance
+      - CloneEcsDisk
+      - DiskId
+  NewEcsInstanceIds:
+    Condition: CreateNewEcsInstance
+    Value:
+      Fn::GetAtt:
+      - CloneEcsInstance
       - InstanceIds
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - CloneMode
+      - SourceEcsDiskId
+      - SourceEcsInstanceId
+      - ZoneId
+      - ECSDiskCategory
+      - NumberOfClonedEcs
+      - LoginPassword
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:example:弹性计算:克隆一台ECS实例
