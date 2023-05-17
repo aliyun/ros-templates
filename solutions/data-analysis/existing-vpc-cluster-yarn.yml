@@ -1,14 +1,14 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
   en: 'Alibaba ROS solution template: On the existing virtual proprietary network,
-    switch and security group base resources, create multiple ECS (Hadoop MapReduce),
-    one of which binds elastic IP as the management node, and the other node strucpowers.
-    Java jdk version is 1.8.0, Hadoop version 2.7.7, access to the management interface
-    requires security group configuration of 8088 port entry rules, and access to
-    the HDFS management interface requires security group configuration of 50070 port
-    entry rules.'
-  zh-cn: 阿里巴巴 ROS 解决方案模板：在已有虚拟专有网络、交换机和安全组基础资源上，创建多台ECS(Hadoop MapReduce)，其中一台绑定弹性IP作为管理节点，其他节点使用弹性伸缩进行管理；Java
-    jdk版本是1.8.0，Hadoop版本是2.7.7，访问管理界面需要安全组配置8088端口入规则，访问HDFS管理界面需要安全组配置50070端口入规则。
+    switch and security group base resources, create multiple ECS (Hadoop YARN), one
+    of which binds elastic IP as the management node, and the other node strucpowers.
+    Java jdk version is 1.8.0, Hadoop version 2.7.7, access to the YARN management
+    interface requires security group configuration of 8088 port entry rules, and
+    access to the HDFS management interface requires security group configuration
+    of 50070 port entry rules.'
+  zh-cn: 阿里巴巴 ROS 解决方案模板：在已有虚拟专有网络、交换机和安全组基础资源上，创建多台ECS(Hadoop YARN)，其中一台绑定弹性IP作为管理节点，其他节点使用弹性伸缩进行管理；Java
+    jdk版本是1.8.0，Hadoop版本是2.7.7，访问YARN管理界面需要安全组配置8088端口入规则，访问HDFS管理界面需要安全组配置50070端口入规则。
 Parameters:
   VpcId:
     Type: String
@@ -112,13 +112,20 @@ Parameters:
     Description:
       en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
         <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
-        Cloud Disk</font>]'
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
       zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
-        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]'
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
     Default: cloud_efficiency
     AllowedValues:
     - cloud_efficiency
     - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
   DiskSize:
     Type: Number
     Label:
@@ -187,12 +194,12 @@ Resources:
         PolicyName:
           Fn::Join:
           - ''
-          - - StackId-
+          - - ros-StackId-
             - Ref: ALIYUN::StackId
       RoleName:
         Fn::Join:
         - ''
-        - - StackId-
+        - - ros-StackId-
           - Ref: ALIYUN::StackId
     Metadata:
       ALIYUN::ROS::Designer:
@@ -233,9 +240,8 @@ Resources:
       TemplateName:
         Fn::Join:
         - ''
-        - - StackId-
+        - - ros-StackId-
           - Ref: ALIYUN::StackId
-          - -In
     DependsOn:
     - RamRole
     Metadata:
@@ -258,13 +264,13 @@ Resources:
       HostName:
         Fn::Join:
         - ''
-        - - MapReduce
+        - - YARN
           - -[0,3]
       InstanceChargeType: PostPaid
       InstanceName:
         Fn::Join:
         - ''
-        - - MapReduce
+        - - YARN
           - -[0,3]
       InstanceType:
         Ref: InstanceType
@@ -419,20 +425,6 @@ Resources:
               \ ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh \n"
             - "    cd ${HADOOP_HOME}/etc/hadoop/ || recordLog \"Enter hadoop\\etc\\\
               hadoop failed\" \n"
-            - "    # config mapred-site.xml \n"
-            - '    cat >mapred-site.xml <<EOF
-
-              '
-            - "<configuration> \n"
-            - "    <property> \n"
-            - "        <name>mapreduce.framework.name</name> \n"
-            - "        <value>yarn</value> \n"
-            - "    </property> \n"
-            - "</configuration> \n"
-            - 'EOF
-
-              '
-            - "    recordLog \"Config mapred-site.xml successful\" \n"
             - "    # config core-site.xml \n"
             - '    cat >core-site.xml <<EOF
 
@@ -1069,9 +1061,8 @@ Resources:
       ScalingGroupName:
         Fn::Join:
         - '-'
-        - - MapReduce-ros
+        - - StackId
           - Ref: ALIYUN::StackId
-          - Ref: Amount
     DependsOn:
     - EcsInstanceGroupMaster
     - OOSTemplateIn
@@ -1107,7 +1098,6 @@ Resources:
     DependsOn:
     - EssScalingGroupSlave
     - OOSTemplateIn
-    - OOSTemplateOut
     Metadata:
       ALIYUN::ROS::Designer:
         id: 3c848940-437b-4576-96e0-4514bedb2d90
@@ -1150,17 +1140,11 @@ Resources:
       InstanceName:
         Fn::Join:
         - '-'
-        - - MapReduce-node
+        - - YARN-node
           - Ref: ALIYUN::StackId
       InstanceTypes:
       - Ref: InstanceType
       IoOptimized: optimized
-      ScalingConfigurationName:
-        Fn::Join:
-        - '-'
-        - - MapReduce-ros
-          - Ref: ALIYUN::StackId
-          - Ref: Amount
       ScalingGroupId:
         Ref: EssScalingGroupSlave
       SystemDiskCategory:
@@ -1180,8 +1164,8 @@ Resources:
       ScalingGroupId:
         Ref: EssScalingGroupSlave
     DependsOn:
-    - EcsInstanceGroupMaster
     - EssScalingConfigurationSlave
+    - EssScalingGroupSlave
     - RosWaitConditionMaster
     Metadata:
       ALIYUN::ROS::Designer:
@@ -1254,7 +1238,7 @@ Outputs:
       - Fn::GetAtt:
         - EcsInstanceGroupMaster
         - PrivateIps
-  WebUrl:
+  YARNWebUrl:
     Value:
       Fn::Join:
       - ''
@@ -1284,10 +1268,10 @@ Metadata:
       - Amount
       Label:
         default:
-          en: MapReduce Configuration
-          zh-cn: MapReduce 配置（必填）
+          en: YARN Configuration
+          zh-cn: YARN 配置（必填）
     TemplateTags:
-    - acs:solution:数据分析:MapReduce集群版(已有VPC)
+    - acs:solution:数据分析:YARN集群版(已有VPC)
   ALIYUN::ROS::Designer:
     28c8b447-0074-4e1c-b16e-a23b999b1221:
       position:

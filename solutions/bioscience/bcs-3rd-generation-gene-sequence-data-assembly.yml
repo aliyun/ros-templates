@@ -33,12 +33,12 @@ Parameters:
   VSwitchCidrBlock:
     Type: String
     Label:
-      zh-cn: 交换机网段
       en: VSwitch CIDR Block
+      zh-cn: 交换机网段
     Description:
-      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
       en: Must be a sub-network segment of the proprietary network and is not occupied
         by other VSwitches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
     Default: 192.168.0.0/24
   EipBandwidth:
     Type: Number
@@ -78,17 +78,17 @@ Parameters:
   EcsInstanceType:
     Type: String
     Label:
-      zh-cn: 实例规格
       en: Instance Type
+      zh-cn: 实例规格
     Description:
-      zh-cn: 填写VSwitch可用区下可使用的规格；建议使用内存型ECS大于4CPUs16GiB的规格；<br>推荐规格：<font color='red'><b>ecs.r5.xlarge</b></font><br>注：可用区可能不支持推荐规格<br>规格详见：<a
-        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
-        color='blue'>实例规格族</font></a></b>
       en: 'Fill in the specifications that can be used under the VSwitch availability
         zone, and it is recommended that memory ECS is greater than 4CPUs16GiB specifications;</b></font><br>recommended
         specifications：<font color=''red''><b>ecs.r5.xlarge</b></font><br>note: a
         few zones do not support recommended specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
         target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+      zh-cn: 填写VSwitch可用区下可使用的规格；建议使用内存型ECS大于4CPUs16GiB的规格；<br>推荐规格：<font color='red'><b>ecs.r5.xlarge</b></font><br>注：可用区可能不支持推荐规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族</font></a></b>
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       ZoneId: VSwitchZoneId
@@ -165,12 +165,12 @@ Parameters:
   UserName:
     Type: String
     Label:
-      zh-cn: 用户名
       en: Username
+      zh-cn: 用户名
     Description:
-      zh-cn: 不能是已经存在的用户名，最多包含64个字符。格式：^[a-zA-Z0-9\.@\-_]+$ 。
       en: Cannot be a user name that already exists, specify a user name, which can
         contain up to 64 characters. Format:^[a-zA-Z0-9\.@\-_]+$ .
+      zh-cn: 不能是已经存在的用户名，最多包含64个字符。格式：^[a-zA-Z0-9\.@\-_]+$ 。
     Default: gen_test
   UserPassword:
     Type: String
@@ -183,38 +183,130 @@ Parameters:
       zh-cn: 指定密码，8-30位，密码必须符合密码强度要求，由大小写字母和数字组成。
     NoEcho: true
 Resources:
-  RosWaitConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: {}
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: bb4463e0-3213-432a-9cc2-3e9cb1efdf12
-  RosWaitCondition:
-    Type: ALIYUN::ROS::WaitCondition
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
     Properties:
-      Count: 1
-      Handle:
-        Ref: RosWaitConditionHandle
-      Timeout: 600
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
     Metadata:
       ALIYUN::ROS::Designer:
-        id: 04894ebe-ad5d-4338-a2d4-5577cdfdbe20
+        id: 7ad2a34d-0519-4de2-a841-b0574f6f6f24
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupIngress:
+      - IpProtocol: icmp
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        NicType: intranet
+        PortRange: 3389/3389
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        NicType: internet
+        PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        NicType: internet
+        PortRange: 8000/8000
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName:
+        Fn::Join:
+        - _
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 78b06052-62de-404c-9616-7696a3d31210
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName:
+        Fn::Join:
+        - _
+        - - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d7fe3883-f6fd-430d-965c-80ac0b8e6488
+  NasAccessGroup:
+    Type: ALIYUN::NAS::AccessGroup
+    Properties:
+      AccessGroupName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      AccessGroupType: Vpc
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 45bed963-d61e-44e4-ab2a-2e39a766c75c
+  NasFileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      ProtocolType: NFS
+      StorageType: Performance
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 9500ceee-ea85-476e-9b4a-28f2c286aae7
+  NasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      AccessGroupName:
+        Ref: NasAccessGroup
+      FileSystemId:
+        Ref: NasFileSystem
+      NetworkType: Vpc
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 9878d9af-497c-4bea-8981-6865fc52ea31
+    DepensOn:
+    - NasFileSystem
+    - NasAccessRule
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+      DeletionForce:
+        Ref: BucketDeletionForce
+      Tags:
+        Key: best_practice
+        Value: '109'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 24c8f702-ddaa-4134-a6ea-4c6501fd4070
   RamUser:
     Type: ALIYUN::RAM::User
     Properties:
-      UserName:
-        Ref: UserName
       LoginProfile:
-        PasswordResetRequired: false
         Password:
           Ref: UserPassword
+        PasswordResetRequired: false
       Policies:
-      - PolicyName:
-          Fn::Join:
-          - '-'
-          - - StackId
-            - Ref: ALIYUN::StackId
-        PolicyDocument:
+      - PolicyDocument:
           Statement:
           - Action:
             - ecs:*
@@ -250,6 +342,13 @@ Resources:
             Resource:
             - acs:rds:*:*:*
           Version: '1'
+        PolicyName:
+          Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+      UserName:
+        Ref: UserName
     Metadata:
       ALIYUN::ROS::Designer:
         id: 63ca0ca8-d37f-4397-b554-cdf64ae522c7
@@ -263,121 +362,6 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 471af498-a56a-495f-966a-c7c64d1726a3
-  EcsVpc:
-    Type: ALIYUN::ECS::VPC
-    Properties:
-      CidrBlock:
-        Ref: VpcCidrBlock
-      VpcName:
-        Fn::Join:
-        - '-'
-        - - StackId
-          - Ref: ALIYUN::StackId
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 7ad2a34d-0519-4de2-a841-b0574f6f6f24
-  EcsVSwitch:
-    Type: ALIYUN::ECS::VSwitch
-    Properties:
-      ZoneId:
-        Ref: VSwitchZoneId
-      VpcId:
-        Ref: EcsVpc
-      CidrBlock:
-        Ref: VSwitchCidrBlock
-      VSwitchName:
-        Fn::Join:
-        - _
-        - - StackId
-          - Ref: ALIYUN::StackId
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: d7fe3883-f6fd-430d-965c-80ac0b8e6488
-  EcsSecurityGroup:
-    Type: ALIYUN::ECS::SecurityGroup
-    Properties:
-      VpcId:
-        Ref: EcsVpc
-      SecurityGroupName:
-        Fn::Join:
-        - _
-        - - StackId
-          - Ref: ALIYUN::StackId
-      SecurityGroupIngress:
-      - PortRange: -1/-1
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
-        IpProtocol: icmp
-        NicType: internet
-      - PortRange: 3389/3389
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
-        IpProtocol: tcp
-        NicType: intranet
-      - PortRange: 22/22
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
-        IpProtocol: tcp
-        NicType: internet
-      - PortRange: 8000/8000
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
-        IpProtocol: tcp
-        NicType: internet
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 78b06052-62de-404c-9616-7696a3d31210
-  NasAccessGroup:
-    Type: ALIYUN::NAS::AccessGroup
-    Properties:
-      AccessGroupType: Vpc
-      AccessGroupName:
-        Fn::Join:
-        - '-'
-        - - StackId
-          - Ref: ALIYUN::StackId
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 45bed963-d61e-44e4-ab2a-2e39a766c75c
-  NasFileSystem:
-    Type: ALIYUN::NAS::FileSystem
-    Properties:
-      ProtocolType: NFS
-      StorageType: Performance
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 9500ceee-ea85-476e-9b4a-28f2c286aae7
-  NasMountTarget:
-    Type: ALIYUN::NAS::MountTarget
-    Properties:
-      VpcId:
-        Ref: EcsVpc
-      VSwitchId:
-        Ref: EcsVSwitch
-      NetworkType: Vpc
-      FileSystemId:
-        Ref: NasFileSystem
-      AccessGroupName:
-        Ref: NasAccessGroup
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 9878d9af-497c-4bea-8981-6865fc52ea31
-    DepensOn:
-    - NasFileSystem
-    - NasAccessRule
-  OssBucket:
-    Type: ALIYUN::OSS::Bucket
-    Properties:
-      BucketName:
-        Ref: BucketName
-      DeletionForce:
-        Ref: BucketDeletionForce
-      Tags:
-        Value: '109'
-        Key: best_practice
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 24c8f702-ddaa-4134-a6ea-4c6501fd4070
   EcsInstance:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
@@ -389,9 +373,26 @@ Resources:
         Ref: EcsSecurityGroup
       ImageId:
         Ref: EcsImageId
+      AllocatePublicIP: false
+      InstanceChargeType: PostPaid
+      InstanceName:
+        Fn::Join:
+        - ''
+        - - Canu-Cromwell
+          - -[1,3]
+      InstanceType:
+        Ref: EcsInstanceType
       IoOptimized: optimized
+      MaxAmount: 1
+      Password:
+        Ref: EcsPassword
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
       SystemDiskSize:
         Ref: EcsSystemDiskSize
+      Tags:
+      - Key: best_practice
+        Value: '109'
       UserData:
         Fn::Replace:
         - ros-notify:
@@ -505,23 +506,6 @@ Resources:
               \ genomeSize=4.8m -pacbio-raw ecoli_p6_25x.filtered.fastq & \n"
             - "ros-notify -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"Status\\\" : \\\
               \"Success\\\"}\" \n"
-      InstanceChargeType: PostPaid
-      MaxAmount: 1
-      SystemDiskCategory:
-        Ref: EcsSystemDiskCategory
-      AllocatePublicIP: false
-      InstanceType:
-        Ref: EcsInstanceType
-      Password:
-        Ref: EcsPassword
-      Tags:
-      - Key: best_practice
-        Value: '109'
-      InstanceName:
-        Fn::Join:
-        - ''
-        - - Canu-Cromwell
-          - -[1,3]
     DependsOn:
     - NasMountTarget
     - OssBucket
@@ -529,6 +513,33 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 94b59b37-907d-4f92-875b-efc831a26625
+  NasAccessRule:
+    Type: ALIYUN::NAS::AccessRule
+    Properties:
+      AccessGroupName:
+        Ref: NasAccessGroup
+      SourceCidrIp: 0.0.0.0/0
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 7ffe4548-b0e1-43f3-b50d-8977f514a017
+    DepensOn:
+    - NasAccessGroup
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: bb4463e0-3213-432a-9cc2-3e9cb1efdf12
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 600
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 04894ebe-ad5d-4338-a2d4-5577cdfdbe20
   VpcEip:
     Type: ALIYUN::VPC::EIP
     Properties:
@@ -556,17 +567,6 @@ Resources:
     DependOn:
     - EcsInstanceGroup
     - VpcEip
-  NasAccessRule:
-    Type: ALIYUN::NAS::AccessRule
-    Properties:
-      AccessGroupName:
-        Ref: NasAccessGroup
-      SourceCidrIp: 0.0.0.0/0
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 7ffe4548-b0e1-43f3-b50d-8977f514a017
-    DepensOn:
-    - NasAccessGroup
 Outputs:
   CromwellServerUrl:
     Value:
@@ -612,168 +612,50 @@ Metadata:
     TemplateTags:
     - acs:solution:生命科学:BCS三代基因测序数据组装
   ALIYUN::ROS::Designer:
-    7ad2a34d-0519-4de2-a841-b0574f6f6f24:
-      size:
-        width: 500.0537109375
-        height: 382
-      position:
-        x: 202
-        y: 107
-      z: 0
-      embeds:
-      - d7fe3883-f6fd-430d-965c-80ac0b8e6488
-      - 78b06052-62de-404c-9616-7696a3d31210
-    d7fe3883-f6fd-430d-965c-80ac0b8e6488:
-      size:
-        width: 426
-        height: 199
-      position:
-        x: 247
-        y: 160
-      z: 1
-      embeds:
-      - 94b59b37-907d-4f92-875b-efc831a26625
-      - 9878d9af-497c-4bea-8981-6865fc52ea31
     04894ebe-ad5d-4338-a2d4-5577cdfdbe20:
-      size:
-        width: 60
-        height: 60
       position:
         x: 87
         y: 121
+      size:
+        height: 60
+        width: 60
       z: 0
-    bb4463e0-3213-432a-9cc2-3e9cb1efdf12:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 87
-        y: 226
-      z: 0
-    63ca0ca8-d37f-4397-b554-cdf64ae522c7:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 86
-        y: 418
-      z: 0
-    471af498-a56a-495f-966a-c7c64d1726a3:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 86
-        y: 317
-      z: 0
-    78b06052-62de-404c-9616-7696a3d31210:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 285
-        y: 399
-      z: 1
-    94b59b37-907d-4f92-875b-efc831a26625:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 285
-        y: 237
-      z: 2
-    e03025bb-40a2-47de-8387-3fa9a5374eee:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 285
-        y: -55
-      z: 0
-    630cc4f3-0749-4f83-a87c-915267e22aa8:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 285
-        y: 35
-      z: 0
-    9500ceee-ea85-476e-9b4a-28f2c286aae7:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 516
-        y: 18
-      z: 0
-    45bed963-d61e-44e4-ab2a-2e39a766c75c:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 619
-        y: 18
-      z: 0
-    7ffe4548-b0e1-43f3-b50d-8977f514a017:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 720
-        y: 18
-      z: 0
-    9878d9af-497c-4bea-8981-6865fc52ea31:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 570
-        y: 238
-      z: 2
-    24c8f702-ddaa-4134-a6ea-4c6501fd4070:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 725
-        y: 415
-      z: 0
-    99ff99e0-e6d2-412e-9819-e19e5d572d43:
-      source:
-        id: 04894ebe-ad5d-4338-a2d4-5577cdfdbe20
-      target:
-        id: bb4463e0-3213-432a-9cc2-3e9cb1efdf12
-      z: 1
-    7da229dd-15e5-4cd5-a2b8-d22a6331f1f2:
-      source:
-        id: 471af498-a56a-495f-966a-c7c64d1726a3
-      target:
-        id: 63ca0ca8-d37f-4397-b554-cdf64ae522c7
-      z: 1
-    b8677afa-6f98-484a-96ec-b68aeecc01b8:
+    0c9729fd-ec02-4298-9bf6-18345e91a4dc:
       source:
         id: 94b59b37-907d-4f92-875b-efc831a26625
       target:
-        id: 78b06052-62de-404c-9616-7696a3d31210
+        id: 24c8f702-ddaa-4134-a6ea-4c6501fd4070
       z: 1
-    9bac0831-30e5-422c-bc95-b28168d69e75:
+    18b2c6c5-bf18-4fc2-b03c-9ceb86021c7e:
       source:
-        id: 630cc4f3-0749-4f83-a87c-915267e22aa8
+        id: 94b59b37-907d-4f92-875b-efc831a26625
       target:
-        id: e03025bb-40a2-47de-8387-3fa9a5374eee
+        id: 471af498-a56a-495f-966a-c7c64d1726a3
       z: 1
-    bbb305c8-3b31-4c60-8a56-dd852946e969:
-      source:
-        id: 7ffe4548-b0e1-43f3-b50d-8977f514a017
-      target:
-        id: 45bed963-d61e-44e4-ab2a-2e39a766c75c
-      z: 1
-    94b5587b-c089-4fb5-a4cc-13809d5909a1:
-      source:
-        id: 9878d9af-497c-4bea-8981-6865fc52ea31
-      target:
-        id: 9500ceee-ea85-476e-9b4a-28f2c286aae7
-      z: 1
+    24c8f702-ddaa-4134-a6ea-4c6501fd4070:
+      position:
+        x: 725
+        y: 415
+      size:
+        height: 60
+        width: 60
+      z: 0
+    45bed963-d61e-44e4-ab2a-2e39a766c75c:
+      position:
+        x: 619
+        y: 18
+      size:
+        height: 60
+        width: 60
+      z: 0
+    471af498-a56a-495f-966a-c7c64d1726a3:
+      position:
+        x: 86
+        y: 317
+      size:
+        height: 60
+        width: 60
+      z: 0
     50b3bc54-374c-47d9-982c-6a8f17bdf37a:
       source:
         id: 9878d9af-497c-4bea-8981-6865fc52ea31
@@ -786,15 +668,133 @@ Metadata:
       target:
         id: 94b59b37-907d-4f92-875b-efc831a26625
       z: 1
-    18b2c6c5-bf18-4fc2-b03c-9ceb86021c7e:
+    630cc4f3-0749-4f83-a87c-915267e22aa8:
+      position:
+        x: 285
+        y: 35
+      size:
+        height: 60
+        width: 60
+      z: 0
+    63ca0ca8-d37f-4397-b554-cdf64ae522c7:
+      position:
+        x: 86
+        y: 418
+      size:
+        height: 60
+        width: 60
+      z: 0
+    78b06052-62de-404c-9616-7696a3d31210:
+      position:
+        x: 285
+        y: 399
+      size:
+        height: 60
+        width: 60
+      z: 1
+    7ad2a34d-0519-4de2-a841-b0574f6f6f24:
+      embeds:
+      - d7fe3883-f6fd-430d-965c-80ac0b8e6488
+      - 78b06052-62de-404c-9616-7696a3d31210
+      position:
+        x: 202
+        y: 107
+      size:
+        height: 382
+        width: 500.0537109375
+      z: 0
+    7da229dd-15e5-4cd5-a2b8-d22a6331f1f2:
       source:
-        id: 94b59b37-907d-4f92-875b-efc831a26625
-      target:
         id: 471af498-a56a-495f-966a-c7c64d1726a3
+      target:
+        id: 63ca0ca8-d37f-4397-b554-cdf64ae522c7
       z: 1
-    0c9729fd-ec02-4298-9bf6-18345e91a4dc:
+    7ffe4548-b0e1-43f3-b50d-8977f514a017:
+      position:
+        x: 720
+        y: 18
+      size:
+        height: 60
+        width: 60
+      z: 0
+    94b5587b-c089-4fb5-a4cc-13809d5909a1:
+      source:
+        id: 9878d9af-497c-4bea-8981-6865fc52ea31
+      target:
+        id: 9500ceee-ea85-476e-9b4a-28f2c286aae7
+      z: 1
+    94b59b37-907d-4f92-875b-efc831a26625:
+      position:
+        x: 285
+        y: 237
+      size:
+        height: 60
+        width: 60
+      z: 2
+    9500ceee-ea85-476e-9b4a-28f2c286aae7:
+      position:
+        x: 516
+        y: 18
+      size:
+        height: 60
+        width: 60
+      z: 0
+    9878d9af-497c-4bea-8981-6865fc52ea31:
+      position:
+        x: 570
+        y: 238
+      size:
+        height: 60
+        width: 60
+      z: 2
+    99ff99e0-e6d2-412e-9819-e19e5d572d43:
+      source:
+        id: 04894ebe-ad5d-4338-a2d4-5577cdfdbe20
+      target:
+        id: bb4463e0-3213-432a-9cc2-3e9cb1efdf12
+      z: 1
+    9bac0831-30e5-422c-bc95-b28168d69e75:
+      source:
+        id: 630cc4f3-0749-4f83-a87c-915267e22aa8
+      target:
+        id: e03025bb-40a2-47de-8387-3fa9a5374eee
+      z: 1
+    b8677afa-6f98-484a-96ec-b68aeecc01b8:
       source:
         id: 94b59b37-907d-4f92-875b-efc831a26625
       target:
-        id: 24c8f702-ddaa-4134-a6ea-4c6501fd4070
+        id: 78b06052-62de-404c-9616-7696a3d31210
       z: 1
+    bb4463e0-3213-432a-9cc2-3e9cb1efdf12:
+      position:
+        x: 87
+        y: 226
+      size:
+        height: 60
+        width: 60
+      z: 0
+    bbb305c8-3b31-4c60-8a56-dd852946e969:
+      source:
+        id: 7ffe4548-b0e1-43f3-b50d-8977f514a017
+      target:
+        id: 45bed963-d61e-44e4-ab2a-2e39a766c75c
+      z: 1
+    d7fe3883-f6fd-430d-965c-80ac0b8e6488:
+      embeds:
+      - 94b59b37-907d-4f92-875b-efc831a26625
+      - 9878d9af-497c-4bea-8981-6865fc52ea31
+      position:
+        x: 247
+        y: 160
+      size:
+        height: 199
+        width: 426
+      z: 1
+    e03025bb-40a2-47de-8387-3fa9a5374eee:
+      position:
+        x: 285
+        y: -55
+      size:
+        height: 60
+        width: 60
+      z: 0

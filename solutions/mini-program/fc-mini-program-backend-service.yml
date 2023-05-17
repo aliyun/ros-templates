@@ -255,11 +255,11 @@ Parameters:
       en: Instance Specification
       zh-cn: 实例规格
     Description:
-      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html'
-        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
       en: 'Select the instance specification based on the type of database engine
         and the available area support;<br>See detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.htm''
         target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html'
+        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
     Default: rds.mysql.s2.large
   DBInstanceStorage:
     Type: Number
@@ -319,6 +319,20 @@ Parameters:
     MaxLength: 32
     NoEcho: true
 Resources:
+  ApiGateWayGroup:
+    Type: ALIYUN::ApiGateway::Group
+    Properties:
+      InstanceId: api-shared-vpc-001
+      GroupName:
+        Fn::Join:
+        - _
+        - - StackId
+          - Fn::Replace:
+            - '-': _
+            - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: b75c55d1-9a93-43df-8886-59692c3b9a23
   EcsVpc:
     Type: ALIYUN::ECS::VPC
     Properties:
@@ -331,23 +345,43 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 2547c704-f5bd-4014-a8d3-1697b887b896
-  EcsVSwitch1:
-    Type: ALIYUN::ECS::VSwitch
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
-      ZoneId:
-        Ref: VSw1Zone
       VpcId:
         Ref: EcsVpc
-      CidrBlock: 192.168.0.0/24
-      VSwitchName:
+      SecurityGroupIngress:
+      - IpProtocol: icmp
+        NicType: internet
+        PortRange: -1/-1
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        NicType: internet
+        PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        NicType: internet
+        PortRange: 443/443
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        NicType: internet
+        PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName:
         Fn::Join:
         - '-'
-        - - VSwitch1
-          - StackId
+        - - StackId
           - Ref: ALIYUN::StackId
+      Tags:
+      - Key: best_practice
+        Value: '024'
     Metadata:
       ALIYUN::ROS::Designer:
-        id: 993c66bd-cdab-420b-9281-d4b9de24a52c
+        id: e67c36dd-5137-4e56-8d2e-56c8cb2e0ea8
   EcsVSwitch2:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -365,107 +399,10 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 01a5abe8-c2be-4932-92d6-f674f1c802b8
-  EcsSecurityGroup:
-    Type: ALIYUN::ECS::SecurityGroup
-    Properties:
-      VpcId:
-        Ref: EcsVpc
-      SecurityGroupIngress:
-      - PortRange: -1/-1
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
-        IpProtocol: icmp
-        NicType: internet
-      - PortRange: 80/80
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
-        IpProtocol: tcp
-        NicType: internet
-      - PortRange: 443/443
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
-        IpProtocol: tcp
-        NicType: internet
-      - PortRange: 22/22
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
-        IpProtocol: tcp
-        NicType: internet
-      Tags:
-      - Value: '024'
-        Key: best_practice
-      SecurityGroupName:
-        Fn::Join:
-        - '-'
-        - - StackId
-          - Ref: ALIYUN::StackId
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: e67c36dd-5137-4e56-8d2e-56c8cb2e0ea8
-  RdsDBInstance:
-    Type: ALIYUN::RDS::DBInstance
-    Properties:
-      VpcId:
-        Ref: EcsVpc
-      VSwitchId:
-        Ref: EcsVSwitch1
-      EngineVersion:
-        Fn::Select:
-        - '1'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
-      DBInstanceClass:
-        Ref: DBInstanceClass
-      MasterUserPassword:
-        Ref: RdsUserPassword
-      MasterUserType: Normal
-      SecurityIPList: 192.168.0.0/24
-      MasterUsername:
-        Ref: RdsUserName
-      DBInstanceStorage:
-        Ref: DBInstanceStorage
-      DBMappings:
-      - CharacterSetName: utf8
-        DBName:
-          Ref: DBName
-      Engine:
-        Fn::Select:
-        - '0'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
-      Tags:
-        Value: '024'
-        Key: best_practice
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 0ea367ba-33d5-468f-a08f-83916fdb8e00
-  RdsAccountPrivilege:
-    Type: ALIYUN::RDS::AccountPrivilege
-    Properties:
-      AccountPrivilege: ReadWrite
-      DBInstanceId:
-        Ref: RdsDBInstance
-      DBName:
-        Ref: DBName
-      AccountName:
-        Ref: RdsUserName
-    DependsOn:
-    - RdsDBInstance
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 841f9962-ec3a-44c7-91e4-7c21a57040f8
   RamRole:
     Type: ALIYUN::RAM::Role
     Properties:
-      RoleName:
-        Fn::Join:
-        - '-'
-        - - StackId
-          - Ref: ALIYUN::StackId
       AssumeRolePolicyDocument:
-        Version: '1'
         Statement:
         - Action: sts:AssumeRole
           Effect: Allow
@@ -475,20 +412,15 @@ Resources:
             - apigateway.aliyuncs.com
             - oss.aliyuncs.com
             - cdn.aliyuncs.com
+        Version: '1'
       Policies:
-      - PolicyName:
-          Fn::Join:
-          - '-'
-          - - StackId
-            - Ref: ALIYUN::StackId
-        PolicyDocument:
-          Version: '1'
+      - PolicyDocument:
           Statement:
           - Action:
             - vpc:DescribeVSwitchAttributes
+            Effect: Allow
             Resource:
             - '*'
-            Effect: Allow
           - Action:
             - ecs:CreateNetworkInterface
             - ecs:DeleteNetworkInterface
@@ -496,66 +428,63 @@ Resources:
             - ecs:CreateNetworkInterfacePermission
             - ecs:DescribeNetworkInterfacePermissions
             - ecs:DeleteNetworkInterfacePermission
+            Effect: Allow
             Resource:
             - '*'
-            Effect: Allow
           - Action:
             - rds:*
+            Effect: Allow
             Resource:
             - '*'
-            Effect: Allow
           - Action:
             - fc:InvokeFunction
+            Effect: Allow
             Resource:
             - '*'
-            Effect: Allow
           - Action:
             - oss:*
+            Effect: Allow
             Resource:
             - '*'
-            Effect: Allow
+          Version: '1'
+        PolicyName:
+          Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+      RoleName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
     Metadata:
       ALIYUN::ROS::Designer:
         id: 986f262f-e65c-4a2c-a73e-c606aad98858
   FcService:
     Type: ALIYUN::FC::Service
     Properties:
-      VpcConfig:
-        VpcId:
-          Ref: EcsVpc
-        VSwitchIds:
-        - Ref: EcsVSwitch2
-        SecurityGroupId:
-          Ref: EcsSecurityGroup
+      InternetAccess: true
+      Role:
+        Fn::GetAtt:
+        - RamRole
+        - Arn
       ServiceName:
         Fn::Join:
         - '-'
         - - StackId
           - Ref: ALIYUN::StackId
-      Role:
-        Fn::GetAtt:
-        - RamRole
-        - Arn
-      InternetAccess: true
+      VpcConfig:
+        SecurityGroupId:
+          Ref: EcsSecurityGroup
+        VSwitchIds:
+        - Ref: EcsVSwitch2
+        VpcId:
+          Ref: EcsVpc
     DependsOn:
     - RamRole
     Metadata:
       ALIYUN::ROS::Designer:
         id: a1d7246e-ff49-45be-bee5-845d12097a8d
-  ApiGateWayGroup:
-    Type: ALIYUN::ApiGateway::Group
-    Properties:
-      InstanceId: api-shared-vpc-001
-      GroupName:
-        Fn::Join:
-        - _
-        - - StackId
-          - Fn::Replace:
-            - '-': _
-            - Ref: ALIYUN::StackId
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: b75c55d1-9a93-43df-8886-59692c3b9a23
   FcFunction1:
     Type: ALIYUN::FC::Function
     Properties:
@@ -572,121 +501,46 @@ Resources:
               handler()
       FunctionName:
         Ref: Function1Name
+      Handler: index.handler
+      MemorySize: 512
+      Runtime: python2.7
       ServiceName:
         Fn::Join:
         - '-'
         - - StackId
           - Ref: ALIYUN::StackId
-      MemorySize: 512
-      Handler: index.handler
       Timeout: 60
-      Runtime: python2.7
     DependsOn:
     - FcService
     Metadata:
       ALIYUN::ROS::Designer:
         id: 2d0ebdca-9e6d-4bfd-9add-a7a62866eedb
-  FcFunction2:
-    Type: ALIYUN::FC::Function
-    Properties:
-      Code:
-        SourceCode: |-
-          # -*- coding: utf-8 -*-
-
-
-          def handler(event, context):
-              return 'hello Function2'
-
-
-          if __name__ == '__main__':
-              handler()
-      FunctionName:
-        Ref: Function2Name
-      ServiceName:
-        Fn::Join:
-        - '-'
-        - - StackId
-          - Ref: ALIYUN::StackId
-      MemorySize: 512
-      Handler: index.handler
-      Timeout: 60
-      Runtime: python2.7
-    DependsOn:
-    - FcService
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 5e8ac0ff-eff2-435f-a3eb-5033bf9cf940
-  FcFunction3:
-    Type: ALIYUN::FC::Function
-    Properties:
-      Code:
-        SourceCode: |-
-          # -*- coding: utf-8 -*-
-
-
-          def handler(event, context):
-              return 'hello Function3'
-
-
-          if __name__ == '__main__':
-              handler()
-      FunctionName:
-        Ref: Function3Name
-      ServiceName:
-        Fn::Join:
-        - '-'
-        - - StackId
-          - Ref: ALIYUN::StackId
-      MemorySize: 512
-      Handler: index.handler
-      Timeout: 60
-      Runtime: python2.7
-    DependsOn:
-    - FcService
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: bc33fb85-42a6-488c-bd24-c7ce94cf47b3
-  OssBucket:
-    Type: ALIYUN::OSS::Bucket
-    Properties:
-      BucketName:
-        Ref: BucketName
-      DeletionForce:
-        Ref: DeletionForce
-      AccessControl:
-        Ref: BucketAccessControl
-      StorageClass: Standard
-      Tags:
-        Value: '024'
-        Key: best_practice
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 1a39b75d-7715-45c4-b2c8-423a7cc555fb
   ApiGatewayApi1:
     Type: ALIYUN::ApiGateway::Api
     Properties:
-      ResultSample: '{''Msg'': ''Success''}'
-      GroupId:
-        Ref: ApiGateWayGroup
       ApiName:
         Ref: Function1Name
       AuthType: APP
-      Visibility: PUBLIC
+      GroupId:
+        Ref: ApiGateWayGroup
       RequestConfig:
+        BodyFormat: FORM
         RequestHttpMethod:
           Ref: Api1RequestHttpMethod
-        RequestProtocol:
-          Ref: Api1RequestProtocol
+        RequestMode: MAPPING
         RequestPath:
           Ref: Api1RequestPath
-        RequestMode: MAPPING
-        BodyFormat: FORM
+        RequestProtocol:
+          Ref: Api1RequestProtocol
+      ResultSample: '{''Msg'': ''Success''}'
+      ResultType: JSON
       ServiceConfig:
-        ServiceProtocol: FunctionCompute
         ContentTypeCatagory: CLIENT
         FunctionComputeConfig:
           fcRegionId:
             Ref: ALIYUN::Region
+          functionName:
+            Ref: Function1Name
           roleArn:
             Fn::GetAtt:
             - RamRole
@@ -696,9 +550,8 @@ Resources:
             - '-'
             - - StackId
               - Ref: ALIYUN::StackId
-          functionName:
-            Ref: Function1Name
-      ResultType: JSON
+        ServiceProtocol: FunctionCompute
+      Visibility: PUBLIC
     DependsOn:
     - ApiGateWayGroup
     - FcFunction1
@@ -709,28 +562,29 @@ Resources:
   ApiGatewayApi2:
     Type: ALIYUN::ApiGateway::Api
     Properties:
-      ResultSample: '{''Msg'': ''Success''}'
-      GroupId:
-        Ref: ApiGateWayGroup
       ApiName:
         Ref: Function2Name
       AuthType: APP
-      Visibility: PUBLIC
+      GroupId:
+        Ref: ApiGateWayGroup
       RequestConfig:
+        BodyFormat: FORM
         RequestHttpMethod:
           Ref: Api1RequestHttpMethod
-        RequestProtocol:
-          Ref: Api1RequestProtocol
+        RequestMode: MAPPING
         RequestPath:
           Ref: Api2RequestPath
-        RequestMode: MAPPING
-        BodyFormat: FORM
+        RequestProtocol:
+          Ref: Api1RequestProtocol
+      ResultSample: '{''Msg'': ''Success''}'
+      ResultType: JSON
       ServiceConfig:
-        ServiceProtocol: FunctionCompute
         ContentTypeCatagory: CLIENT
         FunctionComputeConfig:
           fcRegionId:
             Ref: ALIYUN::Region
+          functionName:
+            Ref: Function2Name
           roleArn:
             Fn::GetAtt:
             - RamRole
@@ -740,9 +594,8 @@ Resources:
             - '-'
             - - StackId
               - Ref: ALIYUN::StackId
-          functionName:
-            Ref: Function2Name
-      ResultType: JSON
+        ServiceProtocol: FunctionCompute
+      Visibility: PUBLIC
     DependsOn:
     - ApiGateWayGroup
     - FcFunction1
@@ -753,28 +606,29 @@ Resources:
   ApiGatewayApi3:
     Type: ALIYUN::ApiGateway::Api
     Properties:
-      ResultSample: '{''Msg'': ''Success''}'
-      GroupId:
-        Ref: ApiGateWayGroup
       ApiName:
         Ref: Function3Name
       AuthType: APP
-      Visibility: PUBLIC
+      GroupId:
+        Ref: ApiGateWayGroup
       RequestConfig:
+        BodyFormat: FORM
         RequestHttpMethod:
           Ref: Api1RequestHttpMethod
-        RequestProtocol:
-          Ref: Api1RequestProtocol
+        RequestMode: MAPPING
         RequestPath:
           Ref: Api3RequestPath
-        RequestMode: MAPPING
-        BodyFormat: FORM
+        RequestProtocol:
+          Ref: Api1RequestProtocol
+      ResultSample: '{''Msg'': ''Success''}'
+      ResultType: JSON
       ServiceConfig:
-        ServiceProtocol: FunctionCompute
         ContentTypeCatagory: CLIENT
         FunctionComputeConfig:
           fcRegionId:
             Ref: ALIYUN::Region
+          functionName:
+            Ref: Function3Name
           roleArn:
             Fn::GetAtt:
             - RamRole
@@ -784,9 +638,8 @@ Resources:
             - '-'
             - - StackId
               - Ref: ALIYUN::StackId
-          functionName:
-            Ref: Function3Name
-      ResultType: JSON
+        ServiceProtocol: FunctionCompute
+      Visibility: PUBLIC
     DependsOn:
     - ApiGateWayGroup
     - FcFunction1
@@ -794,18 +647,6 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 7a8e6d68-f2f8-4847-9e84-8d4d027da6c7
-  ApiGatewayDeployment1:
-    Type: ALIYUN::ApiGateway::Deployment
-    Properties:
-      ApiId:
-        Ref: ApiGatewayApi1
-      StageName: TEST
-      GroupId:
-        Ref: ApiGateWayGroup
-      Description: first test
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: c8006fe0-fe3b-495a-ad98-89ed421d59dc
   ApiGatewayApp1:
     Type: ALIYUN::ApiGateway::App
     Properties:
@@ -813,18 +654,6 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: a08ffa2e-912e-4e98-bdc1-bf9b5fa054db
-  ApiGatewayDeployment2:
-    Type: ALIYUN::ApiGateway::Deployment
-    Properties:
-      ApiId:
-        Ref: ApiGatewayApi2
-      StageName: TEST
-      GroupId:
-        Ref: ApiGateWayGroup
-      Description: first test
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: e1a3cf19-cf14-4645-9d2a-90bd421a73a8
   ApiGatewayApp2:
     Type: ALIYUN::ApiGateway::App
     Properties:
@@ -832,18 +661,6 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: c8842bed-0a51-4e49-b0f9-e34c7ac662f9
-  ApiGatewayDeployment3:
-    Type: ALIYUN::ApiGateway::Deployment
-    Properties:
-      ApiId:
-        Ref: ApiGatewayApi3
-      StageName: TEST
-      GroupId:
-        Ref: ApiGateWayGroup
-      Description: first test
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: f87f2d65-27ec-4284-8057-1e1515e928c5
   ApiGatewayApp3:
     Type: ALIYUN::ApiGateway::App
     Properties:
@@ -868,30 +685,70 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: ac8b1a29-778c-41af-9111-3fdbdf73aa6d
-  DnsDomainCnameRecord1Api:
-    Type: ALIYUN::DNS::DomainRecord
-    Condition: IsCreateDomainRecord
+  ApiGatewayDeployment1:
+    Type: ALIYUN::ApiGateway::Deployment
     Properties:
-      Type: CNAME
-      RR:
-        Ref: DomainNamePrefix
-      DomainName:
-        Ref: DnsDomainName
-      Value:
-        Fn::GetAtt:
-        - ApiGateWayGroup
-        - SubDomain
-      TTL: 600
-    DependsOn:
-    - ApiGateWayGroup
+      ApiId:
+        Ref: ApiGatewayApi1
+      Description: first test
+      GroupId:
+        Ref: ApiGateWayGroup
+      StageName: TEST
     Metadata:
       ALIYUN::ROS::Designer:
-        id: 679be93e-9396-4136-9db4-886c97f097b9
+        id: c8006fe0-fe3b-495a-ad98-89ed421d59dc
+  ApiGatewayDeployment2:
+    Type: ALIYUN::ApiGateway::Deployment
+    Properties:
+      ApiId:
+        Ref: ApiGatewayApi2
+      Description: first test
+      GroupId:
+        Ref: ApiGateWayGroup
+      StageName: TEST
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: e1a3cf19-cf14-4645-9d2a-90bd421a73a8
+  ApiGatewayDeployment3:
+    Type: ALIYUN::ApiGateway::Deployment
+    Properties:
+      ApiId:
+        Ref: ApiGatewayApi3
+      Description: first test
+      GroupId:
+        Ref: ApiGateWayGroup
+      StageName: TEST
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: f87f2d65-27ec-4284-8057-1e1515e928c5
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      AccessControl:
+        Ref: BucketAccessControl
+      BucketName:
+        Ref: BucketName
+      DeletionForce:
+        Ref: DeletionForce
+      StorageClass: Standard
+      Tags:
+        Key: best_practice
+        Value: '024'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 1a39b75d-7715-45c4-b2c8-423a7cc555fb
   CdnDomain:
     Type: ALIYUN::CDN::Domain
     Condition: IsCreateDomainRecord
     Properties:
       CdnType: web
+      DomainName:
+        Fn::Join:
+        - .
+        - - Ref: CdnDomainNamePrefix
+          - Ref: DnsDomainName
+      Scope:
+        Ref: CdnDomainScope
       Sources:
         Fn::Join:
         - ''
@@ -902,13 +759,6 @@ Resources:
           - '",'
           - '"type": "oss",'
           - '"port": 80}]'
-      DomainName:
-        Fn::Join:
-        - .
-        - - Ref: CdnDomainNamePrefix
-          - Ref: DnsDomainName
-      Scope:
-        Ref: CdnDomainScope
     DependsOn:
     - OssBucket
     Metadata:
@@ -918,16 +768,16 @@ Resources:
     Type: ALIYUN::DNS::DomainRecord
     Condition: IsCreateDomainRecord
     Properties:
-      RR:
-        Ref: CdnDomainNamePrefix
-      Type: CNAME
       DomainName:
         Ref: DnsDomainName
+      RR:
+        Ref: CdnDomainNamePrefix
+      TTL: 600
+      Type: CNAME
       Value:
         Fn::GetAtt:
         - CdnDomain
         - Cname
-      TTL: 600
     DependsOn:
     - CdnDomain
     Metadata:
@@ -937,6 +787,11 @@ Resources:
     Type: ALIYUN::CDN::DomainConfig
     Condition: IsCreateDomainRecord
     Properties:
+      DomainNames:
+        Fn::Join:
+        - .
+        - - Ref: CdnDomainNamePrefix
+          - Ref: DnsDomainName
       Functions:
         Fn::Join:
         - ''
@@ -954,56 +809,181 @@ Resources:
           - '"functionName": "l2_oss_key"},'
           - '{"functionArgs": [{"argName": "auth_type", "argValue": "no_auth"}], "functionName":
             "aliauth"}]'
-      DomainNames:
-        Fn::Join:
-        - .
-        - - Ref: CdnDomainNamePrefix
-          - Ref: DnsDomainName
     DependsOn:
     - DnsDomainCnameRecord2Cdn
     Metadata:
       ALIYUN::ROS::Designer:
         id: d90c5e2e-1259-4c9f-808f-0eeac3406431
+  DnsDomainCnameRecord1Api:
+    Type: ALIYUN::DNS::DomainRecord
+    Condition: IsCreateDomainRecord
+    Properties:
+      DomainName:
+        Ref: DnsDomainName
+      RR:
+        Ref: DomainNamePrefix
+      TTL: 600
+      Type: CNAME
+      Value:
+        Fn::GetAtt:
+        - ApiGateWayGroup
+        - SubDomain
+    DependsOn:
+    - ApiGateWayGroup
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 679be93e-9396-4136-9db4-886c97f097b9
   DnsDomainCnameRecord3Oss:
     Type: ALIYUN::DNS::DomainRecord
     Condition: IsCreateDomainRecord
     Properties:
-      RR:
-        Ref: CdnDomainNamePrefix
-      Type: CNAME
       DomainName:
         Ref: DnsDomainName
+      RR:
+        Ref: CdnDomainNamePrefix
+      TTL: 600
+      Type: CNAME
       Value:
         Fn::GetAtt:
         - CdnDomain
         - DomainName
-      TTL: 600
     DependsOn:
     - CdnDomain
     Metadata:
       ALIYUN::ROS::Designer:
         id: d3ad126b-15b2-46db-9ea4-dd7461c4012a
+  EcsVSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSw1Zone
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName:
+        Fn::Join:
+        - '-'
+        - - VSwitch1
+          - StackId
+          - Ref: ALIYUN::StackId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 993c66bd-cdab-420b-9281-d4b9de24a52c
+  FcFunction2:
+    Type: ALIYUN::FC::Function
+    Properties:
+      Code:
+        SourceCode: |-
+          # -*- coding: utf-8 -*-
+
+
+          def handler(event, context):
+              return 'hello Function2'
+
+
+          if __name__ == '__main__':
+              handler()
+      FunctionName:
+        Ref: Function2Name
+      Handler: index.handler
+      MemorySize: 512
+      Runtime: python2.7
+      ServiceName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      Timeout: 60
+    DependsOn:
+    - FcService
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 5e8ac0ff-eff2-435f-a3eb-5033bf9cf940
+  FcFunction3:
+    Type: ALIYUN::FC::Function
+    Properties:
+      Code:
+        SourceCode: |-
+          # -*- coding: utf-8 -*-
+
+
+          def handler(event, context):
+              return 'hello Function3'
+
+
+          if __name__ == '__main__':
+              handler()
+      FunctionName:
+        Ref: Function3Name
+      Handler: index.handler
+      MemorySize: 512
+      Runtime: python2.7
+      ServiceName:
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
+      Timeout: 60
+    DependsOn:
+    - FcService
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: bc33fb85-42a6-488c-bd24-c7ce94cf47b3
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      DBMappings:
+      - CharacterSetName: utf8
+        DBName:
+          Ref: DBName
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      MasterUserPassword:
+        Ref: RdsUserPassword
+      MasterUserType: Normal
+      MasterUsername:
+        Ref: RdsUserName
+      SecurityIPList: 192.168.0.0/24
+      Tags:
+        Key: best_practice
+        Value: '024'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 0ea367ba-33d5-468f-a08f-83916fdb8e00
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountName:
+        Ref: RdsUserName
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RdsDBInstance
+      DBName:
+        Ref: DBName
+    DependsOn:
+    - RdsDBInstance
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 841f9962-ec3a-44c7-91e4-7c21a57040f8
 Outputs:
-  RdsInstanceInnerIPAddress:
-    Description:
-      en: Rds instance database Intranet address connection string
-      zh-cn: Rds实例数据库内网地址连接串。
-    Value:
-      Fn::GetAtt:
-      - RdsDBInstance
-      - InnerConnectionString
-  RdsAccountName:
-    Description:
-      en: RDS instance data account
-      zh-cn: RDS实例数据账号
-    Value:
-      Ref: RdsUserName
-  RdsDBInstanceDBName:
-    Description:
-      en: name of the RDS database
-      zh-cn: RDS数据库名称
-    Value:
-      Ref: DBName
   ApiGateWayGroupName:
     Description:
       en: Api gateway group name
@@ -1024,6 +1004,26 @@ Outputs:
       - '-'
       - - StackId
         - Ref: ALIYUN::StackId
+  RdsAccountName:
+    Description:
+      en: RDS instance data account
+      zh-cn: RDS实例数据账号
+    Value:
+      Ref: RdsUserName
+  RdsDBInstanceDBName:
+    Description:
+      en: name of the RDS database
+      zh-cn: RDS数据库名称
+    Value:
+      Ref: DBName
+  RdsInstanceInnerIPAddress:
+    Description:
+      en: Rds instance database Intranet address connection string
+      zh-cn: Rds实例数据库内网地址连接串。
+    Value:
+      Fn::GetAtt:
+      - RdsDBInstance
+      - InnerConnectionString
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -1068,369 +1068,23 @@ Metadata:
     TemplateTags:
     - acs:solution:小程序:函数计算搭建小程序Web应用后端服务
   ALIYUN::ROS::Designer:
-    2547c704-f5bd-4014-a8d3-1697b887b896:
-      size:
-        width: 353.0537109375
-        height: 470
-      position:
-        x: 13
-        y: -46
-      z: 0
-      embeds:
-      - 993c66bd-cdab-420b-9281-d4b9de24a52c
-      - e67c36dd-5137-4e56-8d2e-56c8cb2e0ea8
-      - 01a5abe8-c2be-4932-92d6-f674f1c802b8
-    993c66bd-cdab-420b-9281-d4b9de24a52c:
-      size:
-        width: 162
-        height: 171
-      position:
-        x: 129
-        y: 235
-      z: 1
-      embeds:
-      - 0ea367ba-33d5-468f-a08f-83916fdb8e00
-    01a5abe8-c2be-4932-92d6-f674f1c802b8:
-      size:
-        width: 163
-        height: 169
-      position:
-        x: 132
-        y: -2
-      z: 1
-      embeds:
-      - a1d7246e-ff49-45be-bee5-845d12097a8d
-    e67c36dd-5137-4e56-8d2e-56c8cb2e0ea8:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 41
-        y: 51
-      z: 1
-    0ea367ba-33d5-468f-a08f-83916fdb8e00:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 181
-        y: 289
-      z: 2
-    841f9962-ec3a-44c7-91e4-7c21a57040f8:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 401
-        y: 289
-      z: 0
-    986f262f-e65c-4a2c-a73e-c606aad98858:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 180
-        y: -117
-      z: 0
-    a1d7246e-ff49-45be-bee5-845d12097a8d:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 180
-        y: 51
-      z: 2
-    b75c55d1-9a93-43df-8886-59692c3b9a23:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 887
-        y: -53
-      z: 0
-    2d0ebdca-9e6d-4bfd-9add-a7a62866eedb:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 400
-        y: 193
-      z: 0
-    5e8ac0ff-eff2-435f-a3eb-5033bf9cf940:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 402
-        y: 50
-      z: 0
-    bc33fb85-42a6-488c-bd24-c7ce94cf47b3:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 398
-        y: -53
-      z: 0
-    1a39b75d-7715-45c4-b2c8-423a7cc555fb:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 549
-        y: -277
-      z: 0
-    891f4ea5-66d7-415c-afd0-92acf8fb6ddf:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 887
-        y: 193
-      z: 0
-    2e22ec07-a875-4fee-a5cb-b022cac63601:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 706
-        y: 50
-      z: 0
-    7a8e6d68-f2f8-4847-9e84-8d4d027da6c7:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 550
-        y: -53
-      z: 0
-    c8006fe0-fe3b-495a-ad98-89ed421d59dc:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 887
-        y: 305
-      z: 0
-    a08ffa2e-912e-4e98-bdc1-bf9b5fa054db:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 1079
-        y: -323
-      z: 0
-    e1a3cf19-cf14-4645-9d2a-90bd421a73a8:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 706
-        y: 303
-      z: 0
-    c8842bed-0a51-4e49-b0f9-e34c7ac662f9:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 1079
-        y: -225
-      z: 0
-    f87f2d65-27ec-4284-8057-1e1515e928c5:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 550
-        y: 303
-      z: 0
     00afa2e0-ec89-4ffe-8d3d-d36eb4231da4:
-      size:
-        width: 60
-        height: 60
       position:
         x: 1080
         y: -127
-      z: 0
-    ac8b1a29-778c-41af-9111-3fdbdf73aa6d:
       size:
-        width: 60
         height: 60
-      position:
-        x: 887
-        y: -225
+        width: 60
       z: 0
-    679be93e-9396-4136-9db4-886c97f097b9:
+    01a5abe8-c2be-4932-92d6-f674f1c802b8:
+      embeds:
+      - a1d7246e-ff49-45be-bee5-845d12097a8d
+      position:
+        x: 132
+        y: -2
       size:
-        width: 60
-        height: 60
-      position:
-        x: 1084
-        y: -53
-      z: 0
-    1e7c5536-24f3-4c57-b79d-0ed965afd5b3:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 549
-        y: -163
-      z: 0
-    1ad8dd07-da4a-4df8-bc55-31b4e5eeae7f:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 705
-        y: -163
-      z: 0
-    d90c5e2e-1259-4c9f-808f-0eeac3406431:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 378
-        y: -277
-      z: 0
-    d3ad126b-15b2-46db-9ea4-dd7461c4012a:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 379
-        y: -163
-      z: 0
-    eda6579b-22be-4b8d-887f-a315676622c1:
-      source:
-        id: a1d7246e-ff49-45be-bee5-845d12097a8d
-      target:
-        id: 986f262f-e65c-4a2c-a73e-c606aad98858
-      z: 1
-    0df2ef7d-c395-41ab-a074-b854b7e9e3ca:
-      source:
-        id: 841f9962-ec3a-44c7-91e4-7c21a57040f8
-      target:
-        id: 0ea367ba-33d5-468f-a08f-83916fdb8e00
-      z: 1
-    fc572288-d1ef-4251-8a28-6d533bb73793:
-      source:
-        id: 891f4ea5-66d7-415c-afd0-92acf8fb6ddf
-      target:
-        id: b75c55d1-9a93-43df-8886-59692c3b9a23
-      z: 1
-    5eef2a0e-3c5e-4383-bdc0-33e0498482e4:
-      source:
-        id: f87f2d65-27ec-4284-8057-1e1515e928c5
-      target:
-        id: 7a8e6d68-f2f8-4847-9e84-8d4d027da6c7
-      z: 1
-    ca5f1d78-5ece-4ebd-8ef5-44086590d86e:
-      source:
-        id: e1a3cf19-cf14-4645-9d2a-90bd421a73a8
-      target:
-        id: 2e22ec07-a875-4fee-a5cb-b022cac63601
-      z: 1
-    bea637d4-8b67-4c47-b326-e721f23183b5:
-      source:
-        id: c8006fe0-fe3b-495a-ad98-89ed421d59dc
-      target:
-        id: 891f4ea5-66d7-415c-afd0-92acf8fb6ddf
-      z: 1
-    d26e1906-3938-4903-b254-f67098b8fd4b:
-      source:
-        id: d3ad126b-15b2-46db-9ea4-dd7461c4012a
-      target:
-        id: 1e7c5536-24f3-4c57-b79d-0ed965afd5b3
-      z: 1
-    acd89be0-9224-46ef-a364-dfcd07dab3c5:
-      source:
-        id: 679be93e-9396-4136-9db4-886c97f097b9
-      target:
-        id: b75c55d1-9a93-43df-8886-59692c3b9a23
-      z: 1
-    d561d84a-d7d0-4214-84fd-a98f3465a22b:
-      source:
-        id: 1e7c5536-24f3-4c57-b79d-0ed965afd5b3
-      target:
-        id: 1a39b75d-7715-45c4-b2c8-423a7cc555fb
-      z: 1
-    17d6d3cd-d9e4-4391-a636-9c4bac5829d9:
-      source:
-        id: 1ad8dd07-da4a-4df8-bc55-31b4e5eeae7f
-      target:
-        id: 1e7c5536-24f3-4c57-b79d-0ed965afd5b3
-      z: 1
-    fabc6aa1-6f28-41f3-a1a9-b8aac424b064:
-      source:
-        id: ac8b1a29-778c-41af-9111-3fdbdf73aa6d
-      target:
-        id: b75c55d1-9a93-43df-8886-59692c3b9a23
-      z: 1
-    4512c2c4-cdcb-4ea6-a9a5-befe565d89fa:
-      source:
-        id: ac8b1a29-778c-41af-9111-3fdbdf73aa6d
-      target:
-        id: a08ffa2e-912e-4e98-bdc1-bf9b5fa054db
-      z: 1
-    b0144632-1190-4fb7-8dc7-9bfb1aee9c12:
-      source:
-        id: ac8b1a29-778c-41af-9111-3fdbdf73aa6d
-      target:
-        id: c8842bed-0a51-4e49-b0f9-e34c7ac662f9
-      z: 1
-    5a1c0cef-884d-45fd-a841-005e51a9b5a3:
-      source:
-        id: ac8b1a29-778c-41af-9111-3fdbdf73aa6d
-      target:
-        id: 00afa2e0-ec89-4ffe-8d3d-d36eb4231da4
-      z: 1
-    b66fd313-b3a9-462e-a771-c999f4bc86a1:
-      source:
-        id: d90c5e2e-1259-4c9f-808f-0eeac3406431
-      target:
-        id: 1a39b75d-7715-45c4-b2c8-423a7cc555fb
-      z: 1
-    7ab63cfd-94e2-44a0-9474-33acc2da5684:
-      source:
-        id: a1d7246e-ff49-45be-bee5-845d12097a8d
-      target:
-        id: e67c36dd-5137-4e56-8d2e-56c8cb2e0ea8
-      z: 1
-    334a64b5-167f-4971-8ab7-b467367ddc42:
-      source:
-        id: bc33fb85-42a6-488c-bd24-c7ce94cf47b3
-      target:
-        id: a1d7246e-ff49-45be-bee5-845d12097a8d
-      z: 1
-    d961c4d1-cc43-4052-8068-b4c9ba029ecf:
-      source:
-        id: 5e8ac0ff-eff2-435f-a3eb-5033bf9cf940
-      target:
-        id: a1d7246e-ff49-45be-bee5-845d12097a8d
-      z: 1
-    937a2d37-b516-4f85-b8fa-540f8364e5c1:
-      source:
-        id: 2d0ebdca-9e6d-4bfd-9add-a7a62866eedb
-      target:
-        id: a1d7246e-ff49-45be-bee5-845d12097a8d
-      z: 1
-    812e8a2f-0ed9-4ac0-a6fa-9d595526ae36:
-      source:
-        id: 891f4ea5-66d7-415c-afd0-92acf8fb6ddf
-      target:
-        id: 2d0ebdca-9e6d-4bfd-9add-a7a62866eedb
-      z: 1
-    18f9d4e0-b6b0-4cf2-a161-d2e1e598e93c:
-      source:
-        id: 2e22ec07-a875-4fee-a5cb-b022cac63601
-      target:
-        id: 5e8ac0ff-eff2-435f-a3eb-5033bf9cf940
-      z: 1
-    f3752ba5-1b30-4395-9259-fadf6b3b0340:
-      source:
-        id: 2e22ec07-a875-4fee-a5cb-b022cac63601
-      target:
-        id: b75c55d1-9a93-43df-8886-59692c3b9a23
+        height: 169
+        width: 163
       z: 1
     057dd75b-2268-4cb5-831d-bb2d952b2fac:
       source:
@@ -1438,9 +1092,355 @@ Metadata:
       target:
         id: bc33fb85-42a6-488c-bd24-c7ce94cf47b3
       z: 1
+    0df2ef7d-c395-41ab-a074-b854b7e9e3ca:
+      source:
+        id: 841f9962-ec3a-44c7-91e4-7c21a57040f8
+      target:
+        id: 0ea367ba-33d5-468f-a08f-83916fdb8e00
+      z: 1
+    0ea367ba-33d5-468f-a08f-83916fdb8e00:
+      position:
+        x: 181
+        y: 289
+      size:
+        height: 60
+        width: 60
+      z: 2
+    17d6d3cd-d9e4-4391-a636-9c4bac5829d9:
+      source:
+        id: 1ad8dd07-da4a-4df8-bc55-31b4e5eeae7f
+      target:
+        id: 1e7c5536-24f3-4c57-b79d-0ed965afd5b3
+      z: 1
+    18f9d4e0-b6b0-4cf2-a161-d2e1e598e93c:
+      source:
+        id: 2e22ec07-a875-4fee-a5cb-b022cac63601
+      target:
+        id: 5e8ac0ff-eff2-435f-a3eb-5033bf9cf940
+      z: 1
+    1a39b75d-7715-45c4-b2c8-423a7cc555fb:
+      position:
+        x: 549
+        y: -277
+      size:
+        height: 60
+        width: 60
+      z: 0
+    1ad8dd07-da4a-4df8-bc55-31b4e5eeae7f:
+      position:
+        x: 705
+        y: -163
+      size:
+        height: 60
+        width: 60
+      z: 0
+    1e7c5536-24f3-4c57-b79d-0ed965afd5b3:
+      position:
+        x: 549
+        y: -163
+      size:
+        height: 60
+        width: 60
+      z: 0
+    2547c704-f5bd-4014-a8d3-1697b887b896:
+      embeds:
+      - 993c66bd-cdab-420b-9281-d4b9de24a52c
+      - e67c36dd-5137-4e56-8d2e-56c8cb2e0ea8
+      - 01a5abe8-c2be-4932-92d6-f674f1c802b8
+      position:
+        x: 13
+        y: -46
+      size:
+        height: 470
+        width: 353.0537109375
+      z: 0
+    2d0ebdca-9e6d-4bfd-9add-a7a62866eedb:
+      position:
+        x: 400
+        y: 193
+      size:
+        height: 60
+        width: 60
+      z: 0
+    2e22ec07-a875-4fee-a5cb-b022cac63601:
+      position:
+        x: 706
+        y: 50
+      size:
+        height: 60
+        width: 60
+      z: 0
+    334a64b5-167f-4971-8ab7-b467367ddc42:
+      source:
+        id: bc33fb85-42a6-488c-bd24-c7ce94cf47b3
+      target:
+        id: a1d7246e-ff49-45be-bee5-845d12097a8d
+      z: 1
+    4512c2c4-cdcb-4ea6-a9a5-befe565d89fa:
+      source:
+        id: ac8b1a29-778c-41af-9111-3fdbdf73aa6d
+      target:
+        id: a08ffa2e-912e-4e98-bdc1-bf9b5fa054db
+      z: 1
     564a5d96-662a-4f60-bb9f-03008a9eff5c:
       source:
         id: 7a8e6d68-f2f8-4847-9e84-8d4d027da6c7
+      target:
+        id: b75c55d1-9a93-43df-8886-59692c3b9a23
+      z: 1
+    5a1c0cef-884d-45fd-a841-005e51a9b5a3:
+      source:
+        id: ac8b1a29-778c-41af-9111-3fdbdf73aa6d
+      target:
+        id: 00afa2e0-ec89-4ffe-8d3d-d36eb4231da4
+      z: 1
+    5e8ac0ff-eff2-435f-a3eb-5033bf9cf940:
+      position:
+        x: 402
+        y: 50
+      size:
+        height: 60
+        width: 60
+      z: 0
+    5eef2a0e-3c5e-4383-bdc0-33e0498482e4:
+      source:
+        id: f87f2d65-27ec-4284-8057-1e1515e928c5
+      target:
+        id: 7a8e6d68-f2f8-4847-9e84-8d4d027da6c7
+      z: 1
+    679be93e-9396-4136-9db4-886c97f097b9:
+      position:
+        x: 1084
+        y: -53
+      size:
+        height: 60
+        width: 60
+      z: 0
+    7a8e6d68-f2f8-4847-9e84-8d4d027da6c7:
+      position:
+        x: 550
+        y: -53
+      size:
+        height: 60
+        width: 60
+      z: 0
+    7ab63cfd-94e2-44a0-9474-33acc2da5684:
+      source:
+        id: a1d7246e-ff49-45be-bee5-845d12097a8d
+      target:
+        id: e67c36dd-5137-4e56-8d2e-56c8cb2e0ea8
+      z: 1
+    812e8a2f-0ed9-4ac0-a6fa-9d595526ae36:
+      source:
+        id: 891f4ea5-66d7-415c-afd0-92acf8fb6ddf
+      target:
+        id: 2d0ebdca-9e6d-4bfd-9add-a7a62866eedb
+      z: 1
+    841f9962-ec3a-44c7-91e4-7c21a57040f8:
+      position:
+        x: 401
+        y: 289
+      size:
+        height: 60
+        width: 60
+      z: 0
+    891f4ea5-66d7-415c-afd0-92acf8fb6ddf:
+      position:
+        x: 887
+        y: 193
+      size:
+        height: 60
+        width: 60
+      z: 0
+    937a2d37-b516-4f85-b8fa-540f8364e5c1:
+      source:
+        id: 2d0ebdca-9e6d-4bfd-9add-a7a62866eedb
+      target:
+        id: a1d7246e-ff49-45be-bee5-845d12097a8d
+      z: 1
+    986f262f-e65c-4a2c-a73e-c606aad98858:
+      position:
+        x: 180
+        y: -117
+      size:
+        height: 60
+        width: 60
+      z: 0
+    993c66bd-cdab-420b-9281-d4b9de24a52c:
+      embeds:
+      - 0ea367ba-33d5-468f-a08f-83916fdb8e00
+      position:
+        x: 129
+        y: 235
+      size:
+        height: 171
+        width: 162
+      z: 1
+    a08ffa2e-912e-4e98-bdc1-bf9b5fa054db:
+      position:
+        x: 1079
+        y: -323
+      size:
+        height: 60
+        width: 60
+      z: 0
+    a1d7246e-ff49-45be-bee5-845d12097a8d:
+      position:
+        x: 180
+        y: 51
+      size:
+        height: 60
+        width: 60
+      z: 2
+    ac8b1a29-778c-41af-9111-3fdbdf73aa6d:
+      position:
+        x: 887
+        y: -225
+      size:
+        height: 60
+        width: 60
+      z: 0
+    acd89be0-9224-46ef-a364-dfcd07dab3c5:
+      source:
+        id: 679be93e-9396-4136-9db4-886c97f097b9
+      target:
+        id: b75c55d1-9a93-43df-8886-59692c3b9a23
+      z: 1
+    b0144632-1190-4fb7-8dc7-9bfb1aee9c12:
+      source:
+        id: ac8b1a29-778c-41af-9111-3fdbdf73aa6d
+      target:
+        id: c8842bed-0a51-4e49-b0f9-e34c7ac662f9
+      z: 1
+    b66fd313-b3a9-462e-a771-c999f4bc86a1:
+      source:
+        id: d90c5e2e-1259-4c9f-808f-0eeac3406431
+      target:
+        id: 1a39b75d-7715-45c4-b2c8-423a7cc555fb
+      z: 1
+    b75c55d1-9a93-43df-8886-59692c3b9a23:
+      position:
+        x: 887
+        y: -53
+      size:
+        height: 60
+        width: 60
+      z: 0
+    bc33fb85-42a6-488c-bd24-c7ce94cf47b3:
+      position:
+        x: 398
+        y: -53
+      size:
+        height: 60
+        width: 60
+      z: 0
+    bea637d4-8b67-4c47-b326-e721f23183b5:
+      source:
+        id: c8006fe0-fe3b-495a-ad98-89ed421d59dc
+      target:
+        id: 891f4ea5-66d7-415c-afd0-92acf8fb6ddf
+      z: 1
+    c8006fe0-fe3b-495a-ad98-89ed421d59dc:
+      position:
+        x: 887
+        y: 305
+      size:
+        height: 60
+        width: 60
+      z: 0
+    c8842bed-0a51-4e49-b0f9-e34c7ac662f9:
+      position:
+        x: 1079
+        y: -225
+      size:
+        height: 60
+        width: 60
+      z: 0
+    ca5f1d78-5ece-4ebd-8ef5-44086590d86e:
+      source:
+        id: e1a3cf19-cf14-4645-9d2a-90bd421a73a8
+      target:
+        id: 2e22ec07-a875-4fee-a5cb-b022cac63601
+      z: 1
+    d26e1906-3938-4903-b254-f67098b8fd4b:
+      source:
+        id: d3ad126b-15b2-46db-9ea4-dd7461c4012a
+      target:
+        id: 1e7c5536-24f3-4c57-b79d-0ed965afd5b3
+      z: 1
+    d3ad126b-15b2-46db-9ea4-dd7461c4012a:
+      position:
+        x: 379
+        y: -163
+      size:
+        height: 60
+        width: 60
+      z: 0
+    d561d84a-d7d0-4214-84fd-a98f3465a22b:
+      source:
+        id: 1e7c5536-24f3-4c57-b79d-0ed965afd5b3
+      target:
+        id: 1a39b75d-7715-45c4-b2c8-423a7cc555fb
+      z: 1
+    d90c5e2e-1259-4c9f-808f-0eeac3406431:
+      position:
+        x: 378
+        y: -277
+      size:
+        height: 60
+        width: 60
+      z: 0
+    d961c4d1-cc43-4052-8068-b4c9ba029ecf:
+      source:
+        id: 5e8ac0ff-eff2-435f-a3eb-5033bf9cf940
+      target:
+        id: a1d7246e-ff49-45be-bee5-845d12097a8d
+      z: 1
+    e1a3cf19-cf14-4645-9d2a-90bd421a73a8:
+      position:
+        x: 706
+        y: 303
+      size:
+        height: 60
+        width: 60
+      z: 0
+    e67c36dd-5137-4e56-8d2e-56c8cb2e0ea8:
+      position:
+        x: 41
+        y: 51
+      size:
+        height: 60
+        width: 60
+      z: 1
+    eda6579b-22be-4b8d-887f-a315676622c1:
+      source:
+        id: a1d7246e-ff49-45be-bee5-845d12097a8d
+      target:
+        id: 986f262f-e65c-4a2c-a73e-c606aad98858
+      z: 1
+    f3752ba5-1b30-4395-9259-fadf6b3b0340:
+      source:
+        id: 2e22ec07-a875-4fee-a5cb-b022cac63601
+      target:
+        id: b75c55d1-9a93-43df-8886-59692c3b9a23
+      z: 1
+    f87f2d65-27ec-4284-8057-1e1515e928c5:
+      position:
+        x: 550
+        y: 303
+      size:
+        height: 60
+        width: 60
+      z: 0
+    fabc6aa1-6f28-41f3-a1a9-b8aac424b064:
+      source:
+        id: ac8b1a29-778c-41af-9111-3fdbdf73aa6d
+      target:
+        id: b75c55d1-9a93-43df-8886-59692c3b9a23
+      z: 1
+    fc572288-d1ef-4251-8a28-6d533bb73793:
+      source:
+        id: 891f4ea5-66d7-415c-afd0-92acf8fb6ddf
       target:
         id: b75c55d1-9a93-43df-8886-59692c3b9a23
       z: 1

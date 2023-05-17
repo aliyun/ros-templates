@@ -1,14 +1,12 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
   en: 'Alibaba ROS solution template: On the existing virtual proprietary network,
-    switch and security group base resources, create multiple ECS (Hadoop MapReduce),
-    one of which binds elastic IP as the management node, and the other node strucpowers.
-    Java jdk version is 1.8.0, Hadoop version 2.7.7, access to the management interface
-    requires security group configuration of 8088 port entry rules, and access to
-    the HDFS management interface requires security group configuration of 50070 port
-    entry rules.'
-  zh-cn: 阿里巴巴 ROS 解决方案模板：在已有虚拟专有网络、交换机和安全组基础资源上，创建多台ECS(Hadoop MapReduce)，其中一台绑定弹性IP作为管理节点，其他节点使用弹性伸缩进行管理；Java
-    jdk版本是1.8.0，Hadoop版本是2.7.7，访问管理界面需要安全组配置8088端口入规则，访问HDFS管理界面需要安全组配置50070端口入规则。
+    switch and security group base resources, create multiple ECS (Hadoop HDFS), one
+    of which binds elastic IP as the management node, and the other node strucpowers.
+    Java jdk version is 1.8.0, Hadoop version 2.7.7, The access management interface
+    requires the security group to configure the 50070 port entry rules.'
+  zh-cn: 阿里巴巴 ROS 解决方案模板：在已有虚拟专有网络、交换机和安全组基础资源上，创建多台ECS(Hadoop HDFS)，其中一台绑定弹性IP作为管理节点，其他节点使用弹性伸缩进行管理；Java
+    jdk版本是1.8.0，Hadoop版本是2.7.7，访问管理界面需要安全组配置50070端口入规则。
 Parameters:
   VpcId:
     Type: String
@@ -41,6 +39,7 @@ Parameters:
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
     AssociationPropertyMetadata:
       VpcId: VpcId
+      ZoneId: VSwitchZoneId
   SecurityGroupId:
     Type: String
     Label:
@@ -112,13 +111,20 @@ Parameters:
     Description:
       en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
         <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
-        Cloud Disk</font>]'
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
       zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
-        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]'
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
     Default: cloud_efficiency
     AllowedValues:
     - cloud_efficiency
     - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
   DiskSize:
     Type: Number
     Label:
@@ -187,12 +193,12 @@ Resources:
         PolicyName:
           Fn::Join:
           - ''
-          - - StackId-
+          - - ros-StackId-
             - Ref: ALIYUN::StackId
       RoleName:
         Fn::Join:
         - ''
-        - - StackId-
+        - - ros-StackId-
           - Ref: ALIYUN::StackId
     Metadata:
       ALIYUN::ROS::Designer:
@@ -233,7 +239,7 @@ Resources:
       TemplateName:
         Fn::Join:
         - ''
-        - - StackId-
+        - - ros-StackId-
           - Ref: ALIYUN::StackId
           - -In
     DependsOn:
@@ -258,13 +264,13 @@ Resources:
       HostName:
         Fn::Join:
         - ''
-        - - MapReduce
+        - - HDFS
           - -[0,3]
       InstanceChargeType: PostPaid
       InstanceName:
         Fn::Join:
         - ''
-        - - MapReduce
+        - - HDFS
           - -[0,3]
       InstanceType:
         Ref: InstanceType
@@ -419,20 +425,6 @@ Resources:
               \ ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh \n"
             - "    cd ${HADOOP_HOME}/etc/hadoop/ || recordLog \"Enter hadoop\\etc\\\
               hadoop failed\" \n"
-            - "    # config mapred-site.xml \n"
-            - '    cat >mapred-site.xml <<EOF
-
-              '
-            - "<configuration> \n"
-            - "    <property> \n"
-            - "        <name>mapreduce.framework.name</name> \n"
-            - "        <value>yarn</value> \n"
-            - "    </property> \n"
-            - "</configuration> \n"
-            - 'EOF
-
-              '
-            - "    recordLog \"Config mapred-site.xml successful\" \n"
             - "    # config core-site.xml \n"
             - '    cat >core-site.xml <<EOF
 
@@ -487,29 +479,9 @@ Resources:
             - "    sed -i \"s#HADOOP_HOME#${HADOOP_HOME}#\" ${ENV_DIR}/hadoop/etc/hadoop/hdfs-site.xml\
               \ \n"
             - "    recordLog \"Config hdfs-site.xml successful\" \n"
-            - "    # config yarn-site.xml \n"
-            - '    cat >yarn-site.xml <<EOF
-
-              '
-            - "<configuration> \n"
-            - "    <property> \n"
-            - "        <name>yarn.resourcemanager.hostname</name> \n"
-            - "        <value>HOST_NAME</value> \n"
-            - "    </property> \n"
-            - "    <property> \n"
-            - "        <name>yarn.nodemanager.aux-services</name> \n"
-            - "        <value>mapreduce_shuffle</value> \n"
-            - "    </property> \n"
-            - "</configuration> \n"
-            - 'EOF
-
-              '
-            - "    sed -i \"s#HOST_NAME#${HOST_NAME}#\" ${ENV_DIR}/hadoop/etc/hadoop/yarn-site.xml\
+            - "    mv /software/hadoop/etc/hadoop/slaves /software/hadoop/etc/hadoop/bak.slaves\
               \ \n"
-            - "    recordLog \"Config yarn-site.xml successful\" \n"
-            - "    mv ${ENV_DIR}/hadoop/etc/hadoop/slaves ${ENV_DIR}/hadoop/etc/hadoop/bak.slaves\
-              \ \n"
-            - "    touch ${ENV_DIR}/hadoop/etc/hadoop/slaves \n"
+            - "    touch /software/hadoop/etc/hadoop/slaves \n"
             - "    recordLog \"Remove slave config default config\" \n"
             - "    delete \"${RESOURCE_DIR}/${HADOOP_PACKAGE}\" \n"
             - "} \n"
@@ -527,7 +499,6 @@ Resources:
             - "HOST_IP=`ifconfig eth0 | awk '/inet /{print \\$2}'` \n"
             - "NODES_INFO_FILE=\"\\${ENV_DIR}/nodes_info.ini\" \n"
             - "RM_NODES=\"\\${ENV_DIR}/rm_nodes.ini\" \n"
-            - "OLD_NODE_COUNT=\"\\${ENV_DIR}/rm_nodes.ini\" \n"
             - " \n"
             - "configCluster() { \n"
             - "    rm -f \\${ENV_DIR}/hadoop/etc/hadoop/slaves \n"
@@ -566,7 +537,7 @@ Resources:
             - "            echo \"add\" \n"
             - "            if [ ! -f \"\\${ENV_DIR}/hadoop/etc/hadoop/dfs.hosts\"\
               \ ] ;then \n"
-            - "                sed -i \"\\|</configuration>|d\" \\${ENV_DIR}/hadoop/etc/hadoop/hdfs-site.xml\
+            - "                sed -i \"/</configuration>/d\" \\${ENV_DIR}/hadoop/etc/hadoop/hdfs-site.xml\
               \ \n"
             - "                echo \" <property>\" >> \\${ENV_DIR}/hadoop/etc/hadoop/hdfs-site.xml\
               \ \n"
@@ -579,7 +550,6 @@ Resources:
             - "                echo \"</configuration>\" >> \\${ENV_DIR}/hadoop/etc/hadoop/hdfs-site.xml\
               \ \n"
             - "            fi \n"
-            - "            rm -f \\${ENV_DIR}/hadoop/etc/hadoop/dfs.hosts \n"
             - "            yes|cp \\${ENV_DIR}/hadoop/etc/hadoop/slaves \\${ENV_DIR}/hadoop/etc/hadoop/dfs.hosts\
               \ \n"
             - "            nodes_info=\\$(cat \\${NODES_INFO_FILE}) \n"
@@ -599,7 +569,7 @@ Resources:
             - "            echo \"remove\" \n"
             - "            if [ ! -f \"\\${ENV_DIR}/hadoop/etc/hadoop/dfs.hosts.exclude\"\
               \ ] ;then \n"
-            - "                sed -i \"\\|</configuration>|d\" \\${ENV_DIR}/hadoop/etc/hadoop/hdfs-site.xml\
+            - "                sed -i \"/</configuration>/d\" \\${ENV_DIR}/hadoop/etc/hadoop/hdfs-site.xml\
               \ \n"
             - "                echo \" <property>\" >> \\${ENV_DIR}/hadoop/etc/hadoop/hdfs-site.xml\
               \ \n"
@@ -614,14 +584,6 @@ Resources:
             - "            fi \n"
             - "            mv \\${RM_NODES} \\${ENV_DIR}/hadoop/etc/hadoop/dfs.hosts.exclude\
               \ \n"
-            - "            if [ -f \"\\${ENV_DIR}/hadoop/etc/hadoop/dfs.hosts\" ];\
-              \ then \n"
-            - "                rm_nodes_info=\\$(cat \\${RM_NODES}) \n"
-            - "                for rm_node_info in \\${rm_nodes_info[@]}; do \n"
-            - "                    sed -i '/\\${rm_node_info}/d' ${ENV_DIR}/hadoop/etc/hadoop/dfs.hosts\
-              \ \n"
-            - "                done \n"
-            - "            fi \n"
             - "            nodes_info=\\$(cat \\${NODES_INFO_FILE}) \n"
             - "            for node_info in \\${nodes_info[@]}; do \n"
             - "                new_node_info=(\\${node_info//:/ }) \n"
@@ -657,8 +619,6 @@ Resources:
             - "        if [ \\${NODE_COUNT} -gt \\${old_node_count} ]; then \n"
             - "            cd \\${ENV_DIR}/hadoop && bin/hdfs dfsadmin -refreshNodes\
               \ \n"
-            - "            bin/yarn rmadmin -refreshNodes && sbin/stop-yarn.sh &&\
-              \ sbin/start-yarn.sh \n"
             - "            nodes_info=\\$(cat \\${NODES_INFO_FILE}) \n"
             - "            for node_info in \\${nodes_info[@]}; do \n"
             - "                new_node_info=(\\${node_info//:/ }) \n"
@@ -677,12 +637,12 @@ Resources:
             - "        else \n"
             - "            echo \"remove\" \n"
             - "            cd \\${ENV_DIR}/hadoop && bin/hdfs dfsadmin -refreshNodes\
-              \ && bin/yarn rmadmin -refreshNodes \n"
+              \ \n"
             - "            sleep 5 \n"
             - "            rm_nodes_info=\\$(cat \\${RM_NODES}) \n"
             - "            for rm_node in \\${rm_nodes_info[@]}; do \n"
             - "                ssh root@\\${rm_node} \"cd \\${ENV_DIR}/hadoop && sbin/hadoop-daemon.sh\
-              \ stop datanode && sbin/yarn-daemon.sh stop nodemanager; sleep 5; exit;\"\
+              \ stop datanode && sbin/yarn-daemon.sh stop nodemanager; sleep 10; exit;\"\
               \ \n"
             - "            done \n"
             - "            nodes_info=\\$(cat \\${NODES_INFO_FILE}) \n"
@@ -704,17 +664,12 @@ Resources:
             - "                scp -r \"\\${HOSTS_PATH}\" \\${node_hostname}:/etc\
               \ \n"
             - "            done \n"
-            - "            sleep 10 \n"
-            - "            cd \\${ENV_DIR}/hadoop/ && sbin/stop-dfs.sh && sbin/stop-yarn.sh\
-              \ \n"
-            - "            sbin/start-dfs.sh && bin/hdfs dfsadmin -refreshNodes \n"
-            - "            sbin/start-yarn.sh && bin/yarn rmadmin -refreshNodes \n"
-            - "            sbin/start-balancer.sh \n"
+            - "            cd \\${ENV_DIR}/hadoop/ && sbin/stop-dfs.sh && sbin/start-dfs.sh\
+              \ && bin/hdfs dfsadmin -refreshNodes && sbin/start-balancer.sh \n"
             - "        fi \n"
             - "    else \n"
             - "        cd \\${ENV_DIR}/hadoop/ && bin/hadoop namenode -format && sbin/start-dfs.sh\
               \ \n"
-            - "        sbin/start-yarn.sh \n"
             - "    fi \n"
             - "    echo \\${NODE_COUNT} >\\${NODES_COUNT_FILE} \n"
             - "} \n"
@@ -743,9 +698,6 @@ Resources:
             - "    installAndConfigHadoop \n"
             - "    generateClusterScript \n"
             - "    echo \"${HOST_IP}:${HOST_NAME}\" >>${NODES_INFO_FILE} \n"
-            - "    if [ -f ${RM_NODES} ]; then \n"
-            - "        rm -f ${RM_NODES} \n"
-            - "    fi \n"
             - "    touch ${RM_NODES} \n"
             - "} \n"
             - " \n"
@@ -1024,7 +976,7 @@ Resources:
       TemplateName:
         Fn::Join:
         - ''
-        - - StackId-
+        - - ros-StackId-
           - Ref: ALIYUN::StackId
           - -Out
     DependsOn:
@@ -1032,22 +984,6 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 67a74071-cd8a-4cf0-93bf-e4f05fbf4f7c
-  RosWaitConditionMasterHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: {}
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 28c8b447-0074-4e1c-b16e-a23b999b1221
-  RosWaitConditionMaster:
-    Type: ALIYUN::ROS::WaitCondition
-    Properties:
-      Count: 1
-      Handle:
-        Ref: RosWaitConditionMasterHandle
-      Timeout: 1800
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: d31fecba-ebcf-42a2-b524-af819d7cc0fd
   EssScalingGroupSlave:
     Type: ALIYUN::ESS::ScalingGroup
     Properties:
@@ -1069,14 +1005,11 @@ Resources:
       ScalingGroupName:
         Fn::Join:
         - '-'
-        - - MapReduce-ros
+        - - StackId
           - Ref: ALIYUN::StackId
-          - Ref: Amount
     DependsOn:
-    - EcsInstanceGroupMaster
     - OOSTemplateIn
     - OOSTemplateOut
-    - RosWaitConditionMaster
     Metadata:
       ALIYUN::ROS::Designer:
         id: c5ebe395-2e00-4f5c-9656-4db3c6a06f6d
@@ -1107,7 +1040,6 @@ Resources:
     DependsOn:
     - EssScalingGroupSlave
     - OOSTemplateIn
-    - OOSTemplateOut
     Metadata:
       ALIYUN::ROS::Designer:
         id: 3c848940-437b-4576-96e0-4514bedb2d90
@@ -1141,6 +1073,22 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 6163867a-1838-4f86-bb06-ca736e88eb68
+  RosWaitConditionMasterHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 28c8b447-0074-4e1c-b16e-a23b999b1221
+  RosWaitConditionMaster:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionMasterHandle
+      Timeout: 1800
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: d31fecba-ebcf-42a2-b524-af819d7cc0fd
   EssScalingConfigurationSlave:
     Type: ALIYUN::ESS::ScalingConfiguration
     Properties:
@@ -1150,17 +1098,11 @@ Resources:
       InstanceName:
         Fn::Join:
         - '-'
-        - - MapReduce-node
+        - - HDFS-node
           - Ref: ALIYUN::StackId
       InstanceTypes:
       - Ref: InstanceType
       IoOptimized: optimized
-      ScalingConfigurationName:
-        Fn::Join:
-        - '-'
-        - - MapReduce-ros
-          - Ref: ALIYUN::StackId
-          - Ref: Amount
       ScalingGroupId:
         Ref: EssScalingGroupSlave
       SystemDiskCategory:
@@ -1169,6 +1111,7 @@ Resources:
         Ref: DiskSize
     DependsOn:
     - EssScalingGroupSlave
+    - RosWaitConditionMaster
     Metadata:
       ALIYUN::ROS::Designer:
         id: 440cd165-f824-4c69-8005-2ba8b4bfbe47
@@ -1254,15 +1197,6 @@ Outputs:
       - Fn::GetAtt:
         - EcsInstanceGroupMaster
         - PrivateIps
-  WebUrl:
-    Value:
-      Fn::Join:
-      - ''
-      - - http://
-        - Fn::GetAtt:
-          - VpcEip
-          - EipAddress
-        - :8088
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -1284,10 +1218,10 @@ Metadata:
       - Amount
       Label:
         default:
-          en: MapReduce Configuration
-          zh-cn: MapReduce 配置（必填）
+          en: HDFS Configuration
+          zh-cn: HDFS 配置（必填）
     TemplateTags:
-    - acs:solution:数据分析:MapReduce集群版(已有VPC)
+    - acs:solution:数据分析:HDFS集群版(已有VPC)
   ALIYUN::ROS::Designer:
     28c8b447-0074-4e1c-b16e-a23b999b1221:
       position:

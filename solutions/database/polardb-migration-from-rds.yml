@@ -1,7 +1,7 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: MySQL迁移PolarDB
   en: RDS for MySQL Migrate to PolarDB
+  zh-cn: MySQL迁移PolarDB
 Conditions:
   CreateReadOnlyDBInstance2:
     Fn::Not:
@@ -274,17 +274,135 @@ Resources:
         Ref: ZoneId
       VpcId:
         Ref: Vpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
       VSwitchName:
         Fn::Join:
         - _
         - - VSwitch
           - Ref: ALIYUN::StackId
-      CidrBlock:
-        Ref: VSwitchCidrBlock
     DependsOn: Vpc
     Metadata:
       ALIYUN::ROS::Designer:
         id: c6afa28a-1c51-4825-b407-062efedcec45
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceNetType: Intranet
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      Engine:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      SecurityIPList:
+        Ref: VpcCidrBlock
+      Tags:
+        Key: best_practice
+        Value: '025'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2407fe33-99f1-4d88-8291-7d7d15da43dc
+  ReadOnlyDBInstance:
+    Type: ALIYUN::RDS::ReadOnlyDBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VPCId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceId:
+        Ref: Database
+      DBInstanceStorage:
+        Ref: DBInstanceStorage
+      EngineVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      Tags:
+        Key: best_practice
+        Value: '025'
+    DependsOn: Database
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ecdfa84b-486c-4c76-986c-44ae0742f1aa
+  Account:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      AccountName:
+        Ref: AccountName
+      AccountPassword:
+        Ref: DBPassword
+      AccountType: Super
+      DBInstanceId:
+        Ref: Database
+    DependsOn:
+    - Database
+    - ReadOnlyDBInstance
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4a02364d-839e-454a-b408-36f6f3261081
+  DBCluster:
+    Type: ALIYUN::POLARDB::DBCluster
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      CloneDataPoint: LATEST
+      CreationOption: MigrationFromRDS
+      DBNodeClass:
+        Ref: DBNodeClass
+      DBType:
+        Fn::Select:
+        - '0'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      DBVersion:
+        Fn::Select:
+        - '1'
+        - Fn::Split:
+          - '-'
+          - Ref: DBInstanceEngineAndVersion
+      PayType: Postpaid
+      SourceResourceId:
+        Ref: Database
+    DependsOn: Account
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2d801f11-0026-44e6-bdb4-ddade3344097
+  DBNodes:
+    Type: ALIYUN::POLARDB::DBNodes
+    Properties:
+      Amount:
+        Ref: Amount
+      DBClusterId:
+        Ref: DBCluster
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2354342f-76cf-4216-b694-3c10c1bb3226
   SecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
@@ -310,103 +428,27 @@ Resources:
         Ref: SecurityGroup
       ImageId:
         Ref: ImageId
+      AllocatePublicIP: false
+      InstanceChargeType: PostPaid
       InstanceType:
         Ref: InstanceType
+      Password:
+        Ref: LoginPassword
       SystemDiskCategory:
         Ref: SystemDiskCategory
       SystemDiskSize:
         Ref: SystemDiskSize
-      Password:
-        Ref: LoginPassword
-      InstanceChargeType: PostPaid
-      AllocatePublicIP: false
+      Tags:
+      - Key: best_practice
+        Value: '025'
       UserData:
         Fn::Join:
         - ''
         - - "#!/bin/sh \n"
           - yum install -y mysql
-      Tags:
-      - Key: best_practice
-        Value: '025'
     Metadata:
       ALIYUN::ROS::Designer:
         id: 9d32db26-8f87-43e0-b18b-46e0f685ad8a
-  Database:
-    Type: ALIYUN::RDS::DBInstance
-    Properties:
-      VpcId:
-        Ref: Vpc
-      VSwitchId:
-        Ref: VSwitch
-      EngineVersion:
-        Fn::Select:
-        - '1'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
-      DBInstanceNetType: Intranet
-      DBInstanceClass:
-        Ref: DBInstanceClass
-      SecurityIPList:
-        Ref: VpcCidrBlock
-      DBInstanceStorage:
-        Ref: DBInstanceStorage
-      Engine:
-        Fn::Select:
-        - '0'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
-      Tags:
-        Key: best_practice
-        Value: '025'
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 2407fe33-99f1-4d88-8291-7d7d15da43dc
-  ReadOnlyDBInstance:
-    Type: ALIYUN::RDS::ReadOnlyDBInstance
-    Properties:
-      ZoneId:
-        Ref: ZoneId
-      VPCId:
-        Ref: Vpc
-      VSwitchId:
-        Ref: VSwitch
-      DBInstanceId:
-        Ref: Database
-      DBInstanceStorage:
-        Ref: DBInstanceStorage
-      EngineVersion:
-        Fn::Select:
-        - '1'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
-      DBInstanceClass:
-        Ref: DBInstanceClass
-      Tags:
-        Key: best_practice
-        Value: '025'
-    DependsOn: Database
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: ecdfa84b-486c-4c76-986c-44ae0742f1aa
-  Account:
-    Type: ALIYUN::RDS::Account
-    Properties:
-      DBInstanceId:
-        Ref: Database
-      AccountPassword:
-        Ref: DBPassword
-      AccountType: Super
-      AccountName:
-        Ref: AccountName
-    DependsOn:
-    - Database
-    - ReadOnlyDBInstance
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 4a02364d-839e-454a-b408-36f6f3261081
   ReadOnlyDBInstance2:
     Type: ALIYUN::RDS::ReadOnlyDBInstance
     Condition: CreateReadOnlyDBInstance2
@@ -417,6 +459,8 @@ Resources:
         Ref: Vpc
       VSwitchId:
         Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
       DBInstanceId:
         Ref: Database
       DBInstanceStorage:
@@ -427,8 +471,6 @@ Resources:
         - Fn::Split:
           - '-'
           - Ref: DBInstanceEngineAndVersion
-      DBInstanceClass:
-        Ref: DBInstanceClass
       Tags:
         Key: best_practice
         Value: '025'
@@ -446,6 +488,8 @@ Resources:
         Ref: Vpc
       VSwitchId:
         Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
       DBInstanceId:
         Ref: Database
       DBInstanceStorage:
@@ -456,8 +500,6 @@ Resources:
         - Fn::Split:
           - '-'
           - Ref: DBInstanceEngineAndVersion
-      DBInstanceClass:
-        Ref: DBInstanceClass
       Tags:
         Key: best_practice
         Value: '025'
@@ -475,6 +517,8 @@ Resources:
         Ref: Vpc
       VSwitchId:
         Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
       DBInstanceId:
         Ref: Database
       DBInstanceStorage:
@@ -485,8 +529,6 @@ Resources:
         - Fn::Split:
           - '-'
           - Ref: DBInstanceEngineAndVersion
-      DBInstanceClass:
-        Ref: DBInstanceClass
       Tags:
         Key: best_practice
         Value: '025'
@@ -504,6 +546,8 @@ Resources:
         Ref: Vpc
       VSwitchId:
         Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
       DBInstanceId:
         Ref: Database
       DBInstanceStorage:
@@ -514,8 +558,6 @@ Resources:
         - Fn::Split:
           - '-'
           - Ref: DBInstanceEngineAndVersion
-      DBInstanceClass:
-        Ref: DBInstanceClass
       Tags:
         Key: best_practice
         Value: '025'
@@ -523,48 +565,6 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: bd889d6b-e608-4993-8fc2-ab500053b9b6
-  DBCluster:
-    Type: ALIYUN::POLARDB::DBCluster
-    Properties:
-      ZoneId:
-        Ref: ZoneId
-      VpcId:
-        Ref: Vpc
-      VSwitchId:
-        Ref: VSwitch
-      CreationOption: MigrationFromRDS
-      DBType:
-        Fn::Select:
-        - '0'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
-      SourceResourceId:
-        Ref: Database
-      DBVersion:
-        Fn::Select:
-        - '1'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
-      DBNodeClass:
-        Ref: DBNodeClass
-      CloneDataPoint: LATEST
-      PayType: Postpaid
-    DependsOn: Account
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 2d801f11-0026-44e6-bdb4-ddade3344097
-  DBNodes:
-    Type: ALIYUN::POLARDB::DBNodes
-    Properties:
-      DBClusterId:
-        Ref: DBCluster
-      Amount:
-        Ref: Amount
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: 2354342f-76cf-4216-b694-3c10c1bb3226
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -599,122 +599,52 @@ Metadata:
     TemplateTags:
     - acs:solution:数据库:MySQL迁移PolarDB
   ALIYUN::ROS::Designer:
-    c6afa28a-1c51-4825-b407-062efedcec45:
-      size:
-        width: 386
-        height: 414
+    2354342f-76cf-4216-b694-3c10c1bb3226:
       position:
-        x: 141
-        y: 80
-      z: 1
-      embeds:
-      - 9d32db26-8f87-43e0-b18b-46e0f685ad8a
-      - 2407fe33-99f1-4d88-8291-7d7d15da43dc
-      - 5e04d1dc-9238-476e-9e4f-331c6a8d65b3
-      - c39cb40b-34e7-4402-8c99-5eae6e305a4b
-      - d42d5365-86be-417a-88ef-1f18853c4076
-      - bd889d6b-e608-4993-8fc2-ab500053b9b6
-      - 2d801f11-0026-44e6-bdb4-ddade3344097
-      - ecdfa84b-486c-4c76-986c-44ae0742f1aa
-    9c217332-cf05-4f8a-958a-92dee6767b1e:
+        x: 718
+        y: 307
       size:
-        width: 514
-        height: 499
-      position:
-        x: 119
-        y: 42
+        height: 60
+        width: 60
       z: 0
-      embeds:
-      - c6afa28a-1c51-4825-b407-062efedcec45
-      - c4d0275e-c29f-4307-ab7a-e90190ab4160
-    c4d0275e-c29f-4307-ab7a-e90190ab4160:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 551
-        y: 408
-      z: 1
-    9d32db26-8f87-43e0-b18b-46e0f685ad8a:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 382
-        y: 408
-      z: 2
     2407fe33-99f1-4d88-8291-7d7d15da43dc:
-      size:
-        width: 60
-        height: 60
       position:
         x: 332
         y: 218
-      z: 2
-    4a02364d-839e-454a-b408-36f6f3261081:
       size:
-        width: 60
         height: 60
+        width: 60
+      z: 2
+    2d801f11-0026-44e6-bdb4-ddade3344097:
+      position:
+        x: 442
+        y: 307
+      size:
+        height: 60
+        width: 60
+      z: 2
+    3db36521-e690-4c04-8031-2423e576952c:
+      source:
+        id: 5e04d1dc-9238-476e-9e4f-331c6a8d65b3
+      target:
+        id: 2407fe33-99f1-4d88-8291-7d7d15da43dc
+      z: 1
+    4a02364d-839e-454a-b408-36f6f3261081:
       position:
         x: 718
         y: 218
+      size:
+        height: 60
+        width: 60
       z: 0
-    ecdfa84b-486c-4c76-986c-44ae0742f1aa:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 184
-        y: 124
-      z: 2
     5e04d1dc-9238-476e-9e4f-331c6a8d65b3:
-      size:
-        width: 60
-        height: 60
       position:
         x: 332
         y: 105
-      z: 2
-    c39cb40b-34e7-4402-8c99-5eae6e305a4b:
       size:
-        width: 60
         height: 60
-      position:
-        x: 442
-        y: 121
+        width: 60
       z: 2
-    d42d5365-86be-417a-88ef-1f18853c4076:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 166
-        y: 218
-      z: 2
-    bd889d6b-e608-4993-8fc2-ab500053b9b6:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 184
-        y: 327
-      z: 2
-    2d801f11-0026-44e6-bdb4-ddade3344097:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 442
-        y: 307
-      z: 2
-    2354342f-76cf-4216-b694-3c10c1bb3226:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 718
-        y: 307
-      z: 0
     64e2a80f-74ce-4847-96b8-916304761ca1:
       source:
         id: ecdfa84b-486c-4c76-986c-44ae0742f1aa
@@ -726,24 +656,6 @@ Metadata:
         id: 9d32db26-8f87-43e0-b18b-46e0f685ad8a
       target:
         id: c4d0275e-c29f-4307-ab7a-e90190ab4160
-      z: 1
-    8365e182-d063-44b6-bc21-0804c463905f:
-      source:
-        id: 4a02364d-839e-454a-b408-36f6f3261081
-      target:
-        id: 2407fe33-99f1-4d88-8291-7d7d15da43dc
-      z: 1
-    3db36521-e690-4c04-8031-2423e576952c:
-      source:
-        id: 5e04d1dc-9238-476e-9e4f-331c6a8d65b3
-      target:
-        id: 2407fe33-99f1-4d88-8291-7d7d15da43dc
-      z: 1
-    ae2b13a3-03bc-48ce-ab3f-1163dfd2a388:
-      source:
-        id: c39cb40b-34e7-4402-8c99-5eae6e305a4b
-      target:
-        id: 2407fe33-99f1-4d88-8291-7d7d15da43dc
       z: 1
     67e22f98-dbf8-458f-b937-e487ce0391eb:
       source:
@@ -757,15 +669,103 @@ Metadata:
       target:
         id: 2407fe33-99f1-4d88-8291-7d7d15da43dc
       z: 1
-    f6e8f4b6-26d8-4ed0-8ad8-09aca51afc18:
+    8365e182-d063-44b6-bc21-0804c463905f:
       source:
-        id: 2d801f11-0026-44e6-bdb4-ddade3344097
+        id: 4a02364d-839e-454a-b408-36f6f3261081
       target:
         id: 2407fe33-99f1-4d88-8291-7d7d15da43dc
       z: 1
+    9c217332-cf05-4f8a-958a-92dee6767b1e:
+      embeds:
+      - c6afa28a-1c51-4825-b407-062efedcec45
+      - c4d0275e-c29f-4307-ab7a-e90190ab4160
+      position:
+        x: 119
+        y: 42
+      size:
+        height: 499
+        width: 514
+      z: 0
+    9d32db26-8f87-43e0-b18b-46e0f685ad8a:
+      position:
+        x: 382
+        y: 408
+      size:
+        height: 60
+        width: 60
+      z: 2
+    ae2b13a3-03bc-48ce-ab3f-1163dfd2a388:
+      source:
+        id: c39cb40b-34e7-4402-8c99-5eae6e305a4b
+      target:
+        id: 2407fe33-99f1-4d88-8291-7d7d15da43dc
+      z: 1
+    bd889d6b-e608-4993-8fc2-ab500053b9b6:
+      position:
+        x: 184
+        y: 327
+      size:
+        height: 60
+        width: 60
+      z: 2
+    c39cb40b-34e7-4402-8c99-5eae6e305a4b:
+      position:
+        x: 442
+        y: 121
+      size:
+        height: 60
+        width: 60
+      z: 2
     c4536b87-840d-444c-8d31-e7eaae060f04:
       source:
         id: 2354342f-76cf-4216-b694-3c10c1bb3226
       target:
         id: 2d801f11-0026-44e6-bdb4-ddade3344097
+      z: 1
+    c4d0275e-c29f-4307-ab7a-e90190ab4160:
+      position:
+        x: 551
+        y: 408
+      size:
+        height: 60
+        width: 60
+      z: 1
+    c6afa28a-1c51-4825-b407-062efedcec45:
+      embeds:
+      - 9d32db26-8f87-43e0-b18b-46e0f685ad8a
+      - 2407fe33-99f1-4d88-8291-7d7d15da43dc
+      - 5e04d1dc-9238-476e-9e4f-331c6a8d65b3
+      - c39cb40b-34e7-4402-8c99-5eae6e305a4b
+      - d42d5365-86be-417a-88ef-1f18853c4076
+      - bd889d6b-e608-4993-8fc2-ab500053b9b6
+      - 2d801f11-0026-44e6-bdb4-ddade3344097
+      - ecdfa84b-486c-4c76-986c-44ae0742f1aa
+      position:
+        x: 141
+        y: 80
+      size:
+        height: 414
+        width: 386
+      z: 1
+    d42d5365-86be-417a-88ef-1f18853c4076:
+      position:
+        x: 166
+        y: 218
+      size:
+        height: 60
+        width: 60
+      z: 2
+    ecdfa84b-486c-4c76-986c-44ae0742f1aa:
+      position:
+        x: 184
+        y: 124
+      size:
+        height: 60
+        width: 60
+      z: 2
+    f6e8f4b6-26d8-4ed0-8ad8-09aca51afc18:
+      source:
+        id: 2d801f11-0026-44e6-bdb4-ddade3344097
+      target:
+        id: 2407fe33-99f1-4d88-8291-7d7d15da43dc
       z: 1
