@@ -7,6 +7,7 @@
 > 欢迎通过 ROS [控制台](https://ros.console.aliyun.com/cn-beijing/stacks/create)、[API](https://api.aliyun.com/product/ROS)、[SDK](https://api.aliyun.com/api-tools/sdk/ROS)、[CDK](https://www.alibabacloud.com/help/resource-orchestration-service/latest/ros-cdk-overview) 体验 ROS。
 
 ## 简介
+
 ROS 模板的示例和最佳实践。模板分类如下：
 
 - `resources`：资源级模板示例，提供单服务或单资源的模板。
@@ -16,13 +17,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 - `documents`：阿里云文档中涉及的模板。
 - `compute-nest-best-practice`：[计算巢](https://www.alibabacloud.com/help/computing-nest)最佳实践模板，提供面向计算巢基础和进阶场景的模板。
 
-
 ## 详细说明
+
 <details>
   <summary>resources</summary>
 
-| 模板                                                                                         | 说明                                                                                                                                 |
-| -------------------------------------------------------------------------------------------- |------------------------------------------------------------------------------------------------------------------------------------|
+| 模板                                                                                         | 说明                                                                                                                                   |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | [acm/configuration.yml](./resources/acm/configuration.yml)                                   | ACM Namespace/Configuration 资源示例                                                                                                   |
 | [actiontrail/trail-logging.yml](./resources/actiontrail/trail-logging.yml)                   | ACTIONTRAIL Trail/TrailLogging 资源示例                                                                                                |
 | [apigateway/api.yml](./resources/apigateway/api.yml)                                         | ApiGateway Api/Group/App/Deployment/Authorization/Signature/SignatureBinding/TrafficControl/TrafficControlBinding/ 资源示例            |
@@ -82,7 +83,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [ecs/prepay-instance.yml](./resources/ecs/prepay-instance.yml)                               | ECS PrepayInstance 资源示例                                                                                                            |
 | [ecs/route.yml](./resources/ecs/route.yml)                                                   | ECS Route/AssignIpv6Addresses 资源示例                                                                                                 |
 | [ecs/run-command.yml](./resources/ecs/run-command.yml)                                       | ECS RunCommand 资源示例                                                                                                                |
-| [ecs/s-nat-entry.yml](./resources/ecs/snat-entry.yml)                                       | ECS SecurityGroupIngress 资源示例                                                                                                      |
+| [ecs/snat-entry.yml](./resources/ecs/snat-entry.yml)                                         | ECS SecurityGroupIngress 资源示例                                                                                                      |
 | [ecs/security-group-clone.yml](./resources/ecs/security-group-clone.yml)                     | ECS SecurityGroupClone 资源示例                                                                                                        |
 | [ecs/security-group-egress.yml](./resources/ecs/security-group-egress.yml)                   | ECS SecurityGroupEgress 资源示例                                                                                                       |
 | [ecs/security-group-ingress.yml](./resources/ecs/security-group-ingress.yml)                 | ECS SecurityGroupIngress 资源示例                                                                                                      |
@@ -96,7 +97,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [fc/custom-domain.yml](./resources/fc/custom-domain.yml)                                     | FC CustomDomain 资源示例                                                                                                               |
 | [fc/function-invoker.yml](./resources/fc/function-invoker.yml)                               | FC FunctionInvoker/Trigger/Version/Alias/ProvisionConfig 资源示例                                                                      |
 | [fnf/flow.yml](./resources/fnf/flow.yml)                                                     | FNF Flow/Schedule 资源示例                                                                                                             |
-| [ga/ga-ip-v6.yml](./resources/ga/ga-ipv6.yml)                                               | GA Accelerator/ BandwidthPackage/IpSets/Listener/EndpointGroup/BandwidthPackageAcceleratorAddition 资源示例                            |
+| [ga/ga-ipv6.yml](./resources/ga/ga-ipv6.yml)                                                 | GA Accelerator/ BandwidthPackage/IpSets/Listener/EndpointGroup/BandwidthPackageAcceleratorAddition 资源示例                            |
 | [gws/cluster.yml](./resources/gws/cluster.yml)                                               | GWS Cluster/Instance 资源示例                                                                                                          |
 | [iot/device-group.yml](./resources/iot/device-group.yml)                                     | IOT DeviceGroup 资源示例                                                                                                               |
 | [iot/device.yml](./resources/iot/device.yml)                                                 | IOT Product/Device 资源示例                                                                                                            |
@@ -107,7 +108,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [marketplace/order.yml](./resources/marketplace/order.yml)                                   | MarketPlace Order 资源示例                                                                                                             |
 | [memcache/instance.yml](./resources/memcache/instance.yml)                                   | Memcache Instance/WhiteList 资源示例                                                                                                   |
 | [mns/subscription.yml](./resources/mns/subscription.yml)                                     | MNS Queue/Topic/Subscription 资源示例                                                                                                  |
-| [mongodb/mongo-db-instance.yml](./resources/mongodb/mongodb-instance.yml)                   | MONGODB Instance 资源示例                                                                                                              |
+| [mongodb/mongodb-instance.yml](./resources/mongodb/mongodb-instance.yml)                     | MONGODB Instance 资源示例                                                                                                              |
 | [mongodb/serverless-instance.yml](./resources/mongodb/serverless-instance.yml)               | MONGODB ServerlessInstance 资源示例                                                                                                    |
 | [mongodb/sharding-instance.yml](./resources/mongodb/sharding-instance.yml)                   | MONGODB ShardingInstance 资源示例                                                                                                      |
 | [mse/cluster.yml](./resources/mse/cluster.yml)                                               | MSE Cluster 资源示例                                                                                                                   |
@@ -157,6 +158,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [waf/domain-config.yml](./resources/waf/domain-config.yml)                                   | Waf DomainConfig/AclRule/WafSwitch 资源示例                                                                                            |
 | [waf/domain.yml](./resources/waf/domain.yml)                                                 | Waf Domain 资源示例                                                                                                                    |
 | [waf/instance.yml](./resources/waf/instance.yml)                                             | WAF Instance 资源示例                                                                                                                  |
+
 </details>
 
 <details>
@@ -164,8 +166,8 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - trail
 
-| 模板                                                                                                                                 | 说明                                                                                       |
-|------------------------------------------------------------------------------------------------------------------------------------| ------------------------------------------------------------------------------------------ |
+| 模板                                                                                                                               | 说明                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | [alb-7-layer-load-balancing.yml](./documents/trail/alb-7-layer-load-balancing.yml)                                                 | 实现 IPv4 服务的七层负载均衡 \| [教程](https://help.aliyun.com/document_detail/612746.htm) |
 | [clb-4-layer-load-balancing.yml](./documents/trail/clb-4-layer-load-balancing.yml)                                                 | 四层 CLB 负载均衡 \| [教程](https://help.aliyun.com/document_detail/612746.htm)            |
 | [clb-7-layer-load-balancing.yml](./documents/trail/clb-7-layer-load-balancing.yml)                                                 | 七层 CLB 负载均衡 \| [教程](https://help.aliyun.com/document_detail/611014.htm)            |
@@ -184,4 +186,34 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [rds-create-account-database-and-connection.yml](./documents/trail/rds-create-account-database-and-connection.yml)                 | 创建连接 RDS 数据库并进行读写操作                                                          |
 | [redis-game-player-leaderboard.yml](./documents/trail/redis-game-player-leaderboard.yml)                                           | Redis 游戏玩家排行榜                                                                       |
 | [tair-restores-data-through-data-flashback.yml](./documents/trail/tair-restores-data-through-data-flashback.yml)                   | Tair 通过数据闪回恢复数据                                                                  |
+
+</details>
+
+<details>
+  <summary>compute-nest-best-practice</summary>
+
+| 模板                                                                                                    | 说明                                  |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| [ack-app-rds](./compute-nest-best-practice/ack-app-rds/README.md)                                       | 创建容器应用和 RDS                    |
+| [ack-nginx](./compute-nest-best-practice/ack-nginx/README.md)                                           | 创建 ACK 并部署 Nginx                 |
+| [ecs-adbpg](./compute-nest-best-practice/ecs-adbpg/README.md)                                           | 创建 ECS 和 ADBPG 实例                |
+| [ecs-deploy](./compute-nest-best-practice/ecs-deploy/README.md)                                         | 基于 ECS 实例的部署                   |
+| [ecs-mongodb](./compute-nest-best-practice/ecs-mongodb/README.md)                                       | 创建 ECS 和 MongoDB 实例              |
+| [ecs-mysql-deploy](./compute-nest-best-practice/ecs-mysql-deploy/README.md)                             | 新建 ECS 实例并创建 MySQL             |
+| [ecs-polardb](./compute-nest-best-practice/ecs-polardb/README.md)                                       | 创建 ECS 和 PolarDB 实例              |
+| [ecs-postgresql](./compute-nest-best-practice/ecs-postgresql/README.md)                                 | 创建 ECS 和 PostgreSQL 实例           |
+| [ecs-ramrole-oss](./compute-nest-best-practice/ecs-ramrole-oss/README.md)                               | 创建 ECS 实例、RAM Role 和 OSS        |
+| [ecs-rds](./compute-nest-best-practice/ecs-rds/README.md)                                               | 创建 ECS 和 RDS 实例                  |
+| [ecs-redis](./compute-nest-best-practice/ecs-redis/README.md)                                           | 创建 ECS 和 Redis 实例                |
+| [ecs-slb](./compute-nest-best-practice/ecs-slb/README.md)                                               | 创建 ECS 和 SLB 实例                  |
+| [ecs-sqlserver](./compute-nest-best-practice/ecs-sqlserver/README.md)                                   | 创建 ECS 和 SQL Server 实例           |
+| [ehpc-demo](./compute-nest-best-practice/ehpc-demo/README.md)                                           | 创建弹性高性能计算集群                |
+| [existing-ecs-nginx](./compute-nest-best-practice/existing-ecs-nginx/README.md)                         | 在已有 ECS 实例上部署 Nginx           |
+| [managed-reverse-vpc-connection](./compute-nest-best-practice/managed-reverse-vpc-connection/README.md) | 全托管服务私网反向访问的最佳实践      |
+| [master-slave-ecs](./compute-nest-best-practice/master-slave-ecs/README.md)                             | 创建 Master-Slave 架构的 ECS 实例     |
+| [opensource](./compute-nest-best-practice/opensource)                                                   | 部署各类开源软件的最佳实践            |
+| [pai/pai-dsw.yml](./compute-nest-best-practice/pai/pai-dsw.yml)                                         | 创建 PAI                              |
+| [scaling-ecs](./compute-nest-best-practice/scaling-ecs/README.md)                                       | 创建一组带有伸缩组的 ECS 架构         |
+| [terraform-ecs-nginx](./compute-nest-best-practice/terraform-ecs-nginx/README.md)                       | [Terraform] 创建 ECS 实例并部署 Nginx |
+
 </details>

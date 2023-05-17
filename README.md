@@ -1,4 +1,5 @@
 English | [简体中文](./README-CN.md)
+
 <h1 align="center">ROS Templates</h1>
 
 > If you are not familiar with Resource Orchestration Service (ROS), please read [What is ROS](https://www.alibabacloud.com/help/resource-orchestration-service/latest/what-is-ros). If you are not familiar with the ROS template syntax, please refer to the [Getting started with templates](https://www.alibabacloud.com/help/resource-orchestration-service/latest/get-started-with-templates).
@@ -6,6 +7,7 @@ English | [简体中文](./README-CN.md)
 > Welcome to experience ROS through the ROS [Console](https://ros-intl.console.aliyun.com/cn-beijing/stacks/create), [API](https://api.alibabacloud.com/product/ROS), [SDK](https://api.alibabacloud.com/api-tools/sdk/ROS), [CDK](https://www.alibabacloud.com/help/resource-orchestration-service/latest/ros-cdk-overview).
 
 ## Introduction
+
 Examples and best practices of ROS templates. The templates are categorized as follows:
 
 - `resources`: Resource-level template examples that provide templates for single services or resources.
@@ -15,8 +17,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 - `documents`：The templates involved in the Alibaba Cloud documents.
 - `compute-nest-best-practice`: Best practice templates for [Compute Nest](https://www.alibabacloud.com/help/computing-nest), providing templates for basic and advanced Compute Nest scenarios.
 
-
 ## Details
+
 <details>
   <summary>resources</summary>
 
@@ -81,7 +83,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [ecs/prepay-instance.yml](./resources/ecs/prepay-instance.yml)                               | ECS PrepayInstance resource example                                                                                                            |
 | [ecs/route.yml](./resources/ecs/route.yml)                                                   | ECS Route/AssignIpv6Addresses resource example                                                                                                 |
 | [ecs/run-command.yml](./resources/ecs/run-command.yml)                                       | ECS RunCommand resource example                                                                                                                |
-| [ecs/s-nat-entry.yml](./resources/ecs/snat-entry.yml)                                       | ECS SecurityGroupIngress resource example                                                                                                      |
+| [ecs/snat-entry.yml](./resources/ecs/snat-entry.yml)                                         | ECS SecurityGroupIngress resource example                                                                                                      |
 | [ecs/security-group-clone.yml](./resources/ecs/security-group-clone.yml)                     | ECS SecurityGroupClone resource example                                                                                                        |
 | [ecs/security-group-egress.yml](./resources/ecs/security-group-egress.yml)                   | ECS SecurityGroupEgress resource example                                                                                                       |
 | [ecs/security-group-ingress.yml](./resources/ecs/security-group-ingress.yml)                 | ECS SecurityGroupIngress resource example                                                                                                      |
@@ -95,7 +97,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [fc/custom-domain.yml](./resources/fc/custom-domain.yml)                                     | FC CustomDomain resource example                                                                                                               |
 | [fc/function-invoker.yml](./resources/fc/function-invoker.yml)                               | FC FunctionInvoker/Trigger/Version/Alias/ProvisionConfig resource example                                                                      |
 | [fnf/flow.yml](./resources/fnf/flow.yml)                                                     | FNF Flow/Schedule resource example                                                                                                             |
-| [ga/ga-ip-v6.yml](./resources/ga/ga-ipv6.yml)                                               | GA Accelerator/ BandwidthPackage/IpSets/Listener/EndpointGroup/BandwidthPackageAcceleratorAddition resource example                            |
+| [ga/ga-ipv6.yml](./resources/ga/ga-ipv6.yml)                                                 | GA Accelerator/ BandwidthPackage/IpSets/Listener/EndpointGroup/BandwidthPackageAcceleratorAddition resource example                            |
 | [gws/cluster.yml](./resources/gws/cluster.yml)                                               | GWS Cluster/Instance resource example                                                                                                          |
 | [iot/device-group.yml](./resources/iot/device-group.yml)                                     | IOT DeviceGroup resource example                                                                                                               |
 | [iot/device.yml](./resources/iot/device.yml)                                                 | IOT Product/Device resource example                                                                                                            |
@@ -106,7 +108,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [marketplace/order.yml](./resources/marketplace/order.yml)                                   | MarketPlace Order resource example                                                                                                             |
 | [memcache/instance.yml](./resources/memcache/instance.yml)                                   | Memcache Instance/WhiteList resource example                                                                                                   |
 | [mns/subscription.yml](./resources/mns/subscription.yml)                                     | MNS Queue/Topic/Subscription resource example                                                                                                  |
-| [mongodb/mongo-db-instance.yml](./resources/mongodb/mongodb-instance.yml)                   | MONGODB Instance resource example                                                                                                              |
+| [mongodb/mongodb-instance.yml](./resources/mongodb/mongodb-instance.yml)                     | MONGODB Instance resource example                                                                                                              |
 | [mongodb/serverless-instance.yml](./resources/mongodb/serverless-instance.yml)               | MONGODB ServerlessInstance resource example                                                                                                    |
 | [mongodb/sharding-instance.yml](./resources/mongodb/sharding-instance.yml)                   | MONGODB ShardingInstance resource example                                                                                                      |
 | [mse/cluster.yml](./resources/mse/cluster.yml)                                               | MSE Cluster resource example                                                                                                                   |
@@ -156,6 +158,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [waf/domain-config.yml](./resources/waf/domain-config.yml)                                   | Waf DomainConfig/AclRule/WafSwitch resource example                                                                                            |
 | [waf/domain.yml](./resources/waf/domain.yml)                                                 | Waf Domain resource example                                                                                                                    |
 | [waf/instance.yml](./resources/waf/instance.yml)                                             | WAF Instance resource example                                                                                                                  |
+
 </details>
 
 <details>
@@ -183,4 +186,34 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [rds-create-account-database-and-connection.yml](./documents/trail/rds-create-account-database-and-connection.yml)                 | Create account, database, and connection to RDS        |
 | [redis-game-player-leaderboard.yml](./documents/trail/redis-game-player-leaderboard.yml)                                           | Redis game player leaderboard                          |
 | [tair-restores-data-through-data-flashback.yml](./documents/trail/tair-restores-data-through-data-flashback.yml)                   | Restore data in Tair through data flashback            |
+
+</details>
+
+<details>
+  <summary>compute-nest-best-practice</summary>
+
+| Template                                                                                                | Description                                               |
+| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [ack-app-rds](./compute-nest-best-practice/ack-app-rds/README.md)                                       | Create container application and RDS                      |
+| [ack-nginx](./compute-nest-best-practice/ack-nginx/README.md)                                           | Create ACK and deploy Nginx                               |
+| [ecs-adbpg](./compute-nest-best-practice/ecs-adbpg/README.md)                                           | Create ECS and ADBPG instances                            |
+| [ecs-deploy](./compute-nest-best-practice/ecs-deploy/README.md)                                         | Deployment based on ECS instances                         |
+| [ecs-mongodb](./compute-nest-best-practice/ecs-mongodb/README.md)                                       | Create ECS and MongoDB instances                          |
+| [ecs-mysql-deploy](./compute-nest-best-practice/ecs-mysql-deploy/README.md)                             | Create ECS instance and create MySQL                      |
+| [ecs-polardb](./compute-nest-best-practice/ecs-polardb/README.md)                                       | Create ECS and PolarDB instances                          |
+| [ecs-postgresql](./compute-nest-best-practice/ecs-postgresql/README.md)                                 | Create ECS and PostgreSQL instances                       |
+| [ecs-ramrole-oss](./compute-nest-best-practice/ecs-ramrole-oss/README.md)                               | Create ECS instance, RAM Role, and OSS                    |
+| [ecs-rds](./compute-nest-best-practice/ecs-rds/README.md)                                               | Create ECS and RDS instances                              |
+| [ecs-redis](./compute-nest-best-practice/ecs-redis/README.md)                                           | Create ECS and Redis instances                            |
+| [ecs-slb](./compute-nest-best-practice/ecs-slb/README.md)                                               | Create ECS and SLB instances                              |
+| [ecs-sqlserver](./compute-nest-best-practice/ecs-sqlserver/README.md)                                   | Create ECS and SQL Server instances                       |
+| [ehpc-demo](./compute-nest-best-practice/ehpc-demo/README.md)                                           | Create Elastic High Performance Computing cluster         |
+| [existing-ecs-nginx](./compute-nest-best-practice/existing-ecs-nginx/README.md)                         | Deploy Nginx on existing ECS instances                    |
+| [managed-reverse-vpc-connection](./compute-nest-best-practice/managed-reverse-vpc-connection/README.md) | Best practices for managed reverse VPC connection         |
+| [master-slave-ecs](./compute-nest-best-practice/master-slave-ecs/README.md)                             | Create ECS instances in a Master-Slave architecture       |
+| [opensource](./compute-nest-best-practice/opensource)                                                   | Best practices for deploying various open source software |
+| [pai/pai-dsw.yml](./compute-nest-best-practice/pai/pai-dsw.yml)                                         | Create PAI                                                |
+| [scaling-ecs](./compute-nest-best-practice/scaling-ecs/README.md)                                       | Create ECS architecture with an auto-scaling group        |
+| [terraform-ecs-nginx](./compute-nest-best-practice/terraform-ecs-nginx/README.md)                       | [Terraform] Create ECS instances and deploy Nginx         |
+
 </details>
