@@ -1,257 +1,267 @@
-ROSTemplateFormatVersion: "2015-09-01"
+ROSTemplateFormatVersion: '2015-09-01'
 Description:
   en: Deploying Kubernetes Cluster with Multiple Nodes.
   zh-cn: 单机部署K8S集群。
+Conditions:
+  IfAutoCreateSecurityGroup:
+    Fn::Equals:
+    - Ref: AutoCreateSecurityGroup
+    - true
+  IfCreateDataDisk:
+    Fn::Equals:
+    - Ref: NeedCreateDataDisk
+    - true
 Parameters:
   PayType:
     Type: String
     Label:
       en: ECS Instance Charge Type
       zh-cn: 付费类型
-    Default: PostPaid
-    AllowedValues:
-      - PostPaid
-      - PrePaid
     AssociationProperty: ChargeType
     AssociationPropertyMetadata:
       LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
   PayPeriodUnit:
     Type: String
     Label:
       en: Pay Period Unit
       zh-cn: 购买资源时长周期
-    Default: Month
-    AllowedValues:
-      - Month
-      - Year
     AssociationProperty: PayPeriodUnit
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Not:
             Fn::Equals:
-              - ${PayType}
-              - PostPaid
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
   PayPeriod:
     Type: Number
-    Description:
-      en: When the resource purchase duration is Month, the value of Period ranges from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance types are PrePaid valid </b></font>
-      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
     Label:
       en: Period
       zh-cn: 购买资源时长
-    Default: 1
-    AllowedValues:
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
+    Description:
+      en: When the resource purchase duration is Month, the value of Period ranges
+        from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance
+        types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
     AssociationProperty: PayPeriod
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Not:
             Fn::Equals:
-              - ${PayType}
-              - PostPaid
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
   ZoneId:
     Type: String
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     Label:
       en: VSwitch Availability Zone
       zh-cn: 交换机可用区
-  VpcId:
-    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  AckDistroVersion:
     Type: String
+    Label:
+      zh-cn: Ack-Distro基础镜像版本
+      en: Ack-Distro base image version.
     Description:
-      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
-      zh-cn: 现有虚拟专有网络的实例ID。
+      zh-cn: Ack-Distro镜像版本，<a href="https://github.com/AliyunContainerService/ackdistro/releases/">版本说明</a>。
+      en: Ack-Distro Image Version,<a href="https://github.com/AliyunContainerService/ackdistro/releases/">Version
+        Description</a>.
+    Default: v1-22-15-ack-10
+    AllowedValues:
+    - v1-22-15-ack-10
+    - v1-20-11-ack-23
+  VpcId:
+    Type: String
     Label:
       en: VPC ID
       zh-cn: 专有网络VPC实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private
+        Cloud
+      zh-cn: 现有虚拟专有网络的实例ID。
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
   VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private
+        Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID。
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
     AssociationPropertyMetadata:
       VpcId: ${VpcId}
       ZoneId: ${ZoneId}
-    Type: String
-    Description:
-      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
-      zh-cn: 现有业务网络交换机的实例ID。
-    Label:
-      en: VSwitch ID
-      zh-cn: 交换机实例ID
   AutoCreateSecurityGroup:
     Type: Boolean
-    Default: true
     Label:
       zh-cn: 自动创建安全组
       en: auto create security group
+    Default: true
   SecurityGroupId:
     Type: String
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+    Description:
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+      zh-cn: 现有业务安全组的实例ID。
     AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
     AssociationPropertyMetadata:
       VpcId: ${VpcId}
       Visible:
         Condition:
           Fn::Equals:
-            - ${AutoCreateSecurityGroup}
-            - false
+          - ${AutoCreateSecurityGroup}
+          - false
     Default: ''
-    Description:
-      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network & Security
-      zh-cn: 现有业务安全组的实例ID。
-    Label:
-      en: Business Security Group ID
-      zh-cn: 业务安全组ID
   EcsInstanceType:
     Type: String
-    Description:
-      en: Master nodes must have a minimum of 2 cores and 4GB of RAM.
-      zh-cn: 实例类型,节点不可小于2核4G。
     Label:
       en: Instance Type
       zh-cn: 实例类型
+    Description:
+      en: Master nodes must have a minimum of 2 cores and 4GB of RAM.
+      zh-cn: 实例类型,节点不可小于2核4G。
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
       InstanceChargeType: ${InstanceChargeType}
-  SystemDiskSize:
-    Default: 40
-    Type: Number
-    Description:
-      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
-      en: 'System disk size of each node, range of values: 40-500, units: GB.'
-    MinValue: 40
-    MaxValue: 500
-    Label:
-      zh-cn: 系统盘空间
-      en: System Disk Space
-  SystemDiskCategory:
-    Default: cloud_essd
-    Label:
-      zh-cn: 系统盘类型
-      en: System Disk Type
-    Type: String
-    Description:
-      zh-cn: 系统盘类型，须选择实例支持的磁盘类型。
-      en: System disk type, you must select the type of disk that the instance.
-    AllowedValues:
-      - cloud_efficiency
-      - cloud_ssd
-      - cloud_essd
-    AssociationPropertyMetadata:
-      LocaleKey: DiskCategory
-  DataDiskSize:
-    Default: 40
-    Type: Number
-    Description:
-      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
-      en: 'System disk size of each node, range of values: 40-500, units: GB.'
-    MinValue: 40
-    MaxValue: 500
-    Label:
-      zh-cn: 数据盘空间
-      en: Data Disk Space
-    AssociationPropertyMetadata:
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${NeedCreateDataDisk}
-            - true
-  InternetMaxBandwidthOut:
-    Default: 100
-    Type: Number
-    Label:
-      zh-cn: Master节点公网带宽
-      en: Master Node Internet Max Bandwidth Out
-    MinValue: 1
-    MaxValue: 100
-    Description:
-      zh-cn: 取值范围1-100。
-      en: The value range is from 1 to 100.
   InternetChargeType:
-    Default: PayByTraffic
     Type: String
     Label:
       zh-cn: 流量付费类型
       en: Internet Charge Type
-    AllowedValues:
-      - PayByBandwidth
-      - PayByTraffic
     AssociationPropertyMetadata:
       LocaleKey: InternetChargeType
-  InstancePassword:
-    NoEcho: true
-    Type: String
-    Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: 节点登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
-    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
-    Label:
-      en: Instance Password
-      zh-cn: 实例密码
-    ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
-    MinLength: 8
-    MaxLength: 30
-    AssociationProperty: ALIYUN::ECS::Instance::Password
-  AckDistroVersion:
-    Type: String
-    Label:
-      zh-cn: Ack-Distro基础镜像版本
-      en: Ack-Distro base image version.
+    Default: PayByTraffic
     AllowedValues:
-      - v1-22-15-ack-10
-      - v1-20-11-ack-23
-    Default: v1-22-15-ack-10
+    - PayByBandwidth
+    - PayByTraffic
+  InternetMaxBandwidthOut:
+    Type: Number
+    Label:
+      zh-cn: Master节点公网带宽
+      en: Master Node Internet Max Bandwidth Out
     Description:
-      zh-cn: Ack-Distro镜像版本，<a href="https://github.com/AliyunContainerService/ackdistro/releases/">版本说明</a>。
-      en: Ack-Distro Image Version,<a href="https://github.com/AliyunContainerService/ackdistro/releases/">Version Description</a>.
+      zh-cn: 取值范围1-100。
+      en: The value range is from 1 to 100.
+    Default: 100
+    MinValue: 1
+    MaxValue: 100
+  SystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+    Description:
+      zh-cn: 系统盘类型，须选择实例支持的磁盘类型。
+      en: System disk type, you must select the type of disk that the instance.
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+    Default: cloud_essd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
   NeedCreateDataDisk:
     Type: Boolean
-    Default: false
     Label:
       zh-cn: 创建节点数据盘
       en: Create node data disk.
-Conditions:
-  IfAutoCreateSecurityGroup:
-    Fn::Equals:
-      - Ref: AutoCreateSecurityGroup
-      - true
-  IfCreateDataDisk:
-    Fn::Equals:
-      - Ref: NeedCreateDataDisk
-      - true
+    Default: false
+  DataDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 数据盘空间
+      en: Data Disk Space
+    Description:
+      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${NeedCreateDataDisk}
+          - true
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 节点登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
 Resources:
   EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Condition: IfAutoCreateSecurityGroup
     Properties:
-      SecurityGroupName:
-        Ref: ALIYUN::StackName
       VpcId:
         Ref: VpcId
-      # 只开放访问外网的规则
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
       SecurityGroupEgress:
-        - PortRange: '-1/-1'
-          Priority: 1
-          IpProtocol: all
-          DestCidrIp: 0.0.0.0/0
-          NicType: intranet
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
       SecurityGroupIngress:
-        - PortRange: 6443/6443
-          Priority: 1
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-          NicType: internet
-  # 定义waitCondition和waitConditionHandle来等待命令执行完毕部署成功
+      - PortRange: 6443/6443
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
   WaitCondition:
     Type: ALIYUN::ROS::WaitCondition
     Properties:
@@ -259,53 +269,45 @@ Resources:
       Handle:
         Ref: WaitConditionHandle
       Timeout: 1000
-  WaitConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
   MasterEcsInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
       ZoneId:
         Ref: ZoneId
-      # 实例名
-      InstanceName:
-        Fn::Join:
-          - '-'
-          - - Ref: ALIYUN::StackName
-            - '[1,4]'
-      IoOptimized: optimized
-      # 付费类型
-      InstanceChargeType:
-        Ref: PayType
-      PeriodUnit:
-        Ref: PayPeriodUnit
-      Period:
-        Ref: PayPeriod
-      # 网络配置
       VpcId:
         Ref: VpcId
       VSwitchId:
         Ref: VSwitchId
       SecurityGroupId:
         Fn::If:
-          - IfAutoCreateSecurityGroup
-          - Ref: EcsSecurityGroup
-          - Ref: SecurityGroupId
-      # 磁盘类型和大小
+        - IfAutoCreateSecurityGroup
+        - Ref: EcsSecurityGroup
+        - Ref: SecurityGroupId
+      ImageId: centos_7
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
+      IoOptimized: optimized
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
       SystemDiskCategory:
         Ref: SystemDiskCategory
       SystemDiskSize:
         Ref: SystemDiskSize
       DiskMappings:
         Fn::If:
-          - IfCreateDataDisk
-          - - Category: cloud_essd
-              Size:
-                Ref: DataDiskSize
-          - Ref: ALIYUN::NoValue
+        - IfCreateDataDisk
+        - - Category: cloud_essd
+            Size:
+              Ref: DataDiskSize
+        - Ref: ALIYUN::NoValue
       MaxAmount: 1
-      # 镜像
-      ImageId: centos_7
-      # 实例类型
       InstanceType:
         Ref: EcsInstanceType
       Password:
@@ -315,12 +317,15 @@ Resources:
         Ref: InternetMaxBandwidthOut
       InternetChargeType:
         Ref: InternetChargeType
-  # 到机器上执行命令
   InstanceRunCommand:
     Type: ALIYUN::ECS::RunCommand
-    DependsOn:
-      - MasterEcsInstanceGroup
     Properties:
+      InstanceIds:
+      - Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - MasterEcsInstanceGroup
+          - InstanceIds
       CommandContent:
         Fn::Sub:
           - |
@@ -396,13 +401,9 @@ Resources:
                 - WaitConditionHandle
                 - CurlCli
       Type: RunShellScript
-      InstanceIds:
-        - Fn::Select:
-            - 0
-            - Fn::GetAtt:
-                - MasterEcsInstanceGroup
-                - InstanceIds
       Timeout: '1000'
+    DependsOn:
+    - MasterEcsInstanceGroup
 Outputs:
   MasterPublicIp:
     Description:
@@ -410,16 +411,16 @@ Outputs:
       en: Master Private IP Addresses
     Value:
       Fn::GetAtt:
-        - MasterEcsInstanceGroup
-        - PublicIps
+      - MasterEcsInstanceGroup
+      - PublicIps
   MasterPrivateIp:
     Description:
       zh-cn: Master内网IP地址
       en: Master Private IP Addresses
     Value:
       Fn::GetAtt:
-        - MasterEcsInstanceGroup
-        - PrivateIps
+      - MasterEcsInstanceGroup
+      - PrivateIps
   ConnectApiServer:
     Description:
       zh-cn: 如何连接ApiServer
@@ -445,47 +446,46 @@ Outputs:
               - InvokeId
 Metadata:
   ALIYUN::ROS::Interface:
-    # 分组信息
     ParameterGroups:
-      - Parameters:
-          - PayType
-          - PayPeriodUnit
-          - PayPeriod
-        Label:
-          default:
-            en: PayType Configuration
-            zh-cn: 付费类型配置
-      - Parameters:
-          - ZoneId
-        Label:
-          default:
-            zh-cn: 可用区配置
-            en: Zone Configuration
-      - Parameters:
-          - AckDistroVersion
-        Label:
-          default:
-            zh-cn: Ack-Distro镜像版本
-            en: Ack-Distro image version
-      - Parameters:
-          - VpcId
-          - VSwitchId
-          - AutoCreateSecurityGroup
-          - SecurityGroupId
-        Label:
-          default:
-            zh-cn: 网络配置
-            en: Choose existing Infrastructure Configuration
-      - Parameters:
-          - EcsInstanceType
-          - InternetChargeType
-          - InternetMaxBandwidthOut
-          - SystemDiskCategory
-          - SystemDiskSize
-          - NeedCreateDataDisk
-          - DataDiskSize
-          - InstancePassword
-        Label:
-          default:
-            en: Instance Configuration
-            zh-cn: 节点配置
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        default:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - AckDistroVersion
+      Label:
+        default:
+          zh-cn: Ack-Distro镜像版本
+          en: Ack-Distro image version
+    - Parameters:
+      - VpcId
+      - VSwitchId
+      - AutoCreateSecurityGroup
+      - SecurityGroupId
+      Label:
+        default:
+          zh-cn: 网络配置
+          en: Choose existing Infrastructure Configuration
+    - Parameters:
+      - EcsInstanceType
+      - InternetChargeType
+      - InternetMaxBandwidthOut
+      - SystemDiskCategory
+      - SystemDiskSize
+      - NeedCreateDataDisk
+      - DataDiskSize
+      - InstancePassword
+      Label:
+        default:
+          en: Instance Configuration
+          zh-cn: 节点配置

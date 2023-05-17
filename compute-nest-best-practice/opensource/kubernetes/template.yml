@@ -1,83 +1,143 @@
-ROSTemplateFormatVersion: "2015-09-01"
+ROSTemplateFormatVersion: '2015-09-01'
 Description:
   en: Deploying Kubernetes Cluster with Multiple Nodes.
   zh-cn: 基于Ack-Distro多机部署K8S集群。 <a href="https://github.com/AliyunContainerService/ackdistro/">Ack-Distro介绍</a>
+Conditions:
+  IfCreateApiServerEIP:
+    Fn::Equals:
+    - Ref: NeedCreateApiServerEip
+    - true
+  IfCreateMasterDataDisk:
+    Fn::Equals:
+    - Ref: NeedCreateMasterDataDisk
+    - true
+  IfCreateMastersEip:
+    Fn::Equals:
+    - Ref: NeedCreateMastersEip
+    - true
+  IfCreateSNAT:
+    Fn::Equals:
+    - Ref: NeedCreateSNAT
+    - true
+  IfCreateWorkerDataDisk:
+    Fn::Equals:
+    - Ref: NeedCreateWorkerDataDisk
+    - true
+  IfCreateWorkersEip:
+    Fn::Equals:
+    - Ref: NeedCreateWorkersEip
+    - true
 Parameters:
   PayType:
     Type: String
     Label:
       en: ECS Instance Charge Type
       zh-cn: 付费类型
-    Default: PostPaid
-    AllowedValues:
-      - PostPaid
-      - PrePaid
     AssociationProperty: ChargeType
     AssociationPropertyMetadata:
       LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
   PayPeriodUnit:
     Type: String
     Label:
       en: Pay Period Unit
       zh-cn: 购买资源时长周期
-    Default: Month
-    AllowedValues:
-      - Month
-      - Year
     AssociationProperty: PayPeriodUnit
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Not:
             Fn::Equals:
-              - ${PayType}
-              - PostPaid
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
   PayPeriod:
     Type: Number
     Label:
       en: Period
       zh-cn: 购买资源时长
-    Default: 1
-    AllowedValues:
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
     AssociationProperty: PayPeriod
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Not:
             Fn::Equals:
-              - ${PayType}
-              - PostPaid
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
   ZoneId:
     Type: String
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     Label:
       en: VSwitch Availability Zone
       zh-cn: 交换机可用区
-  VpcId:
-    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  LoadBalancerSpec:
     Type: String
+    Label:
+      en: LoadBalancer Specifications
+      zh-cn: 负载均衡实例规格
     Description:
-      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
-      zh-cn: 现有虚拟专有网络的实例ID。
+      en: By default, a private SLB instance will be created for the API Server, and
+        users can modify the SLB instance specifications. Deleting this instance will
+        result in the API Server being unable to access.
+      zh-cn: 默认将为 API Server 创建一个私网 SLB 实例，用户可修改SLB实例规格。若删除该实例会导致 API Server 无法访问。
+    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  AckDistroVersion:
+    Type: String
+    Label:
+      zh-cn: Ack-Distro基础镜像版本
+      en: Ack-Distro base image version.
+    Description:
+      zh-cn: Ack-Distro镜像版本，<a href="https://github.com/AliyunContainerService/ackdistro/releases/">版本说明</a>。
+      en: Ack-Distro Image Version,<a href="https://github.com/AliyunContainerService/ackdistro/releases/">Version
+        Description</a>.
+    Default: v1-22-15-ack-10
+    AllowedValues:
+    - v1-22-15-ack-10
+    - v1-20-11-ack-23
+  VpcId:
+    Type: String
     Label:
       en: VPC ID
       zh-cn: 专有网络VPC实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private
+        Cloud
+      zh-cn: 现有虚拟专有网络的实例ID。
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Equals:
-            - ${AutoCreateVpcAndVsw}
-            - false
+          - ${AutoCreateVpcAndVsw}
+          - false
   VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private
+        Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID。
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
     AssociationPropertyMetadata:
       VpcId: ${VpcId}
@@ -85,67 +145,43 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${AutoCreateVpcAndVsw}
-            - false
-    Type: String
-    Description:
-      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
-      zh-cn: 现有业务网络交换机的实例ID。
+          - ${AutoCreateVpcAndVsw}
+          - false
+  NeedCreateSNAT:
+    Type: Boolean
     Label:
-      en: VSwitch ID
-      zh-cn: 交换机实例ID
-  LoadBalancerSpec:
-    Type: String
-    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
-    Label:
-      en: LoadBalancer Specifications
-      zh-cn: 负载均衡实例规格
+      zh-cn: 配置SNAT
+      en: Create SNAT.
     Description:
-      en: By default, a private SLB instance will be created for the API Server, and users can modify the SLB instance specifications. Deleting this instance will result in the API Server being unable to access.
-      zh-cn: 默认将为 API Server 创建一个私网 SLB 实例，用户可修改SLB实例规格。若删除该实例会导致 API Server 无法访问。
-    AssociationPropertyMetadata:
-      ZoneId: ${ZoneId}
-  ClusterInternetMaxBandwidthOut:
-    Default: 100
-    Type: Number
-    Label:
-      zh-cn: 集群公网带宽
-      en: Master Node Internet Max Bandwidth Out
-    MinValue: 1
-    MaxValue: 100
-    Description:
-      zh-cn: 取值范围1-100
-      en: The value range is from 1 to 100.
-    AssociationPropertyMetadata:
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${NeedCreateSNAT}
-            - true
+      zh-cn: 为专有网络配置SNAT，这样集群节点和应用将具有公网访问能力。<br> 若您所选的VPC中已有绑定了弹性公网的NAT网关，ACK将默认使用该网关。
+      en: Configure SNAT for the proprietary network so that cluster nodes and applications
+        have public network access.<br> If there is no NAT gateway or it is not bound
+        to the elastic public network in your selected VPC, this option must be enabled,
+        otherwise the creation will fail.<br> If a NAT gateway with an elastic public
+        network bound to it already exists in your selected VPC,  you can leave this
+        option unchecked and ACK will use the existing gateway by default.
+    Default: false
   ClusterInternetChargeType:
-    Default: PayByTraffic
     Type: String
     Label:
       zh-cn: NAT公网流量付费类型
       en: Internet Charge Type of NAT.
-    AllowedValues:
-      - PayByBandwidth
-      - PayByTraffic
     AssociationPropertyMetadata:
       LocaleKey: InternetChargeType
       Visible:
         Condition:
           Fn::Equals:
-            - ${NeedCreateSNAT}
-            - true
-  ApiServerInternetMaxBandwidthOut:
-    Default: 100
+          - ${NeedCreateSNAT}
+          - true
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  ClusterInternetMaxBandwidthOut:
     Type: Number
     Label:
-      zh-cn: ApiServer公网带宽
+      zh-cn: 集群公网带宽
       en: Master Node Internet Max Bandwidth Out
-    MinValue: 1
-    MaxValue: 100
     Description:
       zh-cn: 取值范围1-100
       en: The value range is from 1 to 100.
@@ -153,24 +189,64 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${NeedCreateApiServerEip}
-            - true
+          - ${NeedCreateSNAT}
+          - true
+    Default: 100
+    MinValue: 1
+    MaxValue: 100
+  NeedCreateApiServerEip:
+    Type: Boolean
+    Label:
+      zh-cn: 创建EIP用于API Server
+      en: Create EIP for API Server.
+    Description:
+      zh-cn: 创建Eip，并将该EIP与内网SLB实例绑定，获得从公网访问集群 API Server 的能力。
+      en: Create an EIP and bind it to the internal SLB instance to gain the ability
+        to access the API Server of the cluster from the internet.
+    Default: false
   ApiServerInternetChargeType:
-    Default: PayByTraffic
     Type: String
     Label:
       zh-cn: ApiServer公网流量付费类型
       en: Internet Charge Type of NAT.
-    AllowedValues:
-      - PayByBandwidth
-      - PayByTraffic
     AssociationPropertyMetadata:
       LocaleKey: InternetChargeType
       Visible:
         Condition:
           Fn::Equals:
-            - ${NeedCreateApiServerEip}
-            - true
+          - ${NeedCreateApiServerEip}
+          - true
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  ApiServerInternetMaxBandwidthOut:
+    Type: Number
+    Label:
+      zh-cn: ApiServer公网带宽
+      en: Master Node Internet Max Bandwidth Out
+    Description:
+      zh-cn: 取值范围1-100
+      en: The value range is from 1 to 100.
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${NeedCreateApiServerEip}
+          - true
+    Default: 100
+    MinValue: 1
+    MaxValue: 100
+  MasterAmount:
+    Type: Number
+    Label:
+      en: Master amount.
+      zh-cn: Master节点数量
+    Description:
+      zh-cn: Master节点数量，最少为1。
+      en: Master amount, must at least 1.
+    Default: 1
+    MinValue: 1
   MasterEcsInstanceType:
     Type: String
     Label:
@@ -183,87 +259,102 @@ Parameters:
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
       InstanceChargeType: ${InstanceChargeType}
-  MasterAmount:
-    Type: Number
-    Default: 1
-    Label:
-      en: Master amount.
-      zh-cn: Master节点数量
-    Description:
-      zh-cn: Master节点数量，最少为1。
-      en: Master amount, must at least 1.
-    MinValue: 1
   MasterSystemDiskCategory:
-    Default: cloud_essd
+    Type: String
     Label:
       zh-cn: 系统盘类型
       en: System Disk Type
-    Type: String
     Description:
       zh-cn: 系统盘类型，须选择实例支持的磁盘类型。
       en: System disk type, you must select the type of disk that the instance.
-    AllowedValues:
-      - cloud_efficiency
-      - cloud_ssd
-      - cloud_essd
     AssociationPropertyMetadata:
       LocaleKey: DiskCategory
+    Default: cloud_essd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
   MasterSystemDiskSize:
-    Default: 40
     Type: Number
-    Description:
-      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
-      en: 'System disk size of each node, range of values: 40-500, units: GB.'
-    MinValue: 40
-    MaxValue: 500
     Label:
       zh-cn: 系统盘空间
       en: System Disk Space
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  NeedCreateMasterDataDisk:
+    Type: Boolean
+    Label:
+      zh-cn: 创建master节点数据盘
+      en: Create master node data disk.
+    Default: false
   MasterDataDiskCategory:
-    Default: cloud_essd
+    Type: String
     Label:
       zh-cn: 数据盘类型
       en: Data Disk Type
-    Type: String
     Description:
       zh-cn: 数据盘类型，须选择实例支持的磁盘类型。
       en: Data disk type, you must select the type of disk that the instance.
-    AllowedValues:
-      - cloud_efficiency
-      - cloud_ssd
-      - cloud_essd
     AssociationPropertyMetadata:
       LocaleKey: DiskCategory
       Visible:
         Condition:
           Fn::Equals:
-            - ${NeedCreateMasterDataDisk}
-            - true
+          - ${NeedCreateMasterDataDisk}
+          - true
+    Default: cloud_essd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
   MasterDataDiskSize:
-    Default: 40
     Type: Number
-    Description:
-      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
-      en: 'System disk size of each node, range of values: 40-500, units: GB.'
-    MinValue: 40
-    MaxValue: 500
     Label:
       zh-cn: 数据盘空间
       en: Data Disk Space
+    Description:
+      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Equals:
-            - ${NeedCreateMasterDataDisk}
-            - true
+          - ${NeedCreateMasterDataDisk}
+          - true
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  NeedCreateMastersEip:
+    Type: Boolean
+    Label:
+      zh-cn: 开启master节点公网
+      en: Enable public network for master node.
+    Default: false
+  MasterInternetChargeType:
+    Type: String
+    Label:
+      zh-cn: 流量付费类型
+      en: Internet Charge Type
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${NeedCreateMastersEip}
+          - true
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
   MasterInternetMaxBandwidthOut:
-    Default: 100
     Type: Number
     Label:
       zh-cn: Master节点公网带宽
       en: Master Node Internet Max Bandwidth Out
-    MinValue: 1
-    MaxValue: 100
     Description:
       zh-cn: 取值范围1-100
       en: The value range is from 1 to 100.
@@ -271,24 +362,21 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${NeedCreateMastersEip}
-            - true
-  MasterInternetChargeType:
-    Default: PayByTraffic
-    Type: String
+          - ${NeedCreateMastersEip}
+          - true
+    Default: 100
+    MinValue: 1
+    MaxValue: 100
+  WorkerAmount:
+    Type: Number
     Label:
-      zh-cn: 流量付费类型
-      en: Internet Charge Type
-    AllowedValues:
-      - PayByBandwidth
-      - PayByTraffic
-    AssociationPropertyMetadata:
-      LocaleKey: InternetChargeType
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${NeedCreateMastersEip}
-            - true
+      en: Worker amount.
+      zh-cn: Worker节点数量
+    Description:
+      zh-cn: Worker节点数量，最少为1
+      en: Worker amount, must at least 1.
+    Default: 1
+    MinValue: 1
   WorkerEcsInstanceType:
     Type: String
     Label:
@@ -301,14 +389,102 @@ Parameters:
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
       InstanceChargeType: ${InstanceChargeType}
+  WorkerSystemDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+    Description:
+      zh-cn: 系统盘类型，须选择实例支持的磁盘类型。
+      en: System disk type, you must select the type of disk that the instance.
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+    Default: cloud_essd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+  WorkerSystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  NeedCreateWorkerDataDisk:
+    Type: Boolean
+    Label:
+      zh-cn: 创建worker节点数据盘
+      en: Create worker node data disk.
+    Default: false
+  WorkerDataDiskCategory:
+    Type: String
+    Label:
+      zh-cn: 数据盘类型
+      en: Data Disk Type
+    Description:
+      zh-cn: 数据盘类型，须选择实例支持的磁盘类型。
+      en: Data disk type, you must select the type of disk that the instance.
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${NeedCreateWorkerDataDisk}
+          - true
+    Default: cloud_essd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+  WorkerDataDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 数据盘空间
+      en: Data Disk Space
+    Description:
+      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${NeedCreateWorkerDataDisk}
+          - true
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  NeedCreateWorkersEip:
+    Type: Boolean
+    Label:
+      zh-cn: 开启worker节点公网
+      en: Enable public network for worker node.
+    Default: false
+  WorkerInternetChargeType:
+    Type: String
+    Label:
+      zh-cn: 流量付费类型
+      en: Internet Charge Type
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${NeedCreateWorkersEip}
+          - true
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
   WorkerInternetMaxBandwidthOut:
-    Default: 100
     Type: Number
     Label:
       zh-cn: Worker节点公网带宽
       en: Master Node Internet Max Bandwidth Out
-    MinValue: 1
-    MaxValue: 100
     Description:
       zh-cn: 取值范围1-100
       en: The value range is from 1 to 100.
@@ -316,222 +492,54 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${NeedCreateWorkersEip}
-            - true
-  WorkerInternetChargeType:
-    Default: PayByTraffic
-    Type: String
-    Label:
-      zh-cn: 流量付费类型
-      en: Internet Charge Type
-    AllowedValues:
-      - PayByBandwidth
-      - PayByTraffic
-    AssociationPropertyMetadata:
-      LocaleKey: InternetChargeType
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${NeedCreateWorkersEip}
-            - true
-  WorkerAmount:
-    Type: Number
-    Default: 1
-    Label:
-      en: Worker amount.
-      zh-cn: Worker节点数量
-    Description:
-      zh-cn: Worker节点数量，最少为1
-      en: Worker amount, must at least 1.
+          - ${NeedCreateWorkersEip}
+          - true
+    Default: 100
     MinValue: 1
-  WorkerSystemDiskCategory:
-    Default: cloud_essd
-    Label:
-      zh-cn: 系统盘类型
-      en: System Disk Type
-    Type: String
-    Description:
-      zh-cn: 系统盘类型，须选择实例支持的磁盘类型。
-      en: System disk type, you must select the type of disk that the instance.
-    AllowedValues:
-      - cloud_efficiency
-      - cloud_ssd
-      - cloud_essd
-    AssociationPropertyMetadata:
-      LocaleKey: DiskCategory
-  WorkerSystemDiskSize:
-    Default: 40
-    Type: Number
-    Description:
-      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
-      en: 'System disk size of each node, range of values: 40-500, units: GB.'
-    MinValue: 40
-    MaxValue: 500
-    Label:
-      zh-cn: 系统盘空间
-      en: System Disk Space
-  WorkerDataDiskCategory:
-    Default: cloud_essd
-    Label:
-      zh-cn: 数据盘类型
-      en: Data Disk Type
-    Type: String
-    Description:
-      zh-cn: 数据盘类型，须选择实例支持的磁盘类型。
-      en: Data disk type, you must select the type of disk that the instance.
-    AllowedValues:
-      - cloud_efficiency
-      - cloud_ssd
-      - cloud_essd
-    AssociationPropertyMetadata:
-      LocaleKey: DiskCategory
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${NeedCreateWorkerDataDisk}
-            - true
-  WorkerDataDiskSize:
-    Default: 40
-    Type: Number
-    Description:
-      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
-      en: 'System disk size of each node, range of values: 40-500, units: GB.'
-    MinValue: 40
-    MaxValue: 500
-    Label:
-      zh-cn: 数据盘空间
-      en: Data Disk Space
-    AssociationPropertyMetadata:
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${NeedCreateWorkerDataDisk}
-            - true
+    MaxValue: 100
   InstancePassword:
-    NoEcho: true
     Type: String
-    Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: Master节点与Worker节点登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
-    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: Master节点与Worker节点登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）。
     ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
       zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
     MinLength: 8
     MaxLength: 30
-    AssociationProperty: ALIYUN::ECS::Instance::Password
-  AckDistroVersion:
-    Type: String
-    Label:
-      zh-cn: Ack-Distro基础镜像版本
-      en: Ack-Distro base image version.
-    Description:
-      zh-cn: Ack-Distro镜像版本，<a href="https://github.com/AliyunContainerService/ackdistro/releases/">版本说明</a>。
-      en: Ack-Distro Image Version,<a href="https://github.com/AliyunContainerService/ackdistro/releases/">Version Description</a>.
-    AllowedValues:
-      - v1-22-15-ack-10
-      - v1-20-11-ack-23
-    Default: v1-22-15-ack-10
-  NeedCreateApiServerEip:
-    Type: Boolean
-    Default: false
-    Description:
-      zh-cn: 创建Eip，并将该EIP与内网SLB实例绑定，获得从公网访问集群 API Server 的能力。
-      en: Create an EIP and bind it to the internal SLB instance to gain the ability to access the API Server of the cluster from the internet.
-    Label:
-      zh-cn: 创建EIP用于API Server
-      en: Create EIP for API Server.
-  NeedCreateSNAT:
-    Type: Boolean
-    Default: false
-    Description:
-      zh-cn: >-
-        为专有网络配置SNAT，这样集群节点和应用将具有公网访问能力。<br>
-        若您所选的VPC中已有绑定了弹性公网的NAT网关，ACK将默认使用该网关。
-      en: >-
-        Configure SNAT for the proprietary network so that cluster nodes and applications have public network access.<br>
-        If there is no NAT gateway or it is not bound to the elastic public network in your selected VPC,
-        this option must be enabled, otherwise the creation will fail.<br>
-        If a NAT gateway with an elastic public network bound to it already exists in your selected VPC, 
-        you can leave this option unchecked and ACK will use the existing gateway by default.
-    Label:
-      zh-cn: 配置SNAT
-      en: Create SNAT.
-  NeedCreateMastersEip:
-    Type: Boolean
-    Default: false
-    Label:
-      zh-cn: 开启master节点公网
-      en: Enable public network for master node.
-  NeedCreateWorkersEip:
-    Type: Boolean
-    Default: false
-    Label:
-      zh-cn: 开启worker节点公网
-      en: Enable public network for worker node.
-  NeedCreateMasterDataDisk:
-    Type: Boolean
-    Default: false
-    Label:
-      zh-cn: 创建master节点数据盘
-      en: Create master node data disk.
-  NeedCreateWorkerDataDisk:
-    Type: Boolean
-    Default: false
-    Label:
-      zh-cn: 创建worker节点数据盘
-      en: Create worker node data disk.
-Conditions:
-  IfCreateApiServerEIP:
-    Fn::Equals:
-      - Ref: NeedCreateApiServerEip
-      - true
-  IfCreateSNAT:
-    Fn::Equals:
-      - Ref: NeedCreateSNAT
-      - true
-  IfCreateMastersEip:
-    Fn::Equals:
-      - Ref: NeedCreateMastersEip
-      - true
-  IfCreateWorkersEip:
-    Fn::Equals:
-      - Ref: NeedCreateWorkersEip
-      - true
-  IfCreateMasterDataDisk:
-    Fn::Equals:
-      - Ref: NeedCreateMasterDataDisk
-      - true
-  IfCreateWorkerDataDisk:
-    Fn::Equals:
-      - Ref: NeedCreateWorkerDataDisk
-      - true
+    NoEcho: true
 Resources:
-  # 新建安全组
   EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
-      SecurityGroupName:
-        Ref: ALIYUN::StackName
       VpcId:
         Ref: VpcId
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
       SecurityGroupEgress:
-        - PortRange: '-1/-1'
-          Priority: 1
-          IpProtocol: all
-          DestCidrIp: 0.0.0.0/0
-          NicType: intranet
-      # 仅开放api server端口
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
       SecurityGroupIngress:
-        - PortRange: 6443/6443
-          Priority: 1
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-          NicType: intranet
-  # 定义waitCondition和waitConditionHandle来等待命令执行完毕部署成功
+      - PortRange: 6443/6443
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: intranet
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
   WaitCondition:
     Type: ALIYUN::ROS::WaitCondition
     Properties:
@@ -539,52 +547,44 @@ Resources:
       Handle:
         Ref: WaitConditionHandle
       Timeout: 2000
-  WaitConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
   MasterEcsInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
       ZoneId:
         Ref: ZoneId
-      # 实例名
-      InstanceName:
-        Fn::Join:
-          - '-'
-          - - Ref: ALIYUN::StackName
-            - 'master-[1,3]'
-      IoOptimized: optimized
-      # 付费类型
-      InstanceChargeType:
-        Ref: PayType
-      PeriodUnit:
-        Ref: PayPeriodUnit
-      Period:
-        Ref: PayPeriod
-      # 网络配置
       VpcId:
         Ref: VpcId
       VSwitchId:
         Ref: VSwitchId
       SecurityGroupId:
         Ref: EcsSecurityGroup
-      # 磁盘类型和大小
+      ImageId: centos_7
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - master-[1,3]
+      IoOptimized: optimized
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
       SystemDiskCategory:
         Ref: MasterSystemDiskCategory
       SystemDiskSize:
         Ref: MasterSystemDiskSize
       DiskMappings:
         Fn::If:
-          - IfCreateMasterDataDisk
-          - - Category:
-                Ref: MasterDataDiskCategory
-              Size:
-                Ref: MasterDataDiskSize
-          - Ref: ALIYUN::NoValue
+        - IfCreateMasterDataDisk
+        - - Category:
+              Ref: MasterDataDiskCategory
+            Size:
+              Ref: MasterDataDiskSize
+        - Ref: ALIYUN::NoValue
       MaxAmount:
         Ref: MasterAmount
-      # 镜像
-      ImageId: centos_7
-      # 实例类型
       InstanceType:
         Ref: MasterEcsInstanceType
       Password:
@@ -593,14 +593,14 @@ Resources:
         Ref: NeedCreateMastersEip
       InternetMaxBandwidthOut:
         Fn::If:
-          - IfCreateMastersEip
-          - Ref: MasterInternetMaxBandwidthOut
-          - Ref: ALIYUN::NoValue
+        - IfCreateMastersEip
+        - Ref: MasterInternetMaxBandwidthOut
+        - Ref: ALIYUN::NoValue
       InternetChargeType:
         Fn::If:
-          - IfCreateMastersEip
-          - Ref: MasterInternetChargeType
-          - Ref: ALIYUN::NoValue
+        - IfCreateMastersEip
+        - Ref: MasterInternetChargeType
+        - Ref: ALIYUN::NoValue
   Slb:
     Type: ALIYUN::SLB::LoadBalancer
     Properties:
@@ -610,9 +610,9 @@ Resources:
         Ref: VSwitchId
       LoadBalancerName:
         Fn::Join:
-          - '-'
-          - - 'slb'
-            - Ref: ALIYUN::StackName
+        - '-'
+        - - slb
+          - Ref: ALIYUN::StackName
       PayType:
         Ref: PayType
       PricingCycle:
@@ -624,22 +624,20 @@ Resources:
         Ref: LoadBalancerSpec
       AutoPay: true
   SlbBackendServerAttachment:
-    DependsOn:
-      - MasterEcsInstanceGroup
     Type: ALIYUN::SLB::BackendServerAttachment
     Properties:
       BackendServerList:
         Fn::GetAtt:
-          - MasterEcsInstanceGroup
-          - InstanceIds
+        - MasterEcsInstanceGroup
+        - InstanceIds
       LoadBalancerId:
         Ref: Slb
       BackendServerWeightList:
-        - 100
-        - 100
-  SlbListener:
+      - 100
+      - 100
     DependsOn:
-      - Slb
+    - MasterEcsInstanceGroup
+  SlbListener:
     Type: ALIYUN::SLB::Listener
     Properties:
       Persistence:
@@ -663,6 +661,8 @@ Resources:
         Ref: Slb
       BackendServerPort: 6443
       Protocol: tcp
+    DependsOn:
+    - Slb
   EipSlbAddress:
     Type: ALIYUN::VPC::EIP
     Condition: IfCreateApiServerEIP
@@ -686,45 +686,39 @@ Resources:
     Properties:
       ZoneId:
         Ref: ZoneId
-      # 实例名
-      InstanceName:
-        Fn::Join:
-          - '-'
-          - - Ref: ALIYUN::StackName
-            - 'worker-[1,3]'
-      IoOptimized: optimized
-      # 付费类型
-      InstanceChargeType:
-        Ref: PayType
-      PeriodUnit:
-        Ref: PayPeriodUnit
-      Period:
-        Ref: PayPeriod
-      # 网络配置
       VpcId:
         Ref: VpcId
       VSwitchId:
         Ref: VSwitchId
       SecurityGroupId:
         Ref: EcsSecurityGroup
-      # 磁盘类型和大小
+      ImageId: centos_7
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - worker-[1,3]
+      IoOptimized: optimized
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
       SystemDiskCategory:
         Ref: WorkerSystemDiskCategory
       SystemDiskSize:
         Ref: WorkerSystemDiskSize
       DiskMappings:
         Fn::If:
-          - IfCreateWorkerDataDisk
-          - - Category:
-                Ref: WorkerDataDiskCategory
-              Size:
-                Ref: WorkerDataDiskSize
-          - Ref: ALIYUN::NoValue
+        - IfCreateWorkerDataDisk
+        - - Category:
+              Ref: WorkerDataDiskCategory
+            Size:
+              Ref: WorkerDataDiskSize
+        - Ref: ALIYUN::NoValue
       MaxAmount:
         Ref: WorkerAmount
-      # 镜像
-      ImageId: centos_7
-      # 实例类型
       InstanceType:
         Ref: WorkerEcsInstanceType
       Password:
@@ -733,149 +727,147 @@ Resources:
         Ref: NeedCreateWorkersEip
       InternetMaxBandwidthOut:
         Fn::If:
-          - IfCreateWorkersEip
-          - Ref: WorkerInternetMaxBandwidthOut
-          - Ref: ALIYUN::NoValue
+        - IfCreateWorkersEip
+        - Ref: WorkerInternetMaxBandwidthOut
+        - Ref: ALIYUN::NoValue
       InternetChargeType:
         Fn::If:
-          - IfCreateWorkersEip
-          - Ref: WorkerInternetChargeType
-          - Ref: ALIYUN::NoValue
+        - IfCreateWorkersEip
+        - Ref: WorkerInternetChargeType
+        - Ref: ALIYUN::NoValue
   InstallMonitor:
     Type: ALIYUN::ECS::RunCommand
-    DependsOn:
-      - WorkerEcsInstanceGroup
-      - MasterEcsInstanceGroup
     Properties:
+      InstanceIds:
+        Fn::ListMerge:
+        - Fn::GetAtt:
+          - MasterEcsInstanceGroup
+          - InstanceIds
+        - Fn::GetAtt:
+          - WorkerEcsInstanceGroup
+          - InstanceIds
       CommandContent:
         Fn::Sub:
-          - |
-            #!/bin/sh
-            ARGUS_VERSION=3.5.7 /bin/bash -c "$(curl -sS https://cms-agent-${RegionId}.oss-${RegionId}-internal.aliyuncs.com/Argus/agent_install_ecs-1.7.sh)" >> /root/install_cms_agent.log 2>&1
-          - RegionId:
-              Ref: ALIYUN::Region
+        - |
+          #!/bin/sh
+          ARGUS_VERSION=3.5.7 /bin/bash -c "$(curl -sS https://cms-agent-${RegionId}.oss-${RegionId}-internal.aliyuncs.com/Argus/agent_install_ecs-1.7.sh)" >> /root/install_cms_agent.log 2>&1
+        - RegionId:
+            Ref: ALIYUN::Region
       Type: RunShellScript
-      InstanceIds:
-          Fn::ListMerge:
-            - Fn::GetAtt:
-              - MasterEcsInstanceGroup
-              - InstanceIds
-            - Fn::GetAtt:
-              - WorkerEcsInstanceGroup
-              - InstanceIds
       Timeout: '200'
-  # 到机器上执行命令
+    DependsOn:
+    - MasterEcsInstanceGroup
+    - WorkerEcsInstanceGroup
   InstanceRunCommand:
     Type: ALIYUN::ECS::RunCommand
-    DependsOn:
-      - WorkerEcsInstanceGroup
-      - MasterEcsInstanceGroup
     Properties:
+      InstanceIds:
+      - Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - MasterEcsInstanceGroup
+          - InstanceIds
       CommandContent:
         Fn::Sub:
-          - |
-            #!/bin/bash
-            # 安装sealer
-            ARCH=amd64
-            get_arch=`arch`
-            if [[ $get_arch != "x86_64" ]];then
-                ARCH=arm64
-            fi
-            # 部署物功能暂不支持参数化和特殊符合如中划线等，所以只能暂时这么写了
-            if [[ ${!ARCH} == "amd64" ]];then
-                # 根据版本选择对应的部署物
-                echo "deploy amd64"
-                # 使用-q是为了避免云助手执行时影响后续输出
-                wget -q '{{ computenest::file::sealerAmd64 }}' -O sealer-latest-linux-amd64.tar.gz && \
-                tar -xvf sealer-latest-linux-${!ARCH}.tar.gz -C /usr/bin
-                if [[ ${AckDistroVersion} == "v1-22-15-ack-10" ]];then
-                    wget -q '{{ computenest::file::ackdistroAmd64V12215Ack10 }}'
-                elif [[ ${AckDistroVersion} == "v1-20-11-ack-23" ]];then
-                    wget -q '{{ computenest::file::ackdistroAmd64V12011Ack23 }}'
-                fi
-            else
-                echo "deploy arm64"
-                wget -q '{{ computenest::file::sealerArm64 }}' -O sealer-latest-linux-arm64.tar.gz && \
-                tar -xvf sealer-latest-linux-${!ARCH}.tar.gz -C /usr/bin
-                if [[ ${AckDistroVersion} == "v1-22-15-ack-10" ]];then
-                    wget -q '{{ computenest::file::ackdistroArm64V12215Ack10 }}'
-                elif [[ ${AckDistroVersion} == "v1-20-11-ack-23" ]];then
-                    wget -q '{{ computenest::file::ackdistroArm64V12011Ack23 }}'
-                fi
-            fi
-            sealer load -i ackdistro-${!ARCH}-${AckDistroVersion}.tar
-            sealer run ack-agility-registry.cn-shanghai.cr.aliyuncs.com/ecp_builder/ackdistro:${AckDistroVersion} -m ${Masters} -n ${Workers} -p ${Password} >> deployK8sOutput.txt 2>&1
-            if [ ${NeedCreateApiServerEip} ];then
-                # cert for external ip
-                sed 's#https://apiserver.cluster.local:6443#https://${ExternalIp}:6443#g' ~/.kube/config > ~/.kube/external_ip_config
-                sealer cert --alt-names ${ExternalIp}
-                echo "公网方式 通过 kubectl 连接 Kubernetes 集群"
-                echo "1. 安装和设置 kubectl 客户端。有关详细信息请参见: https://kubernetes.io/docs/tasks/tools/"
-                echo "2. 配置集群凭证：将以下内容复制到本地计算机 $HOME/.kube/config 文件中（没有~/.kube目录请新建），配置完成后，即可使用 kubectl 从计算机访问 Kubernetes 集群。"
-                cat  ~/.kube/external_ip_config
-                echo "
-  
-                "
-            fi
-            sed 's#https://apiserver.cluster.local:6443#https://${InternalIp}:6443#g' ~/.kube/config > ~/.kube/internal_ip_config
-            echo "私网方式 通过 kubectl 连接 Kubernetes 集群"
-            echo "1. 安装和设置 kubectl 客户端。有关详细信息请参见: https://kubernetes.io/docs/tasks/tools/"
-            echo "2. 配置集群凭证：将以下内容复制到本地计算机 $HOME/.kube/config 文件中（没有~/.kube目录请新建），配置完成后，即可使用 kubectl 从计算机访问 Kubernetes 集群。"
-            cat  ~/.kube/internal_ip_config
-            # 执行成功回调WaitCondition结束waitCondition的等待
-            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}" > /dev/null 2>/dev/null
-          - Masters:
-              Fn::Join:
-                - ','
-                - Fn::GetAtt:
-                    - MasterEcsInstanceGroup
-                    - PrivateIps
-            Workers:
-              Fn::Join:
-                - ','
-                - Fn::GetAtt:
-                    - WorkerEcsInstanceGroup
-                    - PrivateIps
-            Password:
-              Ref: InstancePassword
-            CurlCli:
-              Fn::GetAtt:
-                - WaitConditionHandle
-                - CurlCli
-            AckDistroVersion:
-              Ref: AckDistroVersion
-            NeedCreateApiServerEip:
-              Ref: NeedCreateApiServerEip
-            ExternalIp:
-              Fn::If:
-                - IfCreateApiServerEIP
-                - Fn::GetAtt:
-                    - EipSlbAddress
-                    - EipAddress
-                - Ref: ALIYUN::NoValue
-            InternalIp:
-              Fn::GetAtt:
-                - Slb
-                - IpAddress
-      Type: RunShellScript
-      InstanceIds:
-        - Fn::Select:
-            - 0
+        - |
+          #!/bin/bash
+          # 安装sealer
+          ARCH=amd64
+          get_arch=`arch`
+          if [[ $get_arch != "x86_64" ]];then
+              ARCH=arm64
+          fi
+          # 部署物功能暂不支持参数化和特殊符合如中划线等，所以只能暂时这么写了
+          if [[ ${!ARCH} == "amd64" ]];then
+              # 根据版本选择对应的部署物
+              echo "deploy amd64"
+              # 使用-q是为了避免云助手执行时影响后续输出
+              wget -q '{{ computenest::file::sealerAmd64 }}' -O sealer-latest-linux-amd64.tar.gz && \
+              tar -xvf sealer-latest-linux-${!ARCH}.tar.gz -C /usr/bin
+              if [[ ${AckDistroVersion} == "v1-22-15-ack-10" ]];then
+                  wget -q '{{ computenest::file::ackdistroAmd64V12215Ack10 }}'
+              elif [[ ${AckDistroVersion} == "v1-20-11-ack-23" ]];then
+                  wget -q '{{ computenest::file::ackdistroAmd64V12011Ack23 }}'
+              fi
+          else
+              echo "deploy arm64"
+              wget -q '{{ computenest::file::sealerArm64 }}' -O sealer-latest-linux-arm64.tar.gz && \
+              tar -xvf sealer-latest-linux-${!ARCH}.tar.gz -C /usr/bin
+              if [[ ${AckDistroVersion} == "v1-22-15-ack-10" ]];then
+                  wget -q '{{ computenest::file::ackdistroArm64V12215Ack10 }}'
+              elif [[ ${AckDistroVersion} == "v1-20-11-ack-23" ]];then
+                  wget -q '{{ computenest::file::ackdistroArm64V12011Ack23 }}'
+              fi
+          fi
+          sealer load -i ackdistro-${!ARCH}-${AckDistroVersion}.tar
+          sealer run ack-agility-registry.cn-shanghai.cr.aliyuncs.com/ecp_builder/ackdistro:${AckDistroVersion} -m ${Masters} -n ${Workers} -p ${Password} >> deployK8sOutput.txt 2>&1
+          if [ ${NeedCreateApiServerEip} ];then
+              # cert for external ip
+              sed 's#https://apiserver.cluster.local:6443#https://${ExternalIp}:6443#g' ~/.kube/config > ~/.kube/external_ip_config
+              sealer cert --alt-names ${ExternalIp}
+              echo "公网方式 通过 kubectl 连接 Kubernetes 集群"
+              echo "1. 安装和设置 kubectl 客户端。有关详细信息请参见: https://kubernetes.io/docs/tasks/tools/"
+              echo "2. 配置集群凭证：将以下内容复制到本地计算机 $HOME/.kube/config 文件中（没有~/.kube目录请新建），配置完成后，即可使用 kubectl 从计算机访问 Kubernetes 集群。"
+              cat  ~/.kube/external_ip_config
+              echo "
+
+              "
+          fi
+          sed 's#https://apiserver.cluster.local:6443#https://${InternalIp}:6443#g' ~/.kube/config > ~/.kube/internal_ip_config
+          echo "私网方式 通过 kubectl 连接 Kubernetes 集群"
+          echo "1. 安装和设置 kubectl 客户端。有关详细信息请参见: https://kubernetes.io/docs/tasks/tools/"
+          echo "2. 配置集群凭证：将以下内容复制到本地计算机 $HOME/.kube/config 文件中（没有~/.kube目录请新建），配置完成后，即可使用 kubectl 从计算机访问 Kubernetes 集群。"
+          cat  ~/.kube/internal_ip_config
+          # 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}" > /dev/null 2>/dev/null
+        - Masters:
+            Fn::Join:
+            - ','
             - Fn::GetAtt:
-                - MasterEcsInstanceGroup
-                - InstanceIds
+              - MasterEcsInstanceGroup
+              - PrivateIps
+          Workers:
+            Fn::Join:
+            - ','
+            - Fn::GetAtt:
+              - WorkerEcsInstanceGroup
+              - PrivateIps
+          Password:
+            Ref: InstancePassword
+          CurlCli:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+          AckDistroVersion:
+            Ref: AckDistroVersion
+          NeedCreateApiServerEip:
+            Ref: NeedCreateApiServerEip
+          ExternalIp:
+            Fn::If:
+            - IfCreateApiServerEIP
+            - Fn::GetAtt:
+              - EipSlbAddress
+              - EipAddress
+            - Ref: ALIYUN::NoValue
+          InternalIp:
+            Fn::GetAtt:
+            - Slb
+            - IpAddress
+      Type: RunShellScript
       Timeout: '2000'
+    DependsOn:
+    - MasterEcsInstanceGroup
+    - WorkerEcsInstanceGroup
   VpcNatGateway:
     Type: ALIYUN::VPC::NatGateway
     Condition: IfCreateSNAT
     Properties:
-      NatGatewayName:
-        Ref: ALIYUN::StackName
       VpcId:
         Ref: VpcId
       VSwitchId:
         Ref: VSwitchId
-  # 创建用于公网访问的NAT网关的EIP
+      NatGatewayName:
+        Ref: ALIYUN::StackName
   ElasticIpForNat:
     Type: ALIYUN::VPC::EIP
     Condition: IfCreateSNAT
@@ -886,106 +878,104 @@ Resources:
         Ref: ClusterInternetChargeType
       Bandwidth:
         Ref: ClusterInternetMaxBandwidthOut
-  # 绑定EIP和Nat网关
   ElasticIpForNatAssociation:
     Type: ALIYUN::VPC::EIPAssociation
     Condition: IfCreateSNAT
-    DependsOn:
-      - ElasticIpForNat
-      - VpcNatGateway
     Properties:
-      AllocationId:
-        Fn::GetAtt:
-          - ElasticIpForNat
-          - AllocationId
       InstanceId:
         Fn::GetAtt:
-          - VpcNatGateway
-          - NatGatewayId
-  # 配置NAT网关中的源地址转换表
+        - VpcNatGateway
+        - NatGatewayId
+      AllocationId:
+        Fn::GetAtt:
+        - ElasticIpForNat
+        - AllocationId
+    DependsOn:
+    - ElasticIpForNat
+    - VpcNatGateway
   SNatEntry:
     Type: ALIYUN::ECS::SNatEntry
     Condition: IfCreateSNAT
-    DependsOn:
-      - ElasticIpForNatAssociation
     Properties:
       SNatIp:
         Fn::GetAtt:
-          - ElasticIpForNat
-          - EipAddress
+        - ElasticIpForNat
+        - EipAddress
       SNatTableId:
         Fn::GetAtt:
-          - VpcNatGateway
-          - SNatTableId
+        - VpcNatGateway
+        - SNatTableId
       SourceVSwitchId:
         Ref: VSwitchId
+    DependsOn:
+    - ElasticIpForNatAssociation
 Outputs:
   ApiServerPublicAddress:
-    Condition: IfCreateApiServerEIP
     Description:
       zh-cn: ApiServer公网地址
       en: Api Server Public IP Address
+    Condition: IfCreateApiServerEIP
     Value:
       Fn::Sub:
-        - ${ApiServerIp}:6443
-        - ApiServerIp:
-            Fn::GetAtt:
-              - EipSlbAddress
-              - EipAddress
+      - ${ApiServerIp}:6443
+      - ApiServerIp:
+          Fn::GetAtt:
+          - EipSlbAddress
+          - EipAddress
   ApiServerPrivateAddress:
     Description:
       zh-cn: ApiServer私网地址
       en: Api Server Private IP Address
     Value:
       Fn::Sub:
-        - ${ApiServerIp}:6443
-        - ApiServerIp:
-            Fn::GetAtt:
-              - Slb
-              - IpAddress
+      - ${ApiServerIp}:6443
+      - ApiServerIp:
+          Fn::GetAtt:
+          - Slb
+          - IpAddress
   NatEip:
-    Condition: IfCreateSNAT
     Description:
       zh-cn: 用于集群公网访问的网关公网Ip
       en: Gateway public IP address used for public access to the cluster.
+    Condition: IfCreateSNAT
     Value:
       Fn::GetAtt:
-        - ElasticIpForNat
-        - EipAddress
+      - ElasticIpForNat
+      - EipAddress
   MasterPublicIp:
-    Condition: IfCreateMastersEip
     Description:
       zh-cn: Master公网IP地址
       en: Master Private IP Addresses
+    Condition: IfCreateMastersEip
     Value:
       Fn::GetAtt:
-        - MasterEcsInstanceGroup
-        - PublicIps
+      - MasterEcsInstanceGroup
+      - PublicIps
   MasterPrivateIp:
     Description:
       zh-cn: Master内网IP地址
       en: Master Private IP Addresses
     Value:
       Fn::GetAtt:
-        - MasterEcsInstanceGroup
-        - PrivateIps
+      - MasterEcsInstanceGroup
+      - PrivateIps
   WorkerPublicIp:
-    Condition: IfCreateWorkersEip
     Description:
       zh-cn: Worker公网IP地址
       en: Worker Private IP Addresses
+    Condition: IfCreateWorkersEip
     Value:
       Fn::GetAtt:
-        - WorkerEcsInstanceGroup
-        - PublicIps
+      - WorkerEcsInstanceGroup
+      - PublicIps
   WorkerPrivateIp:
     Description:
       zh-cn: Worker内网IP地址
       en: Private IP Addresses
     Value:
       Fn::GetAtt:
-        - WorkerEcsInstanceGroup
-        - PrivateIps
+      - WorkerEcsInstanceGroup
+      - PrivateIps
   ConnectApiServer:
     Description:
       zh-cn: 如何连接ApiServer
@@ -1011,81 +1001,80 @@ Outputs:
               - InvokeId
 Metadata:
   ALIYUN::ROS::Interface:
-    # 分组信息
     ParameterGroups:
-      - Parameters:
-          - PayType
-          - PayPeriodUnit
-          - PayPeriod
-        Label:
-          default:
-            en: PayType Configuration
-            zh-cn: 付费类型配置
-      - Parameters:
-          - ZoneId
-        Label:
-          default:
-            zh-cn: 可用区配置
-            en: Zone Configuration
-      - Parameters:
-          - LoadBalancerSpec
-        Label:
-          default:
-            zh-cn: 负载均衡配置
-            en: Slb Configuration
-      - Parameters:
-          - AckDistroVersion
-        Label:
-          default:
-            zh-cn: Ack-Distro镜像版本
-            en: Ack-Distro image version
-      - Parameters:
-          - VpcId
-          - VSwitchId
-          - AutoCreateSecurityGroup
-          - NeedCreateSNAT
-          - ClusterInternetChargeType
-          - ClusterInternetMaxBandwidthOut
-          - NeedCreateApiServerEip
-          - ApiServerInternetChargeType
-          - ApiServerInternetMaxBandwidthOut
-        Label:
-          default:
-            zh-cn: 网络配置
-            en: Network Configuration
-      - Parameters:
-          - MasterAmount
-          - MasterEcsInstanceType
-          - MasterSystemDiskCategory
-          - MasterSystemDiskSize
-          - NeedCreateMasterDataDisk
-          - MasterDataDiskCategory
-          - MasterDataDiskSize
-          - NeedCreateMastersEip
-          - MasterInternetChargeType
-          - MasterInternetMaxBandwidthOut
-        Label:
-          default:
-            en: Instance Configuration
-            zh-cn: Master实例配置
-      - Parameters:
-          - WorkerAmount
-          - WorkerEcsInstanceType
-          - WorkerSystemDiskCategory
-          - WorkerSystemDiskSize
-          - NeedCreateWorkerDataDisk
-          - WorkerDataDiskCategory
-          - WorkerDataDiskSize
-          - NeedCreateWorkersEip
-          - WorkerInternetChargeType
-          - WorkerInternetMaxBandwidthOut
-        Label:
-          default:
-            en: Instance Configuration
-            zh-cn: Worker实例配置
-      - Parameters:
-          - InstancePassword
-        Label:
-          default:
-            en: Instance Password Configuration
-            zh-cn: 节点密码配置
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        default:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        default:
+          zh-cn: 负载均衡配置
+          en: Slb Configuration
+    - Parameters:
+      - AckDistroVersion
+      Label:
+        default:
+          zh-cn: Ack-Distro镜像版本
+          en: Ack-Distro image version
+    - Parameters:
+      - VpcId
+      - VSwitchId
+      - AutoCreateSecurityGroup
+      - NeedCreateSNAT
+      - ClusterInternetChargeType
+      - ClusterInternetMaxBandwidthOut
+      - NeedCreateApiServerEip
+      - ApiServerInternetChargeType
+      - ApiServerInternetMaxBandwidthOut
+      Label:
+        default:
+          zh-cn: 网络配置
+          en: Network Configuration
+    - Parameters:
+      - MasterAmount
+      - MasterEcsInstanceType
+      - MasterSystemDiskCategory
+      - MasterSystemDiskSize
+      - NeedCreateMasterDataDisk
+      - MasterDataDiskCategory
+      - MasterDataDiskSize
+      - NeedCreateMastersEip
+      - MasterInternetChargeType
+      - MasterInternetMaxBandwidthOut
+      Label:
+        default:
+          en: Instance Configuration
+          zh-cn: Master实例配置
+    - Parameters:
+      - WorkerAmount
+      - WorkerEcsInstanceType
+      - WorkerSystemDiskCategory
+      - WorkerSystemDiskSize
+      - NeedCreateWorkerDataDisk
+      - WorkerDataDiskCategory
+      - WorkerDataDiskSize
+      - NeedCreateWorkersEip
+      - WorkerInternetChargeType
+      - WorkerInternetMaxBandwidthOut
+      Label:
+        default:
+          en: Instance Configuration
+          zh-cn: Worker实例配置
+    - Parameters:
+      - InstancePassword
+      Label:
+        default:
+          en: Instance Password Configuration
+          zh-cn: 节点密码配置
