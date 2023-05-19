@@ -1,0 +1,132 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  EcsInstanceIds:
+    Type: CommaDelimitedList
+    Label:
+      en: ECS Instance ID List.
+      zh-cn: ECS实例ID列表。
+    Description:
+      en: |-
+        This tutorial needs to create two ECS instances, which are used for the server application and the client application respectively (one ECS instance can only be used for one EDAS application), and import them into the same cluster. 
+        The ECS instance must meet the following conditions.
+        Number of instances':' 2. If created separately, the network configuration (VPC, etc.) of the two ECS instances must be consistent. It is recommended that you directly create two ECS instances at the same time， and use the same password.
+        Operating system':' Alibaba Cloud Linux / Alibaba Cloud Linux 3.2104 LTS 64-bit.
+        Region':' You can choose it yourself, but the ECS instance and the EDAS application must be in the same region. This tutorial takes East China 1 (Hangzhou) as an example.
+        Instance specification':' at least 2 cores and 4GB.
+        Public IP':' The allocation of public IPv4 addresses has been enabled, which will be used later to verify the debugging of deployed applications. If you activate through the ECS free trial activity, ECS will automatically assign you a fixed public IP address.
+        Security group':' Please ensure that the selected security group has opened port 8080.
+      zh-cn: |-
+        本教程需创建2个ECS实例，分别用于服务端应用和客户端应用（一个ECS实例只能用于一个EDAS应用），并导入同一集群中。ECS实例需满足以下条件，其他参数可根据控制台提示按需配置。
+        实例数量：2。如果分开创建，2个ECS实例的网络配置（专有网络等）需保持一致。建议您直接同时创建2个ECS实例, 并使用相同的密码。
+        操作系统：Alibaba Cloud Linux / Alibaba Cloud Linux 3.2104 LTS 64位。
+        地域：可自行选择，但ECS实例与EDAS应用需处于同一地域。本教程以华东1（杭州）为例。
+        实例规格：至少为2核4GB。
+        公网IP：已开启分配公网 IPv4 地址，后续用于验证部署应用的调试情况。如果通过ECS免费试用活动开通，ECS会自动为您分配一个固定的公网IP地址。
+        安全组：请确保所选安全组已开放8080端口。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    MinLength: 2
+    MaxLength: 2
+  EcsPassword:
+    Type: String
+    Label:
+      en: The password of ECS instance.
+      zh-cn: ECS实例的密码。
+    Description:
+      en: The ECS instance login password set when creating the two required ECS instances.
+      zh-cn: 创建所需的2个ECS实例时，所设置的ECS实例登录密码。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    NoEcho: true
+  ClusterId:
+    Type: String
+    Label:
+      en: EDAS cluster Id.
+      zh-cn: EDAS集群ID。
+    Description:
+      en: Cluster ID where the application is deployed
+      zh-cn: 应用部署的集群ID
+Resources:
+  ClusterMember:
+    Type: ALIYUN::EDAS::ClusterMember
+    Properties:
+      InstanceIds:
+        Ref: EcsInstanceIds
+      ClusterId:
+        Ref: ClusterId
+      Password:
+        Ref: EcsPassword
+  Provider:
+    Type: ALIYUN::EDAS::Application
+    Properties:
+      ApplicationName: test-provider
+      ClusterId:
+        Ref: ClusterId
+      PackageType: jar
+      ComponentIds: 5
+      EcuInfo:
+        Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - ClusterMember
+          - EcuIds
+      Deployment:
+        WarUrl: http://edas-bj.oss-cn-beijing.aliyuncs.com/prod/demo/SPRING_CLOUD_PROVIDER.jar
+        PackageVersion: '2023.4'
+  Consumer:
+    Type: ALIYUN::EDAS::Application
+    Properties:
+      ApplicationName: test-comsumer
+      ClusterId:
+        Ref: ClusterId
+      PackageType: jar
+      ComponentIds: 5
+      EcuInfo:
+        Fn::Select:
+        - 1
+        - Fn::GetAtt:
+          - ClusterMember
+          - EcuIds
+      Deployment:
+        WarUrl: http://edas-bj.oss-cn-beijing.aliyuncs.com/prod/demo/SPRING_CLOUD_CONSUMER.jar
+        PackageVersion: '2023.4'
+Outputs:
+  ProviderAppId:
+    Description:
+      en: Spring cloud provider application ID.
+      zh-cn: Spring cloud生产者应用ID。
+    Value:
+      Fn::GetAtt:
+      - Provider
+      - AppId
+  ProviderPort:
+    Description:
+      en: Spring cloud provider application port.
+      zh-cn: Spring cloud生产者应用端口。
+    Value:
+      Fn::GetAtt:
+      - Provider
+      - Port
+  ConsumerAppId:
+    Description:
+      en: Spring cloud consumer application ID.
+      zh-cn: Spring cloud消费者应用ID。
+    Value:
+      Fn::GetAtt:
+      - Consumer
+      - AppId
+  ConsumerPort:
+    Description:
+      en: Spring cloud consumer application port.
+      zh-cn: Spring cloud消费者应用端口。
+    Value:
+      Fn::GetAtt:
+      - Consumer
+      - Port
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - EcsInstanceIds
+      - EcsPassword
+      - ClusterId
+    TemplateTags:
+    - acs:document:试用教程:在EDAS中基于ECS集群部署Java微服务应用
