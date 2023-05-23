@@ -1,0 +1,475 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Create a vpc, switch, and security group, create a Kubernetes managed edition
+    cluster, and create a springboard machine to deploy applications using kubectl.
+  zh-cn: 新建虚拟专有网络、交换机和安全组，并创建一组Kubernetes托管版集群，并创建一台跳板机使用kubectl部署应用。
+Parameters:
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR IPv4 Block
+      zh-cn: 专有网络IPv4网段
+    Description:
+      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use
+        the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+    Default: 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: VpcCidrBlock
+    Default: 192.168.1.0/24
+  LoginPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols,
+        including:! @ # $ % ^ & * ( ) _ + - ='
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+    ConstraintDescription:
+      en: '8-32 characters, can contain size letters, Numbers and special symbols,
+        including:! @ # $ % ^ & * ( ) _ + - ='
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  WorkerInstanceType:
+    Type: String
+    Label:
+      en: Worker Nodes Types
+      zh-cn: Worker节点规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    Default: ecs.g6.large
+  WorkerSystemDiskCategory:
+    Type: String
+    Label:
+      en: Worker System Disk Category
+      zh-cn: Worker 系统盘磁盘类型
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${WorkerInstanceType}
+    Default: cloud_essd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+  WorkerSystemDiskSize:
+    Type: Number
+    Label:
+      en: Worker System Disk Size(GB)
+      zh-cn: Worker节点系统盘大小(GB)
+    Default: 120
+    MinValue: 1
+  PodCidr:
+    Type: String
+    Label:
+      zh-cn: Pod 网络 CIDR
+      en: Pod Network CIDR
+    Description:
+      zh-cn: 请填写有效的私有网段，即以下网段及其子网：10.0.0.0/8，172.16-31.0.0/12-16，192.168.0.0/16<br>不能与
+        VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
+      en: 'Please fill in a valid private segment, i.e. the following segments and
+        their subnets: 10.0.0.0/8, 172.16-31.0.0/12-16, 192.168.0.0/16<br> which cannot
+        duplicate the network segments already used by clusters in VPC and VPC Kunetberes.
+        <font color=''blue''><b>Cannot be modified after successful creation</b></font>'
+    AssociationProperty: ALIYUN::CS::ManagedKubernetesCluster::PodCidr
+    Default: 10.0.0.0/16
+  ServiceCidr:
+    Type: String
+    Label:
+      zh-cn: Service CIDR
+      en: Service CIDR
+    Description:
+      zh-cn: 可选范围：10.0.0.0/16-24，172.16-31.0.0/16-24，192.168.0.0/16-24<br>不能与 VPC
+        及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
+      en: 'Optional range: 10.0.0.0/16-24, 172.16-31.0.0/16-24, 192.168.0.0/16-24<br>
+        cannot duplicate segments already used by existing Kubernetes clusters in
+        VPC and VPC.<font color=''blue''><b>Cannot be modified after successful creation</b></font>'
+    AssociationProperty: ALIYUN::CS::ManagedKubernetesCluster::ServiceCidr
+    Default: 172.16.0.0/16
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 跳板机实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    Default: ecs.g6.large
+  SystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间 (GB)
+      en: System Disk Space (GB)
+    Default: 40
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${EcsInstanceType}
+    Default: cloud_essd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
+    Default: slb.s1.small
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: ALIYUN::StackName
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupEgress:
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  ManagedKubernetesCluster:
+    Type: ALIYUN::CS::ManagedKubernetesCluster
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchIds:
+      - Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ChargeType:
+        Ref: PayType
+      Period:
+        Ref: PayPeriod
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      WorkerInstanceTypes:
+      - Ref: WorkerInstanceType
+      NumOfNodes: 3
+      ClusterSpec: ack.pro.small
+      ContainerCidr:
+        Ref: PodCidr
+      ServiceCidr:
+        Ref: ServiceCidr
+      ZoneIds:
+      - Ref: ZoneId
+      WorkerSystemDiskCategory:
+        Ref: WorkerSystemDiskCategory
+      WorkerSystemDiskSize:
+        Ref: WorkerSystemDiskSize
+      LoginPassword:
+        Ref: LoginPassword
+      SnatEntry: true
+      Addons:
+      - Name: flannel
+        Config: ''
+      Name:
+        Ref: ALIYUN::StackName
+  Slb:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      PayType:
+        Ref: PayType
+      PricingCycle:
+        Ref: PayPeriodUnit
+      Duration:
+        Ref: PayPeriod
+      LoadBalancerName:
+        Ref: ALIYUN::StackName
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      AddressType: intranet
+  EipSlbAddress:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: 100
+  EipSlbAddressAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: Slb
+      AllocationId:
+        Ref: EipSlbAddress
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 300
+    DependsOn:
+    - ManagedKubernetesCluster
+  EcsInstanceJumpBox:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      InstanceChargeType:
+        Ref: PayType
+      Period:
+        Ref: PayPeriod
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      InstanceName: jumpbox
+      InstanceType:
+        Ref: EcsInstanceType
+      AllocatePublicIP: false
+      Password:
+        Ref: LoginPassword
+      MaxAmount: 1
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+    DependsOn:
+    - ManagedKubernetesCluster
+    - Slb
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - EcsInstanceJumpBox
+        - InstanceIds
+      CommandContent:
+        Fn::Sub:
+        - |
+          #!/bin/bash
+
+          # 安装kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          install -o root -g root -m 0755 kubectl /usr/bin/kubectl
+
+          # 配置kubeconfig信息
+          mkdir -p ~/.kube
+          echo '${KubeConfig}' >> ~/.kube/config
+          echo '${ApplicationYaml}' > ~/application.yaml
+          sleep 10
+
+          # 应用容器模版
+          kubectl --kubeconfig ~/.kube/config apply -f ~/application.yaml
+
+          # 执行成功回调WaitCondition结束waitCondition的等待
+           ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+        - KubeConfig:
+            Fn::GetAtt:
+            - ManagedKubernetesCluster
+            - PrivateUserKubConfig
+          CurlCli:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+          ApplicationYaml:
+            Fn::Sub:
+            - |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: nginx
+                labels:
+                  app: nginx
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: nginx
+                template:
+                  metadata:
+                    labels:
+                      app: nginx
+                  spec:
+                    containers:
+                    - name: nginx
+                      image: nginx:1.14.2
+                      ports:
+                      - containerPort: 80
+              ---
+              apiVersion: v1
+              kind: Service
+              metadata:
+                annotations:
+                  service.beta.kubernetes.io/alibaba-cloud-loadbalancer-id: ${LoadBalancerId}
+                  service.beta.kubernetes.io/alicloud-loadbalancer-force-override-listeners: "true"
+                labels:
+                  app: nginx
+                name: nginx-svc
+              spec:
+                ports:
+                - port: 80
+                  protocol: TCP
+                  targetPort: 80
+                selector:
+                  app: nginx
+                type: LoadBalancer
+            - LoadBalancerId:
+                Fn::GetAtt:
+                - Slb
+                - LoadBalancerId
+      Type: RunShellScript
+      Timeout: 300
+Outputs:
+  endpoint:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+      - http://${ServerAddress}
+      - ServerAddress:
+          Fn::GetAtt:
+          - EipSlbAddress
+          - EipAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        default:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+    - Parameters:
+      - ZoneId
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - LoginPassword
+      Label:
+        en: Basic Configuration
+        zh-cn: 基础配置
+    - Parameters:
+      - WorkerInstanceType
+      - WorkerSystemDiskCategory
+      - WorkerSystemDiskSize
+      - PodCidr
+      - ServiceCidr
+      Label:
+        en: Kubernetes Configuration
+        zh-cn: Kubernetes配置
+    - Parameters:
+      - EcsInstanceType
+      - SystemDiskSize
+      - SystemDiskCategory
+      Label:
+        en: ECS JumpServer Configuration
+        zh-cn: ECS跳板机配置
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        en: SLB Configuration
+        zh-cn: 负载均衡配置
+    TemplateTags:
+    - acs:example:ISV软件部署:新建一组Kubernetes托管版集群，并创建一台跳板机使用kubectl部署应用
