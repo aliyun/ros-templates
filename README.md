@@ -164,8 +164,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 <details>
 <summary>examples</summary>
 
-| 模板 | 说明 |
-| ---- | ---- |
+| Template | Description |
+| -- | ---- |
 | [examples/application/ecs-clone-join-sls.yml](./examples/application/ecs-clone-join-sls.yml) | Clone the ECS instance, direct the IP to the new machine group created in the Log Service, and apply the specified rules |
 | [examples/application/ecs-group-join-sls.yml](./examples/application/ecs-group-join-sls.yml) | Create a set of ECS instance, and consider it as the machine group of the related project logtail in Log Service |
 | [examples/application/ecs-instance-group-join-sls.yml](./examples/application/ecs-instance-group-join-sls.yml) | Create a group of ECS and use it as the logtail machine group of the related project in the specified SLS |
