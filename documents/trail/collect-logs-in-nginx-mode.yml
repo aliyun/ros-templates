@@ -1,0 +1,273 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Quickly collect Nginx logs through Log Service SLS.
+  zh-cn: 通过日志服务SLS快速采集Nginx日志。
+Parameters:
+  InstanceId:
+    Type: String
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    Description:
+      en: Please select an ECS instance that can access the public network.
+      zh-cn: 请选择能访问公网的 ECS 实例。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+Resources:
+  DS_Instances:
+    Type: DATASOURCE::ECS::Instances
+    Properties:
+      InstanceIds:
+      - Ref: InstanceId
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  SecurityGroupIngress_3306:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3306/3306
+  InstallNginx:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Ref: InstanceId
+      Type: RunShellScript
+      Sync: true
+      Timeout: 300
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          yum install -y gcc
+          yum install -y pcre pcre-devel
+          yum install -y zlib zlib-devel
+          rm -f nginx-1.17.10.tar.gz
+          wget http://nginx.org/download/nginx-1.17.10.tar.gz
+          tar -zxvf nginx-1.17.10.tar.gz
+          cd nginx-1.17.10 && ./configure && make && make install
+          cd /usr/local/nginx/
+          num=$(ps -ef|grep nginx |grep -vc grep)
+          if [ "$num" -ge "1" ]; then
+              echo "nginx is running!"
+          else
+              sbin/nginx
+          fi
+  Project:
+    Type: ALIYUN::SLS::Project
+    Properties:
+      Name:
+        Fn::Sub: trail-${ALIYUN::StackId}
+      Description: Created by trial center with one click
+  Logstore:
+    Type: ALIYUN::SLS::Logstore
+    Properties:
+      ProjectName:
+        Ref: Project
+      LogstoreName: test-logstore
+      EnableTracking: true
+  SlsIndex:
+    Type: ALIYUN::SLS::Index
+    Properties:
+      ProjectName:
+        Ref: Project
+      FullTextIndex:
+        Enable: true
+      LogstoreName:
+        Fn::GetAtt:
+        - Logstore
+        - LogstoreName
+  InstallLogAgent:
+    Type: ALIYUN::OOS::Execution
+    Properties:
+      TemplateName: ACS-ECS-BulkyInstallLogAgent
+      SafetyCheck: Skip
+      Parameters:
+        regionId:
+          Ref: ALIYUN::Region
+        OOSAssumeRole: ''
+        targets:
+          ResourceIds:
+          - Ref: InstanceId
+          RegionId:
+            Ref: ALIYUN::Region
+          Type: ResourceIds
+        rateControl:
+          Mode: Concurrency
+          MaxErrors: 100%
+          Concurrency: 1
+        action: install
+    DependsOn:
+    - InstallNginx
+    - SlsIndex
+  MachineGroup:
+    Type: ALIYUN::SLS::MachineGroup
+    Properties:
+      GroupName: test01
+      ProjectName:
+        Ref: Project
+      MachineIdentifyType: ip
+      MachineList:
+      - Fn::Jq:
+        - First
+        - .[0].PrivateIpAddress[0]
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+    DependsOn:
+    - InstallLogAgent
+  LogtailConfig:
+    Type: ALIYUN::SLS::LogtailConfig
+    Properties:
+      ProjectName:
+        Ref: Project
+      LogtailConfigName: test02
+      LogstoreName:
+        Fn::GetAtt:
+        - Logstore
+        - LogstoreName
+      RawConfigData:
+        configName: test-02
+        logSample: |-
+          log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+           '$request_time $request_length '
+           '$status $body_bytes_sent "$http_referer" '
+           '"$http_user_agent"';
+        inputType: file
+        outputType: LogService
+        outputDetail:
+          logstoreName:
+            Fn::GetAtt:
+            - Logstore
+            - LogstoreName
+        inputDetail:
+          discardUnmatch: false
+          maxDepth: 10
+          advanced:
+            tail_size_kb: 1024
+            blacklist: {}
+            k8s:
+              ExternalEnvTag: {}
+          logPath: /usr/local/nginx/logs
+          filePattern: access.log
+          enableRawLog: false
+          topicFormat: none
+          fileEncoding: utf8
+          adjustTimezone: false
+          logTimezone: ''
+          preserve: true
+          preserveDepth: 1
+          dockerFile: false
+          dockerIncludeLabel: {}
+          dockerExcludeLabel: {}
+          dockerIncludeEnv: {}
+          dockerExcludeEnv: {}
+          logType: common_reg_log
+          regex: (\S*)\s*-\s*(\S*)\s*\[(\d+/\S+/\d+:\d+:\d+:\d+)\s+\S+\]\s*"(\S+)\s+(\S+)\s+\S+"\s*(\S*)\s*(\S*)\s*(\S*)\s*(\S*)\s*"([^"]*)"\s*"([^"]*)".*
+          key:
+          - remote_addr
+          - remote_user
+          - time_local
+          - request_method
+          - request_uri
+          - request_time
+          - request_length
+          - status
+          - body_bytes_sent
+          - http_referer
+          - http_user_agent
+  ApplyConfigToMachineGroup:
+    Type: ALIYUN::SLS::ApplyConfigToMachineGroup
+    Properties:
+      ProjectName:
+        Ref: Project
+      ConfigName:
+        Fn::GetAtt:
+        - LogtailConfig
+        - LogtailConfigName
+      GroupName:
+        Fn::GetAtt:
+        - MachineGroup
+        - GroupName
+Outputs:
+  NginxUrl:
+    Description:
+      en: Nginx access URL.
+      zh-cn: Nginx访问Url。
+    Value:
+      Fn::Sub:
+      - http://${IP}
+      - IP:
+          Fn::Jq:
+          - First
+          - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+            end
+          - Fn::GetAtt:
+            - DS_Instances
+            - Instances
+  LogQueryAddress:
+    Description:
+      en: The of address nginx log.
+      zh-cn: Nginx日志查询地址。
+    Value:
+      Fn::Sub:
+      - https://sls.console.aliyun.com/lognext/project/${Project}/logsearch/${Logstore}
+      - Project:
+          Ref: Project
+        Logstore:
+          Fn::GetAtt:
+          - Logstore
+          - LogstoreName
+  ProjectName:
+    Description:
+      en: The name of SLS project.
+      zh-cn: 日志服务的项目名称。
+    Value:
+      Ref: Project
+  LogstoreName:
+    Description:
+      en: The name of SLS project.
+      zh-cn: 日志服务的日志库名称。
+    Value:
+      Fn::GetAtt:
+      - Logstore
+      - LogstoreName
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - InstanceId
+    TemplateTags:
+    - acs:document:试用教程:使用Nginx模式采集日志
