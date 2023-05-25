@@ -92,17 +92,6 @@ Parameters:
     MinLength: 8
     MaxLength: 30
     NoEcho: true
-  BindWidth:
-    Type: Number
-    Label:
-      en: Public IP Bandwidth
-      zh-cn: 公网IP带宽值
-    Description:
-      en: 'Public network IP bandwidth，unit: Mbps'
-      zh-cn: 公网IP带宽值，单位：Mbps
-    Default: 5
-    MinValue: 1
-    MaxValue: 100
   DiskCategory:
     Type: String
     Label:
@@ -254,7 +243,7 @@ Resources:
         Ref: SecurityGroupId
       ImageId:
         Ref: InstanceImageId
-      AllocatePublicIP: false
+      AllocatePublicIP: true
       HostName:
         Fn::Join:
         - ''
@@ -268,10 +257,6 @@ Resources:
           - -[0,3]
       InstanceType:
         Ref: InstanceType
-      InternetMaxBandwidthIn:
-        Ref: BindWidth
-      InternetMaxBandwidthOut:
-        Ref: BindWidth
       IoOptimized: optimized
       MaxAmount: 1
       Password:
@@ -781,31 +766,6 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 4d17593b-029a-45bf-849a-38376b2ac955
-  VpcEip:
-    Type: ALIYUN::VPC::EIP
-    Properties:
-      Bandwidth:
-        Ref: BindWidth
-      InternetChargeType: PayByTraffic
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: c97c38d5-253b-4d8d-89f0-1537687b31b8
-  EipAssociation:
-    Type: ALIYUN::VPC::EIPAssociation
-    Properties:
-      InstanceId:
-        Fn::Select:
-        - '0'
-        - Fn::GetAtt:
-          - EcsInstanceGroupMaster
-          - InstanceIds
-      AllocationId:
-        Ref: VpcEip
-    DependsOn:
-    - VpcEip
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: fabc6711-b5c0-4aef-a1fc-fae3761b74a8
   OOSTemplateOut:
     Type: ALIYUN::OOS::Template
     Properties:
@@ -1414,11 +1374,6 @@ Resources:
       ALIYUN::ROS::Designer:
         id: aca6e39d-f458-420b-8506-9ca72010ea67
 Outputs:
-  EcsEip:
-    Value:
-      Fn::GetAtt:
-      - VpcEip
-      - EipAddress
   EcsInstanceIds:
     Value:
       Fn::GetAtt:
@@ -1438,13 +1393,15 @@ Outputs:
         - PrivateIps
   SparkWebSiteURL:
     Value:
-      Fn::Join:
-      - ''
-      - - http://
-        - Fn::GetAtt:
-          - VpcEip
-          - EipAddress
-        - :8080
+      'Fn::Join':
+        - ''
+        - - 'http://'
+          - 'Fn::Select':
+              - '0'
+              - 'Fn::GetAtt':
+                  - EcsInstanceGroupMaster
+                  - PublicIps
+          - ':8080'
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -1460,7 +1417,6 @@ Metadata:
     - Parameters:
       - InstanceType
       - InstancePassword
-      - BindWidth
       - DiskCategory
       - DiskSize
       - Amount
