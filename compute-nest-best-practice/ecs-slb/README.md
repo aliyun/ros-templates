@@ -1,15 +1,15 @@
 ## 场景说明
 本文介绍了在计算巢上ecs + slb的部署架构
 
-部署预览
+##部署预览
 
 ![deploy.jpg](deploy.jpg)
 
-部署结果
+##部署结果
 
 ![result.jpg](result.jpg)
 
-## 架构图
+##架构图
 
 ![architecture.jpg](architecture.jpg)
 

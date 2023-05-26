@@ -21,7 +21,7 @@
       * 创建文件部署物 https://help.aliyun.com/document_detail/432428.html
       * 文件关联 #(待补充)
 
-部署模版详见template.yml
+部署模版详见template.yaml
 
 ## 运维
 

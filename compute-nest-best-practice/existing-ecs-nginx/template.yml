@@ -4,10 +4,10 @@ Description:
   zh-cn: 现存ecs部署nginx
 Parameters:
   RegionId:
-    Type: String
     Label:
       en: RegionId
       zh-cn: 地域ID
+    Type: String
     AssociationProperty: ALIYUN::ECS::RegionId
   InstanceIds:
     Type: Json
@@ -25,52 +25,51 @@ Resources:
     Properties:
       InstanceIds:
         Ref: InstanceIds
-  InvocationWaitConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: {}
   Command:
     Type: ALIYUN::ECS::Command
+    DependsOn:
+      - InvocationWaitConditionHandle
     Properties:
       Timeout: '1200'
       CommandContent:
         Fn::Base64Encode:
           Fn::Sub:
-          - |
-            #!/bin/bash
-            # 这里配置安装脚本
-            yum install -y nginx
-            # 配置启动脚本
-            /usr/sbin/nginx
-
-            # 执行成功回调WaitCondition结束waitCondition的等待
-            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
-            # 获取到waitConditionHandle的地址放到 ${CurlCli}变量里
-          - CurlCli:
-              Fn::GetAtt:
-              - InvocationWaitConditionHandle
-              - CurlCli
+            - |
+              #!/bin/bash
+              # 这里配置安装脚本
+              yum install -y nginx
+              # 配置启动脚本
+              /usr/sbin/nginx
+    
+              # 执行成功回调WaitCondition结束waitCondition的等待
+              ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+              # 获取到waitConditionHandle的地址放到 ${CurlCli}变量里
+            - CurlCli:
+                Fn::GetAtt:
+                  - InvocationWaitConditionHandle
+                  - CurlCli
       Type: RunShellScript
       Name:
         Ref: ALIYUN::StackId
-    DependsOn:
-    - InvocationWaitConditionHandle
   Invocation:
     Type: ALIYUN::ECS::Invocation
     Properties:
-      InstanceIds:
-        Fn::GetAtt:
-        - InstanceDataSource
-        - InstanceIds
       CommandId:
         Ref: Command
+      InstanceIds:
+        Fn::GetAtt:
+          - InstanceDataSource
+          - InstanceIds
+  InvocationWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
   InvocationWaitCondition:
     Type: ALIYUN::ROS::WaitCondition
+    DependsOn: Command
     Properties:
       Count: 1
       Handle:
         Ref: InvocationWaitConditionHandle
       Timeout: 1800
-    DependsOn: Command
 Outputs:
   ErrorData:
     Description:
@@ -78,15 +77,15 @@ Outputs:
       zh-cn: 执行命令的失败信息
     Value:
       Fn::GetAtt:
-      - InvocationWaitCondition
-      - ErrorData
+        - InvocationWaitCondition
+        - ErrorData
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-    - Parameters:
-      - RegionId
-      - InstanceIds
-      Label:
-        default:
-          en: ECSInstance
-          zh-cn: ECS实例
+      - Parameters:
+          - RegionId
+          - InstanceIds
+        Label:
+          default:
+            en: ECSInstance
+            zh-cn: ECS实例

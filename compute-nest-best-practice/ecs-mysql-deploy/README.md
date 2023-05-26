@@ -25,7 +25,7 @@
   * 在数据库中创建admin用户，并允许以admin用户远程连接数据库。
   * 将MySQL目录移动到数据盘目录下。
 
-部署模版详见template.yml
+部署模版详见template.yaml
 
 
 ## 运维

@@ -11,7 +11,7 @@
 ![architecture.jpg](architecture.jpg)
 
 ## 部署
-部署模版详见template.yml
+部署模版详见template.yaml
 
 ## 运维
 

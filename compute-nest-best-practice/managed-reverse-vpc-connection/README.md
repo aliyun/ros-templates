@@ -1,11 +1,11 @@
 ## 场景说明
 本文介绍了在计算巢全托管服务私网反向访问的最佳实践，基于PrivateLink，您可以跨VPC打通从服务商到用户服务的私网链路。
 
-部署预览
+**部署预览**
 
 ![deploy_1.jpg](deploy_1.jpg)
 
-部署结果
+**部署结果**
 
 ![result_1.jpg](result_1.jpg)
 ![result_2.jpg](result_2.jpg)
@@ -69,7 +69,7 @@ public class CreateNatGateway {
 ![detail_2.jpg](detail_2.jpg)
 
 #### 创建服务
-* 部署模版详见template.yml。
+* 部署模版详见template.yaml。
 注意：模板中的AccessDomain、AccessIp和AccessPort分别对应服务商请求用户服务使用的域名、用户侧服务内网IP和用户侧服务端口，其中AccessDomain非必填，AccessIp和AccessPort为必填参数。参数名称必须为AccessDomain、AccessIp和AccessPort，否则服务将不能识别配置。
 
 * 在参数映射关系处，将RegionId和VpcId、NatGatewayId、FullNatTableId、NatIpCidr进行映射，将ZoneId和VSwitchId、SecurityGroupId进行映射，VPC、NatGateway、安全组和VSwitch为准备工作阶段创建的资源。
