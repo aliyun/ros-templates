@@ -364,6 +364,12 @@ ROS 模板的示例和最佳实践。模板分类如下：
 <details>
   <summary>documents</summary>
 
+- ecs
+
+| 模板                                                 | 说明                                                                                     |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [lnmp-centos7.yml](./documents/ecs/lnmp-centos7.yml) | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
+
 - trail
 
 | 模板                                                                                                                               | 说明                                                                                         |
