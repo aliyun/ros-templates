@@ -366,8 +366,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - ecs
 
-| 模板                                                 | 说明                                                                                                                         |
-| ---------------------------------------------------- |----------------------------------------------------------------------------------------------------------------------------|
+| Template                                             | Description                                                                                                                |
+|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
 | [lnmp-centos7.yml](./documents/ecs/lnmp-centos7.yml) | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
 
 - trail
