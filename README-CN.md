@@ -390,7 +390,9 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [polardb-postgresql-enterprise-performance-practice.yml](./documents/trail/polardb-postgresql-enterprise-performance-practice.yml) | PolarDB PostgreSQL 企业级性能实践。                                                          |
 | [ram-create-user-and-authorize.yml](./documents/trail/ram-create-user-and-authorize.yml)                                           | 创建 RAM 用户并授权。                                                                        |
 | [rds-create-account-database-and-connection.yml](./documents/trail/rds-create-account-database-and-connection.yml)                 | 创建连接 RDS 数据库并进行读写操作。                                                          |
+| [rds-quickly-use-rds-mysql-serverless-instance.yml](./documents/trail/rds-quickly-use-rds-mysql-serverless-instance.yml)           | 快速使用RDS MySQL Serverless实例 。                                                       |
 | [redis-game-player-leaderboard.yml](./documents/trail/redis-game-player-leaderboard.yml)                                           | Redis 游戏玩家排行榜。                                                                       |
+| [sls-collect-logs-in-nginx-mode.yml](./documents/trail/sls-collect-logs-in-nginx-mode.yml)                                         | 通过日志服务SLS快速采集Nginx日志。                                                           |
 | [tair-restores-data-through-data-flashback.yml](./documents/trail/tair-restores-data-through-data-flashback.yml)                   | Tair 通过数据闪回恢复数据。                                                                  |
 
 </details>

@@ -390,7 +390,9 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [polardb-postgresql-enterprise-performance-practice.yml](./documents/trail/polardb-postgresql-enterprise-performance-practice.yml) | PolarDB PostgreSQL enterprise performance practice.     |
 | [ram-create-user-and-authorize.yml](./documents/trail/ram-create-user-and-authorize.yml)                                           | Create RAM user and authorize.                          |
 | [rds-create-account-database-and-connection.yml](./documents/trail/rds-create-account-database-and-connection.yml)                 | Create account, database, and connection to RDS.        |
+| [rds-quickly-use-rds-mysql-serverless-instance.yml](./documents/trail/rds-quickly-use-rds-mysql-serverless-instance.yml)           | Quickly use RDS MySQL Serverless instance.              |
 | [redis-game-player-leaderboard.yml](./documents/trail/redis-game-player-leaderboard.yml)                                           | Redis game player leaderboard.                          |
+| [sls-collect-logs-in-nginx-mode.yml](./documents/trail/sls-collect-logs-in-nginx-mode.yml)                                         | Quickly collect Nginx logs through Log Service SLS.     |
 | [tair-restores-data-through-data-flashback.yml](./documents/trail/tair-restores-data-through-data-flashback.yml)                   | Restore data in Tair through data flashback.            |
 
 </details>
