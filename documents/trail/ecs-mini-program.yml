@@ -1,0 +1,341 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  InstanceId:
+    Type: String
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceId'
+  EcsRamRoleName:
+    Type: String
+    Label:
+      en: RAM Role Name
+      zh-cn: RAM角色名称
+    Description:
+      en: English letters, numbers, or "-" are allowed. The number of characters should be less than or equal to 64.
+      zh-cn: 允许英文字母、数字或 “-”。字符数应小于等于 64 个。
+    Default: EcsRoleForMiniProgramServer
+    AllowedPattern: ^[a-zA-Z0-9-]{1,64}$
+Resources:
+  DS_Instances:
+    Type: 'DATASOURCE::ECS::Instances'
+    Properties:
+      InstanceIds:
+        - Ref: InstanceId
+  WaitConditionHandle:
+    Type: 'ALIYUN::ROS::WaitConditionHandle'
+    Properties: {}
+  WaitCondition:
+    Type: 'ALIYUN::ROS::WaitCondition'
+    Properties:
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3720
+      Count: 1
+  EcsRamRole:
+    Type: 'ALIYUN::RAM::Role'
+    Properties:
+      RoleName:
+        Ref: EcsRamRoleName
+      Description: 搭建支付宝小程序ECS实例角色
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - ecs.aliyuncs.com
+      Policies:
+        - PolicyName:
+            'Fn::Sub':
+              - '${RamRoleName}Policy'
+              - RamRoleName:
+                  Ref: EcsRamRoleName
+          Description: 搭建支付宝小程序ECS实例角色权限策略
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Action:
+                  - 'ecs:DescribeInstances'
+                  - 'ecs:DescribeInstanceStatus'
+                Effect: Allow
+                Resource:
+                  - '*'
+  EcsRamRoleAttachment:
+    Type: 'ALIYUN::ECS::RamRoleAttachment'
+    Properties:
+      InstanceIds:
+        - Ref: InstanceId
+      RamRoleName:
+        Ref: EcsRamRoleName
+    DependsOn: EcsRamRole
+  SecurityGroupIngress_80:
+    Type: 'ALIYUN::ECS::SecurityGroupIngress'
+    Properties:
+      SecurityGroupId:
+        'Fn::Jq':
+          - First
+          - '.[0].SecurityGroupIds[0]'
+          - 'Fn::GetAtt':
+              - DS_Instances
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  InstallWebServer:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        - Ref: InstanceId
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        'Fn::Sub': |-
+          #!/bin/bash
+
+          if [ ! -f .ros.provision ]; then
+            echo "Name: 搭建支付宝小程序" > .ros.provision
+          fi
+
+          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+
+          if [[ "$name" != "搭建支付宝小程序" ]]; then
+            echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
+            ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance has already applied the configuration of the \\\"$name\\\" tutorial, and the configuration of this tutorial can no longer be applied.\"}"
+            exit 0
+          fi
+
+
+          if ! grep -q "^Step1: Install Python$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Python"
+            echo "#########################"
+            mkdir /data && touch /data/GetServerInfo.py
+            cat > /data/GetServerInfo.py << EOF
+          # -*- coding: utf-8 -*-
+          from flask import Flask, jsonify, request
+          from aliyunsdkcore.client import AcsClient
+          from aliyunsdkcore.auth import credentials
+          import requests
+          import json
+          from aliyunsdkecs.request.v20140526 import DescribeInstancesRequest, DescribeInstanceStatusRequest
+
+          app = Flask(__name__)
+
+          metaUrl = 'http://100.100.100.200/latest/meta-data/ram/security-credentials/${EcsRamRoleName}'
+
+          region = '${ALIYUN::Region}'
+
+          # 获取临时身份凭证 Get STS Token.
+
+          def getStsToken():
+            tokenResponse = requests.get(metaUrl)
+            return tokenResponse.json()
+
+          # 在app.route装饰器中声明响应的URL和请求方法 Declare the URL and request method of the response in the app.route decorator.
+
+          @app.route('/ecs/getServerInfo', methods=['GET'])
+          def getServerInfo():
+              tokenResult = getStsToken()
+              accessKeyId = tokenResult['AccessKeyId']
+              accessSecret = tokenResult['AccessKeySecret']
+              securityToken = tokenResult['SecurityToken']
+              credential = credentials.StsTokenCredential(accessKeyId, accessSecret, securityToken)
+              client = AcsClient(credential=credential, region_id=region)
+
+              # GET方式获取请求参数 Get request parameters.
+              instanceId = request.args.get("instanceId")
+              if instanceId is None:    
+                  return "Invalid Parameter"
+              # 查询实例信息 Query instance information.
+              describeInstancesRequest = DescribeInstancesRequest.DescribeInstancesRequest()
+              describeInstancesRequest.set_InstanceIds([instanceId])
+              describeInstancesResponse = client.do_action_with_exception(describeInstancesRequest)
+              # 返回数据为bytes类型，需要将bytes类型转换为str然后反序列化为json对象 The returned data is of type bytes, which needs to be converted to str and then deserialized into a json object.
+              describeInstancesResponse = json.loads(str(describeInstancesResponse, 'utf-8'))
+              print(describeInstancesResponse)
+              if len(describeInstancesResponse['Instances']['Instance']) == 0:
+                  return jsonify({})
+
+              instanceInfo = describeInstancesResponse['Instances']['Instance'][0]
+
+              # 查询实例状态 Query instance status.
+              describeInstanceStatusRequest = DescribeInstanceStatusRequest.DescribeInstanceStatusRequest()
+              describeInstanceStatusRequest.set_InstanceIds([instanceId])
+              describeInstanceStatusResponse = client.do_action_with_exception(describeInstanceStatusRequest)
+              describeInstanceStatusResponse = json.loads(str(describeInstanceStatusResponse, 'utf-8'))
+              instanceStatus = describeInstanceStatusResponse['InstanceStatuses']['InstanceStatus'][0]['Status']
+
+              # 封装结果 result
+              result = {
+                  # cpu数
+                  'Cpu': instanceInfo['Cpu'],
+                  # 内存大小 
+                  'Memory': instanceInfo['Memory'],
+                  # 操作系统名称
+                  'OSName': instanceInfo['OSName'],
+                  # 实例规格
+                  'InstanceType': instanceInfo['InstanceType'],
+                  # 实例公网IP地址
+                  'IpAddress': instanceInfo['PublicIpAddress']['IpAddress'][0],
+                  # 公网出带宽最大值
+                  'InternetMaxBandwidthOut': instanceInfo['InternetMaxBandwidthOut'],
+                  # 实例状态
+                  'instanceStatus': instanceStatus
+              }
+              return jsonify(result)
+
+
+          if __name__ == "__main__":
+                app.run()
+          EOF
+            touch /data/requirements.txt
+            cat > /data/requirements.txt << EOF
+          aliyun_python_sdk_core==2.13.36
+          aliyun_python_sdk_ecs==4.24.62
+          Flask==2.0.3
+
+          EOF
+            pip3 install -r /data/requirements.txt
+            echo "Step1: Install Python" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Python has been installed"
+            echo "#########################"
+          fi
+
+
+          if ! grep -q "^Step2: Install uWSGI Server$" .ros.provision; then
+            echo "#########################"
+            echo "# Install uWSGI Server"
+            echo "#########################"
+            pip3 install uwsgi
+            touch /data/uwsgi.ini
+            cat > /data/uwsgi.ini << EOF
+          [uwsgi]
+
+          #uwsgi启动时所使用的地址和端口 The address and port used when uwsgi starts.
+
+          socket=127.0.0.1:5000
+
+          #指向网站目录 site directory.
+
+          chdir=/data
+
+
+          #python启动程序文件 python start file.
+
+          wsgi-file=GetServerInfo.py
+
+          #python程序内用以启动的application变量名 The application variable name used to start in the python program.
+
+          callable=app
+
+
+          #处理器数 Processors.
+
+          processes=1
+
+
+          #线程数 Threads.
+
+          threads=2
+
+
+          #状态检测地址 status detection address.
+
+          stats=127.0.0.1:9191
+
+
+          #保存启动之后主进程的pid Save the pid file of the main process after startup.
+
+          pidfile=/data/uwsgi.pid
+
+
+          #设置uwsgi后台运行，uwsgi.log保存日志信息 自动生成 save log info file.
+
+          daemonize=/data/uwsgi.log
+
+          EOF
+            uwsgi /data/uwsgi.ini
+            echo "Step2: Install uWSGI Server" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# uWSGI Server has been installed"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step3: Install Nginx$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Nginx"
+            echo "#########################"
+            yum install -y nginx
+            touch /etc/nginx/conf.d/app.conf
+            cat > /etc/nginx/conf.d/app.conf << EOF
+          server {
+              listen 80 default_server;
+              
+              server_name app.example.com;
+
+              root /var/www/html;
+
+              # Add index.php to the list if you are using PHP
+              index index.html index.htm index.nginx-debian.html;
+
+              location / {
+                  # 转发端口 forwarding address.
+                  uwsgi_pass  127.0.0.1:5000;
+                  include uwsgi_params;
+              }
+          }
+
+          EOF
+            systemctl start nginx
+            echo "Step3: Install Nginx" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Nginx has been installed"
+            echo "#########################"
+          fi
+
+
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+    DependsOn:
+      - SecurityGroupIngress_80
+      - EcsRamRoleAttachment
+Outputs:
+  WebUrl:
+    Description:
+      en: Get Instance Info.
+      zh-cn: 获取实例信息。
+    Value:
+      'Fn::Sub':
+        - 'http://${IP}/ecs/getServerInfo?instanceId=${InstanceId}'
+        - IP:
+            'Fn::Jq':
+              - First
+              - >-
+                if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else
+                .[0].EipAddress.IpAddress end
+              - 'Fn::GetAtt':
+                  - DS_Instances
+                  - Instances
+          InstanceId:
+            'Fn::Jq':
+              - First
+              - '.[0].InstanceId'
+              - 'Fn::GetAtt':
+                  - DS_Instances
+                  - Instances
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - InstanceId
+          - EcsRamRoleName
+    TemplateTags:
+      - 'acs:document:试用教程:搭建支付宝小程序'
