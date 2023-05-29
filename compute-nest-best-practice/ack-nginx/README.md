@@ -24,7 +24,7 @@
   * 保存ACK集群的kubeconfig信息。
   * 应用定义的容器模板，在集群中创建容器资源。 
 
-部署模版详见template.yaml
+部署模版详见template.yml
 
 
 ## 运维

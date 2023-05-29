@@ -11,7 +11,7 @@
 ![architecture.jpg](architecture.jpg)
 
 ## 部署
-部署模版详见template.yaml
+部署模版详见template.yml
 
 ## 运维
 通过计算巢的代运维登录到机器上完成运维

@@ -50,7 +50,7 @@ docker pull compute-nest-test-registry.cn-hangzhou.cr.aliyuncs.com/bestpractice/
 
 ### 创建计算巢服务
 
-使用ROS模版template.yaml在计算巢[服务管理](https://computenest.console.aliyun.com/vendor/cn-hangzhou/serviceCreate)控制台创建服务。您可以在服务管理[官方文档](https://help.aliyun.com/document_detail/406718.html)查看创建服务步骤和配置项。
+使用ROS模版template.yml在计算巢[服务管理](https://computenest.console.aliyun.com/vendor/cn-hangzhou/serviceCreate)控制台创建服务。您可以在服务管理[官方文档](https://help.aliyun.com/document_detail/406718.html)查看创建服务步骤和配置项。
 
 1. ROS模版ClusterApplication说明
 

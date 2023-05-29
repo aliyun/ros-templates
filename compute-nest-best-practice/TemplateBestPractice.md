@@ -37,9 +37,9 @@
 
 1. 如果您是第一次使用ROS，请阅读ROS文档，尤其推荐阅读[模板快速入门](https://help.aliyun.com/document_detail/370710.html)和[模板结构说明](https://help.aliyun.com/document_detail/28858.html)。
 
-2. 请阅读计算巢模板的[最佳实践文档](https://github.com/aliyun/ros-templates/blob/master/ComputeNestBestPractice/README.md)。
+2. 请阅读计算巢模板的[最佳实践文档](./README.md)。
 
-3. **强烈推荐**从[计算巢最佳实践模板库](https://github.com/aliyun/ros-templates/tree/master/ComputeNestBestPractice)里寻找和您的应用最接近的场景模板，并复制此场景模板的内容做为编写模板的起点。这将大大减少您的工作量，避免常见错误。在后续的编写过程中，可以在模板库中搜索您需要的参数或资源，从模板库复制代码片段。不要从一个空文档开始。
+3. **强烈推荐**从[计算巢最佳实践模板库](./)里寻找和您的应用最接近的场景模板，并复制此场景模板的内容做为编写模板的起点。这将大大减少您的工作量，避免常见错误。在后续的编写过程中，可以在模板库中搜索您需要的参数或资源，从模板库复制代码片段。不要从一个空文档开始。
 
 4. 推荐您使用ROS控制台的[在线编辑器](https://ros.console.aliyun.com/editor)或者[使用IntelliJ IDEA加上Alibaba Cloud Toolkit插件](https://help.aliyun.com/document_detail/171807.html)（您可以下载免费的IntelliJ IDEA社区版）来编写模板。这两者的提供了代码补全和语法高亮、语法校验。
 
@@ -96,16 +96,16 @@
 
 - #### 专有网络VPC
   
-  - 同时创建VPC和VSwitch时，需要保证VSwitch的CIDR Block包含在VPC的CIDR Block下。为了防止用户输入错误的CIDR Block参数，需要在VpcCidrBlock和VSwitchCidrBlock入参下指定AssociationProperty和AssociationPropertyMetadata，具体配置方法请参照[场景模板ack-nginx](./ack-nginx/template.yaml)。
+  - 同时创建VPC和VSwitch时，需要保证VSwitch的CIDR Block包含在VPC的CIDR Block下。为了防止用户输入错误的CIDR Block参数，需要在VpcCidrBlock和VSwitchCidrBlock入参下指定AssociationProperty和AssociationPropertyMetadata，具体配置方法请参照[场景模板ack-nginx](./ack-nginx/template.yml)。
 
 - #### 云数据库RDS
   
   - 数据库密码建议加上AssociationProperty: ALIYUN::RDS::Instance::AccountPassword。
-  - 对于RDS数据库实例资源（ALIYUN::RDS::DBInstance），必须指定DBInstanceStorageType和Category属性，否则会导致校验不完全，用户部署后可能出现资源无库存的错误。具体配置方法请参照[场景模板ecs-rds](./ecs-rds/template.yaml)。
+  - 对于RDS数据库实例资源（ALIYUN::RDS::DBInstance），必须指定DBInstanceStorageType和Category属性，否则会导致校验不完全，用户部署后可能出现资源无库存的错误。具体配置方法请参照[场景模板ecs-rds](./ecs-rds/template.yml)。
 
 - #### 容器服务CS
   
-  - 对于容器集群资源（ALIYUN::CS::ManagedKubernetesCluster），必须指定ZoneIds属性，否则会导致校验不完全，用户部署后可能出现资源无库存的错误。具体配置方法请参照[场景模板ack-nginx](./ack-nginx/template.yaml)。
+  - 对于容器集群资源（ALIYUN::CS::ManagedKubernetesCluster），必须指定ZoneIds属性，否则会导致校验不完全，用户部署后可能出现资源无库存的错误。具体配置方法请参照[场景模板ack-nginx](./ack-nginx/template.yml)。
 
 - #### 执行初始化脚本
   
@@ -133,7 +133,7 @@ Outputs中的变量名要规范、易读。请配置输出变量的中英文描�
 
 2. 请参考[Terraform最佳实践](https://www.terraform-best-practices.com/)。
 
-3. 为了给用户提供更好的体验，Terraform模板需要利用ROS原生功能来扩展参数定义和参数分组。请参照[Terraform示例模板](https://github.com/aliyun/ros-templates/blob/master/ComputeNestBestPractice/terraform-ecs-nginx/template.yaml)。步骤如下：
+3. 为了给用户提供更好的体验，Terraform模板需要利用ROS原生功能来扩展参数定义和参数分组。请参照[Terraform示例模板](./terraform-ecs-nginx/template.yml)。步骤如下：
    
    - 打开ROS控制台[模板编辑器](https://ros.console.aliyun.com/editor)，切换到Terraform模式，使用“打开文件”功能将本地Terraform模板导入。
    
