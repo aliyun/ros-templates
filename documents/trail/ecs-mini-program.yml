@@ -9,8 +9,10 @@ Parameters:
   EcsRamRoleName:
     Type: String
     Label:
-      en: RAM Role Name
-      zh-cn: RAM角色名称
+      en: RAM Role Name,English letters, numbers, or "-" are allowed. The number of characters should be less than or equal to 64.
+      zh-cn: RAM角色名称，允许英文字母、数字或 “-”。字符数应小于等于 64 个。
+    Default: EcsRoleForMiniProgramServer
+    AllowedPattern: ^[a-zA-Z0-9-]{1,64}$
 Resources:
   DS_Instances:
     Type: 'DATASOURCE::ECS::Instances'
@@ -88,18 +90,14 @@ Resources:
       Sync: true
       Timeout: 3600
       CommandContent:
-        'Fn::Sub': >-
+        'Fn::Sub': |-
           #!/bin/bash
-
 
           if [ ! -f .ros.provision ]; then
             echo "Name: 搭建支付宝小程序" > .ros.provision
           fi
 
-
-
-          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | tr -d
-          '[:space:]')
+          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
 
           if [[ "$name" != "搭建支付宝小程序" ]]; then
@@ -116,40 +114,28 @@ Resources:
             mkdir /data && touch /data/GetServerInfo.py
             cat > /data/GetServerInfo.py << EOF
           # -*- coding: utf-8 -*-
-
           from flask import Flask, jsonify, request
-
           from aliyunsdkcore.client import AcsClient
-
           from aliyunsdkcore.auth import credentials
-
           import requests
-
           import json
-
-          from aliyunsdkecs.request.v20140526 import DescribeInstancesRequest,
-          DescribeInstanceStatusRequest
-
+          from aliyunsdkecs.request.v20140526 import DescribeInstancesRequest, DescribeInstanceStatusRequest
 
           app = Flask(__name__)
 
+          metaUrl = 'http://100.100.100.200/latest/meta-data/ram/security-credentials/${EcsRamRoleName}'
 
-          metaUrl =
-          'http://100.100.100.200/latest/meta-data/ram/security-credentials/${EcsRamRoleName}'
+          region = '${ALIYUN::Region}'
 
-          region = 'cn-beijing'
-
-
-          # 获取临时身份凭证
+          # 获取临时身份凭证 Get STS Token.
 
           def getStsToken():
             tokenResponse = requests.get(metaUrl)
             return tokenResponse.json()
 
-          # 在app.route装饰器中声明响应的URL和请求方法
+          # 在app.route装饰器中声明响应的URL和请求方法 Declare the URL and request method of the response in the app.route decorator.
 
           @app.route('/ecs/getServerInfo', methods=['GET'])
-
           def getServerInfo():
               tokenResult = getStsToken()
               accessKeyId = tokenResult['AccessKeyId']
@@ -158,15 +144,15 @@ Resources:
               credential = credentials.StsTokenCredential(accessKeyId, accessSecret, securityToken)
               client = AcsClient(credential=credential, region_id=region)
 
-              # GET方式获取请求参数
+              # GET方式获取请求参数 Get request parameters.
               instanceId = request.args.get("instanceId")
               if instanceId is None:    
                   return "Invalid Parameter"
-              # 查询实例信息
+              # 查询实例信息 Query instance information.
               describeInstancesRequest = DescribeInstancesRequest.DescribeInstancesRequest()
               describeInstancesRequest.set_InstanceIds([instanceId])
               describeInstancesResponse = client.do_action_with_exception(describeInstancesRequest)
-              # 返回数据为bytes类型，需要将bytes类型转换为str然后反序列化为json对象
+              # 返回数据为bytes类型，需要将bytes类型转换为str然后反序列化为json对象 The returned data is of type bytes, which needs to be converted to str and then deserialized into a json object.
               describeInstancesResponse = json.loads(str(describeInstancesResponse, 'utf-8'))
               print(describeInstancesResponse)
               if len(describeInstancesResponse['Instances']['Instance']) == 0:
@@ -174,18 +160,18 @@ Resources:
 
               instanceInfo = describeInstancesResponse['Instances']['Instance'][0]
 
-              # 查询实例状态
+              # 查询实例状态 Query instance status.
               describeInstanceStatusRequest = DescribeInstanceStatusRequest.DescribeInstanceStatusRequest()
               describeInstanceStatusRequest.set_InstanceIds([instanceId])
               describeInstanceStatusResponse = client.do_action_with_exception(describeInstanceStatusRequest)
               describeInstanceStatusResponse = json.loads(str(describeInstanceStatusResponse, 'utf-8'))
               instanceStatus = describeInstanceStatusResponse['InstanceStatuses']['InstanceStatus'][0]['Status']
 
-              # 封装结果
+              # 封装结果 result
               result = {
                   # cpu数
                   'Cpu': instanceInfo['Cpu'],
-                  # 内存大小
+                  # 内存大小 
                   'Memory': instanceInfo['Memory'],
                   # 操作系统名称
                   'OSName': instanceInfo['OSName'],
@@ -207,13 +193,12 @@ Resources:
             touch /data/requirements.txt
             cat > /data/requirements.txt << EOF
           aliyun_python_sdk_core==2.13.36
-
           aliyun_python_sdk_ecs==4.24.62
-
           Flask==2.0.3
 
           EOF
             pip3 install -r /data/requirements.txt
+            echo "Step1: Install Python" >> .ros.provision
           else
             echo "#########################"
             echo "# Python has been installed"
@@ -226,68 +211,66 @@ Resources:
             echo "# Install uWSGI Server"
             echo "#########################"
             pip3 install uwsgi
-            cd /data && touch uwsgi.ini
+            touch /data/uwsgi.ini
             cat > /data/uwsgi.ini << EOF
           [uwsgi]
 
-          #uwsgi启动时所使用的地址和端口
+          #uwsgi启动时所使用的地址和端口 The address and port used when uwsgi starts.
 
           socket=127.0.0.1:5000
 
-          #指向网站目录
+          #指向网站目录 site directory.
 
           chdir=/data
 
 
-          #python启动程序文件
+          #python启动程序文件 python start file.
 
           wsgi-file=GetServerInfo.py
 
-          #python程序内用以启动的application变量名
+          #python程序内用以启动的application变量名 The application variable name used to start in the python program.
 
           callable=app
 
 
-          #处理器数
+          #处理器数 Processors.
 
           processes=1
 
 
-          #线程数
+          #线程数 Threads.
 
           threads=2
 
 
-          #状态检测地址
+          #状态检测地址 status detection address.
 
           stats=127.0.0.1:9191
 
 
-          #保存启动之后主进程的pid
+          #保存启动之后主进程的pid Save the pid file of the main process after startup.
 
-          pidfile=uwsgi.pid
+          pidfile=/data/uwsgi.pid
 
 
-          #设置uwsgi后台运行，uwsgi.log保存日志信息 自动生成
+          #设置uwsgi后台运行，uwsgi.log保存日志信息 自动生成 save log info file.
 
-          daemonize=uwsgi.log
+          daemonize=/data/uwsgi.log
 
           EOF
             uwsgi /data/uwsgi.ini
+            echo "Step2: Install uWSGI Server" >> .ros.provision
           else
             echo "#########################"
             echo "# uWSGI Server has been installed"
             echo "#########################"
           fi
 
-
-
           if ! grep -q "^Step3: Install Nginx$" .ros.provision; then
             echo "#########################"
             echo "# Install Nginx"
             echo "#########################"
             yum install -y nginx
-            echo "Step1: Install Nginx" >> .ros.provision
             touch /etc/nginx/conf.d/app.conf
             cat > /etc/nginx/conf.d/app.conf << EOF
           server {
@@ -301,7 +284,7 @@ Resources:
               index index.html index.htm index.nginx-debian.html;
 
               location / {
-                  # 转发端口
+                  # 转发端口 forwarding address.
                   uwsgi_pass  127.0.0.1:5000;
                   include uwsgi_params;
               }
@@ -309,6 +292,7 @@ Resources:
 
           EOF
             systemctl start nginx
+            echo "Step3: Install Nginx" >> .ros.provision
           else
             echo "#########################"
             echo "# Nginx has been installed"
@@ -319,6 +303,7 @@ Resources:
           ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
     DependsOn:
       - SecurityGroupIngress_80
+      - EcsRamRoleAttachment
 Outputs:
   WebUrl:
     Description:
