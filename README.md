@@ -417,6 +417,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [ecs-sqlserver](./compute-nest-best-practice/ecs-sqlserver/README.md)                                   | Create ECS and SQL Server instances.                       |
 | [ehpc-demo](./compute-nest-best-practice/ehpc-demo/README.md)                                           | Create Elastic High Performance Computing cluster.         |
 | [existing-ecs-nginx](./compute-nest-best-practice/existing-ecs-nginx/README.md)                         | Deploy Nginx on existing ECS instances.                    |
+| [fc](./compute-nest-best-practice/fc/README.md)                                                         | Deploy a NAS+OSS UI file management system (Kodbox) to Alibaba Cloud Function Compute. |
 | [managed-reverse-vpc-connection](./compute-nest-best-practice/managed-reverse-vpc-connection/README.md) | Best practices for managed reverse VPC connection.         |
 | [master-slave-ecs](./compute-nest-best-practice/master-slave-ecs/README.md)                             | Create ECS instances in a Master-Slave architecture.       |
 | [opensource](./compute-nest-best-practice/opensource)                                                   | Best practices for deploying various open source software. |

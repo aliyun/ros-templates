@@ -417,6 +417,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [ecs-sqlserver](./compute-nest-best-practice/ecs-sqlserver/README.md)                                   | 创建 ECS 和 SQL Server 实例。        |
 | [ehpc-demo](./compute-nest-best-practice/ehpc-demo/README.md)                                           | 创建弹性高性能计算集群。                   |
 | [existing-ecs-nginx](./compute-nest-best-practice/existing-ecs-nginx/README.md)                         | 在已有 ECS 实例上部署 Nginx。           |
+| [fc](./compute-nest-best-practice/fc/README.md)                                                         | 部署一个NAS+OSS UI文件管理系统(Kodbox)到阿里云函数计算。 |
 | [managed-reverse-vpc-connection](./compute-nest-best-practice/managed-reverse-vpc-connection/README.md) | 全托管服务私网反向访问的最佳实践。              |
 | [master-slave-ecs](./compute-nest-best-practice/master-slave-ecs/README.md)                             | 创建 Master-Slave 架构的 ECS 实例。    |
 | [opensource](./compute-nest-best-practice/opensource)                                                   | 部署各类开源软件的最佳实践。                 |
