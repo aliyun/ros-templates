@@ -1,0 +1,282 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: calculate signatures in Java on the server, configure upload callbacks, and
+    then use form upload to upload data to Object Storage Service (OSS).
+  zh-cn: 服务端通过Java代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。
+Parameters:
+  AccessKey:
+    Type: String
+    Label:
+      en: Your access key
+      zh-cn: 请填写您的访问密钥AK
+    Description:
+      en: Access key required to use oss
+      zh-cn: 访问OSS所需的访问密钥
+  AccessKeySecret:
+    Type: String
+    Label:
+      en: Your access key secret
+      zh-cn: 请填写您的访问密钥SK
+    Description:
+      en: Access key secret required to use oss
+      zh-cn: 访问OSS所需的SK
+    NoEcho: true
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: Available Zone ID,</font><a href='https://www.alibabacloud.com/help/doc-detail/123712.html'
+        target='_blank'><b> View region and zone info</b><font color='blue'></a>.
+      zh-cn: 可用区Id,</font><a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>.
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      en: ECS Instance Type
+      zh-cn: ECS实例类型
+    Description:
+      en: The ECS instance type,go to the product console to ensure the current instance
+        is available, <font><a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
+        target='_blank'><b>View instance types</b></font color='blue'></a>.
+      zh-cn: ECS实例类型，进入产品控制台确保当前实例可用, <font><a href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b>查看实例类型</b></font color='blue'></a>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类别
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud
+    - cloud_essd
+    - ephemeral_ssd
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/.
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  OSSBucketName:
+    Type: String
+    Label:
+      en: OSS bucket name
+      zh-cn: 对象存储空间的名称
+    Description:
+      en: Name of OSS bucket, [2, 128] English.
+      zh-cn: 对象存储空间的名称，[2，128]英文。
+    Default: examplebucket
+    AllowedPattern: '[-_a-zA-Z0-9]{2,128}$'
+    MinLength: 2
+    MaxLength: 128
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/8
+      VpcName:
+        Fn::Join:
+        - _
+        - - Vpc
+          - Ref: ALIYUN::StackId
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Join:
+        - _
+        - - SecurityGroup
+          - Ref: ALIYUN::StackId
+      SecurityGroupType: normal
+      SecurityGroupIngress:
+      - PortRange: -1/-1
+        IpProtocol: all
+        SourceCidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - PortRange: -1/-1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - Vpc
+        - VpcId
+      CidrBlock: 10.0.10.0/24
+    DependsOn: Vpc
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: ubuntu
+      AllocatePublicIP: true
+      InstanceType:
+        Ref: InstanceType
+      Password:
+        Ref: Password
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskDiskName: SystemDisk
+      SystemDiskSize: 40
+  OSSBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: OSSBucketName
+      DeletionForce: true
+      CORSConfiguration:
+        CORSRule:
+        - AllowedHeader:
+          - '*'
+          AllowedMethod:
+          - POST
+          AllowedOrigin:
+          - '*'
+          MaxAgeSeconds: 0
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Ref: WebServer
+      Type: RunShellScript
+      CommandContent:
+        Fn::Sub:
+        - |
+          #!/bin/bash
+          sudo apt update
+          sudo apt-get install -y unzip
+          sudo apt-get install -y python3-dev
+          mkdir /home/aliyun
+          cd /home/aliyun
+          wget https://docs-aliyun.cn-hangzhou.oss.aliyun-inc.com/assets/attach/97721/cn_zh/1545016122500/aliyun-oss-appserver-python-master.zip
+          unzip aliyun-oss-appserver-python-master.zip
+          rm aliyun-oss-appserver-python-master.zip
+          mv aliyun-oss-appserver-python-preview_1.0.1-2f62c60e04b4ff204320adf47ded9d83fd79e826 aliyun-oss-appserver-python
+          chmod -R 777 /home/aliyun
+          cd /home/aliyun/aliyun-oss-appserver-python
+          sed -i 's/<yourAccessKeyId>/${AccessKey}/' appserver.py
+          sed -i 's/<yourAccessKeySecret>/${AccessKeySecret}/' appserver.py
+          sed -i 's/bucket-name.oss-cn-hangzhou.aliyuncs.com/${OSSBucketName}.oss-${RegionId}.aliyuncs.com/' appserver.py
+          sed -i 's/88.88.88.88:8888/${PublicIP}:8080/' appserver.py
+          sed -i '36d' appserver.py
+          sed -i 's/encodestring/encodebytes/' appserver.py
+          pip install pycryptodome
+
+          sudo apt-get install -y apache2
+          cd /var/www/html
+          wget https://docs-aliyun.cn-hangzhou.oss.aliyun-inc.com/assets/attach/86983/APP_zh/1537971352825/aliyun-oss-appserver-js-master.zip
+          unzip aliyun-oss-appserver-js-master.zip
+          rm aliyun-oss-appserver-js-master.zip
+          cd aliyun-oss-appserver-js-master
+          sed -i 's/88.88.88.88:8888/${PublicIP}:8080/' upload.js
+          mv * /var/www/html
+          nohup python3 /home/aliyun/aliyun-oss-appserver-python/appserver.py &
+        - AccessKey:
+            Ref: AccessKey
+          AccessKeySecret:
+            Ref: AccessKeySecret
+          OSSBucketName:
+            Ref: OSSBucketName
+          RegionId:
+            Ref: ALIYUN::Region
+          PublicIP:
+            Fn::GetAtt:
+            - WebServer
+            - PublicIp
+      Timeout: 3600
+      Sync: true
+Outputs:
+  ServerInstanceId:
+    Description:
+      en: The instance id of application server ecs instance.
+      zh-cn: 应用服务器ECS实例ID
+    Value:
+      Fn::GetAtt:
+      - WebServer
+      - InstanceId
+  ServerIP:
+    Description:
+      en: Application server address and port.
+      zh-cn: 应用服务器地址与端口
+    Value:
+      Fn::Sub:
+      - ${IP}:8080
+      - IP:
+          Fn::GetAtt:
+          - WebServer
+          - PublicIp
+  UploadPath:
+    Description:
+      en: Client html page.
+      zh-cn: 客户端测试页面。可访问该链接测试文件上传。
+    Value:
+      Fn::Sub:
+      - http://${IP}
+      - IP:
+          Fn::GetAtt:
+          - WebServer
+          - PublicIp
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - AccessKey
+      - AccessKeySecret
+      Label:
+        default: User
+    - Parameters:
+      - ZoneId
+      Label:
+        default: VPC
+    - Parameters:
+      - InstanceType
+      - SystemDiskCategory
+      - Password
+      Label:
+        default: ECS
+    - Parameters:
+      - OSSBucketName
+      Label:
+        default: OSS
+    TemplateTags:
+    - acs:document:oss:Java服务端签名直传并设置上传回调

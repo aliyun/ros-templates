@@ -382,38 +382,44 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |--------------------------------------------------------------------------------------------------------------------|-------------------------|
 | [rds-create-instance-database-and-connection.yml](./documents/rds/rds-create-instance-database-and-connection.yml) | 快速创建RDS MySQL实例并进行基本设置。|
 
-
 - oss
 
-| Template                                             | Description                                                                                                                |
-|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| 模板                 | 说明                          |
+| ------------- | --------------- |
+| [add-signatures-on-server-configure-upload-callback.yml](./documents/oss/add-signatures-on-server-configure-upload-callback.yml) | 在服务端通过Java代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。 |
+| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml) | 基于POST Policy的使用规则在客户端通过JavaScript代码完成签名，然后通过表单直传数据到OSS。 |
 | [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | 从服务器获取签名信息并上传数据到OSS。|
-
 
 - trial
 
 | 模板                                                                                                                               | 说明                                                                                         |
 | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| [alb-7-layer-load-balancing.yml](documents/trial/alb-7-layer-load-balancing.yml)                                                 | 实现 IPv4 服务的七层负载均衡。 \| [教程](https://help.aliyun.com/document_detail/612746.htm) |
-| [clb-4-layer-load-balancing.yml](documents/trial/clb-4-layer-load-balancing.yml)                                                 | 四层 CLB 负载均衡。 \| [教程](https://help.aliyun.com/document_detail/612746.htm)            |
-| [clb-7-layer-load-balancing.yml](documents/trial/clb-7-layer-load-balancing.yml)                                                 | 七层 CLB 负载均衡。 \| [教程](https://help.aliyun.com/document_detail/611014.htm)            |
-| [nlb-4-layer-load-balancing.yml](documents/trial/nlb-4-layer-load-balancing.yml)                                                 | 实现 IPv4 服务的四层负载均衡。 \| [教程](https://help.aliyun.com/document_detail/611685.htm) |
-| [ecs-blog.yml](documents/trial/ecs-blog.yml)                                                                                     | 搭建云上博客。                                                                               |
-| [ecs-lamp.yml](documents/trial/ecs-lamp.yml)                                                                                     | 部署 LAMP 环境。                                                                             |
-| [ecs-lnmp.yml](documents/trial/ecs-lnmp.yml)                                                                                     | 部署 LNMP 环境。 \| [教程](https://help.aliyun.com/document_detail/611922.htm)               |
-| [ecs-mount-nas-file-system.yml](documents/trial/ecs-mount-nas-file-system.yml)                                                   | NAS 挂载到 ECS。                                                                             |
-| [ecs-online-education-video-course-sharing-website.yml](documents/trial/ecs-online-education-video-course-sharing-website.yml)   | 搭建在线教育视频课程分享网站。                                                               |
-| [ecs-website.yml](documents/trial/ecs-website.yml)                                                                               | 快速搭建网站。 \| [教程](https://help.aliyun.com/document_detail/611918.htm)                 |
-| [ga-accelerated-access-to-specified-ip.yml](documents/trial/ga-accelerated-access-to-specified-ip.yml)                           | 加速访问指定 IP 的后端服务。                                                                 |
-| [oos-timing-management-of-ecs.yml](documents/trial/oos-timing-management-of-ecs.yml)                                             | OOS 实现 ECS 的定时管理。                                                                    |
-| [polardb-mysql-htap-real-time-data-analysis.yml](documents/trial/polardb-mysql-htap-real-time-data-analysis.yml)                 | PolarDB MySQL HTAP 实时数据分析。                                                            |
-| [polardb-postgresql-enterprise-performance-practice.yml](documents/trial/polardb-postgresql-enterprise-performance-practice.yml) | PolarDB PostgreSQL 企业级性能实践。                                                          |
-| [ram-create-user-and-authorize.yml](documents/trial/ram-create-user-and-authorize.yml)                                           | 创建 RAM 用户并授权。                                                                        |
-| [rds-create-account-database-and-connection.yml](documents/trial/rds-create-account-database-and-connection.yml)                 | 创建连接 RDS 数据库并进行读写操作。                                                          |
-| [rds-quickly-use-rds-mysql-serverless-instance.yml](documents/trial/rds-quickly-use-rds-mysql-serverless-instance.yml)           | 快速使用RDS MySQL Serverless实例 。                                                       |
-| [redis-game-player-leaderboard.yml](documents/trial/redis-game-player-leaderboard.yml)                                           | Redis 游戏玩家排行榜。                                                                       |
-| [sls-collect-logs-in-nginx-mode.yml](documents/trial/sls-collect-logs-in-nginx-mode.yml)                                         | 通过日志服务SLS快速采集Nginx日志。                                                           |
-| [tair-restores-data-through-data-flashback.yml](documents/trial/tair-restores-data-through-data-flashback.yml)                   | Tair 通过数据闪回恢复数据。                                                                  |
+| [alb-7-layer-load-balancing.yml](./documents/trial/alb-7-layer-load-balancing.yml)                                                 | 实现 IPv4 服务的七层负载均衡。 \| [教程](https://help.aliyun.com/document_detail/612746.htm) |
+| [clb-4-layer-load-balancing.yml](./documents/trial/clb-4-layer-load-balancing.yml)                                                 | 四层 CLB 负载均衡。 \| [教程](https://help.aliyun.com/document_detail/612746.htm)            |
+| [clb-7-layer-load-balancing.yml](./documents/trial/clb-7-layer-load-balancing.yml)                                                 | 七层 CLB 负载均衡。 \| [教程](https://help.aliyun.com/document_detail/611014.htm)            |
+| [nlb-4-layer-load-balancing.yml](./documents/trial/nlb-4-layer-load-balancing.yml)                                                 | 实现 IPv4 服务的四层负载均衡。 \| [教程](https://help.aliyun.com/document_detail/611685.htm) |
+| [ecs-blog.yml](./documents/trial/ecs-blog.yml)                                                                                     | 搭建云上博客。                                                                               |
+| [ecs-lamp.yml](./documents/trial/ecs-lamp.yml)                                                                                     | 部署 LAMP 环境。                                                                             |
+| [ecs-lnmp.yml](./documents/trial/ecs-lnmp.yml)                                                                                     | 部署 LNMP 环境。 \| [教程](https://help.aliyun.com/document_detail/611922.htm)               |
+| [ecs-mount-nas-file-system.yml](./documents/trial/ecs-mount-nas-file-system.yml)                                                   | NAS 挂载到 ECS。                                                                             |
+| [ecs-online-education-video-course-sharing-website.yml](./documents/trial/ecs-online-education-video-course-sharing-website.yml)   | 搭建在线教育视频课程分享网站。                                                               |
+| [ecs-website.yml](./documents/trial/ecs-website.yml)                                                                               | 快速搭建网站。 \| [教程](https://help.aliyun.com/document_detail/611918.htm)                 |
+| [edas-deploy-Java-application-based-on-ecs-cluster.yml](./documents/trial/edas-deploy-Java-application-based-on-ecs-cluster.yml)                                                                               | 在EDAS中基于ECS集群部署Java微服务应用。 \| [教程](https://help.aliyun.com/document_detail/615356.html)                 |
+| [ga-accelerated-access-to-specified-ip.yml](./documents/trial/ga-accelerated-access-to-specified-ip.yml)                           | 加速访问指定 IP 的后端服务。                                                                 |
+| [nlpautoml-create-and-train-sentiment-analysis-model.yml](./documents/trial/nlpautoml-create-and-train-sentiment-analysis-model.yml)                           | 基于NLP自学习平台创建并训练情感分析模型。                                                                 |
+| [oos-timing-management-of-ecs.yml](./documents/trial/oos-timing-management-of-ecs.yml)                                             | OOS 实现 ECS 的定时管理。                                                                    |
+| [polardb-mysql-htap-real-time-data-analysis.yml](./documents/trial/polardb-mysql-htap-real-time-data-analysis.yml)                 | PolarDB MySQL HTAP 实时数据分析。                                                            |
+| [polardb-postgresql-compatible-with-PG.yml](./documents/trial/polardb-postgresql-compatible-with-PG.yml)                                             | 云原生数据库PolarDB PostgreSQL版试用教程。                                                                  |
+| [polardb-postgresql-compatible-with-oracle.yml](./documents/trial/polardb-postgresql-compatible-with-oracle.yml)                                             | 云原生数据库PolarDB PostgreSQL（兼容Oracle）版试用教程。                                                                  |
+| [polardb-postgresql-enterprise-performance-practice.yml](./documents/trial/polardb-postgresql-enterprise-performance-practice.yml) | PolarDB PostgreSQL 企业级性能实践。                                                          |
+| [polardb-x-best-practice.yml](./documents/trial/polardb-x-best-practice.yml)                                             | 云原生数据库PolarDB分布式版企业版试用教程
+。                                                                  |
+| [ram-create-user-and-authorize.yml](./documents/trial/ram-create-user-and-authorize.yml)                                           | 创建 RAM 用户并授权。                                                                        |
+| [rds-create-account-database-and-connection.yml](./documents/trial/rds-create-account-database-and-connection.yml)                 | 创建连接 RDS 数据库并进行读写操作。                                                          |
+| [rds-quickly-use-rds-mysql-serverless-instance.yml](./documents/trial/rds-quickly-use-rds-mysql-serverless-instance.yml)           | 快速使用RDS MySQL Serverless实例 。                                                       |
+| [redis-game-player-leaderboard.yml](./documents/trial/redis-game-player-leaderboard.yml)                                           | Redis 游戏玩家排行榜。                                                                       |
+| [sls-collect-logs-in-nginx-mode.yml](./documents/trial/sls-collect-logs-in-nginx-mode.yml)                                         | 通过日志服务SLS快速采集Nginx日志。                                                           |
+| [tair-restores-data-through-data-flashback.yml](./documents/trial/tair-restores-data-through-data-flashback.yml)                   | Tair 通过数据闪回恢复数据。                                                                  |
 
 </details>
 
