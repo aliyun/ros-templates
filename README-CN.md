@@ -370,6 +370,19 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | [lnmp-centos7.yml](./documents/ecs/lnmp-centos7.yml) | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
 
+- alb
+
+| 模板                                                                                                                 | 说明                 |
+|--------------------------------------------------------------------------------------------------------------------|--------------------|
+| [alb-create-ipv4-load-balancer-and-dnsrecord.yml](./documents/alb/alb-create-ipv4-load-balancer-and-dnsrecord.yml) | 快速实现IPv4服务的负载均衡。 |
+
+- rds
+
+| 模板                                                                                                                 | 说明                      |
+|--------------------------------------------------------------------------------------------------------------------|-------------------------|
+| [rds-create-instance-database-and-connection.yml](./documents/rds/rds-create-instance-database-and-connection.yml) | 快速创建RDS MySQL实例并进行基本设置。 |
+
+
 - trail
 
 | 模板                                                                                                                               | 说明                                                                                         |

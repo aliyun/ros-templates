@@ -370,6 +370,18 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
 | [lnmp-centos7.yml](./documents/ecs/lnmp-centos7.yml) | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
 
+- alb
+
+| Template                                                                         | Description                                                                                                                |
+|----------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| [alb-create-ipv4-load-balancer-and-dnsrecord.yml](./documents/alb/alb-create-ipv4-load-balancer-and-dnsrecord.yml) | Quickly create an instance of an IPv4 version of ALB and forward access requests from an IPv4 client to a back-end server. |
+
+- rds
+
+| Template                                                                                                          | Description                                                                   |
+|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| [rds-create-instance-database-and-connection.yml](./documents/rds/rds-create-instance-database-and-connection.yml) | Create the RDS MySQL instance, do the basic setup, and connect the instance. |
+
 - trail
 
 | Template                                                                                                                           | Description                                            |
