@@ -380,7 +380,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | 模板                                                                                                                 | 说明                      |
 |--------------------------------------------------------------------------------------------------------------------|-------------------------|
-| [rds-create-instance-database-and-connection.yml](./documents/rds/rds-create-instance-database-and-connection.yml) | 快速创建RDS MySQL实例并进行基本设置。 |
+| [rds-create-instance-database-and-connection.yml](./documents/rds/rds-create-instance-database-and-connection.yml) | 快速创建RDS MySQL实例并进行基本设置。|
 
 
 - trail
