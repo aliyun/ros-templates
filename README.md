@@ -366,8 +366,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - ecs
 
-| Template                                             | Description                                                                                                                |
-|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| Template                        | Description                                                                     |
+|------------------------------------------------------|----------------------------------------------------------------------|
 | [lnmp-centos7.yml](./documents/ecs/lnmp-centos7.yml) | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
 
 - alb
@@ -384,35 +384,41 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - oss
 
-| Template                                             | Description                                                                                                                |
-|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| Template              | Description          |
+|---------------------|-----------------------|
+| [add-signatures-on-server-configure-upload-callback.yml](./documents/oss/add-signatures-on-server-configure-upload-callback.yml) | Calculate signatures in Java on the server, configure upload callbacks, and upload data to OSS. |
+| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml) | Use JavaScript to add signatures on the client based on POST policies and then upload data to OSS.|
 | [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | Obtain signature information from the server and upload data to OSS. |
-
 
 - trial
 
+
 | Template                                                                                                                           | Description                                            |
 | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| [alb-7-layer-load-balancing.yml](documents/trial/alb-7-layer-load-balancing.yml)                                                 | Implements 7-layer load balancing for IPv4 services.    |
-| [clb-4-layer-load-balancing.yml](documents/trial/clb-4-layer-load-balancing.yml)                                                 | 4-layer CLB load balancing.                             |
-| [clb-7-layer-load-balancing.yml](documents/trial/clb-7-layer-load-balancing.yml)                                                 | 7-layer CLB load balancing.                             |
-| [nlb-4-layer-load-balancing.yml](documents/trial/nlb-4-layer-load-balancing.yml)                                                 | Implements 4-layer load balancing for IPv4 services.    |
-| [ecs-blog.yml](documents/trial/ecs-blog.yml)                                                                                     | Deploy a blog on the cloud.                             |
-| [ecs-lamp.yml](documents/trial/ecs-lamp.yml)                                                                                     | Deploy a LAMP environment.                              |
-| [ecs-lnmp.yml](documents/trial/ecs-lnmp.yml)                                                                                     | Deploy a LNMP environment.                              |
-| [ecs-mount-nas-file-system.yml](documents/trial/ecs-mount-nas-file-system.yml)                                                   | Mount NAS to ECS.                                       |
-| [ecs-online-education-video-course-sharing-website.yml](documents/trial/ecs-online-education-video-course-sharing-website.yml)   | Build an online education video course sharing website. |
-| [ecs-website.yml](documents/trial/ecs-website.yml)                                                                               | Quickly deploy a website.                               |
-| [ga-accelerated-access-to-specified-ip.yml](documents/trial/ga-accelerated-access-to-specified-ip.yml)                           | Accelerated access to specified backend services by IP. |
-| [oos-timing-management-of-ecs.yml](documents/trial/oos-timing-management-of-ecs.yml)                                             | OOS timing management of ECS.                           |
-| [polardb-mysql-htap-real-time-data-analysis.yml](documents/trial/polardb-mysql-htap-real-time-data-analysis.yml)                 | PolarDB MySQL HTAP real-time data analysis.             |
-| [polardb-postgresql-enterprise-performance-practice.yml](documents/trial/polardb-postgresql-enterprise-performance-practice.yml) | PolarDB PostgreSQL enterprise performance practice.     |
-| [ram-create-user-and-authorize.yml](documents/trial/ram-create-user-and-authorize.yml)                                           | Create RAM user and authorize.                          |
-| [rds-create-account-database-and-connection.yml](documents/trial/rds-create-account-database-and-connection.yml)                 | Create account, database, and connection to RDS.        |
-| [rds-quickly-use-rds-mysql-serverless-instance.yml](documents/trial/rds-quickly-use-rds-mysql-serverless-instance.yml)           | Quickly use RDS MySQL Serverless instance.              |
-| [redis-game-player-leaderboard.yml](documents/trial/redis-game-player-leaderboard.yml)                                           | Redis game player leaderboard.                          |
-| [sls-collect-logs-in-nginx-mode.yml](documents/trial/sls-collect-logs-in-nginx-mode.yml)                                         | Quickly collect Nginx logs through Log Service SLS.     |
-| [tair-restores-data-through-data-flashback.yml](documents/trial/tair-restores-data-through-data-flashback.yml)                   | Restore data in Tair through data flashback.            |
+| [alb-7-layer-load-balancing.yml](./documents/trial/alb-7-layer-load-balancing.yml)                                                 | Implements 7-layer load balancing for IPv4 services.    |
+| [clb-4-layer-load-balancing.yml](./documents/trial/clb-4-layer-load-balancing.yml)                                                 | 4-layer CLB load balancing.                             |
+| [clb-7-layer-load-balancing.yml](./documents/trial/clb-7-layer-load-balancing.yml)                                                 | 7-layer CLB load balancing.                             |
+| [nlb-4-layer-load-balancing.yml](./documents/trial/nlb-4-layer-load-balancing.yml)                                                 | Implements 4-layer load balancing for IPv4 services.    |
+| [ecs-blog.yml](./documents/trial/ecs-blog.yml)                                                                                     | Deploy a blog on the cloud.                             |
+| [ecs-lamp.yml](./documents/trial/ecs-lamp.yml)                                                                                     | Deploy a LAMP environment.                              |
+| [ecs-lnmp.yml](./documents/trial/ecs-lnmp.yml)                                                                                     | Deploy a LNMP environment.                              |
+| [ecs-mount-nas-file-system.yml](./documents/trial/ecs-mount-nas-file-system.yml)                                                   | Mount NAS to ECS.                                       |
+| [ecs-online-education-video-course-sharing-website.yml](./documents/trial/ecs-online-education-video-course-sharing-website.yml)   | Build an online education video course sharing website. |
+| [ecs-website.yml](./documents/trial/ecs-website.yml)                                                                               | Quickly deploy a website.                               |
+| [edas-deploy-Java-application-based-on-ecs-cluster.yml](./documents/trial/edas-deploy-Java-application-based-on-ecs-cluster.yml)                                                                               |Deploy Java application in EDAS.                  |
+| [ga-accelerated-access-to-specified-ip.yml](./documents/trial/ga-accelerated-access-to-specified-ip.yml)                           | Accelerated access to specified backend services by IP. |
+| [oos-timing-management-of-ecs.yml](./documents/trial/oos-timing-management-of-ecs.yml)                                             | OOS timing management of ECS.                           |
+| [nlpautoml-create-and-train-sentiment-analysis-model.yml](./documents/trial/nlpautoml-create-and-train-sentiment-analysis-model.yml)                           | Create and train sentiment analysis model.                                                                 |
+| [polardb-mysql-htap-real-time-data-analysis.yml](./documents/trial/polardb-mysql-htap-real-time-data-analysis.yml)                 | PolarDB MySQL HTAP real-time data analysis.             |
+| [polardb-postgresql-compatible-with-PG.yml](./documents/trial/polardb-postgresql-compatible-with-PG.yml)                                             | PolarDB postgresql compatible with PG14.                                                                  |
+| [polardb-postgresql-compatible-with-oracle.yml](./documents/trial/polardb-postgresql-compatible-with-oracle.yml)                                             | PolarDB postgresql compatible with Oracle.                                                                  |
+| [polardb-postgresql-enterprise-performance-practice.yml](./documents/trial/polardb-postgresql-enterprise-performance-practice.yml) | PolarDB PostgreSQL enterprise performance practice.     |
+| [ram-create-user-and-authorize.yml](./documents/trial/ram-create-user-and-authorize.yml)                                           | Create RAM user and authorize.                          |
+| [rds-create-account-database-and-connection.yml](./documents/trial/rds-create-account-database-and-connection.yml)                 | Create account, database, and connection to RDS.        |
+| [rds-quickly-use-rds-mysql-serverless-instance.yml](./documents/trial/rds-quickly-use-rds-mysql-serverless-instance.yml)           | Quickly use RDS MySQL Serverless instance.              |
+| [redis-game-player-leaderboard.yml](./documents/trial/redis-game-player-leaderboard.yml)                                           | Redis game player leaderboard.                          |
+| [sls-collect-logs-in-nginx-mode.yml](./documents/trial/sls-collect-logs-in-nginx-mode.yml)                                         | Quickly collect Nginx logs through Log Service SLS.     |
+| [tair-restores-data-through-data-flashback.yml](./documents/trial/tair-restores-data-through-data-flashback.yml)                   | Restore data in Tair through data flashback.            |
 
 </details>
 
