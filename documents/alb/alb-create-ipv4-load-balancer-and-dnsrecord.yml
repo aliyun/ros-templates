@@ -1,0 +1,357 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 'Ali Cloud application-oriented load balancer ALB support HTTP, HTTPS, and QUIC protocols and are dedicated to the network application layer, providing powerful service processing capabilities.  This article describes how to quickly create an instance of an IPv4 version of ALB and forward access requests from an IPv4 client to a back-end server. '
+  zh-cn: 阿里云应用型负载均衡ALB支持HTTP、HTTPS和QUIC协议，专门面向网络应用层，提供强大的业务处理能力。本文介绍如何快速创建一个IPv4版本的ALB实例，并将来自IPv4客户端的访问请求转发至后端服务器。
+Parameters:
+  VSwitchZoneId1:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone 1
+      zh-cn: 交换机可用区1
+    Description:
+      zh-cn: ALB支持多可用区部署,为保障业务高可用，请至少选择2个可用区,不能与交换机可用区2相同。
+      en: 'ALB support multiple availability zones. To ensure high service availability, select at least two availability zones, which cannot be the same as switch availability zone 2. '
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VSwitchZoneId2:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone 2
+      zh-cn: 交换机可用区2
+    Description:
+      zh-cn: ALB支持多可用区部署,为保障业务高可用，请至少选择2个可用区,不能与交换机可用区1相同。
+      en: 'ALB support multiple availability zones. To ensure high service availability, select at least two availability zones, which cannot be the same as switch availability zone 1. '
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      zh-cn: 填写交换机可用区1可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.g6.xlarge</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font color='blue'>实例规格族</font></a></b>
+      en: 'Fill in the specifications that can be used under the VSwitch availability zone 1;</b></font><br>general specifications：<font color=''red''><b>ecs.g6.xlarge</b></font><br>note: a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html'' target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${EcsInstanceType}
+      ZoneId: ${VSwitchZoneId1}
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  CreateDNSRecord:
+    Type: Boolean
+    Label:
+      en: Setting domain name resolution
+      zh-cn: 是否设置域名解析
+    Description:
+      en: Whether to set domain name resolution (optional).
+      zh-cn: 是否设置域名解析（可选）。
+    Default: false
+  DomainName:
+    Type: String
+    Label:
+      en: Domain Name
+      zh-cn: 域名
+    Description:
+      en: Domain Name,fill in the applied domain name.
+      zh-cn: 域名,填入已申请的域名名称。
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${CreateDNSRecord}
+            - true
+    Default: ''
+Conditions:
+  IsCreateManageEnv:
+    Fn::Equals:
+      - Ref: CreateDNSRecord
+      - true
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: ALIYUN::StackName
+      CidrBlock: 192.168.0.0/16
+  EcsVSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Join:
+          - '-'
+          - - VSwitch1
+            - StackId
+            - Ref: ALIYUN::StackId
+      CidrBlock: 192.168.0.0/24
+  EcsVSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Join:
+          - '-'
+          - - VSwitch2
+            - StackId
+            - Ref: ALIYUN::StackId
+      CidrBlock: 192.168.1.0/24
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: intranet
+        - PortRange: 80/80
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: intranet
+        - PortRange: 443/443
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: intranet
+        - PortRange: '-1/-1'
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: icmp
+          NicType: intranet
+        - Policy: drop
+          PortRange: '-1/-1'
+          Priority: 10
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: all
+          NicType: intranet
+      SecurityGroupEgress:
+        - PortRange: '-1/-1'
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: internet
+        - PortRange: '-1/-1'
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+  WebServerConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  WebServerWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Timeout: 1800
+      Count: 2
+      Handle:
+        Ref: WebServerConditionHandle
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      InstanceName:
+        Fn::Join:
+          - '-'
+          - - Ref: ALIYUN::StackName
+            - '[1,4]'
+      IoOptimized: optimized
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize: 40
+      MaxAmount: 2
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: true
+      InternetMaxBandwidthOut: 20
+      UserData:
+        Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+                - WebServerConditionHandle
+                - CurlCli
+          - Fn::Sub: |-
+              #!/bin/sh
+              yum install -y nginx
+              systemctl start nginx.service
+              cd /usr/share/nginx/html/
+              echo 'Hello World! this ecs' > index.html
+              ros-notify -d '{"data" : "Install nginx."}'
+  LoadBalancer:
+    Type: ALIYUN::ALB::LoadBalancer
+    Properties:
+      LoadBalancerName:
+        Ref: ALIYUN::StackName
+      LoadBalancerEdition: Basic
+      VpcId:
+        Ref: EcsVpc
+      LoadBalancerBillingConfig:
+        PayType: PostPay
+      ZoneMappings:
+        - ZoneId:
+            Ref: VSwitchZoneId1
+          VSwitchId:
+            Ref: EcsVSwitch1
+        - ZoneId:
+            Ref: VSwitchZoneId2
+          VSwitchId:
+            Ref: EcsVSwitch2
+      AddressType: Internet
+  ServerGroup:
+    Type: ALIYUN::ALB::ServerGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      ServerGroupType: Instance
+      Protocol: HTTP
+      ServerGroupName:
+        Ref: ALIYUN::StackName
+      Scheduler: Wrr
+      HealthCheckConfig:
+        HealthCheckEnabled: true
+      StickySessionConfig:
+        StickySessionEnabled: false
+  BackendServerAttachment:
+    Type: ALIYUN::ALB::BackendServerAttachment
+    Properties:
+      ServerGroupId:
+        Ref: ServerGroup
+      Servers:
+        - ServerType: Ecs
+          ServerId:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - InstanceIds
+          Port: 80
+          Weight: 100
+        - ServerType: Ecs
+          ServerId:
+            Fn::Select:
+              - 1
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - InstanceIds
+          Port: 80
+          Weight: 100
+  Listener:
+    Type: ALIYUN::ALB::Listener
+    Properties:
+      DefaultActions:
+        - Type: ForwardGroup
+          ForwardGroupConfig:
+            ServerGroupTuples:
+              - ServerGroupId:
+                  Ref: ServerGroup
+      LoadBalancerId:
+        Ref: LoadBalancer
+      ListenerProtocol: HTTP
+      ListenerPort: 80
+  Domain:
+    Type: ALIYUN::DNS::Domain
+    Condition: IsCreateManageEnv
+    Properties:
+      DomainName:
+        Ref: DomainName
+  DomainRecord:
+    Type: ALIYUN::DNS::DomainRecord
+    DependsOn: Domain
+    Condition: IsCreateManageEnv
+    Properties:
+      RR: '@'
+      DomainName:
+        Ref: DomainName
+      Value:
+        Fn::GetAtt:
+          - LoadBalancer
+          - DNSName
+      Type: CNAME
+Outputs:
+  DNSName:
+    Description:
+      en: The domain name of the ALB instance.
+      zh-cn: ALB实例的域名。
+    Value:
+      Fn::Sub:
+        - http://${DNSName}
+        - DNSName:
+            Fn::GetAtt:
+              - LoadBalancer
+              - DNSName
+  InstanceIds:
+    Description:
+      en: ECS Instance Ids.
+      zh-cn: ECS实例ID
+    Value:
+      Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - VSwitchZoneId1
+          - VSwitchZoneId2
+        Label:
+          en: Infrastructure Configuration
+          zh-cn: 基础资源配置
+      - Parameters:
+          - EcsInstanceType
+          - SystemDiskCategory
+          - EcsImageId
+          - InstancePassword
+        Label:
+          en: ECS Configuration
+          zh-cn: ECS配置
+      - Parameters:
+          - CreateDNSRecord
+          - DomainName
+        Label:
+          en: Domain name resolution configuration
+          zh-cn: 域名解析配置
+    TemplateTags:
+      - acs:document:alb:快速实现IPv4服务的负载均衡
