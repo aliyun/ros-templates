@@ -370,6 +370,13 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |------------------------------------------------------|----------------------------------------------------------------------|
 | [lnmp-centos7.yml](./documents/ecs/lnmp-centos7.yml) | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
 
+- ack
+  
+| Template                        | Description                                                                     |
+|------------------------------------------------------|----------------------------------------------------------------------|
+| [ack-cube-game.yml](./documents/ack/ack-cube-game.yml) | Deploy cube game using ACK. |
+
+
 - alb
 
 | Template                                                                         | Description                                                                                                                |

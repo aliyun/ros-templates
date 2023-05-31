@@ -1,0 +1,450 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Deploy cube game using ACK.
+  zh-cn: 使用ACK部署魔方游戏。
+Parameters:
+  AckName:
+    Type: String
+    Label:
+      en: Cluster Name
+      zh-cn: 集群名称
+    Description:
+      en: The name must be 1 to 63 characters in length and can contain letters, Chinese
+        characters, digits, and hyphens (-).
+      zh-cn: 名称为1~63个字符，可包含数字、汉字、英文字符或中划线（-）。
+    Default: ack-demo
+    AllowedPattern: ^[a-zA-Z0-9\u4e00-\u9fa5][-a-zA-Z0-9\u4e00-\u9fa5]{0,62}$
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Available Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 节点规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    AllowedPattern: ^(ecs\.[a-z5-9]+\.)[1-9]?xlarge$
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: Worker System Disk Category
+      zh-cn: 节点系统盘磁盘类型
+  LoginPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 节点登录密码
+    Description:
+      en: |-
+        The password must be 8 to 32 characters in length. <br>
+        It must consist three of the the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
+        Special characters include <span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>.<br>
+      zh-cn: 长度为8-30位，需包含大写字母、小写字母、特殊符号和数字中的三个，允许的特殊字符包括<span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>。
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+Resources:
+  EnableAck:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: CS
+  AliyunCSManagedLogRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSManagedLogRole
+      Description: 容器服务(CS) Kubernetes 集群日志组件使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSManagedLogRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSManagedLogRole
+      PolicyType: System
+      PolicyName: AliyunCSManagedLogRolePolicy
+  AliyunCSManagedCmsRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSManagedCmsRole
+      Description: 容器服务(CS) 集群CMS组件使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSManagedCmsRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSManagedCmsRole
+      PolicyType: System
+      PolicyName: AliyunCSManagedCmsRolePolicy
+  AliyunCSManagedCsiRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSManagedCsiRole
+      Description: 容器服务(CS) Kubernetes 集群存储插件使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSManagedCsiRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSManagedCsiRole
+      PolicyType: System
+      PolicyName: AliyunCSManagedCsiRolePolicy
+  AliyunCSManagedVKRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSManagedVKRole
+      Description: 容器服务(CS) Serverless集群VK组件使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSManagedVKRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSManagedVKRole
+      PolicyType: System
+      PolicyName: AliyunCSManagedVKRolePolicy
+  AliyunCSClusterRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSClusterRole
+      Description: 容器服务(CS)在应用运行期使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSClusterRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSClusterRole
+      PolicyType: System
+      PolicyName: AliyunCSClusterRolePolicy
+  AliyunCSServerlessKubernetesRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSServerlessKubernetesRole
+      Description: 容器服务(CS) Serverless Kubernetes版 默认使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSServerlessKubernetesRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSServerlessKubernetesRole
+      PolicyType: System
+      PolicyName: AliyunCSServerlessKubernetesRolePolicy
+  AliyunCSKubernetesAuditRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSKubernetesAuditRole
+      Description: 容器服务(CS) Kubernetes 审计功能使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSKubernetesAuditRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSKubernetesAuditRole
+      PolicyType: System
+      PolicyName: AliyunCSKubernetesAuditRolePolicy
+  AliyunCSManagedNetworkRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSManagedNetworkRole
+      Description: 容器服务(CS) 集群网络组件使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSManagedNetworkRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSManagedNetworkRole
+      PolicyType: System
+      PolicyName: AliyunCSManagedNetworkRolePolicy
+  AliyunCSDefaultRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSDefaultRole
+      Description: 容器服务(CS)在集群操作时默认使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSDefaultRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSDefaultRole
+      PolicyType: System
+      PolicyName: AliyunCSDefaultRolePolicy
+  AliyunCSManagedKubernetesRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSManagedKubernetesRole
+      Description: 容器服务(CS) Managed Kubernetes版 默认使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSManagedKubernetesRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSManagedKubernetesRole
+      PolicyType: System
+      PolicyName: AliyunCSManagedKubernetesRolePolicy
+  AliyunCSManagedArmsRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunCSManagedArmsRole
+      Description: 容器服务(CS) Kubernetes 集群Arms插件使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cs.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+  AttachPolicyToAliyunCSManagedArmsRole:
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      RoleName:
+        Ref: AliyunCSManagedArmsRole
+      PolicyType: System
+      PolicyName: AliyunCSManagedArmsRolePolicy
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  Vswitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: Vswitch
+  Ack:
+    Type: ALIYUN::CS::ManagedKubernetesCluster
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchIds:
+      - Ref: Vswitch
+      PodVswitchIds:
+      - Ref: Vswitch
+      Name:
+        Ref: AckName
+      NumOfNodes: 2
+      ClusterSpec: ack.pro.small
+      ServiceCidr: 172.16.0.0/16
+      Addons:
+      - Name: security-inspector
+      - Name: terway-eniip
+        Config: '{"IPVlan":"false","NetworkPolicy":"false","ENITrunking":"false"}'
+      - Name: csi-plugin
+      - Name: csi-provisioner
+      - Name: storage-operator
+        Config: '{"CnfsOssEnable":"false","CnfsNasEnable":"false"}'
+      - Name: logtail-ds
+        Config: '{"IngressDashboardEnabled":"true"}'
+      - Name: ack-node-problem-detector
+        Config: '{"sls_project_name":""}'
+      - Name: nginx-ingress-controller
+        Config: '{"IngressSlbNetworkType":"internet","IngressSlbSpec":"slb.s2.small"}'
+      - Name: ack-node-local-dns
+      - Name: arms-prometheus
+      EndpointPublicAccess: true
+      SnatEntry: true
+      IsEnterpriseSecurityGroup: true
+      WorkerInstanceTypes:
+      - Ref: InstanceType
+      WorkerSystemDiskCategory:
+        Ref: SystemDiskCategory
+      WorkerSystemDiskSize: 120
+      LoginPassword:
+        Ref: LoginPassword
+      Runtime:
+        Name: containerd
+        Version: 1.6.20
+    DependsOn: NatGateway
+  AckCubeApplication:
+    Type: ALIYUN::CS::ClusterApplication
+    Properties:
+      ClusterId:
+        Ref: Ack
+      YamlContent: |-
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ack-cube
+          labels:
+            app: ack-cube
+          annotations: {}
+        spec:
+          replicas: 2
+          selector:
+            matchLabels:
+              app: ack-cube
+          template:
+            metadata:
+              labels:
+                app: ack-cube
+              annotations: {}
+            spec:
+              containers:
+                - name: ack-cube
+                  image: registry.cn-hangzhou.aliyuncs.com/acr-toolkit/ack-cube:1.0
+                  resources:
+                    limits:
+                      cpu: '1'
+                      memory: 1024Mi
+                    requests:
+                      cpu: '0.5'
+                      memory: 512Mi
+                  volumeMounts: []
+                  ports:
+                    - protocol: TCP
+                      containerPort: 80
+                      name: ack
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ack-cube-svc
+          namespace: ''
+          annotations:
+            service.beta.kubernetes.io/alibaba-cloud-loadbalancer-spec: slb.s1.small
+        spec:
+          selector:
+            app: ack-cube
+          ports:
+            - protocol: TCP
+              port: 80
+              targetPort: 80
+          type: LoadBalancer
+          externalTrafficPolicy: Local
+  KubeAddress:
+    Type: DATASOURCE::CS::ClusterApplicationResources
+    Properties:
+      ClusterId:
+        Ref: Ack
+      Kind: Service
+      Name: ack-cube-svc
+      JsonPath: $.status.loadBalancer.ingress.[0].ip
+      FirstMatch: true
+    DependsOn: AckCubeApplication
+Outputs:
+  CubeAddress:
+    Description:
+      en: Cube game access address.
+      zh-cn: 魔方游戏访问地址。
+    Value:
+      Fn::Sub: http://${KubeAddress}
+  AckClusterId:
+    Description:
+      en: Ack cluster id.
+      zh-cn: Ack集群id。
+    Value:
+      Ref: Ack
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - AckName
+      - ZoneId
+      - InstanceType
+      - SystemDiskCategory
+      - LoginPassword
+    TemplateTags:
+    - acs:document:ack:使用ACK部署魔方游戏
