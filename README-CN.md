@@ -369,6 +369,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | 模板                                                 | 说明                                                                                     |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | [lnmp-centos7.yml](./documents/ecs/lnmp-centos7.yml) | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
+| [ftp-centos7.yml](./documents/ecs/ftp-centos7.yml) | 使用Centos7系统创建ECS实例安装部署FTP服务。 |
 
 - ack
   
@@ -421,8 +422,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [polardb-postgresql-compatible-with-PG.yml](./documents/trial/polardb-postgresql-compatible-with-PG.yml)                                             | 云原生数据库PolarDB PostgreSQL版试用教程。                                                                  |
 | [polardb-postgresql-compatible-with-oracle.yml](./documents/trial/polardb-postgresql-compatible-with-oracle.yml)                                             | 云原生数据库PolarDB PostgreSQL（兼容Oracle）版试用教程。                                                                  |
 | [polardb-postgresql-enterprise-performance-practice.yml](./documents/trial/polardb-postgresql-enterprise-performance-practice.yml) | PolarDB PostgreSQL 企业级性能实践。                                                          |
-| [polardb-x-best-practice.yml](./documents/trial/polardb-x-best-practice.yml)                                             | 云原生数据库PolarDB分布式版企业版试用教程
-。                                                                  |
+| [polardb-x-best-practice.yml](./documents/trial/polardb-x-best-practice.yml)                                             | 云原生数据库PolarDB分布式版企业版试用教程 |
 | [ram-create-user-and-authorize.yml](./documents/trial/ram-create-user-and-authorize.yml)                                           | 创建 RAM 用户并授权。                                                                        |
 | [rds-create-account-database-and-connection.yml](./documents/trial/rds-create-account-database-and-connection.yml)                 | 创建连接 RDS 数据库并进行读写操作。                                                          |
 | [rds-quickly-use-rds-mysql-serverless-instance.yml](./documents/trial/rds-quickly-use-rds-mysql-serverless-instance.yml)           | 快速使用RDS MySQL Serverless实例 。                                                       |
