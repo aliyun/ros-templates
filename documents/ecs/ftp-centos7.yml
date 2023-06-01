@@ -1,0 +1,171 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 使用Centos7系统创建ECS实例安装部署FTP服务。
+  en: Use Centos7 to create an ECS instance and install and deploy the FTP service.
+Parameters:
+  FTPUser:
+    Label:
+      zh-cn: FTP服务访问用户名
+      en: FTP server access username
+    Type: String
+    Default: ftptest
+  FTPUserPassword:
+    Label:
+      zh-cn: FTP服务访问用户密码
+      en: FTP server access username
+    Type: String
+    NoEcho: true
+  SystemDiskCategory:
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      ZoneId: ${ZoneId}
+    Type: String
+    Description:
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+    Label:
+      zh-cn: 系统磁盘类型
+      en: System Disk Category
+  InstancePassword:
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers, special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+    Description:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    MinLength: '8'
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    NoEcho: true
+    MaxLength: '30'
+    Type: String
+  InstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
+Outputs:
+  FTPServerAddress:
+    Description: FTP server Connection address.
+    Value:
+      Fn::Join:
+        - ''
+        - - ftp://
+          - Fn::GetAtt:
+              - EcsInstance
+              - PublicIp
+          - ':21'
+Resources:
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: -1/-1
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: all
+      VpcId:
+        Ref: EcsVpc
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 1800
+    DependsOn: EcsInstance
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      UserData:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            # install ftp
+            yum install -y vsftpd
+            adduser ${FTPUser}
+            echo ${FTPUserPassword} | passwd --stdin ${FTPUser}
+            mkdir /var/ftp/test
+            touch /var/ftp/test/testfile.txt
+            chown -R ${FTPUser}:${FTPUser} /var/ftp/test
+            touch /etc/vsftpd/chroot_list
+            systemctl enable vsftpd.service
+            systemctl start vsftpd.service
+            sed -i 's/anonymous_enable=YES/anonymous_enable=NO/' /etc/vsftpd/vsftpd.conf
+            sed -i 's/listen=NO/listen=YES/' /etc/vsftpd/vsftpd.conf
+            sed -i 's/listen_ipv6=YES/\# listen_ipv6=YES/' /etc/vsftpd/vsftpd.conf
+            echo "local_root=/var/ftp/test" >>/etc/vsftpd/vsftpd.conf
+            echo "pasv_enable=YES" >>/etc/vsftpd/vsftpd.conf
+            echo "allow_writeable_chroot=YES" >>/etc/vsftpd/vsftpd.conf
+            echo "pasv_min_port=50000" >>/etc/vsftpd/vsftpd.conf
+            echo "pasv_max_port=50010" >>/etc/vsftpd/vsftpd.conf
+            echo "pasv_address=127.0.0.1" >>/etc/vsftpd/vsftpd.conf
+            sed -i 's/\#chroot_local_user=YES/chroot_local_user=YES/' /etc/vsftpd/vsftpd.conf
+            sed -i 's/\#chroot_list_enable=YES/chroot_list_enable=YES/' /etc/vsftpd/vsftpd.conf
+            sed -i 's%#chroot_list_file=/etc/vsftpd/chroot_list%chroot_list_file=/etc/vsftpd/chroot_list%' /etc/vsftpd/vsftpd.conf
+            ${WaitConditionHandle.CurlCli} -d "{\"status\" : \"SUCCESS\"}"
+          - FTPUser:
+              Ref: FTPUser
+            FTPUserPassword:
+              Ref: FTPUserPassword
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      VpcId:
+        Fn::GetAtt:
+          - EcsVpc
+          - VpcId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      InternetMaxBandwidthOut: 80
+      IoOptimized: optimized
+      VSwitchId:
+        Ref: EcsVSwitch
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: InstanceType
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - SystemDiskCategory
+          - InstancePassword
+          - FTPUser
+          - FTPUserPassword
+        Label:
+          default: ECS
+    TemplateTags:
+      - acs:document:ecs:手动搭建FTP站点（CentOS 7）
