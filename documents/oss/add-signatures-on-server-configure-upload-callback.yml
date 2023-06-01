@@ -1,26 +1,21 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: calculate signatures in Java on the server, configure upload callbacks, and
+  en: calculate signatures in Python on the server, configure upload callbacks, and
     then use form upload to upload data to Object Storage Service (OSS).
-  zh-cn: 服务端通过Java代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。
+  zh-cn: 服务端通过Python代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。
 Parameters:
-  AccessKey:
+  OSSBucketName:
     Type: String
     Label:
-      en: Your access key
-      zh-cn: 请填写您的访问密钥AK
+      en: New OSS bucket name
+      zh-cn: 新建对象存储空间的名称
     Description:
-      en: Access key required to use oss
-      zh-cn: 访问OSS所需的访问密钥
-  AccessKeySecret:
-    Type: String
-    Label:
-      en: Your access key secret
-      zh-cn: 请填写您的访问密钥SK
-    Description:
-      en: Access key secret required to use oss
-      zh-cn: 访问OSS所需的SK
-    NoEcho: true
+      en: Name of new OSS bucket, [2, 128] English.
+      zh-cn: 新建对象存储空间的名称，[2，128]英文。
+    Default: examplebucket
+    AllowedPattern: '[-_a-zA-Z0-9]{2,128}$'
+    MinLength: 2
+    MaxLength: 128
   ZoneId:
     Type: String
     Label:
@@ -85,18 +80,6 @@ Parameters:
     MinLength: 8
     MaxLength: 30
     NoEcho: true
-  OSSBucketName:
-    Type: String
-    Label:
-      en: OSS bucket name
-      zh-cn: 对象存储空间的名称
-    Description:
-      en: Name of OSS bucket, [2, 128] English.
-      zh-cn: 对象存储空间的名称，[2，128]英文。
-    Default: examplebucket
-    AllowedPattern: '[-_a-zA-Z0-9]{2,128}$'
-    MinLength: 2
-    MaxLength: 128
 Resources:
   Vpc:
     Type: ALIYUN::ECS::VPC
@@ -194,8 +177,8 @@ Resources:
           mv aliyun-oss-appserver-python-preview_1.0.1-2f62c60e04b4ff204320adf47ded9d83fd79e826 aliyun-oss-appserver-python
           chmod -R 777 /home/aliyun
           cd /home/aliyun/aliyun-oss-appserver-python
-          sed -i 's/<yourAccessKeyId>/${AccessKey}/' appserver.py
-          sed -i 's/<yourAccessKeySecret>/${AccessKeySecret}/' appserver.py
+          sed -i 's/<yourAccessKeyId>/${AccessKey.AccessKeyId}/' appserver.py
+          sed -i 's/<yourAccessKeySecret>/${AccessKey.AccessKeySecret}/' appserver.py
           sed -i 's/bucket-name.oss-cn-hangzhou.aliyuncs.com/${OSSBucketName}.oss-${RegionId}.aliyuncs.com/' appserver.py
           sed -i 's/88.88.88.88:8888/${PublicIP}:8080/' appserver.py
           sed -i '36d' appserver.py
@@ -211,11 +194,7 @@ Resources:
           sed -i 's/88.88.88.88:8888/${PublicIP}:8080/' upload.js
           mv * /var/www/html
           nohup python3 /home/aliyun/aliyun-oss-appserver-python/appserver.py &
-        - AccessKey:
-            Ref: AccessKey
-          AccessKeySecret:
-            Ref: AccessKeySecret
-          OSSBucketName:
+        - OSSBucketName:
             Ref: OSSBucketName
           RegionId:
             Ref: ALIYUN::Region
@@ -225,6 +204,19 @@ Resources:
             - PublicIp
       Timeout: 3600
       Sync: true
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: create_by_document-${ALIYUN::StackId}
+      PolicyAttachments:
+        System:
+        - AliyunOSSFullAccess
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Ref: User
 Outputs:
   ServerInstanceId:
     Description:
@@ -260,23 +252,10 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
     - Parameters:
-      - AccessKey
-      - AccessKeySecret
-      Label:
-        default: User
-    - Parameters:
+      - OSSBucketName
       - ZoneId
-      Label:
-        default: VPC
-    - Parameters:
       - InstanceType
       - SystemDiskCategory
       - Password
-      Label:
-        default: ECS
-    - Parameters:
-      - OSSBucketName
-      Label:
-        default: OSS
     TemplateTags:
-    - acs:document:oss:Java服务端签名直传并设置上传回调
+    - acs:document:oss:Python服务端签名直传并设置上传回调
