@@ -391,11 +391,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - oss
 
-| 模板                 | 说明                          |
-| ------------- | --------------- |
-| [add-signatures-on-server-configure-upload-callback.yml](./documents/oss/add-signatures-on-server-configure-upload-callback.yml) | 在服务端通过Java代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。 |
-| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml) | 基于POST Policy的使用规则在客户端通过JavaScript代码完成签名，然后通过表单直传数据到OSS。 |
+| 模板                                                                                                                                                               | 说明                          |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------| --------------- |
+| [add-signatures-on-server-configure-upload-callback.yml](./documents/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | 在服务端通过Java代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。 |
+| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | 基于POST Policy的使用规则在客户端通过JavaScript代码完成签名，然后通过表单直传数据到OSS。 |
 | [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | 从服务器获取签名信息并上传数据到OSS。|
+| [mobile-application-direct-transmission-service.yaml](./documents/oss/mobile-application-direct-transmission-service.yaml)                                       | 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。|
+| [cdn-speeds-up-oss-access.yaml](./documents/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 |
 
 - trial
 
