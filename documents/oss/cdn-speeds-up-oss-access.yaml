@@ -1,0 +1,68 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 使用CDN添加域名并解析域名，实现加速OSS的访问。
+  en: Use CDN to add domain names and resolve domain names to accelerate access to
+    OSS.
+Parameters:
+  DomainName:
+    Type: String
+    Label:
+      zh-cn: 加速域名
+      en: Accelerated domain name
+    Description:
+      zh-cn: 加速域名是指接入CDN，用于加速源站的域名。该示例为oss.example.com。
+      en: Accelerated domain name refers to the domain name of the access CDN used
+        to accelerate the source site. The example is oss.example.com.
+    Default: oss.example.com
+  OssDomain:
+    Type: String
+    Label:
+      zh-cn: 源站信息
+      en: Source station information
+    Description:
+      zh-cn: 需要加速的OSS域名（即之前创建的OSS Bucket对应的域名）。
+      en: The OSS domain name that needs to be accelerated (the domain name corresponding
+        to the previously created OSS Bucket).
+Resources:
+  OpenCdnService:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: DCDN
+  Domain:
+    Type: ALIYUN::CDN::Domain
+    Properties:
+      Sources:
+        Fn::Sub:
+        - '[{"content":"${content}", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
+        - content:
+            Ref: OssDomain
+      CdnType: web
+      DomainName:
+        Ref: DomainName
+    DependsOn: OpenCdnService
+  DomainRecord:
+    Type: ALIYUN::DNS::DomainRecord
+    Properties:
+      Type: CNAME
+      RR: oss
+      Value:
+        Fn::GetAtt:
+        - Domain
+        - Cname
+      DomainName:
+        Ref: DomainName
+Outputs:
+  Cname:
+    Description: CNAME
+    Value:
+      Fn::GetAtt:
+      - Domain
+      - Cname
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - DomainName
+      - OssDomain
+    TemplateTags:
+    - acs:document:oss:使用CDN加速OSS访问

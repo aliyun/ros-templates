@@ -1,0 +1,274 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。
+  en: Enable the STS service and configure the application server. You can obtain
+    a temporary Token through the output server address.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+        or not.
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceType: ${InstanceType}
+  Password:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 实例密码
+    Description:
+      en: |-
+        The password must be 8 to 32 characters in length. <br>
+        It must consist three of the the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
+        Special characters include <span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>.<br>
+      zh-cn: 长度为8-30位，需包含大写字母、小写字母、特殊符号和数字中的三个，允许的特殊字符包括<span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>。
+    Default:
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  Role:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunOSSTokenGeneratorRoleByRos
+      Description: 访问OSS的权限
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            RAM:
+            - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+        Version: '1'
+      Policies:
+      - PolicyName: AliyunOSSTokenGeneratorRolePolicyByRos
+        Description: 此Policy由ROS创建，用于限制角色AliyunOSSTokenGeneratorRole的权限
+        PolicyDocument:
+          Version: '1'
+          Statement:
+          - Effect: Allow
+            Action:
+            - oss:*
+            Resource:
+            - "*"
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName: AliyunOSSTokenGeneratorUserByRos
+      Policies:
+      - PolicyName: AliyunOSSTokenGeneratorUserPolicyByRos
+        PolicyDocument:
+          Version: '1'
+          Statement:
+          - Effect: Allow
+            Action:
+            - sts:AssumeRole
+            Resource:
+            - Fn::GetAtt:
+              - Role
+              - Arn
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+        - User
+        - UserName
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+  InstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Password:
+        Ref: Password
+      IoOptimized: optimized
+      MaxAmount: 1
+      AllocatePublicIP: false
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Name: create_by_document
+      InternetChargeType: PayByTraffic
+      Bandwidth: 5
+  EipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - InstanceGroup
+          - InstanceIds
+      AllocationId:
+        Fn::GetAtt:
+        - Eip
+        - AllocationId
+  ServerCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - InstanceGroup
+        - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          yum -y install unzip java
+          wget -O AppTokenServerDemo.zip 'https://gosspublic.alicdn.com/doc31920servercode/AppTokenServerDemo.zip?spm=a2c4g.31920.0.0.65f768f3jSxBXC&file=AppTokenServerDemo.zip'
+          unzip -o AppTokenServerDemo.zip
+          cd AppTokenServerDemo
+          echo -e '{\n  "AccessKeyID": "${AccessKey.AccessKeyId}",\n  "AccessKeySecret": "${AccessKey.AccessKeySecret}",\n  "RoleArn": "${Role.Arn}",\n  "TokenExpireTime": "3600",\n  "PolicyFile": "policy/bucket_write_policy.txt"\n}' > config.json
+          nohup java -jar app-token-server.jar &
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  SecurityGroupIngress_443:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 443/443
+  SecurityGroupIngress_7080:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 7080/7080
+Outputs:
+  RoleArn:
+    Description:
+      en: Role ARN.
+      zh-cn: 角色的ARN。
+    Value:
+      Fn::GetAtt:
+      - Role
+      - Arn
+  AccessKeyId:
+    Description: AccessKey ID.
+    Value:
+      Fn::GetAtt:
+      - AccessKey
+      - AccessKeyId
+  ApplicationServerAddress:
+    Description:
+      en: Application server address.
+      zh-cn: 应用服务端地址。
+    Value:
+      Fn::Sub: "http://${Eip.EipAddress}:7080"
+  EcsInstanceId:
+    Description:
+      en: Ecs instance id.
+      zh-cn: ECS实例id。
+    Value:
+      Fn::Select:
+      - 0
+      - Fn::GetAtt:
+        - InstanceGroup
+        - InstanceIds
+  EipAllocationId:
+    Description:
+      en: Eip allocation id.
+      zh-cn: EIP实例id。
+    Value:
+      Fn::GetAtt:
+      - Eip
+      - AllocationId
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登陆地址。
+    Value:
+      Fn::Sub:
+      - 'https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}'
+      - Region:
+          Ref: ALIYUN::Region
+        InstanceId:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - InstanceGroup
+            - InstanceIds
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - InstanceType
+      - SystemDiskCategory
+      - Password
+      Label:
+        default:
+          zh-cn: ECS实例配置信息
+          en: Instance
+    TemplateTags:
+    - acs:document:oss:快速搭建移动应用直传服务

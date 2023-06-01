@@ -391,11 +391,13 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - oss
 
-| Template              | Description          |
-|---------------------|-----------------------|
-| [add-signatures-on-server-configure-upload-callback.yml](./documents/oss/add-signatures-on-server-configure-upload-callback.yml) | Calculate signatures in Java on the server, configure upload callbacks, and upload data to OSS. |
-| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml) | Use JavaScript to add signatures on the client based on POST policies and then upload data to OSS.|
+| Template                                                                                                                                                         | Description          |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------|
+| [add-signatures-on-server-configure-upload-callback.yml](./documents/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | Calculate signatures in Java on the server, configure upload callbacks, and upload data to OSS. |
+| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | Use JavaScript to add signatures on the client based on POST policies and then upload data to OSS.|
 | [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | Obtain signature information from the server and upload data to OSS. |
+| [mobile-application-direct-transmission-service.yaml](./documents/oss/mobile-application-direct-transmission-service.yaml)                                       | Enable the STS service and configure the application server. You can obtain a temporary Token through the output server address. |
+| [cdn-speeds-up-oss-access.yaml](./documents/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS. |
 
 - trial
 
