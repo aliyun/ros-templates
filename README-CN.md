@@ -363,42 +363,46 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 <details>
   <summary>documents</summary>
+  <details>
+    <summary>help</summary>
 
 - ecs
 
 | 模板                                                 | 说明                                                                                     |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| [lnmp-centos7.yml](./documents/ecs/lnmp-centos7.yml) | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
-| [ftp-centos7.yml](./documents/ecs/ftp-centos7.yml) | 使用Centos7系统创建ECS实例安装部署FTP服务。 |
+| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml) | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml) | 使用Centos7系统创建ECS实例安装部署FTP服务。 |
 
 - ack
   
 | 模板                                                  | 说明                                                                     |
 |------------------------------------------------------|----------------------------------------------------------------------|
-| [ack-cube-game.yml](./documents/ack/ack-cube-game.yml) | 使用ACK部署魔方游戏。 |
+| [ack-cube-game.yml](./documents/help/ack/ack-cube-game.yml) | 使用ACK部署魔方游戏。 |
 
 
 - alb
 
 | 模板                                                                                                                 | 说明                 |
 |--------------------------------------------------------------------------------------------------------------------|--------------------|
-| [alb-create-ipv4-load-balancer-and-dnsrecord.yml](./documents/alb/alb-create-ipv4-load-balancer-and-dnsrecord.yml) | 快速实现IPv4服务的负载均衡。 |
+| [alb-create-ipv4-load-balancer-and-dnsrecord.yml](./documents/help/alb/alb-create-ipv4-load-balancer-and-dnsrecord.yml) | 快速实现IPv4服务的负载均衡。 |
 
 - rds
 
 | 模板                                                                                                                 | 说明                      |
 |--------------------------------------------------------------------------------------------------------------------|-------------------------|
-| [rds-create-instance-database-and-connection.yml](./documents/rds/rds-create-instance-database-and-connection.yml) | 快速创建RDS MySQL实例并进行基本设置。|
+| [rds-create-instance-database-and-connection.yml](./documents/help/rds/rds-create-instance-database-and-connection.yml) | 快速创建RDS MySQL实例并进行基本设置。|
 
 - oss
 
 | 模板                                                                                                                                                               | 说明                          |
 |------------------------------------------------------------------------------------------------------------------------------------------------------------------| --------------- |
-| [add-signatures-on-server-configure-upload-callback.yml](./documents/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | 在服务端通过Java代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。 |
-| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | 基于POST Policy的使用规则在客户端通过JavaScript代码完成签名，然后通过表单直传数据到OSS。 |
-| [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | 从服务器获取签名信息并上传数据到OSS。|
-| [mobile-application-direct-transmission-service.yaml](./documents/oss/mobile-application-direct-transmission-service.yaml)                                       | 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。|
-| [cdn-speeds-up-oss-access.yaml](./documents/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 |
+| [add-signatures-on-server-configure-upload-callback.yml](./documents/help/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | 在服务端通过Java代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。 |
+| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/help/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | 基于POST Policy的使用规则在客户端通过JavaScript代码完成签名，然后通过表单直传数据到OSS。 |
+| [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | 从服务器获取签名信息并上传数据到OSS。|
+| [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。|
+| [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 |
+
+   </details>
 
 - trial
 
