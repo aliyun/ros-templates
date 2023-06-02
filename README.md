@@ -363,42 +363,46 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 <details>
   <summary>documents</summary>
+  <details>
+    <summary>help</summary>
 
 - ecs
 
-| Template                        | Description                                                                     |
-|------------------------------------------------------|----------------------------------------------------------------------|
-| [lnmp-centos7.yml](./documents/ecs/lnmp-centos7.yml) | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
-| [ftp-centos7.yml](./documents/ecs/ftp-centos7.yml) | Use Centos7 to create an ECS instance and install and deploy the FTP service. |
+| Template                                                  | Description                                                                     |
+|-----------------------------------------------------------|----------------------------------------------------------------------|
+| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml) | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)        | Use Centos7 to create an ECS instance and install and deploy the FTP service. |
 
 - ack
   
 | Template                        | Description                                                                     |
 |------------------------------------------------------|----------------------------------------------------------------------|
-| [ack-cube-game.yml](./documents/ack/ack-cube-game.yml) | Deploy cube game using ACK. |
+| [ack-cube-game.yml](./documents/help/ack/ack-cube-game.yml) | Deploy cube game using ACK. |
 
 
 - alb
 
 | Template                                                                         | Description                                                                                                                |
 |----------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
-| [alb-create-ipv4-load-balancer-and-dnsrecord.yml](./documents/alb/alb-create-ipv4-load-balancer-and-dnsrecord.yml) | Quickly create an instance of an IPv4 version of ALB and forward access requests from an IPv4 client to a back-end server. |
+| [alb-create-ipv4-load-balancer-and-dnsrecord.yml](./documents/help/alb/alb-create-ipv4-load-balancer-and-dnsrecord.yml) | Quickly create an instance of an IPv4 version of ALB and forward access requests from an IPv4 client to a back-end server. |
 
 - rds
 
 | Template                                                                                                          | Description                                                                   |
 |-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| [rds-create-instance-database-and-connection.yml](./documents/rds/rds-create-instance-database-and-connection.yml) | Create the RDS MySQL instance, do the basic setup, and connect the instance. |
+| [rds-create-instance-database-and-connection.yml](./documents/help/rds/rds-create-instance-database-and-connection.yml) | Create the RDS MySQL instance, do the basic setup, and connect the instance. |
 
 - oss
 
 | Template                                                                                                                                                         | Description          |
 |------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------|
-| [add-signatures-on-server-configure-upload-callback.yml](./documents/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | Calculate signatures in Java on the server, configure upload callbacks, and upload data to OSS. |
-| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | Use JavaScript to add signatures on the client based on POST policies and then upload data to OSS.|
-| [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | Obtain signature information from the server and upload data to OSS. |
-| [mobile-application-direct-transmission-service.yaml](./documents/oss/mobile-application-direct-transmission-service.yaml)                                       | Enable the STS service and configure the application server. You can obtain a temporary Token through the output server address. |
-| [cdn-speeds-up-oss-access.yaml](./documents/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS. |
+| [add-signatures-on-server-configure-upload-callback.yml](./documents/help/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | Calculate signatures in Java on the server, configure upload callbacks, and upload data to OSS. |
+| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/help/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | Use JavaScript to add signatures on the client based on POST policies and then upload data to OSS.|
+| [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | Obtain signature information from the server and upload data to OSS. |
+| [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | Enable the STS service and configure the application server. You can obtain a temporary Token through the output server address. |
+| [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS. |
+
+   </details>
 
 - trial
 
