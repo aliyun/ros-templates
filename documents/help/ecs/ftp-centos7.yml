@@ -2,7 +2,39 @@ ROSTemplateFormatVersion: '2015-09-01'
 Description:
   zh-cn: 使用Centos7系统创建ECS实例安装部署FTP服务。
   en: Use Centos7 to create an ECS instance and install and deploy the FTP service.
+Conditions:
+  CreateEcs:
+    Fn::Equals:
+      - 创建ECS
+      - Ref: EcsCondition
+  HasEcs:
+    Fn::Equals:
+      - 使用已有ECS
+      - Ref: EcsCondition
 Parameters:
+  EcsCondition:
+    Type: String
+    Label:
+      zh-cn: 是否创建ECS
+      en: FTP server access username
+    AllowedValues:
+      - 使用已有ECS
+      - 创建ECS
+    Default: 使用已有ECS
+  EcsInstanceId:
+    Type: String
+    Default: Null
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${EcsCondition}
+              - 创建ECS
   FTPUser:
     Label:
       zh-cn: FTP服务访问用户名
@@ -16,10 +48,17 @@ Parameters:
     Type: String
     NoEcho: true
   SystemDiskCategory:
+    Default: Null
     AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
     AssociationPropertyMetadata:
       InstanceType: ${InstanceType}
       ZoneId: ${ZoneId}
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${EcsCondition}
+              - 使用已有ECS
     Type: String
     Description:
       zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
@@ -40,17 +79,33 @@ Parameters:
       en: Instance Password
     AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
     NoEcho: true
+    Default: Null
     MaxLength: '30'
     Type: String
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${EcsCondition}
+              - 使用已有ECS
   InstanceType:
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${EcsCondition}
+              - 使用已有ECS
     Type: String
+    Default: Null
     Label:
       zh-cn: 实例类型
       en: Instance Type
   ZoneId:
+    Default: Null
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     Type: String
     Description:
@@ -59,8 +114,16 @@ Parameters:
     Label:
       zh-cn: 可用区ID
       en: Available Zone ID
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${EcsCondition}
+              - 使用已有ECS
 Outputs:
   FTPServerAddress:
+    Condition: CreateEcs
     Description: FTP server Connection address.
     Value:
       Fn::Join:
@@ -70,22 +133,156 @@ Outputs:
               - EcsInstance
               - PublicIp
           - ':21'
+  FtpServerAddress:
+    Condition: HasEcs
+    Description: FTP server Connection address.
+    Value:
+      Fn::Sub:
+        - ftp://${IP}:21
+        - IP:
+            Fn::Jq:
+              - First
+              - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress end
+              - Fn::GetAtt:
+                  - DS_Instances
+                  - Instances
 Resources:
+  DS_Instances:
+    Condition: HasEcs
+    Type: DATASOURCE::ECS::Instances
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstanceId
+  SecurityGroupIngress_22:
+    Condition: HasEcs
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DS_Instances
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_20:
+    Condition: HasEcs
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DS_Instances
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 20/20
+  SecurityGroupIngress_50000:
+    Condition: HasEcs
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DS_Instances
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 50000/50010
+  SecurityGroupIngress_21:
+    Condition: HasEcs
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DS_Instances
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 21/21
+  InstallFtp:
+    Condition: HasEcs
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstanceId
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |
+          #!/bin/bash
+          # install ftp
+          yum install -y vsftpd
+          adduser '${FTPUser}'
+          echo '${FTPUserPassword}' | passwd --stdin '${FTPUser}'
+          mkdir /var/ftp/test
+          touch /var/ftp/test/testfile.txt
+          chown -R '${FTPUser}':'${FTPUser}' /var/ftp/test
+          touch /etc/vsftpd/chroot_list
+          systemctl enable vsftpd.service
+          systemctl start vsftpd.service
+          sed -i 's/anonymous_enable=YES/anonymous_enable=NO/' /etc/vsftpd/vsftpd.conf
+          sed -i 's/listen=NO/listen=YES/' /etc/vsftpd/vsftpd.conf
+          sed -i 's/listen_ipv6=YES/\# listen_ipv6=YES/' /etc/vsftpd/vsftpd.conf
+          echo "local_root=/var/ftp/test" >>/etc/vsftpd/vsftpd.conf
+          echo "pasv_enable=YES" >>/etc/vsftpd/vsftpd.conf
+          echo "allow_writeable_chroot=YES" >>/etc/vsftpd/vsftpd.conf
+          echo "pasv_min_port=50000" >>/etc/vsftpd/vsftpd.conf
+          echo "pasv_max_port=50010" >>/etc/vsftpd/vsftpd.conf
+          echo "pasv_address=127.0.0.1" >>/etc/vsftpd/vsftpd.conf
+          sed -i 's/\#chroot_local_user=YES/chroot_local_user=YES/' /etc/vsftpd/vsftpd.conf
+          sed -i 's/\#chroot_list_enable=YES/chroot_list_enable=YES/' /etc/vsftpd/vsftpd.conf
+          sed -i 's%#chroot_list_file=/etc/vsftpd/chroot_list%chroot_list_file=/etc/vsftpd/chroot_list%' /etc/vsftpd/vsftpd.conf
+          ${WaitConditionHandle.CurlCli} -d "{\"status\" : \"SUCCESS\"}"
+    DependsOn:
+      - SecurityGroupIngress_21
+      - SecurityGroupIngress_22
   EcsSecurityGroup:
+    Condition: CreateEcs
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
       SecurityGroupIngress:
         - Priority: 1
-          PortRange: -1/-1
+          PortRange: 22/22
           NicType: internet
           SourceCidrIp: 0.0.0.0/0
-          IpProtocol: all
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 21/21
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 20/20
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 50000/50010
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
       VpcId:
         Ref: EcsVpc
   WaitConditionHandle:
     Type: ALIYUN::ROS::WaitConditionHandle
   EcsVSwitch:
     Type: ALIYUN::ECS::VSwitch
+    Condition: CreateEcs
     Properties:
       VpcId:
         Ref: EcsVpc
@@ -101,39 +298,35 @@ Resources:
       Timeout: 1800
     DependsOn: EcsInstance
   EcsInstance:
+    Condition: CreateEcs
     Type: ALIYUN::ECS::Instance
     Properties:
       UserData:
-        Fn::Sub:
-          - |
-            #!/bin/bash
-            # install ftp
-            yum install -y vsftpd
-            adduser ${FTPUser}
-            echo ${FTPUserPassword} | passwd --stdin ${FTPUser}
-            mkdir /var/ftp/test
-            touch /var/ftp/test/testfile.txt
-            chown -R ${FTPUser}:${FTPUser} /var/ftp/test
-            touch /etc/vsftpd/chroot_list
-            systemctl enable vsftpd.service
-            systemctl start vsftpd.service
-            sed -i 's/anonymous_enable=YES/anonymous_enable=NO/' /etc/vsftpd/vsftpd.conf
-            sed -i 's/listen=NO/listen=YES/' /etc/vsftpd/vsftpd.conf
-            sed -i 's/listen_ipv6=YES/\# listen_ipv6=YES/' /etc/vsftpd/vsftpd.conf
-            echo "local_root=/var/ftp/test" >>/etc/vsftpd/vsftpd.conf
-            echo "pasv_enable=YES" >>/etc/vsftpd/vsftpd.conf
-            echo "allow_writeable_chroot=YES" >>/etc/vsftpd/vsftpd.conf
-            echo "pasv_min_port=50000" >>/etc/vsftpd/vsftpd.conf
-            echo "pasv_max_port=50010" >>/etc/vsftpd/vsftpd.conf
-            echo "pasv_address=127.0.0.1" >>/etc/vsftpd/vsftpd.conf
-            sed -i 's/\#chroot_local_user=YES/chroot_local_user=YES/' /etc/vsftpd/vsftpd.conf
-            sed -i 's/\#chroot_list_enable=YES/chroot_list_enable=YES/' /etc/vsftpd/vsftpd.conf
-            sed -i 's%#chroot_list_file=/etc/vsftpd/chroot_list%chroot_list_file=/etc/vsftpd/chroot_list%' /etc/vsftpd/vsftpd.conf
-            ${WaitConditionHandle.CurlCli} -d "{\"status\" : \"SUCCESS\"}"
-          - FTPUser:
-              Ref: FTPUser
-            FTPUserPassword:
-              Ref: FTPUserPassword
+        Fn::Sub: |
+          #!/bin/bash
+          # install ftp
+          yum install -y vsftpd
+          adduser '${FTPUser}'
+          echo '${FTPUserPassword}' | passwd --stdin '${FTPUser}'
+          mkdir /var/ftp/test
+          touch /var/ftp/test/testfile.txt
+          chown -R '${FTPUser}':'${FTPUser}' /var/ftp/test
+          touch /etc/vsftpd/chroot_list
+          systemctl enable vsftpd.service
+          systemctl start vsftpd.service
+          sed -i 's/anonymous_enable=YES/anonymous_enable=NO/' /etc/vsftpd/vsftpd.conf
+          sed -i 's/listen=NO/listen=YES/' /etc/vsftpd/vsftpd.conf
+          sed -i 's/listen_ipv6=YES/\# listen_ipv6=YES/' /etc/vsftpd/vsftpd.conf
+          echo "local_root=/var/ftp/test" >>/etc/vsftpd/vsftpd.conf
+          echo "pasv_enable=YES" >>/etc/vsftpd/vsftpd.conf
+          echo "allow_writeable_chroot=YES" >>/etc/vsftpd/vsftpd.conf
+          echo "pasv_min_port=50000" >>/etc/vsftpd/vsftpd.conf
+          echo "pasv_max_port=50010" >>/etc/vsftpd/vsftpd.conf
+          echo "pasv_address=127.0.0.1" >>/etc/vsftpd/vsftpd.conf
+          sed -i 's/\#chroot_local_user=YES/chroot_local_user=YES/' /etc/vsftpd/vsftpd.conf
+          sed -i 's/\#chroot_list_enable=YES/chroot_list_enable=YES/' /etc/vsftpd/vsftpd.conf
+          sed -i 's%#chroot_list_file=/etc/vsftpd/chroot_list%chroot_list_file=/etc/vsftpd/chroot_list%' /etc/vsftpd/vsftpd.conf
+          ${WaitConditionHandle.CurlCli} -d "{\"status\" : \"SUCCESS\"}"
       SystemDiskCategory:
         Ref: SystemDiskCategory
       VpcId:
@@ -152,6 +345,7 @@ Resources:
       InstanceType:
         Ref: InstanceType
   EcsVpc:
+    Condition: CreateEcs
     Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
@@ -159,6 +353,8 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
       - Parameters:
+          - EcsCondition
+          - EcsInstanceId
           - ZoneId
           - InstanceType
           - SystemDiskCategory
