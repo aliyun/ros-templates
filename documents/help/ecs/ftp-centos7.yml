@@ -130,8 +130,8 @@ Outputs:
         - ''
         - - ftp://
           - Fn::GetAtt:
-              - EcsInstance
-              - PublicIp
+              - VpcEip
+              - EipAddress
           - ':21'
   FtpServerAddress:
     Condition: HasEcs
@@ -168,21 +168,6 @@ Resources:
       IpProtocol: tcp
       NicType: intranet
       PortRange: 22/22
-  SecurityGroupIngress_20:
-    Condition: HasEcs
-    Type: ALIYUN::ECS::SecurityGroupIngress
-    Properties:
-      SecurityGroupId:
-        Fn::Jq:
-          - First
-          - .[0].SecurityGroupIds[0]
-          - Fn::GetAtt:
-              - DS_Instances
-              - Instances
-      SourceCidrIp: 0.0.0.0/0
-      IpProtocol: tcp
-      NicType: intranet
-      PortRange: 20/20
   SecurityGroupIngress_50000:
     Condition: HasEcs
     Type: ALIYUN::ECS::SecurityGroupIngress
@@ -223,31 +208,41 @@ Resources:
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |
-          #!/bin/bash
-          # install ftp
-          yum install -y vsftpd
-          adduser '${FTPUser}'
-          echo '${FTPUserPassword}' | passwd --stdin '${FTPUser}'
-          mkdir /var/ftp/test
-          touch /var/ftp/test/testfile.txt
-          chown -R '${FTPUser}':'${FTPUser}' /var/ftp/test
-          touch /etc/vsftpd/chroot_list
-          systemctl enable vsftpd.service
-          systemctl start vsftpd.service
-          sed -i 's/anonymous_enable=YES/anonymous_enable=NO/' /etc/vsftpd/vsftpd.conf
-          sed -i 's/listen=NO/listen=YES/' /etc/vsftpd/vsftpd.conf
-          sed -i 's/listen_ipv6=YES/\# listen_ipv6=YES/' /etc/vsftpd/vsftpd.conf
-          echo "local_root=/var/ftp/test" >>/etc/vsftpd/vsftpd.conf
-          echo "pasv_enable=YES" >>/etc/vsftpd/vsftpd.conf
-          echo "allow_writeable_chroot=YES" >>/etc/vsftpd/vsftpd.conf
-          echo "pasv_min_port=50000" >>/etc/vsftpd/vsftpd.conf
-          echo "pasv_max_port=50010" >>/etc/vsftpd/vsftpd.conf
-          echo "pasv_address=127.0.0.1" >>/etc/vsftpd/vsftpd.conf
-          sed -i 's/\#chroot_local_user=YES/chroot_local_user=YES/' /etc/vsftpd/vsftpd.conf
-          sed -i 's/\#chroot_list_enable=YES/chroot_list_enable=YES/' /etc/vsftpd/vsftpd.conf
-          sed -i 's%#chroot_list_file=/etc/vsftpd/chroot_list%chroot_list_file=/etc/vsftpd/chroot_list%' /etc/vsftpd/vsftpd.conf
-          ${WaitConditionHandle.CurlCli} -d "{\"status\" : \"SUCCESS\"}"
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            # install ftp
+            yum install -y vsftpd
+            adduser '${FTPUser}'
+            echo '${FTPUserPassword}' | passwd --stdin '${FTPUser}'
+            mkdir /var/ftp/test
+            touch /var/ftp/test/testfile.txt
+            chown -R '${FTPUser}':'${FTPUser}' /var/ftp/test
+            touch /etc/vsftpd/chroot_list
+            sed -i 's/anonymous_enable=YES/anonymous_enable=NO/' /etc/vsftpd/vsftpd.conf
+            sed -i 's/listen=NO/listen=YES/' /etc/vsftpd/vsftpd.conf
+            sed -i 's/listen_ipv6=YES/\# listen_ipv6=YES/' /etc/vsftpd/vsftpd.conf
+            echo "local_root=/var/ftp/test" >>/etc/vsftpd/vsftpd.conf
+            echo "pasv_enable=YES" >>/etc/vsftpd/vsftpd.conf
+            echo "allow_writeable_chroot=YES" >>/etc/vsftpd/vsftpd.conf
+            echo "pasv_min_port=50000" >>/etc/vsftpd/vsftpd.conf
+            echo "pasv_max_port=50010" >>/etc/vsftpd/vsftpd.conf
+            echo "pasv_address=${IP}" >>/etc/vsftpd/vsftpd.conf
+            sed -i 's/\#anon_upload_enable=YES/anon_upload_enable=YES/' /etc/vsftpd/vsftpd.conf
+            sed -i 's/\#chroot_local_user=YES/chroot_local_user=YES/' /etc/vsftpd/vsftpd.conf
+            sed -i 's/\#chroot_list_enable=YES/chroot_list_enable=YES/' /etc/vsftpd/vsftpd.conf
+            sed -i 's%#chroot_list_file=/etc/vsftpd/chroot_list%chroot_list_file=/etc/vsftpd/chroot_list%' /etc/vsftpd/vsftpd.conf
+            chmod o+w /var/ftp/pub/
+            systemctl enable vsftpd.service
+            systemctl restart vsftpd.service
+            ${WaitConditionHandle.CurlCli} -d "{\"status\" : \"SUCCESS\"}"
+          - IP:
+              Fn::Jq:
+                - First
+                - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress end
+                - Fn::GetAtt:
+                    - DS_Instances
+                    - Instances
     DependsOn:
       - SecurityGroupIngress_21
       - SecurityGroupIngress_22
@@ -263,11 +258,6 @@ Resources:
           IpProtocol: tcp
         - Priority: 1
           PortRange: 21/21
-          NicType: internet
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - Priority: 1
-          PortRange: 20/20
           NicType: internet
           SourceCidrIp: 0.0.0.0/0
           IpProtocol: tcp
@@ -297,6 +287,23 @@ Resources:
         Ref: WaitConditionHandle
       Timeout: 1800
     DependsOn: EcsInstance
+  VpcEip:
+    Condition: CreateEcs
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth: 5
+  EipAssociation:
+    Condition: CreateEcs
+    DependsOn:
+      - VpcEip
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceId
+      AllocationId:
+        Ref: VpcEip
   EcsInstance:
     Condition: CreateEcs
     Type: ALIYUN::ECS::Instance
@@ -312,8 +319,6 @@ Resources:
           touch /var/ftp/test/testfile.txt
           chown -R '${FTPUser}':'${FTPUser}' /var/ftp/test
           touch /etc/vsftpd/chroot_list
-          systemctl enable vsftpd.service
-          systemctl start vsftpd.service
           sed -i 's/anonymous_enable=YES/anonymous_enable=NO/' /etc/vsftpd/vsftpd.conf
           sed -i 's/listen=NO/listen=YES/' /etc/vsftpd/vsftpd.conf
           sed -i 's/listen_ipv6=YES/\# listen_ipv6=YES/' /etc/vsftpd/vsftpd.conf
@@ -322,10 +327,14 @@ Resources:
           echo "allow_writeable_chroot=YES" >>/etc/vsftpd/vsftpd.conf
           echo "pasv_min_port=50000" >>/etc/vsftpd/vsftpd.conf
           echo "pasv_max_port=50010" >>/etc/vsftpd/vsftpd.conf
-          echo "pasv_address=127.0.0.1" >>/etc/vsftpd/vsftpd.conf
+          echo "pasv_address=${VpcEip.EipAddress}" >>/etc/vsftpd/vsftpd.conf
+          sed -i 's/\#anon_upload_enable=YES/anon_upload_enable=YES/' /etc/vsftpd/vsftpd.conf
           sed -i 's/\#chroot_local_user=YES/chroot_local_user=YES/' /etc/vsftpd/vsftpd.conf
           sed -i 's/\#chroot_list_enable=YES/chroot_list_enable=YES/' /etc/vsftpd/vsftpd.conf
           sed -i 's%#chroot_list_file=/etc/vsftpd/chroot_list%chroot_list_file=/etc/vsftpd/chroot_list%' /etc/vsftpd/vsftpd.conf
+          chmod o+w /var/ftp/pub/
+          systemctl enable vsftpd.service
+          systemctl restart vsftpd.service
           ${WaitConditionHandle.CurlCli} -d "{\"status\" : \"SUCCESS\"}"
       SystemDiskCategory:
         Ref: SystemDiskCategory
@@ -333,11 +342,10 @@ Resources:
         Fn::GetAtt:
           - EcsVpc
           - VpcId
+      AllocatePublicIP: false
       SecurityGroupId:
         Ref: EcsSecurityGroup
       ImageId: centos_7
-      InternetMaxBandwidthOut: 80
-      IoOptimized: optimized
       VSwitchId:
         Ref: EcsVSwitch
       Password:
