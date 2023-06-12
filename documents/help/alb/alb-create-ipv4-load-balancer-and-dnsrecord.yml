@@ -181,6 +181,7 @@ Resources:
         Ref: WebServerConditionHandle
   EcsInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
+    Count: 2
     Properties:
       ZoneId:
         Ref: VSwitchZoneId1
@@ -195,12 +196,12 @@ Resources:
         Fn::Join:
           - '-'
           - - Ref: ALIYUN::StackName
-            - '[1,4]'
+            - Ref: ALIYUN::Index
       IoOptimized: optimized
       SystemDiskCategory:
         Ref: SystemDiskCategory
       SystemDiskSize: 40
-      MaxAmount: 2
+      MaxAmount: 1
       InstanceType:
         Ref: EcsInstanceType
       Password:
@@ -208,18 +209,24 @@ Resources:
       AllocatePublicIP: true
       InternetMaxBandwidthOut: 20
       UserData:
-        Fn::Replace:
-          - ros-notify:
+        Fn::Sub:
+          - |-
+            #!/bin/sh
+            yum install -y nginx
+            systemctl start nginx.service
+            cd /usr/share/nginx/html/
+            echo 'Hello World! This is ECS0${Index}' > index.html
+            ${CurlCli} -d '{"data" : "Install nginx."}'
+          - CurlCli:
               Fn::GetAtt:
                 - WebServerConditionHandle
                 - CurlCli
-          - Fn::Sub: |-
-              #!/bin/sh
-              yum install -y nginx
-              systemctl start nginx.service
-              cd /usr/share/nginx/html/
-              echo 'Hello World! this ecs' > index.html
-              ros-notify -d '{"data" : "Install nginx."}'
+            Index:
+              Fn::Calculate:
+                - '{0}+{1}'
+                - 0
+                - - 1
+                  - Ref: ALIYUN::Index
   LoadBalancer:
     Type: ALIYUN::ALB::LoadBalancer
     Properties:
@@ -256,6 +263,7 @@ Resources:
         StickySessionEnabled: false
   BackendServerAttachment:
     Type: ALIYUN::ALB::BackendServerAttachment
+    Count: 2
     Properties:
       ServerGroupId:
         Ref: ServerGroup
@@ -264,18 +272,11 @@ Resources:
           ServerId:
             Fn::Select:
               - 0
-              - Fn::GetAtt:
-                  - EcsInstanceGroup
-                  - InstanceIds
-          Port: 80
-          Weight: 100
-        - ServerType: Ecs
-          ServerId:
-            Fn::Select:
-              - 1
-              - Fn::GetAtt:
-                  - EcsInstanceGroup
-                  - InstanceIds
+              - Fn::Select:
+                  - Ref: ALIYUN::Index
+                  - Fn::GetAtt:
+                      - EcsInstanceGroup
+                      - InstanceIds
           Port: 80
           Weight: 100
   Listener:
