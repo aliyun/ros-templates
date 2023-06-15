@@ -1,0 +1,429 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Build an LNMP environment based on the CentOS 7.9 operating system on Alibaba
+    Cloud ECS, configure Nginx static web pages, and implement high availability of
+    the LNMP environment based on CLB instances.
+  zh-cn: 在阿里云云服务器ECS上基于CentOS 7.9操作系统搭建LNMP环境、配置Nginx静态网页，并基于CLB实例，实现LNMP环境的高可用。
+Parameters:
+  LoadBalancerId:
+    Type: String
+    Label:
+      en: CLB Instance ID
+      zh-cn: CLB实例ID
+    AssociationProperty: ALIYUN::SLB::Instance::InstanceId
+  EcsInstanceIds:
+    Type: CommaDelimitedList
+    Label:
+      en: ECS Instance ID List
+      zh-cn: ECS实例ID列表
+    Description:
+      en: Please select 2 ECS instances equipped with CentOS 7 system, <span style="background:#E7E9EB;"><b>the
+        ECS instance and the CLB instance need to be under the same VPC</b></span>.
+      zh-cn: 请选择2个搭载CentOS 7系统的ECS实例，<span style="background:#E7E9EB;"><b>ECS实例和CLB实例需要在同一个VPC下</b></span>。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    MinLength: 2
+    MaxLength: 2
+  DbPassword:
+    Type: String
+    Label:
+      en: MySQL Database Password
+      zh-cn: MySQL数据库密码
+    Description:
+      en: "The password must be 8 to 32 characters in length. <br>\nIt must contain\
+        \ the following character types: uppercase letters, lowercase letters, digits,\
+        \ and special characters. <br> \nSpecial characters include <span style=\"\
+        background:#E7E9EB;\"><b>!@#$%^&*()_+-=</b></span>.<br>\n<b>If you repeatedly\
+        \ provision in this tutorial on the same ECS instance, make sure that the\
+        \ MySQL database password is exactly the same as the password set when the\
+        \ template was executed for the first time. Otherwise, the result of provisioning\
+        \ is unavailable.</b>"
+      zh-cn: "长度为8~32位，需包含大写字母、小写字母、特殊字符和数字，允许的特殊字符包括<span style=\"background:#E7E9EB;\"\
+        ><b>!@#$%^&*()_+-=</b></span>。<br> \n<b>如果您在同一台ECS实例上重复执行本教程的一键配置模板，请确保MySQL数据库密码和第一次执行模板时设置的密码完全一致。否则一键配置结果不可用。</b>"
+    AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])((?=.*[!@#\$%\^&\*\(\)\-\+])|(?=.*[_\.,:;\-\?]))[a-zA-Z0-9!@#\$%\^&\*\(\)\-\+_\.,:;\-\?]{8,32}$
+    NoEcho: true
+    Confirm: true
+Resources:
+  DS_Instances:
+    Type: DATASOURCE::ECS::Instances
+    Properties:
+      InstanceIds:
+      - Fn::Select:
+        - 0
+        - Ref: EcsInstanceIds
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3720
+      Count: 1
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  SecurityGroupIngress_3306:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DS_Instances
+          - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3306/3306
+  InstallLnmp:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Ref: EcsInstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          if [ ! -f .ros.provision ]; then
+            echo "Name: 手动部署LNMP环境（CentOS 7）" > .ros.provision
+          fi
+
+          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [[ "$name" != "手动部署LNMP环境（CentOS 7）" ]]; then
+            echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
+            ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance has already applied the configuration of the \\\"$name\\\" tutorial, and the configuration of this tutorial can no longer be applied.\"}"
+            exit 0
+          fi
+
+          echo "#########################"
+          echo "# Check Network"
+          echo "#########################"
+          ping -c 2 -W 2 aliyun.com > /dev/null
+          if [[ $? -ne 0 ]]; then
+            echo "当前实例无法访问公网"
+            ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance cannot access the public network.\"}"
+            exit 0
+          fi
+
+          if ! grep -q "^Step1: Prepare Environment$" .ros.provision; then
+            echo "#########################"
+            echo "# Prepare Environment"
+            echo "#########################"
+            systemctl status firewalld
+            systemctl stop firewalld
+            echo "Step1: Prepare Environment" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Environment has been ready"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step2: Install Nginx$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Nginx"
+            echo "#########################"
+            yum -y install nginx
+            nginx -v
+            echo "Step2: Install Nginx" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Nginx has been installed"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step3: Install MySQL$" .ros.provision; then
+            echo "#########################"
+            echo "# Install MySQL"
+            echo "#########################"
+            rpm -Uvh  https://dev.mysql.com/get/mysql57-community-release-el7-9.noarch.rpm
+            yum -y install mysql-community-server --nogpgcheck
+            mysql -V
+            systemctl start mysqld
+            systemctl enable mysqld
+            systemctl daemon-reload
+            echo "Step3: Install MySQL" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# MySQL has been installed"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step4: Install PHP$" .ros.provision; then
+            echo "#########################"
+            echo "# Install PHP"
+            echo "#########################"
+            yum install -y \
+              https://mirrors.aliyun.com/ius/ius-release-el7.rpm \
+              https://mirrors.aliyun.com/epel/epel-release-latest-7.noarch.rpm
+            rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+            yum -y install php70w-devel php70w.x86_64 php70w-cli.x86_64 php70w-common.x86_64 php70w-gd.x86_64 php70w-ldap.x86_64 php70w-mbstring.x86_64 php70w-mcrypt.x86_64  php70w-pdo.x86_64   php70w-mysqlnd  php70w-fpm php70w-opcache php70w-pecl-redis php70w-pecl-mongodb
+            php -v
+            echo "Step4: Install PHP" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# PHP has been installed"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step4: Config Nginx$" .ros.provision; then
+            echo "#########################"
+            echo "# Config Nginx"
+            echo "#########################"
+            cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+            cat > /etc/nginx/nginx.conf << \EOF
+          # For more information on configuration, see:
+          #   * Official English Documentation: http://nginx.org/en/docs/
+          #   * Official Russian Documentation: http://nginx.org/ru/docs/
+
+          user nginx;
+          worker_processes auto;
+          error_log /var/log/nginx/error.log;
+          pid /run/nginx.pid;
+
+          # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+          include /usr/share/nginx/modules/*.conf;
+
+          events {
+              worker_connections 1024;
+          }
+
+          http {
+              log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                                '$status $body_bytes_sent "$http_referer" '
+                                '"$http_user_agent" "$http_x_forwarded_for"';
+
+              access_log  /var/log/nginx/access.log  main;
+
+              sendfile            on;
+              tcp_nopush          on;
+              tcp_nodelay         on;
+              keepalive_timeout   65;
+              types_hash_max_size 4096;
+
+              include             /etc/nginx/mime.types;
+              default_type        application/octet-stream;
+
+              # Load modular configuration files from the /etc/nginx/conf.d directory.
+              # See http://nginx.org/en/docs/ngx_core_module.html#include
+              # for more information.
+              include /etc/nginx/conf.d/*.conf;
+
+              server {
+                  listen       80;
+                  listen       [::]:80;
+                  server_name  _;
+                  root         /usr/share/nginx/html;
+
+                  # Load configuration files for the default server block.
+                  include /etc/nginx/default.d/*.conf;
+
+                  location / {
+                      index index.php index.html index.htm;
+                  }
+
+                  location ~ .php$ {
+                      root /usr/share/nginx/html;    # 将/usr/share/nginx/html替换为您的网站根目录，本文使用/usr/share/nginx/html作为网站根目录。
+                      fastcgi_pass 127.0.0.1:9000;   # Nginx通过本机的9000端口将PHP请求转发给PHP-FPM进行处理。
+                      fastcgi_index index.php;
+                      fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+                      include fastcgi_params;   # Nginx调用fastcgi接口处理PHP请求。
+                  }
+
+                  error_page 404 /404.html;
+                  location = /404.html {
+                  }
+
+                  error_page 500 502 503 504 /50x.html;
+                  location = /50x.html {
+                  }
+              }
+
+          # Settings for a TLS enabled server.
+          #
+          #    server {
+          #        listen       443 ssl http2;
+          #        listen       [::]:443 ssl http2;
+          #        server_name  _;
+          #        root         /usr/share/nginx/html;
+          #
+          #        ssl_certificate "/etc/pki/nginx/server.crt";
+          #        ssl_certificate_key "/etc/pki/nginx/private/server.key";
+          #        ssl_session_cache shared:SSL:1m;
+          #        ssl_session_timeout  10m;
+          #        ssl_ciphers HIGH:!aNULL:!MD5;
+          #        ssl_prefer_server_ciphers on;
+          #
+          #        # Load configuration files for the default server block.
+          #        include /etc/nginx/default.d/*.conf;
+          #
+          #        error_page 404 /404.html;
+          #            location = /40x.html {
+          #        }
+          #
+          #        error_page 500 502 503 504 /50x.html;
+          #            location = /50x.html {
+          #        }
+          #    }
+
+          }
+          EOF
+            systemctl start nginx 
+            systemctl enable nginx
+            echo "Step4: Config Nginx" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Nginx has been configured"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step6: Config MySQL$" .ros.provision; then
+            echo "#########################"
+            echo "# Config MySQL"
+            echo "#########################"
+            export MYSQL_PWD=`grep "temporary password" /var/log/mysqld.log | awk '{print $NF}'`
+            mysqladmin -uroot password '${DbPassword}'
+            export MYSQL_PWD='${DbPassword}'
+            mysql -uroot -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '${DbPassword}'"
+            echo "Step6: Config MySQL" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# MySQL has been configured"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step7: Config PHP$" .ros.provision; then
+            echo "#########################"
+            echo "# Config PHP"
+            echo "#########################"
+            echo "<?php phpinfo(); ?>" > /usr/share/nginx/html/phpinfo.php
+            systemctl start php-fpm
+            systemctl enable php-fpm
+            echo "Step7: Config MySQL" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# PHP has been configured"
+            echo "#########################"
+          fi
+
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+    DependsOn:
+    - SecurityGroupIngress_22
+    - SecurityGroupIngress_3306
+    - SecurityGroupIngress_80
+  NginxPage:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Fn::Select:
+        - Ref: ALIYUN::Index
+        - Ref: EcsInstanceIds
+      Type: RunShellScript
+      Sync: true
+      CommandContent:
+        Fn::Sub:
+        - |
+          #!/bin/bash
+          echo "Hello World ! This is ECS0${Index}." > /usr/share/nginx/html/index.html
+        - Index:
+            Fn::Add:
+            - 1
+            - Ref: ALIYUN::Index
+    DependsOn: InstallLnmp
+    Count:
+      Fn::Length:
+        Ref: EcsInstanceIds
+  DS_LoadBalancers:
+    Type: DATASOURCE::SLB::LoadBalancers
+    Properties:
+      LoadBalancerId:
+        Ref: LoadBalancerId
+  ServerGroup:
+    Type: ALIYUN::SLB::VServerGroup
+    Properties:
+      LoadBalancerId:
+        Ref: LoadBalancerId
+      VServerGroupName: TrialTutorial
+      BackendServers:
+      - ServerId:
+          Fn::Select:
+          - 0
+          - Ref: EcsInstanceIds
+        Port: 80
+      - ServerId:
+          Fn::Select:
+          - 1
+          - Ref: EcsInstanceIds
+        Port: 80
+    DependsOn: NginxPage
+  Listener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      VServerGroupId:
+        Ref: ServerGroup
+      LoadBalancerId:
+        Ref: LoadBalancerId
+      Protocol: http
+      ListenerPort: 80
+      HealthCheck:
+        Switch: 'on'
+        URI: /
+        HealthCheckMethod: head
+        Timeout: 5
+        HealthyThreshold: 2
+        UnhealthyThreshold: 2
+        Interval: 2
+      Bandwidth: -1
+      StartListener: true
+Outputs:
+  NginxUrl:
+    Description:
+      en: Nginx Info Page.
+      zh-cn: Nginx信息页面。
+    Value:
+      Fn::Sub:
+      - http://${IP}
+      - IP:
+          Fn::Jq:
+          - First
+          - .[0].Address
+          - Fn::GetAtt:
+            - DS_LoadBalancers
+            - LoadBalancers
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - LoadBalancerId
+      - EcsInstanceIds
+      - DbPassword
+    TemplateTags:
+    - acs:document:试用教程:部署高可用LNMP环境
