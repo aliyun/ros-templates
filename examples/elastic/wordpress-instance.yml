@@ -3,6 +3,15 @@ Description:
   en: Create a wordpress instance.
   zh-cn: 创建一台ECS实例并部署WordPress。
 Parameters:
+  SelectExistECS:
+    Type: Boolean
+    Label:
+      en: Whether to select an existing instance
+      zh-cn: 是否选择已有实例
+    Description:
+      en: Whether to select an existing Centos7 system instance. The Centos7 system instance must be connected to a public network.
+      zh-cn: 是否选择已有Centos7系统实例，实例需要开通公网。
+    Default: false
   VpcCidrBlock:
     Type: String
     Label:
@@ -25,11 +34,25 @@ Parameters:
       en: VSwitch Availability Zone
       zh-cn: 可用区ID
     Description:
-      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
-        confirm that the Availability Zone supports the specification of creating
-        RDS and ECS resources</font></b>
-      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建RDS及ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating RDS and ECS resources.</font></b>
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建RDS及ECS资源的规格。</font></b>
     AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  ECSInstanceId:
+    Type: String
+    Label:
+      en: Existing ECS Instance
+      zh-cn: 已创建ECS实例
+    Description:
+      en: Select an ECS instance with the CentOS 7.9 64-bit operating system. 
+      zh-cn: 选择已存在操作系统为CentOS 7.9 64位的ECS实例。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectExistECS}
+            - true
+    Default: ''
   VSwitchCidrBlock:
     Type: String
     Label:
@@ -48,25 +71,38 @@ Parameters:
       en: 'Fill in the specifications that can be used under the VSwitch availability
         zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
         a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
-        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+        target=''_blank''><b><font color=''blue''>Instance Specification Family.</font></a></b>'
       zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
         href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
-        color='blue'>实例规格族</font></a></b>
+        color='blue'>实例规格族。</font></a></b>
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       ZoneId: ZoneId
-  ImageId:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectExistECS}
+            - false
+    Default: ecs.c5.large
+  SystemDiskCategory:
     Type: String
     Label:
-      en: Image ID
-      zh-cn: 镜像ID
+      en: System Disk Type
+      zh-cn: 系统盘类型
     Description:
-      en: Image ID，see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
-        target='_blank'><font color='blue'>Find the mirror</font></a></b>
-      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
-        target='_blank'><font color='blue'>查找镜像</font></a></b>
-    AssociationProperty: ALIYUN::ECS::Instance::ImageId
-    Default: centos_7
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${InstanceType}
+      ZoneId: ZoneId
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectExistECS}
+            - false
+    Default: cloud_efficiency
   InstancePassword:
     Type: String
     Label:
@@ -82,62 +118,50 @@ Parameters:
         ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
       zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
     AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectExistECS}
+            - false
     MinLength: 8
     MaxLength: 30
     NoEcho: true
+    Default: Admin123
+  EngineVersion:
+    Type: String
+    Label:
+      en: Engine Version
+      zh-cn: 数据库版本号
+    AssociationProperty: ALIYUN::RDS::Engine::EngineVersion
+    AssociationPropertyMetadata:
+      Engine: MySQL
+    Default: "8.0"
   DBInstanceClass:
     Type: String
     Label:
-      en: DB Instance Class
+      en: Instance Class
       zh-cn: 实例规格
-    Description:
-      en: 'Select the instance specification based on the type of database engine
-        and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/26312.htm''
-        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
-      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html'
-        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
-    Default: rds.mysql.t1.small
-    AllowedValues:
-    - rds.mysql.t1.small
-    - rds.mysql.s1.small
-    - rds.mysql.s2.large
-    - rds.mysql.s2.xlarge
-    - rds.mysql.s3.large
-    - rds.mysql.m1.medium
-    - rds.mysql.c1.large
-    - rds.mysql.c1.xlarge
-    - rds.mysql.c2.xlarge
-    - rds.mysql.c2.xlp2
-    - rds.mysql.c2.2xlarge
-    - rds.mysql.st.d13
-  DBInstanceEngineAndVersion:
-    Type: String
-    Label:
-      en: Engine And Version
-      zh-cn: 引擎类型及版本
-    Description:
-      en: Database instance engine type and version.
-      zh-cn: 数据库引擎类型及版本。
-    Default: MySQL-5.6
-    AllowedValues:
-    - MySQL-5.5
-    - MySQL-5.6
-    - MySQL-5.7
-    - MySQL-8.0
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: ${EngineVersion}
+      Engine: MySQL
+    Default: 'rds.mysql.t1.small'
   DBInstanceStorage:
     Type: Number
     Label:
-      en: DB Instance Storage
-      zh-cn: 存储空间
+      en: Instance Storage
+      zh-cn: 实例存储
     Description:
       en: 'Incrementing in every 5G, unit: GB'
-      zh-cn: 数据库存储空间，每5GB进行递增。
+      zh-cn: 每5G递增，单位：GB
     ConstraintDescription:
-      en: 'Incrementing in every 5G, unit: GB'
-      zh-cn: 每5GB进行递增。
-    Default: 5
+      en: '[5, 2000] Incrementing in every 5G, unit: GB'
+      zh-cn: '[5, 2000] 每 5G 递增，单位：GB'
     MinValue: 5
     MaxValue: 2000
+    Default: 20
   DBName:
     Type: String
     Label:
@@ -148,8 +172,8 @@ Parameters:
       zh-cn: WordPress数据库名
     ConstraintDescription:
       en: Consist of 2 to 64 characters of lowercase letters, underline. Must begin
-        with a letter and be end with an alphanumeric character
-      zh-cn: 由 2 到 64 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 64 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
     Default: wordpress
     MinLength: 2
     MaxLength: 64
@@ -163,8 +187,8 @@ Parameters:
       zh-cn: WordPress数据库账号
     ConstraintDescription:
       en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
-        with a letter and be end with an alphanumeric character
-      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
     Default: wpuser
     MinLength: 2
     MaxLength: 16
@@ -175,14 +199,23 @@ Parameters:
       zh-cn: 数据库密码
     Description:
       en: WordPress database password, consisting of letters, numbers, and underline(_),
-        is 8 to 32 characters long
-      zh-cn: WordPress数据库密码，由字母、数字、下划线（_）组成，长度为8~32个字符
+        is 8 to 32 characters long.
+      zh-cn: WordPress数据库密码，由字母、数字、下划线（_）组成，长度为8~32个字符。
     ConstraintDescription:
-      en: '[8, 32] characters consist of alphanumeric characters, hyphen and underline'
-      zh-cn: '[8, 32] 个字符由字母数字字符、连字符和下划线组成'
+      en: [8, 32] characters consist of alphanumeric characters, hyphen and underline.
+      zh-cn: [8, 32] 个字符由字母数字字符、连字符和下划线组成。
     MinLength: 8
     MaxLength: 32
     NoEcho: true
+Conditions:
+  IsSelectExistECS:
+    Fn::Equals:
+      - Ref: SelectExistECS
+      - false
+  NotSelectExistECS:
+    Fn::Equals:
+      - Ref: SelectExistECS
+      - true
 Resources:
   Vpc:
     Type: ALIYUN::ECS::VPC
@@ -225,27 +258,19 @@ Resources:
       - CharacterSetName: utf8
         DBName:
           Ref: DBName
-      Engine:
-        Fn::Select:
-        - '0'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
+      Engine: MySQL
       EngineVersion:
-        Fn::Select:
-        - '1'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
+        Ref: EngineVersion
       MasterUserPassword:
         Ref: DBPassword
       MasterUsername:
         Ref: DBUser
       SecurityIPList: 0.0.0.0/0
+      AllocatePublicConnection: true
     Metadata:
       ALIYUN::ROS::Designer:
         id: 12a1247f-2409-472a-b877-9c7d51f7b4df
-  RosWaitConditionHandle:
+  WebServerConditionHandle:
     Type: ALIYUN::ROS::WaitConditionHandle
     Properties: {}
     Metadata:
@@ -256,13 +281,14 @@ Resources:
     Properties:
       Count: 1
       Handle:
-        Ref: RosWaitConditionHandle
+        Ref: WebServerConditionHandle
       Timeout: 3600
     Metadata:
       ALIYUN::ROS::Designer:
         id: fb8cfc4c-e5b0-408e-8f86-e3df7fb05f50
   SecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
+    Condition: IsSelectExistECS
     Properties:
       VpcId:
         Ref: Vpc
@@ -272,6 +298,7 @@ Resources:
         id: 4740a2b8-d119-4bc8-956d-6b02e2d7aa9f
   SecurityGroupIngress:
     Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: IsSelectExistECS
     Properties:
       SecurityGroupId:
         Ref: SecurityGroup
@@ -281,8 +308,15 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 47bec69f-674c-4bed-a162-6b8f94ceed7d
+  ExistWebServer:
+    Type: DATASOURCE::ECS::Instances
+    Condition: NotSelectExistECS
+    Properties:
+      InstanceId:
+        Ref: ECSInstanceId
   WebServer:
     Type: ALIYUN::ECS::Instance
+    Condition: IsSelectExistECS
     Properties:
       VpcId:
         Ref: Vpc
@@ -290,8 +324,7 @@ Resources:
         Ref: VSwitch
       SecurityGroupId:
         Ref: SecurityGroup
-      ImageId:
-        Ref: ImageId
+      ImageId: centos_7
       AllocatePublicIP: true
       InstanceType:
         Ref: InstanceType
@@ -299,121 +332,85 @@ Resources:
       IoOptimized: optimized
       Password:
         Ref: InstancePassword
-      UserData:
-        Fn::Replace:
-        - ros-notify:
-            Fn::GetAtt:
-            - RosWaitConditionHandle
-            - CurlCli
-        - Fn::Join:
-          - ''
-          - - '#!/bin/sh'
-            - '
-
-              '
-            - DatabaseUser=
-            - Ref: DBUser
-            - '
-
-              '
-            - DatabasePwd=
-            - Ref: DBPassword
-            - '
-
-              '
-            - DatabaseName=
-            - Ref: DBName
-            - '
-
-              '
-            - DatabaseHost=
-            - Fn::GetAtt:
-              - Database
-              - InnerConnectionString
-            - '
-
-              '
-            - 'WebRootPath=''/var/www/html''
-
-              '
-            - 'ApacheIndex=''Options Indexes FollowSymLinks''
-
-              '
-            - 'ApacheIndexReplace=''Options Indexes FollowSymLinks''
-
-              '
-            - 'mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
-
-              '
-            - 'wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
-
-              '
-            - 'yum makecache
-
-              '
-            - "yum install -y unzip zip \n"
-            - "yum install -y curl httpd mysql-server php56 php56-php-mysql \n"
-            - "rpm -Uvh https://mirror.webtatic.com/yum/el7/epel-release.rpm \n"
-            - "rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm \n"
-            - "yum install -y php56w.x86_64 php56w-cli.x86_64 php56w-common.x86_64\
-              \ php56w-gd.x86_64 php56w-imap.x86_64 php56w-ldap.x86_64 php56w-mysql.x86_64\
-              \ php56w-pdo.x86_64 php56w-odbc.x86_64 php56w-process.x86_64 php56w-xml.x86_64\
-              \ php56w-xmlrpc.x86_64 \n"
-            - 'chkconfig httpd on
-
-              '
-            - '# wget http://wordpress.org/latest.tar.gz
-
-              '
-            - '# tar -xzvf latest.tar.gz
-
-              '
-            - "wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/WordPress/WordPress.zip\
-              \ \n"
-            - "unzip WordPress.zip \n"
-            - "mv WordPress-master wordpress \n"
-            - "cp wordpress/wp-config-sample.php wordpress/backup-wp-config.php \n"
-            - 'sed -i "s/database_name_here/$DatabaseName/" wordpress/wp-config-sample.php
-
-              '
-            - 'sed -i "s/username_here/$DatabaseUser/" wordpress/wp-config-sample.php
-
-              '
-            - 'sed -i "s/password_here/${DatabasePwd:-$DatabasePwdDef}/" wordpress/wp-config-sample.php
-
-              '
-            - 'sed -i "s/localhost/$DatabaseHost/" wordpress/wp-config-sample.php
-
-              '
-            - 'mv wordpress/wp-config-sample.php wordpress/wp-config.php
-
-              '
-            - 'cp -a wordpress/* $WebRootPath
-
-              '
-            - 'rm -rf wordpress*
-
-              '
-            - 'service httpd stop
-
-              '
-            - 'usermod -d $WebRootPath apache &>/dev/null
-
-              '
-            - 'chown apache:apache -R $WebRootPath
-
-              '
-            - 'sed -i "s/$ApacheIndex/$ApacheIndexReplace/" /etc/httpd/conf/httpd.conf
-
-              '
-            - 'service httpd start
-
-              '
-            - "ros-notify \n"
     DependsOn: Database
     Metadata:
       ALIYUN::ROS::Designer:
         id: 8d121091-2248-4d9c-9244-66efdf28856b
+  Command:
+    Type: ALIYUN::ECS::Command
+    Properties:
+      Timeout: 3600
+      CommandContent:
+        Fn::Base64Encode:
+          Fn::Sub:
+            - |-
+              #!/bin/bash
+              DatabaseUser=${DatabaseUser}
+              DatabasePwd=${DatabasePwd}
+              DatabaseName=${DatabaseName}
+              DatabaseHost=${DatabaseHost}
+              WebRootPath='/var/www/html'
+              ApacheIndex='Options Indexes FollowSymLinks'
+              ApacheIndexReplace='Options Indexes FollowSymLinks'
+              mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
+              wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+              yum makecache
+              yum install -y unzip zip
+              yum install -y curl httpd mysql-server php56 php56-php-mysql
+              rpm -Uvh https://mirror.webtatic.com/yum/el7/epel-release.rpm
+              rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+              yum install -y php56w.x86_64 php56w-cli.x86_64 php56w-common.x86_64 php56w-gd.x86_64 php56w-imap.x86_64 php56w-ldap.x86_64 php56w-mysql.x86_64 php56w-pdo.x86_64 php56w-odbc.x86_64 php56w-process.x86_64 php56w-xml.x86_64 php56w-xmlrpc.x86_64
+              chkconfig httpd on
+              # wget http://wordpress.org/latest.tar.gz
+              # tar -xzvf latest.tar.gz
+              wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/WordPress/WordPress.zip
+              unzip WordPress.zip
+              mv WordPress-master wordpress
+              cp wordpress/wp-config-sample.php wordpress/backup-wp-config.php
+              sed -i "s/database_name_here/$DatabaseName/" wordpress/wp-config-sample.php
+              sed -i "s/username_here/$DatabaseUser/" wordpress/wp-config-sample.php
+              sed -i "s/password_here/$DatabasePwd/" wordpress/wp-config-sample.php
+              sed -i "s/localhost/$DatabaseHost/" wordpress/wp-config-sample.php
+              mv wordpress/wp-config-sample.php wordpress/wp-config.php
+              cp -a wordpress/* $WebRootPath
+              rm -rf wordpress*
+              service httpd stop
+              usermod -d $WebRootPath apache &>/dev/null
+              chown apache:apache -R $WebRootPath
+              sed -i 's/$ApacheIndex/$ApacheIndexReplace/' /etc/httpd/conf/httpd.conf
+              service httpd start
+              ${CurlCli} -d '{"data" : "Install nginx."}'
+            - DatabaseUser:
+                Ref: DBUser
+              DatabasePwd:
+                Ref: DBPassword
+              DatabaseName:
+                Ref: DBName
+              DatabaseHost:
+                Fn::GetAtt:
+                  - Database
+                  - PublicConnectionString
+              CurlCli:
+                Fn::GetAtt:
+                  - WebServerConditionHandle
+                  - CurlCli
+      Type: RunShellScript
+      Name:
+        Ref: ALIYUN::StackId
+    DependsOn:
+      - WebServerConditionHandle
+  Invocation:
+    Type: ALIYUN::ECS::Invocation
+    Properties:
+      InstanceIds:
+        - Fn::If:
+            - IsSelectExistECS
+            - Fn::GetAtt:
+                - WebServer
+                - InstanceId
+            - Ref: ECSInstanceId
+      CommandId:
+        Ref: Command
 Outputs:
   DBInstanceId:
     Description: The instance id of created database instance.
@@ -428,6 +425,7 @@ Outputs:
       - Database
       - InnerConnectionString
   InstanceId:
+    Condition: IsSelectExistECS
     Description: The instance id of WebServer instance.
     Value:
       Fn::GetAtt:
@@ -436,12 +434,22 @@ Outputs:
   WordPressUrl:
     Description: Wordpress default address.
     Value:
-      Fn::Join:
-      - ''
-      - - http://
-        - Fn::GetAtt:
-          - WebServer
-          - PublicIp
+      Fn::Sub:
+        - 'http://${IP}'
+        - IP:
+            'Fn::If':
+              - IsSelectExistECS
+              - 'Fn::GetAtt':
+                  - WebServer
+                  - PublicIp
+              - 'Fn::Jq':
+                  - First
+                  - >-
+                    if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0]
+                    else .[0].EipAddress.IpAddress end
+                  - 'Fn::GetAtt':
+                      - ExistWebServer
+                      - Instances
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -452,14 +460,16 @@ Metadata:
       Label:
         default: VPC
     - Parameters:
+      - SelectExistECS
+      - ECSInstanceId
       - InstanceType
-      - ImageId
+      - SystemDiskCategory
       - InstancePassword
       Label:
         default: ECS
     - Parameters:
+      - EngineVersion
       - DBInstanceClass
-      - DBInstanceEngineAndVersion
       - DBInstanceStorage
       - DBName
       - DBUser
