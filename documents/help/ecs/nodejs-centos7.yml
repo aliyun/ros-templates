@@ -1,0 +1,277 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Deploy the Node.js environment on an ECS instance (CentOS 7).
+  zh-cn: 在ECS实例（CentOS 7）上部署Node.js环境。
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+    - Ref: SelectInstance
+    - false
+Parameters:
+  SelectInstance:
+    Type: Boolean
+    Label:
+      en: Whether to select an existing instance
+      zh-cn: 是否选择已有实例
+    Default: true
+  InstanceId:
+    Type: String
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${SelectInstance}
+          - true
+    Default:
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+        or not.
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${SelectInstance}
+          - false
+    Default:
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${SelectInstance}
+          - false
+    Default:
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceType: ${InstanceType}
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${SelectInstance}
+          - false
+    Default:
+  Password:
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 实例密码
+    Description:
+      en: |-
+        The password must be 8 to 32 characters in length. <br>
+        It must consist three of the the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
+        Special characters include <span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>.<br>
+      zh-cn: 长度为8-30位，需包含大写字母、小写字母、特殊符号和数字中的三个，允许的特殊字符包括<span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>。
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${SelectInstance}
+          - false
+    Default:
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Condition: CreateInstance
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Condition: CreateInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+  InstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7_8
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Password:
+        Ref: Password
+      IoOptimized: optimized
+      MaxAmount: 1
+  DS_Instances:
+    Type: DATASOURCE::ECS::Instances
+    Properties:
+      InstanceIds:
+        Fn::If:
+          - CreateInstance
+          - Fn::GetAtt:
+              - InstanceGroup
+              - InstanceIds
+          - [ Ref: InstanceId ]
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: { }
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3720
+      Count: 1
+  SecurityGroupIngress_3000:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DS_Instances
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3000/3000
+  InstallNodejs:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::If:
+        - CreateInstance
+        - Fn::GetAtt:
+          - InstanceGroup
+          - InstanceIds
+        - [Ref: InstanceId]
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          if [ ! -f .ros.provision ]; then
+            echo "Name: 部署Node.js环境（CentOS 7）" > .ros.provision
+          fi
+
+          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [[ "$name" != "部署Node.js环境（CentOS 7）" ]]; then
+            echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
+            ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance has already applied the configuration of the \\\"$name\\\" tutorial, and the configuration of this tutorial can no longer be applied.\"}"
+            exit 0
+          fi
+
+          if ! grep -q "^Step1: Install Node.js$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Node.js"
+            echo "#########################"
+            yum install git -y
+            git clone https://github.com/cnpm/nvm.git ~/.nvm && cd ~/.nvm && git checkout `git describe --abbrev=0 --tags`
+            echo ". ~/.nvm/nvm.sh" >> /etc/profile
+            source /etc/profile
+            nvm list-remote
+            nvm install v6.9.5
+            nvm install v7.4.0
+            nvm ls
+            echo "Step1: Install Node.js" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Node.js has been installed"
+            echo "#########################"
+          fi
+          
+          if ! grep -q "^Step2: Prepare example$" .ros.provision; then
+            echo "#########################"
+            echo "# Prepare example"
+            echo "#########################"
+            cd
+            cat > example.js << \EOF
+          const http = require('http');
+          const hostname = '0.0.0.0';
+          const port = 3000;
+          const server = http.createServer((req, res) => { 
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'text/plain');
+              res.end('Hello World\n');
+          }); 
+          
+          server.listen(port, hostname, () => { 
+              console.log(`Server running at http://${!hostname}:${!port}/`);
+          });
+          EOF
+            nohup node ~/example.js > example.log 2>&1 &
+            echo "Step2: Prepare example" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Example has been ready"
+            echo "#########################"
+          fi
+
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+    DependsOn:
+    - SecurityGroupIngress_3000
+Outputs:
+  ExampleUrl:
+    Description:
+      en: The page of example.js.
+      zh-cn: example.js页面。
+    Value:
+      Fn::Sub:
+      - http://${IP}:3000
+      - IP:
+          Fn::Jq:
+          - First
+          - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+            end
+          - Fn::GetAtt:
+            - DS_Instances
+            - Instances
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - SelectInstance
+      - InstanceId
+      - ZoneId
+      - InstanceType
+      - SystemDiskCategory
+      - Password
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:document-help:ecs:部署Node.js环境（CentOS 7）
