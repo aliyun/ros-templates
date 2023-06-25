@@ -1,0 +1,190 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Create an IPv4 VPC, and bind ECS with EIP.
+  zh-cn: 搭建一个具有IPv4地址块的专有网络,并为专有网络中的云服务器ECS实例绑定一个弹性公网IP。
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR IPv4 Block
+      zh-cn: 专有网络IPv4网段
+    Default: 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      en: CIDR Block of created VSwitch,It must belong to itself VPC CIDR Block.
+      zh-cn: 创建的虚拟交换机的子网，它必须属于自己的VPC网段内
+    Default: 192.168.0.0/24
+  ImageId:
+    Type: String
+    Label:
+      en: ECS Image Id
+      zh-cn: ECS镜像
+    AssociationProperty: ALIYUN::ECS::InstanceGroup::ImageId
+    Default: centos_7
+  InstanceType:
+    Type: String
+    Description:
+      zh-cn: 选择vSwitch可用区下可使用的规格。
+      en: Fill in the specifications that can be used under the VSwitch availability zone.
+    Label:
+      zh-cn: ECS实例规格
+      en: ECS Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  InternetChargeType:
+    Type: String
+    Label:
+      en: EIP Charge Type
+      zh-cn: 弹性公网地址的收费类型
+    Description:
+      en: The charge type of EIP, PayByBandwidth；PayByTraffic.
+      zh-cn: 弹性公网地址的收费类型，PayByBandwidth：按带宽付费，PayByTraffic：按流量付费
+    Default: PayByBandwidth
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+  Password:
+    Type: String
+    Label: 
+      zh-cn: ECS 实例密码
+      en: ECS Instance Password
+    Description: 
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription: '[8, 30] characters, consists of uppercase letter, lowercase
+      letter and special characters.'
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+    Confirm: true
+  EIPBandwidth:
+    Type: Number
+    Label:
+      en: EIP Bandwidth
+      zh-cn: 弹性公网带宽
+    Description:
+      en: 'EIP Bandwidth, Value range: [1,200], unit: Mbps.'
+      zh-cn: 弹性公网地址带宽。取值范围：1~200， 单位：Mbps。
+    Default: 1
+    MinValue: 1
+    MaxValue: 200
+  EIPInternetChargeType:
+    Type: String
+    Label:
+      en: EIP Charge Type
+      zh-cn: 弹性公网地址的收费类型
+    Description:
+      en: The charge type of EIP, PayByBandwidth；PayByTraffic.
+      zh-cn: 弹性公网地址的收费类型，PayByBandwidth：按带宽付费，PayByTraffic：按流量付费
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
+Resources:
+  VPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: myvpc
+      CidrBlock:
+        Ref: VpcCidrBlock
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: VPC
+      ZoneId:
+        Ref: ZoneId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPC
+      SecurityGroupName: mysg
+      SecurityGroupType: normal
+      SecurityGroupIngress:
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 22/22
+          IpProtocol: tcp
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 3389/3389
+          IpProtocol: tcp
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 22/22
+          IpProtocol: udp
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 3389/3389
+          IpProtocol: udp
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: -1/-1
+          IpProtocol: icmp          
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId: 
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: 'false'
+      InternetChargeType:
+        Ref: InternetChargeType
+      InstanceType:
+        Ref: InstanceType
+      Password:
+        Ref: Password
+      SecurityGroupId:
+        Ref: SecurityGroup
+  EIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth:
+        Ref: EIPBandwidth
+      InternetChargeType:
+        Ref: EIPInternetChargeType
+  EipBind:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: EcsInstance
+      AllocationId:
+        Ref: EIP
+Outputs:
+  VpcId:
+    Description: generated security vpc id for VPC.
+    Value:
+      Ref: VPC
+  VSwitchId:
+    Description: generated security vswitch id for VPC.
+    Value:
+      Ref: VSwitch
+  EcsInstanceId:
+    Description: The instance id of created ecs instance
+    Value:
+      Ref: EcsInstance
+  EipAddress:
+    Description: IP address of created EIP.
+    Value:
+      Fn::GetAtt:
+      - EIP
+      - EipAddress
+  SecurityGroupId:
+    Description: generated security group id for security group.
+    Value:
+      Ref: SecurityGroup
