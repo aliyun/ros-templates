@@ -368,10 +368,11 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - ecs
 
-| Template                                                  | Description                                                                     |
-|-----------------------------------------------------------|----------------------------------------------------------------------|
-| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml) | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
-| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)        | Use Centos7 to create an ECS instance and install and deploy the FTP service. |
+| Template                                                      | Description                                                                                                                |
+|---------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)     | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)       | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                              |
+| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml) | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                              |
 
 - ack
   
