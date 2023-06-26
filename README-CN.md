@@ -373,7 +373,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml) | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
 | [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml) | 使用Centos7系统创建ECS实例安装部署FTP服务。                                        |
 | [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml) | 在ECS实例（CentOS 7）上部署Node.js环境。                                       |
-| [ecs-bind-multi-eip-address.yml](./documents/help/ecs/ecs-bind-multi-eip-address.yml) | 将弹性公网IP与辅助弹性网卡以普通模式绑定，实现单个ECS实例(CentOS 7)绑定多个EIP。 |
+| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml) | 将弹性公网IP与辅助弹性网卡以普通模式绑定，实现单个ECS实例(CentOS 7)绑定多个EIP。 |
 
 - ack
   
