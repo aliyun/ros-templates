@@ -403,6 +403,12 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | Enable the STS service and configure the application server. You can obtain a temporary Token through the output server address. |
 | [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS. |
 
+- vpc
+
+| Template                                                                                                          | Description                                                                   |
+|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| [ipv4-vpc-create-ecs-and-bind-eip.yaml](./documents/help/vpc/ipv4-vpc-create-ecs-and-bind-eip.yaml) | Create an IPv4 VPC, and bind ECS with EIP. |
+
    </details>
 
 - trial
