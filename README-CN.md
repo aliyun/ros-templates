@@ -374,6 +374,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)              | 使用Centos7系统创建ECS实例安装部署FTP服务。                                        |
 | [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)        | 在ECS实例（CentOS 7）上部署Node.js环境。                                       |
 | [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml)  | 在ECS实例（CentOS 7）上搭建WordPress。                                       |
+| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | 在ECS实例（CentOS 8）上部署MySQL服务。                                                 |
 
 - ack
   

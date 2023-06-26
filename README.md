@@ -374,6 +374,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)             | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                              |
 | [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)       | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                              |
 | [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml) | Manually build a WordPress website on a CentOS 7 ECS instance                                                              |
+| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | Deploy the MySQL service on an ECS instance (CentOS 8).                                                                            |
+ 
 
 - ack
   
