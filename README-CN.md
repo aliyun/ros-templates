@@ -368,12 +368,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - ecs
 
-| 模板                                                 | 说明                                                                  |
-| ---------------------------------------------------- |---------------------------------------------------------------------|
-| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml) | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
-| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml) | 使用Centos7系统创建ECS实例安装部署FTP服务。                                      |
-| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml) | 在ECS实例（CentOS 7）上部署Node.js环境。                                     |
-| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | 在ECS实例（CentOS 8）上部署MySQL服务。                                       |
+| 模板                                                                   | 说明                                                                  |
+|----------------------------------------------------------------------|---------------------------------------------------------------------|
+| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)            | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)              | 使用Centos7系统创建ECS实例安装部署FTP服务。                                        |
+| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)        | 在ECS实例（CentOS 7）上部署Node.js环境。                                       |
+| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml)  | 在ECS实例（CentOS 7）上搭建WordPress。                                       |
+| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | 在ECS实例（CentOS 8）上部署MySQL服务。                                                 |
 
 - ack
   
@@ -404,6 +405,11 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。|
 | [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 |
 
+- vpc
+
+| Template                                                                                                          | Description                                                                   |
+|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| [ipv4-vpc-create-ecs-and-bind-eip.yaml](./documents/help/vpc/ipv4-vpc-create-ecs-and-bind-eip.yaml) | 搭建一个具有IPv4地址块的专有网络，并为专有网络中的云服务器ECS实例绑定一个弹性公网IP。 |
    </details>
 
 - trial

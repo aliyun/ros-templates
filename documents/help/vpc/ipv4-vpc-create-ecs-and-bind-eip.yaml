@@ -1,0 +1,169 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Create an IPv4 VPC, and bind ECS with EIP.
+  zh-cn: 搭建一个具有IPv4地址块的专有网络，并为专有网络中的云服务器ECS实例绑定一个弹性公网IP。
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: VPC Zone
+      zh-cn: VPC支持的可用区
+    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+  InstanceType:
+    Type: String
+    Description:
+      zh-cn: 选择VPC可用区下可使用的规格。
+      en: Fill in the specifications that can be used under the VSwitch availability zone.
+    Label:
+      zh-cn: ECS实例规格
+      en: ECS Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  Password:
+    Type: String
+    Label: 
+      zh-cn: ECS 实例密码
+      en: ECS Instance Password
+    Description: 
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription: '[8, 30] characters, consists of uppercase letter, lowercase
+      letter and special characters.'
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+    Confirm: true
+  EcsSystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+      - cloud_efficiency
+      - cloud_ssd
+      - cloud
+      - cloud_essd
+      - ephemeral_ssd
+  EIPBandwidth:
+    Type: Number
+    Label:
+      en: EIP Bandwidth
+      zh-cn: 弹性公网带宽
+    Description:
+      en: 'EIP Bandwidth, Value range: [1,200], unit: Mbps.'
+      zh-cn: 弹性公网地址带宽。取值范围：1~200， 单位：Mbps。
+    Default: 1
+    MinValue: 1
+    MaxValue: 200
+Resources:
+  VPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: myvpc
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: VPC
+      ZoneId:
+        Ref: ZoneId
+      CidrBlock: 192.168.0.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPC
+      SecurityGroupName: mysg
+      SecurityGroupType: normal
+      SecurityGroupIngress:
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 22/22
+          IpProtocol: tcp
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 3389/3389
+          IpProtocol: tcp
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 22/22
+          IpProtocol: udp
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 3389/3389
+          IpProtocol: udp
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: -1/-1
+          IpProtocol: icmp          
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId: 
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      ImageId: centos_7
+      AllocatePublicIP: false
+      InstanceChargeType: PostPaid
+      SpotStrategy: NoSpot
+      InstanceType:
+        Ref: InstanceType
+      Password:
+        Ref: Password
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SystemDiskCategory: 
+        Ref: EcsSystemDiskCategory
+      SystemDiskSize: 40 
+  EIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth: 
+        Ref: EIPBandwidth
+      InternetChargeType: PayByTraffic
+  EipBind:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: EcsInstance
+      AllocationId:
+        Ref: EIP
+Outputs:
+  EcsInstanceId:
+    Description: The instance id of created ecs instance
+    Value:
+      Ref: EcsInstance
+  EipAddress:
+    Description: IP address of created EIP.
+    Value:
+      Fn::GetAtt:
+      - EIP
+      - EipAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - ZoneId
+        Label:
+          default: 'VPC'
+      - Parameters:
+        - InstanceType
+        - EcsSystemDiskCategory
+        - Password
+        - EIPBandwidth
+        Label:
+          default: 'ECS'
+    TemplateTags:
+      - acs:document-help:vpc:在IPv4专有网络中为ECS实例绑定一个弹性公网IP

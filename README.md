@@ -368,12 +368,14 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - ecs
 
-| Template                                                      | Description                                                                                                                |
-|---------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
-| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)     | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
-| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)       | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                              |
-| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml) | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                              |
-| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | Deploy the MySQL service on an ECS instance (CentOS 8).                                                                    |
+| Template                                                            | Description                                                                                                                |
+|---------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)           | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)             | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                              |
+| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)       | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                              |
+| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml) | Manually build a WordPress website on a CentOS 7 ECS instance                                                              |
+| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | Deploy the MySQL service on an ECS instance (CentOS 8).                                                                            |
+ 
 
 - ack
   
@@ -403,6 +405,12 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | Obtain signature information from the server and upload data to OSS. |
 | [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | Enable the STS service and configure the application server. You can obtain a temporary Token through the output server address. |
 | [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS. |
+
+- vpc
+
+| Template                                                                                                          | Description                                                                   |
+|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| [ipv4-vpc-create-ecs-and-bind-eip.yaml](./documents/help/vpc/ipv4-vpc-create-ecs-and-bind-eip.yaml) | Create an IPv4 VPC, and bind ECS with EIP. |
 
    </details>
 
