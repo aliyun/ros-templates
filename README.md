@@ -368,12 +368,14 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - ecs
 
-| Template                                                      | Description                                                                                                                |
-|---------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
-| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)     | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
-| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)       | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                              |
-| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml) | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                              |
-| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml) | Bind an EIP to a secondary ENI in normal mode to bind multiple EIPs to a single ECS instance (CentOS 7). |
+| Template                                                            | Description                                                                                                                |
+|---------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)           | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)             | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                              |
+| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)       | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                              |
+| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml) | Manually build a WordPress website on a CentOS 7 ECS instance                                                              |
+| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | Deploy the MySQL service on an ECS instance (CentOS 8).                                                                            |
+| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml) | Bind an EIP to a secondary ENI in normal mode to bind multiple EIPs to a single ECS instance (CentOS 7).   |
 
 - ack
   
