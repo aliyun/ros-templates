@@ -401,6 +401,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | Obtain signature information from the server and upload data to OSS. |
 | [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | Enable the STS service and configure the application server. You can obtain a temporary Token through the output server address. |
 | [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS. |
+| [centOS-ecs-oos.yaml](./documents/help/oss/centOS-ecs-oos.yaml)                                                                                   | Implement OSS reverse proxy on CentOS ECS instance. |
+
 
 - vpc
 

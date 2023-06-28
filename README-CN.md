@@ -401,6 +401,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | 从服务器获取签名信息并上传数据到OSS。|
 | [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。|
 | [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 |
+| [centOS-ecs-oos.yaml](./documents/help/oss/centOS-ecs-oos.yaml)                                                                                   | 基于CentOS的ECS实例实现OSS反向代理 |
 
 - vpc
 
