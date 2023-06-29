@@ -398,19 +398,31 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - oss
 
-| Template                                                                                                                                                         | Description          |
-|------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------|
-| [add-signatures-on-server-configure-upload-callback.yml](./documents/help/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | Calculate signatures in Java on the server, configure upload callbacks, and upload data to OSS. |
-| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/help/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | Use JavaScript to add signatures on the client based on POST policies and then upload data to OSS.|
-| [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | Obtain signature information from the server and upload data to OSS. |
+| Template                                                                                                                                                         | Description                                                                                                                      |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| [add-signatures-on-server-configure-upload-callback.yml](./documents/help/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | Calculate signatures in Java on the server, configure upload callbacks, and upload data to OSS.                                  |
+| [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/help/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | Use JavaScript to add signatures on the client based on POST policies and then upload data to OSS.                               |
+| [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | Obtain signature information from the server and upload data to OSS.                                                             |
 | [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | Enable the STS service and configure the application server. You can obtain a temporary Token through the output server address. |
-| [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS. |
+| [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS.                                                |
+| [use-function-compute-to-download-multiple-objects-as-a-package.yaml](./documents/help/oss/use-function-compute-to-download-multiple-objects-as-a-package.yaml)       | Use Function Compute to download multiple objects as a package to an on-premises device.                                         |
 
 - vpc
 
 | Template                                                                                                          | Description                                                                   |
 |-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | [ipv4-vpc-create-ecs-and-bind-eip.yaml](./documents/help/vpc/ipv4-vpc-create-ecs-and-bind-eip.yaml) | Create an IPv4 VPC, and bind ECS with EIP. |
+
+   </details>
+
+   <details>
+    <summary>solution</summary>
+
+- AI
+
+| Template                                                                                                                              | Description                                                                                  |
+|---------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](./documents/solution/AI/use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml) | Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models is supported. |
 
    </details>
 

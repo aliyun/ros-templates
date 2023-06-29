@@ -406,12 +406,24 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | 从服务器获取签名信息并上传数据到OSS。|
 | [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。|
 | [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 |
+| [use-function-compute-to-download-multiple-objects-as-a-package.yaml](./documents/help/oss/use-function-compute-to-download-multiple-objects-as-a-package.yaml)       | 使用函数计算将对象存储OSS上多个文件（Object）打包下载到本地。 |
 
 - vpc
 
 | Template                                                                                                          | Description                                                                   |
 |-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | [ipv4-vpc-create-ecs-and-bind-eip.yaml](./documents/help/vpc/ipv4-vpc-create-ecs-and-bind-eip.yaml) | 搭建一个具有IPv4地址块的专有网络，并为专有网络中的云服务器ECS实例绑定一个弹性公网IP。 |
+   </details>
+
+   <details>
+    <summary>solution</summary>
+
+- AI
+
+| 模板                                                                                                                                                                   | 说明                                                                                           |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](./documents/solution/AI/use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。 |
+
    </details>
 
 - trial
