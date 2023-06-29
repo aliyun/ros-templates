@@ -1,0 +1,171 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。
+  en: Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models
+    is supported.
+Conditions:
+  IsCustom:
+    Fn::Equals:
+    - Ref: ImageURL
+    - Custom
+Parameters:
+  ImageURL:
+    Type: String
+    Label:
+      zh-cn: Stable Diffusion镜像地址
+      en: Stable Diffusion Image URL
+    Description:
+      zh-cn: 选择使用函数计算提供的基于开源项目fc-stable-diffusion-plus构建的镜像 或 自定义的Stable Diffusion镜像。
+      en: Choose to use the image provided by Function Compute based on the open source
+        project fc-stable-diffusion-plus or the custom Stable Diffusion image.
+    Default: registry.cn-hangzhou.aliyuncs.com/serverlessdevshanxie/sd-auto-nas:v3
+    AllowedValues:
+    - registry.cn-hangzhou.aliyuncs.com/serverlessdevshanxie/sd-auto-nas:v3
+    - registry.cn-beijing.aliyuncs.com/serverlessdevshanxie/sd-auto-nas:v3
+    - registry.cn-shanghai.aliyuncs.com/serverlessdevshanxie/sd-auto-nas:v3
+    - registry.cn-shenzhen.aliyuncs.com/serverlessdevshanxie/sd-auto-nas:v3
+    - Custom
+  CustomImageURL:
+    Type: String
+    Label:
+      zh-cn: 自定义Stable Diffusion镜像地址
+      en: Custom Stable Diffusion image URL
+    Description:
+      zh-cn: 关于如何自定义Stable Diffusion镜像，请参见<a href='https://github.com/devsapp/fc-stable-diffusion-plus#readme'
+        target='_blank'>fc-stable-diffusion-plus帮助文档</a>。
+      en: For how to customize the Stable Diffusion image, please refer to <a href='https://github.com/devsapp/fc-stable-diffusion-plus#readme'
+        target='_blank'>fc-stable-diffusion-plus help documentation</a>.
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${ImageURL}
+          - Custom
+    Default: registry.cn-hangzhou.aliyuncs.com/serverlessdevshanxie/sd-auto-nas:v3
+    AllowedPattern: ^registry[.][a-zA-Z0-9_-]+[.]aliyuncs[.]com/.+$
+Resources:
+  EnableNAS:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: NAS
+  AliyunFCServerlessDevsRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunFCServerlessDevsRole
+      Description: 应用中心需要您的角色中包含应用所需策略，推荐创建并使用系统默认角色 AliyunFCServerlessDevsRole。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - fc.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+      DeletionForce: true
+      PolicyAttachments:
+        System:
+        - AliyunNASFullAccess
+        - AliyunFCFullAccess
+        - AliyunFCServerlessDevsRolePolicy
+        - AliyunOSSReadOnlyAccess
+        - AliyunECSReadOnlyAccess
+        - AliyunVPCReadOnlyAccess
+        - AliyunLogReadOnlyAccess
+  Application:
+    Type: ALIYUN::FC::Application
+    Properties:
+      Name:
+        Fn::Sub: fc-stable-diffusion-plus-${ALIYUN::StackId}
+      RoleARN:
+        Fn::GetAtt:
+        - AliyunFCServerlessDevsRole
+        - Arn
+      Parameters:
+        serviceName:
+          Fn::Sub: fc-stable-diffusion-plus-${ALIYUN::StackId}
+        functionName:
+          Fn::Sub: fc-stable-diffusion-plus-${ALIYUN::StackId}
+        region:
+          Fn::Select:
+          - 1
+          - Fn::Split:
+            - .
+            - Fn::If:
+              - IsCustom
+              - Ref: CustomImageURL
+              - Ref: ImageURL
+        imageUrl:
+          Fn::If:
+          - IsCustom
+          - Ref: CustomImageURL
+          - Ref: ImageURL
+      Template: fc-stable-diffusion-plus
+      AutoDeploy: true
+    DependsOn: EnableNAS
+Outputs:
+  WebUIUrl:
+    Description:
+      zh-cn: WebUI访问域名。
+      en: URL of WebUI.
+    Value:
+      Fn::Sub:
+      - ${protocol}://${domain}
+      - protocol:
+          Fn::Select:
+          - Fn::Jq:
+            - First
+            - ."stable-diffusion-sd-server".customDomains[0].protocol
+            - Fn::GetAtt:
+              - Application
+              - Output
+          - HTTP: http
+            HTTPS: https
+            Http: http
+            Https: https
+            http: http
+            https: https
+        domain:
+          Fn::Jq:
+          - First
+          - ."stable-diffusion-sd-server".customDomains[0].domainName
+          - Fn::GetAtt:
+            - Application
+            - Output
+  AdminUrl:
+    Description:
+      zh-cn: 模型文件以及插件文件的管理后台访问域名。
+      en: URL for the management background of model files and plug-in files.
+    Value:
+      Fn::Sub:
+      - ${protocol}://${domain}
+      - protocol:
+          Fn::Select:
+          - Fn::Jq:
+            - First
+            - ."fc-nas-filemgr".customDomains[0].protocol
+            - Fn::GetAtt:
+              - Application
+              - Output
+          - HTTP: http
+            HTTPS: https
+            Http: http
+            Https: https
+            http: http
+            https: https
+        domain:
+          Fn::Jq:
+          - First
+          - ."fc-nas-filemgr".customDomains[0].domainName
+          - Fn::GetAtt:
+            - Application
+            - Output
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ImageURL
+      - CustomImageURL
+    TemplateTags:
+    - acs:technical-solution:AI:基于函数计算部署Stable Diffusion进行AI绘画
