@@ -423,9 +423,11 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - AI
 
-| Template                                                                                                                              | Description                                                                                  |
-|---------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| Template                                                                                                                             | Description                                                                                  |
+|--------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](./documents/solution/AI/use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml) | Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models is supported. |
+| [aigc-text-generation-3d-model-with-ecs.yaml](./documents/solution/AI/aigc-text-generation-3d-model-with-ecs.yaml) | AIGC Text Generation 3D Model. |
+
 
    </details>
 
