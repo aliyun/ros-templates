@@ -1,0 +1,381 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Implement OSS on CentOS ECS.
+  zh-cn: 基于CentOS的ECS实例实现OSS反向代理
+Parameters:
+  CreateECS:
+    Type: Boolean
+    Label:
+      en: If use new ECS instance.
+      zh-cn: 是否新建ECS实例
+    Default: true
+  ExistedEcsInstanceId:
+    Type: String
+    Label:
+      en: Select An Existing CentOS ECS Instance ID
+      zh-cn: 请选择带有CentOS镜像的实例ID
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition: 
+          Fn::Equals:
+            - ${CreateECS}
+            - false
+    Default: ''
+  ECSZoneId:
+    Type: String
+    Label:
+      en: VPC Zone
+      zh-cn: VPC支持的可用区
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition: 
+          Fn::Equals:
+            - ${CreateECS}
+            - true
+    Default: ''
+  InstanceType:
+    Type: String
+    Description:
+      zh-cn: 选择可用区下可使用的规格。
+      en: Fill in the specifications that can be used under the availability zone.
+    Label:
+      zh-cn: ECS实例规格
+      en: ECS Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ECSZoneId}
+      Visible:
+        Condition: 
+          Fn::Equals:
+            - ${CreateECS}
+            - true
+    Default: 'ecs.c6e.large'
+  Password:
+    Type: String
+    Label: 
+      zh-cn: ECS 实例密码
+      en: ECS Instance Password
+    Description: 
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription: '[8, 30] characters, consists of uppercase letter, lowercase
+      letter and special characters.'
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+    Confirm: true
+    Default: Null
+    AssociationPropertyMetadata:
+      Visible:
+        Condition: 
+          Fn::Equals:
+            - ${CreateECS}
+            - true
+  EcsSystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
+    Default: cloud_ssd
+    AllowedValues:
+      - cloud_efficiency
+      - cloud_ssd
+      - cloud
+      - cloud_essd
+      - ephemeral_ssd
+    AssociationPropertyMetadata:
+      ZoneId: ${ECSZoneId}
+      InstanceType: ${InstanceType}
+      Visible:
+        Condition: 
+          Fn::Equals:
+            - ${CreateECS}
+            - true
+  CreateOSS:
+    Type: Boolean
+    Label:
+      en: If create new OSSBucket
+      zh-cn: 是否新建OSS Bucket
+    Default: true
+  BucketName:
+    Type: String
+    Label:
+      zh-cn: 存储空间名称
+      en: Bucket Name
+    Description:
+      en: The Bucket name cannot be changed after it is created successfully. The Bucket name must be unique in OSS.
+      zh-cn: Bucket名称，创建成功后将不可更改，Bucket名称在OSS全局范围内必须唯一。
+    ConstraintDescription:
+      en: Must begin and be end with a lowercase letter or number. The length is within
+        [3, 63]
+      zh-cn: 必须以小写英文字母或数字开头和结尾。长度为3~63个字符。
+    Default: myprodbucket
+    AllowedPattern: ^[a-z0-9]{1}[a-z0-9\-]{1,62}[a-z0-9]{1}$
+    AssociationPropertyMetadata:
+      Visible:
+        Condition: 
+          Fn::Equals:
+            - ${CreateOSS}
+            - true
+  ExistedBucketName:
+    Type: String
+    Label:
+      zh-cn: 已有存储空间名称
+      en: Your Existed Bucket Name
+    AssociationProperty: ALIYUN::OSS::Bucket::BucketName
+    AssociationPropertyMetadata:
+      Visible:
+        Condition: 
+          Fn::Equals:
+            - ${CreateOSS}
+            - false
+    Default: ''
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+    - Ref: CreateECS
+    - true
+  NotCreateInstance:
+    Fn::Equals:
+    - Ref: CreateECS
+    - false
+  CreateOSSBucket:
+    Fn::Equals:
+    - Ref: CreateOSS
+    - true
+Resources:
+  InstanceRole:
+    Type: ALIYUN::RAM::Role
+    Condition: CreateInstance
+    DependsOn: OssBucket
+    Properties:
+      RoleName: 
+        Fn::Replace:
+          - "_": "."
+          - Fn::Join:
+            - "_"
+            - - "OSSRole"
+              - Ref: ALIYUN::StackName
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - ecs.aliyuncs.com
+        Version: '1'
+      Policies:
+      - PolicyName:
+          Ref: ALIYUN::StackName
+        PolicyDocument:
+          Version: '1'
+          Statement:
+          - Action:
+            - oss:GetObject
+            Resource:
+            - Fn::Sub:
+              - acs:oss:*:*:${BucketName}/*
+              - BucketName:
+                  Fn::If:
+                    - CreateOSSBucket
+                    - Ref: BucketName
+                    - Ref: ExistedBucketName
+            Effect: Allow
+  VPC:
+    Type: ALIYUN::ECS::VPC
+    Condition: CreateInstance
+    Properties:
+      VpcName: myvpc
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: VPC
+      ZoneId:
+        Ref: ECSZoneId
+      CidrBlock: 192.168.0.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: VPC
+      SecurityGroupName: mysg
+      SecurityGroupType: normal
+      SecurityGroupIngress:
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 80/80
+          IpProtocol: tcp
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 22/22
+          IpProtocol: tcp
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: NotCreateInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - ".SecurityGroupIds[0]"
+          - Fn::Select:
+            - 0
+            - Fn::GetAtt:
+                - DS_Instances
+                - Instances        
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      PortRange: 80/80
+  EcsInstance: 
+    Type: ALIYUN::ECS::Instance
+    Condition: CreateInstance
+    DependsOn: 
+      - OssBucket
+      - InstanceRole
+    Properties:
+      VpcId: 
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      HostName: WebServer
+      ImageId: centos_7 
+      IoOptimized: optimized
+      AllocatePublicIP: true
+      RamRoleName:
+        Fn::GetAtt:
+        - InstanceRole
+        - RoleName
+      InstanceChargeType: PostPaid
+      SpotStrategy: NoSpot  
+      InstanceType:
+        Ref: InstanceType
+      Password: 
+        Ref: Password
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SystemDiskCategory: 
+        Ref: EcsSystemDiskCategory
+      SystemDiskSize: 40       
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Condition: CreateOSSBucket
+    Properties:
+      BucketName: 
+        Ref: BucketName
+      AccessControl: private
+      CORSConfiguration:
+        CORSRule:
+        - AllowedHeader:
+          - '*'
+          AllowedMethod:
+          - GET
+          AllowedOrigin:
+          - '*'
+  DS_Instances:
+    Type: DATASOURCE::ECS::Instances
+    Condition: NotCreateInstance
+    Properties:
+      InstanceIds: [Ref: ExistedEcsInstanceId]
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::If:
+          - CreateInstance
+          - [Ref: EcsInstance]
+          - [Ref: ExistedEcsInstanceId]
+      Type: RunShellScript
+      CommandContent: 
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            sudo yum install -y nginx
+            sudo sed -i "46 a \ \tlocation / {\n \ \t\ \tproxy_pass http://${OSS_DOMAIN};\n \ \t} " /etc/nginx/nginx.conf
+            cd /usr/sbin
+            sudo ./nginx
+          - OSS_DOMAIN: 
+              Fn::If:
+                - CreateOSSBucket
+                - Fn::GetAtt:
+                  - OssBucket
+                  - InternalDomainName
+                - Fn::Join:
+                  - ""
+                  - - Ref: ExistedBucketName
+                    - ".oss-"
+                    - Ref: ALIYUN::Region
+                    - ".aliyuncs.com"
+      Timeout: 3600
+    DependsOn:
+      - SecurityGroupIngress_80
+Outputs:
+  EcsInstanceId:
+    Description: The instance id of created ecs instance
+    Value:
+      Fn::If:
+        - Condition: CreateInstance
+        - Ref: EcsInstance
+        - Ref: ExistedEcsInstanceId
+  ECSPublicIP:
+    Description: Public IP address of ECS.
+    Condition: CreateInstance
+    Value:    
+      Fn::GetAtt:
+        - EcsInstance
+        - PublicIp
+  OSSBucketName:
+    Value:
+      Fn::If:
+        - CreateOSSBucket
+        - Fn::GetAtt:
+          - OssBucket
+          - Name
+        - Ref: ExistedBucketName
+  BucketRegion:
+    Value: 
+      Ref: ALIYUN::Region   
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - CreateECS
+        - ExistedEcsInstanceId
+        - ECSZoneId
+        - InstanceType
+        - Password
+        - EcsSystemDiskCategory
+        Label:
+          default: 'ECS'
+      - Parameters:
+        - CreateOSS
+        - BucketName
+        - ExistedBucketName
+        Label:
+          default: 'OSSBucket'
+    TemplateTags:
+      - acs:document-help:ecs:基于CentOS的ECS实例实现OSS反向代理
+
+      
+
+
+
+
+
+
+

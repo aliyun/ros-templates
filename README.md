@@ -407,6 +407,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | Enable the STS service and configure the application server. You can obtain a temporary Token through the output server address. |
 | [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS.                                                |
 | [use-function-compute-to-download-multiple-objects-as-a-package.yaml](./documents/help/oss/use-function-compute-to-download-multiple-objects-as-a-package.yaml)       | Use Function Compute to download multiple objects as a package to an on-premises device.                                         |
+| [centOS-ecs-oos.yaml](./documents/help/oss/centOS-ecs-oos.yaml)                                                                                   | Implement OSS reverse proxy on CentOS ECS instance. |
+
 
 - vpc
 
