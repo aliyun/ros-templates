@@ -425,6 +425,18 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |----------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](./documents/solution/AI/use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。 |
 
+- Database
+
+| Template                                                                                                                 | Description       |
+|--------------------------------------------------------------------------------------------------------------------------|-------------------|
+| [wordpress-website-database-on-the-cloud.yml](./documents/solution/Database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
+
+- CDNAndVideoCloud
+
+| Template                                                                                                                               | Description            |
+|----------------------------------------------------------------------------------------------------------------------------------------|------------------------|
+| [cdn-speeds-up-distribution-of-file-on-oss.yaml](./documents/solution/CDNAndVideoCloud/cdn-speeds-up-distribution-of-file-on-oss.yaml) | 使用CDN加速OSS上存储的文件资源分发。  |
+
    </details>
 
 - trial
