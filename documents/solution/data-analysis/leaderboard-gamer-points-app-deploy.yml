@@ -1,0 +1,271 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。
+  en: Use the Centos7 system to create an ECS instance and install and deploy the Gamer Points Leaderboard application.
+Parameters:
+  RedisPassword:
+    Type: String
+    Label:
+      en: Redis Login Password
+      zh-cn: Redis密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  RedisClass:
+    Type: String
+    Label:
+      en: Specifications
+      zh-cn: 规格
+    Description:
+      en: 'Fill in instance specifications based on database type and availability
+          zone support;<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/26350.html''
+          target=''_blank''><b><font color=''blue''>Specification inquiry</font></b></a>'
+      zh-cn: 根据数据库类型和可用区支持的情况填写实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26350.html'
+        target='_blank'><b><font color='blue'>规格查询</font></b></a>
+    Default: tair.rdb.1g
+  SystemDiskCategory:
+    Default: Null
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      ZoneId: ${ZoneId}
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${EcsCondition}
+              - 使用已有ECS
+    Type: String
+    Description:
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+    Label:
+      zh-cn: 系统磁盘类型
+      en: System Disk Category
+  InstancePassword:
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers, special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+    Description:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    MinLength: '8'
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    NoEcho: true
+    Default: Null
+    MaxLength: '30'
+    Type: String
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${EcsCondition}
+              - 使用已有ECS
+  InstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${EcsCondition}
+              - 使用已有ECS
+    Type: String
+    Default: Null
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+  ZoneId:
+    Default: Null
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${EcsCondition}
+              - 使用已有ECS
+Resources:
+  RedisInstance:
+    Type: ALIYUN::REDIS::Instance
+    Properties:
+      EngineVersion: '5.0'
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      InstanceClass:
+        Ref: RedisClass
+      InstanceName:
+        Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+      Password:
+        Ref: RedisPassword
+      ProductType: 'Tair_rdb'
+      TairConfig:
+        Storage: 20
+        StorageType: essd_pl1
+        ShardCount: 1
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: 22/22
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 6379/6379
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+      VpcId:
+        Ref: EcsVpc
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3600
+    DependsOn: EcsInstance
+  Whitelist:
+    Type: ALIYUN::REDIS::Whitelist
+    Properties:
+      InstanceId:
+        Fn::GetAtt:
+          - RedisInstance
+          - InstanceId
+      SecurityIps:
+        Fn::GetAtt:
+          - EcsInstance
+          - PrivateIp
+  InstallApp:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Fn::GetAtt:
+            - EcsInstance
+            - InstanceId
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |
+          #!/bin/bash
+          # install java
+          yum install -y java-1.8.0-openjdk-devel.x86_64
+          echo 'export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.372.b07-1.el7_9.x86_64' >> /etc/profile
+          echo 'export CLASSPATH=.:$JAVA_HOME/jre/lib/rt.jar:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar' >> /etc/profile
+          echo 'export PATH=$PATH:$JAVA_HOME/bin' >> /etc/profile
+          source /etc/profile
+          javac -version
+          echo "Step1: Install Java" >> .ros.provision
+          # install maven
+          wget -O /tmp/apache-maven-3.8.8-bin.tar.gz 'https://dlcdn.apache.org/maven/maven-3/3.8.8/binaries/apache-maven-3.8.8-bin.tar.gz'
+          tar -xzvf /tmp/apache-maven-3.8.8-bin.tar.gz -C /usr/local
+          echo 'export MAVEN_HOME=/usr/local/apache-maven-3.8.8' >> /etc/profile
+          echo 'export PATH=$MAVEN_HOME/bin:$PATH' >> /etc/profile
+          source /etc/profile
+          mvn --version
+          echo "Step2: Install Maven" >> .ros.provision
+          # install app
+          wget -O /tmp/source.tar.gz 'https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20230613/ahdy/source.tar.gz'
+          tar -xzvf /tmp/source.tar.gz -C /usr/local
+          sed -i "s#String host.*;#String host = \"${RedisInstance.ConnectionDomain}\";#g" /usr/local/source/src/main/java/test/GameRankSample.java
+          sed -i "s#String authString.*;#String authString = jedis.auth(\"${RedisInstance.InstanceId}:${RedisPassword}\");#g" /usr/local/source/src/main/java/test/GameRankSample.java
+          cd /usr/local/source
+          mvn clean package assembly:single -DskipTests
+          echo "Step3: Install app" >> .ros.provision
+          GameLeaderBoards=`java -classpath target/demo-0.0.1-SNAPSHOT.jar test.GameRankSample`
+          cmd="${WaitConditionHandle.CurlCli} -d '{\"id\" : \"GameLeaderBoards\", \"data\" : \"$GameLeaderBoards\"}'"
+          eval $cmd
+    DependsOn:
+      - Whitelist
+  EcsInstance:
+    DependsOn: RedisInstance
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      VpcId:
+        Fn::GetAtt:
+          - EcsVpc
+          - VpcId
+      AllocatePublicIP: true
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      VSwitchId:
+        Ref: EcsVSwitch
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: InstanceType
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - SystemDiskCategory
+          - InstancePassword
+          - RedisClass
+          - RedisPassword
+        Label:
+          default: ECS
+    TemplateTags:
+      - acs:technical-solution:游戏玩家积分排行榜
+Outputs:
+  RedisInstanceId:
+    Value:
+      Fn::GetAtt:
+        - RedisInstance
+        - InstanceId
+  RedisConnectionDomain:
+    Value:
+      Fn::GetAtt:
+        - RedisInstance
+        - ConnectionDomain
+  GameLeaderBoards:
+    Value:
+      Fn::GetAtt:
+        - WaitCondition
+        - Data
+
