@@ -1,0 +1,182 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: MSE end-to-end canary release for ACK application.
+  zh-cn: 基于MSE实现ACK应用的全链路灰度。
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Available Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
+        VSwitch and used for MSE gateway, MSE instance, and ACK cluster.</font></b>
+      zh-cn: 可用区ID。<br><b>注：用于创建VSwitch，并给MSE网关、MSE注册配置中心实例、ACK集群使用。
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  SecondaryZoneId:
+    Type: String
+    Label:
+      en: Secondary Available Zone ID
+      zh-cn: 备可用区ID
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
+        a backup VSwitch and used for the MSE gateway.</font></b>
+      zh-cn: 可用区ID。<br><b>注：用于创建备VSwitch，并给MSE网关使用。<font color='blue'>需要和ZoneId不在同一个可用区。</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  WorkerInstanceType:
+    Type: String
+    Label:
+      en: Worker Nodes Type
+      zh-cn: Worker节点规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  WorkerSystemDiskCategory:
+    Type: String
+    Label:
+      en: Worker Node System Disk Category
+      zh-cn: Worker节点系统盘磁盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      ZoneId: ${ZoneId}
+      InstanceType: ${WorkerInstanceType}
+    Default: cloud_essd
+  WorkerSystemDiskSize:
+    Type: Number
+    Label:
+      en: Worker System Disk Size(GB)
+      zh-cn: Worker节点系统盘大小(GB)
+    Default: 120
+    MinValue: 40
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: testvpc
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName: testvswitch
+  BackupVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: SecondaryZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      VSwitchName: testvswitch-backup
+  MseGateway:
+    Type: ALIYUN::MSE::Gateway
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      Name: test
+      BackupVSwitchId:
+        Ref: BackupVSwitch
+      InternetSlbSpec: slb.s2.small
+      Spec: MSE_GTW_2_4_200_c
+      Replica: 2
+  MseCluster:
+    Type: ALIYUN::MSE::Cluster
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      ClusterAliasName: test
+      MseVersion: mse_pro
+      InstanceCount: 3
+      ClusterVersion: NACOS_2_0_0
+      ClusterType: Nacos-Ans
+      ClusterSpecification: MSE_SC_2_4_200_c
+      DiskType: alicloud-disk-ssd-multi-zone
+      NetType: privatenet
+      PubNetworkFlow: 0
+  MseServiceSource:
+    Type: ALIYUN::MSE::ServiceSource
+    Properties:
+      GatewayUniqueId:
+        Ref: MseGateway
+      Name:
+        Ref: MseCluster
+      Source: MSE
+  ManagedKubernetesCluster:
+    Type: ALIYUN::CS::ManagedKubernetesCluster
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchIds:
+      - Ref: VSwitch
+      PodVswitchIds:
+      - Ref: VSwitch
+      Name: testcluster
+      KubernetesVersion: 1.26.3-aliyun.1
+      ZoneIds:
+      - Ref: ZoneId
+      ServiceCidr: 172.16.0.0/16
+      ClusterSpec: ack.pro.small
+      LoadBalancerSpec: slb.s2.small
+      IsEnterpriseSecurityGroup: true
+      SnatEntry: true
+      NumOfNodes: 0
+      Platform: AliyunLinux
+      ImageType: AliyunLinux
+      Addons:
+      - Name: terway-eniip
+        Config: '{"IPVlan":"false","NetworkPolicy":"false","ENITrunking":"false"}'
+      - Name: csi-plugin
+      - Name: csi-provisioner
+      - Name: storage-operator
+        Config: '{"CnfsOssEnable":"false","CnfsNasEnable":"false"}'
+      - Name: nginx-ingress-controller
+        Config: '{"IngressSlbNetworkType":"internet","IngressSlbSpec":"slb.s2.small"}'
+      ProxyMode: ipvs
+      NodePools:
+      - NodePoolInfo:
+          Name: default-nodepool
+        ScalingGroup:
+          VSwitchIds:
+          - Ref: VSwitch
+          SystemDiskCategory:
+            Ref: WorkerSystemDiskCategory
+          SystemDiskSize:
+            Ref: WorkerSystemDiskSize
+          InstanceTypes:
+          - Ref: WorkerInstanceType
+          LoginPassword: ''
+        KubernetesConfig:
+          Runtime: containerd
+          RuntimeVersion: 1.6.20
+        Count: 3
+Outputs:
+  MseNacosAddress:
+    Value:
+      Fn::GetAtt:
+      - MseCluster
+      - IntranetDomain
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - SecondaryZoneId
+      Label:
+        en: Available Zone
+        zh-cn: 可用区
+    - Parameters:
+      - WorkerInstanceType
+      - WorkerSystemDiskCategory
+      - WorkerSystemDiskSize
+      Label:
+        en: ACK Configuration
+        zh-cn: ACK配置
