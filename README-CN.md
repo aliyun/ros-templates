@@ -422,10 +422,11 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - AI
 
-| 模板                                                                                                                                                                   | 说明                                                                                           |
-|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| 模板                                                                                                                                                                   | 说明                                                                                          |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
 | [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](./documents/solution/AI/use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。 |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
+| [aigc-text-generation-3d-model-with-ecs.yaml](./documents/solution/AI/aigc-text-generation-3d-model-with-ecs.yaml) | AIGC文本生成3D模型。 |
 
    </details>
 
