@@ -421,30 +421,30 @@ Examples and best practices of ROS templates. The templates are categorized as f
    <details>
     <summary>solution</summary>
 
-- AI
+- ai
 
 | Template                                                                                                                             | Description                                                                                  |
 |--------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](./documents/solution/AI/use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml) | Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models is supported. |
+| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yaml) | Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models is supported. |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | Use the Centos7 system to create an ECS instance and install and deploy the Gamer Points Leaderboard application. |
-| [aigc-text-generation-3d-model-with-ecs.yaml](./documents/solution/AI/aigc-text-generation-3d-model-with-ecs.yaml) | AIGC Text Generation 3D Model. |
+| [aigc-text-generation-3d-model-with-ecs.yaml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yaml) | AIGC Text Generation 3D Model. |
 
-- Database
+- database
 
 | Template                                                                                                            | Description                                                                                  |
 |---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| [wordpress-website-database-on-the-cloud.yml](./documents/solution/Database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
+| [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
 
-- Storage
+- storage
 | Template                                                                                                                 | Description       |
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
-| [collect-logs-across-Alibaba-cloud-accounts.yml](./documents/solution/Storage/collect-logs-across-Alibaba-cloud-accounts.yml) | Collect logs across Alibaba cloud accounts. |
+| [collect-logs-across-Alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-Alibaba-cloud-accounts.yml) | Collect logs across Alibaba cloud accounts. |
 
-- CDNAndVideoCloud
+- cdn-adn-video-cloud
 
 | Template                                                                                                                  | Description                                                                                 |
 |---------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| [cdn-speeds-up-distribution-of-file-on-oss.yaml](./documents/solution/CDNAndVideoCloud/cdn-speeds-up-distribution-of-file-on-oss.yaml) | Use a CDN to speed up the distribution of file resources stored on OSS. |
+| [cdn-speeds-up-distribution-of-file-on-oss.yaml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yaml) | Use a CDN to speed up the distribution of file resources stored on OSS. |
 
    </details>
 

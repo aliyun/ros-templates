@@ -420,30 +420,30 @@ ROS 模板的示例和最佳实践。模板分类如下：
    <details>
     <summary>solution</summary>
 
-- AI
+- ai
 
 | 模板                                                                                                                                                                   | 说明                                                                                          |
 |----------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](./documents/solution/AI/use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。 |
+| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yaml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。 |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
-| [aigc-text-generation-3d-model-with-ecs.yaml](./documents/solution/AI/aigc-text-generation-3d-model-with-ecs.yaml) | AIGC文本生成3D模型。 |
+| [aigc-text-generation-3d-model-with-ecs.yaml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yaml) | AIGC文本生成3D模型。 |
 
-- Database
+- database
 
 | Template                                                                                                                 | Description       |
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
-| [wordpress-website-database-on-the-cloud.yml](./documents/solution/Database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
+| [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
 
-- Storage
+- storage
 | Template                                                                                                                 | Description       |
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
-| [collect-logs-across-Alibaba-cloud-accounts.yml](./documents/solution/Storage/collect-logs-across-Alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。 |
+| [collect-logs-across-Alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-Alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。 |
 
-- CDNAndVideoCloud
+- cdn-and-video-cloud
 
 | Template                                                                                                                               | Description            |
 |----------------------------------------------------------------------------------------------------------------------------------------|------------------------|
-| [cdn-speeds-up-distribution-of-file-on-oss.yaml](./documents/solution/CDNAndVideoCloud/cdn-speeds-up-distribution-of-file-on-oss.yaml) | 使用CDN加速OSS上存储的文件资源分发。  |
+| [cdn-speeds-up-distribution-of-file-on-oss.yaml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yaml) | 使用CDN加速OSS上存储的文件资源分发。  |
 
    </details>
 
