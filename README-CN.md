@@ -412,7 +412,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - vpc
 
-| Template                                                                                                          | Description                                                                   |
+| 模板                                                                                                          | Description                                                                   |
 |-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | [ipv4-vpc-create-ecs-and-bind-eip.yaml](./documents/help/vpc/ipv4-vpc-create-ecs-and-bind-eip.yaml) | 搭建一个具有IPv4地址块的专有网络，并为专有网络中的云服务器ECS实例绑定一个弹性公网IP。 |
    </details>
@@ -430,18 +430,25 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - database
 
-| Template                                                                                                                 | Description       |
+| 模板                                                                                                                 | 说明       |
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
 
+- micro
+
+| 模板                                                                                                                 | 说明       |
+|--------------------------------------------------------------------------------------------------------------------------|-------------------|
+| [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-end-to-end-canary-release-for-ack-application.yml) | 基于MSE实现ACK应用的全链路灰度。 |
+
 - storage
-| Template                                                                                                                 | Description       |
+
+| 模板                                                                                                                 | 说明       |
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
 | [collect-logs-across-Alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-Alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。 |
 
 - cdn-and-video-cloud
 
-| Template                                                                                                                               | Description            |
+| 模板                                                                                                                               | 说明            |
 |----------------------------------------------------------------------------------------------------------------------------------------|------------------------|
 | [cdn-speeds-up-distribution-of-file-on-oss.yaml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yaml) | 使用CDN加速OSS上存储的文件资源分发。  |
 

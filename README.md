@@ -295,7 +295,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 <details>
   <summary>solutions</summary>
 
-| 模板 | 说明 |
+| Template | Description |
 | ---- | ---- |
 | [backup-recovery/application-business-migration.yml](./solutions/backup-recovery/application-business-migration.yml) | This template shows the migration and switchover of a service from a single zone to multiple zones. The template uses a simulated WordPress application service to provide you with a clear view of the solution architecture. You must manually perform the disaster recovery drill in the service console. This template can be used with the single-zone application building template to complete application business migration. |
 | [backup-recovery/cross-the-available-zone-disaster.yml](./solutions/backup-recovery/cross-the-available-zone-disaster.yml) | This template shows the basic procedure of a disaster recovery drill across zones in a region. This template uses an existing e-commerce website image to build an e-commerce website. |
@@ -435,7 +435,14 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
 
+- micro
+
+| Template                                                                                                                 | Description       |
+|------------------------------------------------------------------------------------------------------------------------|-----------------|
+| [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-end-to-end-canary-release-for-ack-application.yml) | MSE end-to-end canary release for ACK application. |
+
 - storage
+
 | Template                                                                                                                 | Description       |
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
 | [collect-logs-across-Alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-Alibaba-cloud-accounts.yml) | Collect logs across Alibaba cloud accounts. |
