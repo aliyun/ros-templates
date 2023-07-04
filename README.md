@@ -435,6 +435,11 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | [wordpress-website-database-on-the-cloud.yml](./documents/solution/Database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
 
+- Storage
+| Template                                                                                                                 | Description       |
+|--------------------------------------------------------------------------------------------------------------------------|-------------------|
+| [collect-logs-across-Alibaba-cloud-accounts.yml](./documents/solution/Storage/collect-logs-across-Alibaba-cloud-accounts.yml) | Collect logs across Alibaba cloud accounts. |
+
 - CDNAndVideoCloud
 
 | Template                                                                                                                  | Description                                                                                 |

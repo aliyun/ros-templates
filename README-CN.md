@@ -434,6 +434,11 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
 | [wordpress-website-database-on-the-cloud.yml](./documents/solution/Database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
 
+- Storage
+| Template                                                                                                                 | Description       |
+|--------------------------------------------------------------------------------------------------------------------------|-------------------|
+| [collect-logs-across-Alibaba-cloud-accounts.yml](./documents/solution/Storage/collect-logs-across-Alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。 |
+
 - CDNAndVideoCloud
 
 | Template                                                                                                                               | Description            |
