@@ -428,6 +428,18 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
 | [aigc-text-generation-3d-model-with-ecs.yaml](./documents/solution/AI/aigc-text-generation-3d-model-with-ecs.yaml) | AIGC文本生成3D模型。 |
 
+- Database
+
+| Template                                                                                                                 | Description       |
+|--------------------------------------------------------------------------------------------------------------------------|-------------------|
+| [wordpress-website-database-on-the-cloud.yml](./documents/solution/Database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
+
+- CDNAndVideoCloud
+
+| Template                                                                                                                               | Description            |
+|----------------------------------------------------------------------------------------------------------------------------------------|------------------------|
+| [cdn-speeds-up-distribution-of-file-on-oss.yaml](./documents/solution/CDNAndVideoCloud/cdn-speeds-up-distribution-of-file-on-oss.yaml) | 使用CDN加速OSS上存储的文件资源分发。  |
+
    </details>
 
 - trial

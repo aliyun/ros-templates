@@ -429,6 +429,18 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | Use the Centos7 system to create an ECS instance and install and deploy the Gamer Points Leaderboard application. |
 | [aigc-text-generation-3d-model-with-ecs.yaml](./documents/solution/AI/aigc-text-generation-3d-model-with-ecs.yaml) | AIGC Text Generation 3D Model. |
 
+- Database
+
+| Template                                                                                                            | Description                                                                                  |
+|---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| [wordpress-website-database-on-the-cloud.yml](./documents/solution/Database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
+
+- CDNAndVideoCloud
+
+| Template                                                                                                                  | Description                                                                                 |
+|---------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| [cdn-speeds-up-distribution-of-file-on-oss.yaml](./documents/solution/CDNAndVideoCloud/cdn-speeds-up-distribution-of-file-on-oss.yaml) | Use a CDN to speed up the distribution of file resources stored on OSS. |
+
    </details>
 
 - trial

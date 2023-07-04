@@ -1,0 +1,93 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 使用CDN加速OSS上存储的文件资源分发。
+  en: Use a CDN to speed up the distribution of file resources stored on OSS.
+Parameters:
+  DomainName:
+    Type: String
+    Label:
+      zh-cn: 加速域名
+      en: Accelerated domain name
+    Description:
+      zh-cn: 加速域名是指接入CDN，用于加速源站的域名。该示例为image.example.com。
+      en: Accelerated domain name refers to the domain name of the access CDN used to accelerate the source site. The example is image.example.com.
+    Default: image.example.com
+  BucketName:
+    Type: String
+    Label:
+      en: Bucket Name
+      zh-cn: 存储空间名称
+    Description:
+      en: The name must be 3 to 63 bytes in length, The name must start and end with a lowercase letter or digit.The name can contain only lowercase letters, digits, and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
+      zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
+    Default: image-example-test
+Resources:
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+      DeletionForce: true
+  OpenCdnService:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: DCDN
+  Domain:
+    Type: ALIYUN::CDN::Domain
+    Properties:
+      Sources:
+        Fn::Sub:
+          - '[{"content":"${content}", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
+          - content:
+              Fn::GetAtt:
+                - OssBucket
+                - DomainName
+      CdnType: web
+      Scope: overseas
+      DomainName:
+        Ref: DomainName
+    DependsOn: OpenCdnService
+  DomainRecord:
+    Type: ALIYUN::DNS::DomainRecord
+    Properties:
+      Type: CNAME
+      RR: image
+      Value:
+        Fn::GetAtt:
+          - Domain
+          - Cname
+      DomainName:
+        Fn::Join:
+          - .
+          - Fn::Select:
+              - '1:'
+              - Fn::Split:
+                  - .
+                  - Ref: DomainName
+    DependsOn: Domain
+  DomainConfig:
+    Type: ALIYUN::CDN::DomainConfig
+    Properties:
+      Functions: '[{"functionArgs":[{"argName":"file_type","argValue":"jpg,png,jpeg"},{"argName":"weight","argValue":"99"},{"argName":"ttl","argValue":"7776000"}],"functionName":"filetype_based_ttl_set"},{"functionArgs":[{"argName":"private_oss_auth","argValue":"on"},{"argName":"perm_private_oss_tbl","argValue":""}],"functionName":"l2_oss_key"},{"functionArgs":[{"argName":"filetype","argValue":"jpeg"},{"argName":"webp","argValue":"off"},{"argName":"orient","argValue":"off"},{"argName":"slim","argValue":90},{"argName":"enable","argValue":"on"}],"functionName":"image_transform"}]'
+      DomainNames:
+        Ref: Domain
+    DependsOn: DomainRecord
+Outputs:
+  Cname:
+    Description: CNAME
+    Value:
+      Fn::GetAtt:
+        - Domain
+        - Cname
+  DomainName:
+    Description: DomainName
+    Value:
+      Ref: Domain
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - DomainName
+          - BucketName
+    TemplateTags:
+      - acs:technical-solution:CDNAndVideoCloud:使用CDN加速OSS上存储的文件资源分发
