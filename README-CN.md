@@ -442,6 +442,12 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
 | [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-end-to-end-canary-release-for-ack-application.yml) | 基于MSE实现ACK应用的全链路灰度。 |
 
+- network
+
+| 模板                                                                                                                                | 说明            |
+|-----------------------------------------------------------------------------------------------------------------------------------|---------------|
+| [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml) | 跨地域跨账号网络互通方案。 |
+
 - storage
 
 | 模板                                                                                                                 | 说明       |

@@ -442,6 +442,12 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |------------------------------------------------------------------------------------------------------------------------|-----------------|
 | [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-end-to-end-canary-release-for-ack-application.yml) | MSE end-to-end canary release for ACK application. |
 
+- network
+
+| Template                                                                                                                                | Description                                            |
+|-----------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml) | Cross region and account network interwork scheme. |
+
 - storage
 
 | Template                                                                                                                 | Description       |
