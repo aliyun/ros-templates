@@ -405,16 +405,16 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [add-signatures-on-server-configure-upload-callback.yml](./documents/help/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | 在服务端通过Java代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。 |
 | [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/help/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | 基于POST Policy的使用规则在客户端通过JavaScript代码完成签名，然后通过表单直传数据到OSS。 |
 | [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | 从服务器获取签名信息并上传数据到OSS。|
-| [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。|
-| [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 |
-| [use-function-compute-to-download-multiple-objects-as-a-package.yaml](./documents/help/oss/use-function-compute-to-download-multiple-objects-as-a-package.yaml)       | 使用函数计算将对象存储OSS上多个文件（Object）打包下载到本地。 |
-| [centOS-ecs-oos.yaml](./documents/help/oss/centOS-ecs-oos.yaml)                                                                                   | 基于CentOS的ECS实例实现OSS反向代理 |
+| [mobile-application-direct-transmission-service.yml](./documents/help/oss/mobile-application-direct-transmission-service.yml)                                       | 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。|
+| [cdn-speeds-up-oss-access.yml](./documents/help/oss/cdn-speeds-up-oss-access.yml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 |
+| [use-function-compute-to-download-multiple-objects-as-a-package.yml](./documents/help/oss/use-function-compute-to-download-multiple-objects-as-a-package.yml)       | 使用函数计算将对象存储OSS上多个文件（Object）打包下载到本地。 |
+| [centOS-ecs-oos.yml](./documents/help/oss/centOS-ecs-oss.yml)                                                                                   | 基于CentOS的ECS实例实现OSS反向代理 |
 
 - vpc
 
 | 模板                                                                                                          | Description                                                                   |
 |-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| [ipv4-vpc-create-ecs-and-bind-eip.yaml](./documents/help/vpc/ipv4-vpc-create-ecs-and-bind-eip.yaml) | 搭建一个具有IPv4地址块的专有网络，并为专有网络中的云服务器ECS实例绑定一个弹性公网IP。 |
+| [ipv4-vpc-create-ecs-and-bind-eip.yml](./documents/help/vpc/ipv4-vpc-create-ecs-and-bind-eip.yml) | 搭建一个具有IPv4地址块的专有网络，并为专有网络中的云服务器ECS实例绑定一个弹性公网IP。 |
    </details>
 
    <details>
@@ -424,10 +424,10 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | 模板                                                                                                                                                                   | 说明                                                                                          |
 |----------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yaml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。 |
+| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。 |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
-| [aigc-text-generation-3d-model-with-ecs.yaml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yaml) | AIGC文本生成3D模型。 |
-| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yaml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yaml) | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。 ｜
+| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml) | AIGC文本生成3D模型。 |
+| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。 ｜
 
 
 - database
@@ -458,7 +458,14 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | 模板                                                                                                                               | 说明            |
 |----------------------------------------------------------------------------------------------------------------------------------------|------------------------|
-| [cdn-speeds-up-distribution-of-file-on-oss.yaml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yaml) | 使用CDN加速OSS上存储的文件资源分发。  |
+| [cdn-speeds-up-distribution-of-file-on-oss.yml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yml) | 使用CDN加速OSS上存储的文件资源分发。  |
+
+
+- high-availability-architecture
+
+| 模板                                                                                                                                           | 说明         |
+|----------------------------------------------------------------------------------------------------------------------------------------------|------------|
+| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | 云上高可用博客网站。 |
 
    </details>
 
