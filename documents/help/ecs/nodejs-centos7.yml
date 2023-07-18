@@ -155,6 +155,20 @@ Resources:
         Ref: WaitConditionHandle
       Timeout: 3720
       Count: 1
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DS_Instances
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
   SecurityGroupIngress_3000:
     Type: ALIYUN::ECS::SecurityGroupIngress
     Properties:
@@ -201,12 +215,29 @@ Resources:
             echo "# Install Node.js"
             echo "#########################"
             yum install git -y
-            git clone https://github.com/cnpm/nvm.git ~/.nvm && cd ~/.nvm && git checkout `git describe --abbrev=0 --tags`
-            echo ". ~/.nvm/nvm.sh" >> /etc/profile
-            source /etc/profile
+            curl -o install.sh https://gitee.com/mirrors/nvm/raw/v0.39.3/install.sh
+            if [ $? -ne 0 ]; then
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"Download nvm install script failed.\"}"
+            fi
+            sed -i 's|GITHUB_REPO|GITEE_REPO|g' install.sh
+            sed -i 's|github.com|gitee.com|g' install.sh
+            sed -i 's|https://raw.githubusercontent.com/${!NVM_GITEE_REPO}/${!NVM_VERSION}|https://gitee.com/${!NVM_GITEE_REPO}/raw/${!NVM_VERSION}|g' install.sh
+            NVM_INSTALL_GITEE_REPO=mirrors/nvm METHOD='script' bash install.sh
+            if [ $? -ne 0 ]; then
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"Install nvm failed.\"}"
+            fi
+            export NVM_DIR="$([ -z "${!XDG_CONFIG_HOME-}" ] && printf %s "${!HOME}/.nvm" || printf %s "${!XDG_CONFIG_HOME}/nvm")"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+            export NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
             nvm list-remote
-            nvm install v6.9.5
-            nvm install v7.4.0
+            nvm install v14.0.0
+            if [ $? -ne 0 ]; then
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"nvm install v14.0.0 failed.\"}"
+            fi
+            nvm install v16.0.0
+            if [ $? -ne 0 ]; then
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"nvm install v16.0.0 failed.\"}"
+            fi
             nvm ls
             echo "Step1: Install Node.js" >> .ros.provision
           else
