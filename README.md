@@ -404,17 +404,17 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [add-signatures-on-server-configure-upload-callback.yml](./documents/help/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | Calculate signatures in Java on the server, configure upload callbacks, and upload data to OSS.                                  |
 | [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/help/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | Use JavaScript to add signatures on the client based on POST policies and then upload data to OSS.                               |
 | [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | Obtain signature information from the server and upload data to OSS.                                                             |
-| [mobile-application-direct-transmission-service.yaml](./documents/help/oss/mobile-application-direct-transmission-service.yaml)                                       | Enable the STS service and configure the application server. You can obtain a temporary Token through the output server address. |
-| [cdn-speeds-up-oss-access.yaml](./documents/help/oss/cdn-speeds-up-oss-access.yaml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS.                                                |
-| [use-function-compute-to-download-multiple-objects-as-a-package.yaml](./documents/help/oss/use-function-compute-to-download-multiple-objects-as-a-package.yaml)       | Use Function Compute to download multiple objects as a package to an on-premises device.                                         |
-| [centOS-ecs-oos.yaml](./documents/help/oss/centOS-ecs-oos.yaml)                                                                                   | Implement OSS reverse proxy on CentOS ECS instance. |
+| [mobile-application-direct-transmission-service.yml](./documents/help/oss/mobile-application-direct-transmission-service.yml)                                       | Enable the STS service and configure the application server. You can obtain a temporary Token through the output server address. |
+| [cdn-speeds-up-oss-access.yml](./documents/help/oss/cdn-speeds-up-oss-access.yml)                                                                                   | Use CDN to add domain names and resolve domain names to accelerate access to OSS.                                                |
+| [use-function-compute-to-download-multiple-objects-as-a-package.yml](./documents/help/oss/use-function-compute-to-download-multiple-objects-as-a-package.yml)       | Use Function Compute to download multiple objects as a package to an on-premises device.                                         |
+| [centOS-ecs-oos.yml](./documents/help/oss/centOS-ecs-oss.yml)                                                                                   | Implement OSS reverse proxy on CentOS ECS instance. |
 
 
 - vpc
 
 | Template                                                                                                          | Description                                                                   |
 |-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| [ipv4-vpc-create-ecs-and-bind-eip.yaml](./documents/help/vpc/ipv4-vpc-create-ecs-and-bind-eip.yaml) | Create an IPv4 VPC, and bind ECS with EIP. |
+| [ipv4-vpc-create-ecs-and-bind-eip.yml](./documents/help/vpc/ipv4-vpc-create-ecs-and-bind-eip.yml) | Create an IPv4 VPC, and bind ECS with EIP. |
 
    </details>
 
@@ -425,10 +425,10 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 | Template                                                                                                                             | Description                                                                                  |
 |--------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yaml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yaml) | Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models is supported. |
+| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models is supported. |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | Use the Centos7 system to create an ECS instance and install and deploy the Gamer Points Leaderboard application. |
-| [aigc-text-generation-3d-model-with-ecs.yaml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yaml) | AIGC Text Generation 3D Model. |
-| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yaml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yaml) | How to quickly start Stable Diffusion on Alibaba Cloud and easily play with AI painting. ｜
+| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml) | AIGC Text Generation 3D Model. |
+| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | How to quickly start Stable Diffusion on Alibaba Cloud and easily play with AI painting. ｜
 
 - database
 
@@ -458,7 +458,14 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 | Template                                                                                                                  | Description                                                                                 |
 |---------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| [cdn-speeds-up-distribution-of-file-on-oss.yaml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yaml) | Use a CDN to speed up the distribution of file resources stored on OSS. |
+| [cdn-speeds-up-distribution-of-file-on-oss.yml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yml) | Use a CDN to speed up the distribution of file resources stored on OSS. |
+
+
+- high-availability-architecture
+
+| Template                                                                                                                  | Description                                                                                |
+|---------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | Highly available blog site on the cloud. |
 
    </details>
 
