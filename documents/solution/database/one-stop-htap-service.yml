@@ -1,0 +1,435 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Build a one-stop HTAP service based on RDS and ClickHouse.
+  zh-cn: RDS+ClickHouse，构建更易用的一站式HTAP服务。
+Mappings:
+  DatabaseClass:
+    RDS:
+      8C32G: mysql.x4.xlarge.2c
+      16C64G: mysql.x4.2xlarge.2c
+      32C128G: mysql.x4.4xlarge.2c
+      64C256G: mysql.x4.8xlarge.2c
+    ClickHouse:
+      8C32G: C8
+      16C64G: C16
+      32C128G: C32
+      64C256G: C64
+Parameters:
+  CommonName:
+    Type: String
+    Default: rdsmysql2ck
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: 'ALIYUN::VPC::Zone::ZoneId'
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Database Instance Class
+      zh-cn: 数据库实例规格
+    Description:
+      en: >-
+        The instance specifications of the RDS instance and the ClickHouse
+        instance must be consistent.
+      zh-cn: RDS实例和ClickHouse实例的实例规格需保持一致。
+    Default: 32C128G
+    AllowedValues:
+      - 8C32G
+      - 16C64G
+      - 32C128G
+      - 64C256G
+  RDSDBUser:
+    Type: String
+    Label:
+      en: RDS DB Username
+      zh-cn: RDS数据库账号
+    Description:
+      en: Username of RDS Db database.
+      zh-cn: RDS数据库账号。
+    ConstraintDescription:
+      en: >-
+        Consist of lowercase letters, numbers, underscore (_), start with a
+        letter, end with a letter or number, up to 32 characters.
+      zh-cn: 由小写字母、数字、下划线（_）组成，以字母开头，以字母或数字结尾，最多32个字符。
+    Default: rds_user
+    MinLength: 2
+    MaxLength: 16
+    AllowedPattern: '^[a-z][a-z0-9_]{0,30}[a-z0-9]$'
+  DataBasePassword:
+    Type: String
+    Label:
+      en: DataBase Password
+      zh-cn: 数据库密码
+    Description:
+      en: >-
+        RDS database user and ClickHouse database user password. Length 8-32,
+        must contain three(Capital letters, lowercase letters, numbers,
+        !@#$%^&*()_+-= Special symbol in).
+      zh-cn: >-
+        RDS数据库用户和ClickHouse数据库用户密码。长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=
+        中的特殊符号）。
+    ConstraintDescription:
+      en: >-
+        Length 8-32, must contain three(Capital letters, lowercase letters,
+        numbers, !@#$%^&*()_+-= Special symbol in)
+      zh-cn: 长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-= 中的特殊符号）。
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  ClickHouseUser:
+    Type: String
+    Label:
+      en: ClickHouse Db Username
+      zh-cn: ClickHouse数据库账号
+    Description:
+      en: Username of ClickHouse Db database.
+      zh-cn: ClickHouse数据库账号。
+    ConstraintDescription:
+      en: >-
+        Consist of lowercase letters, numbers, underscore (_), start with a
+        letter, end with a letter or number, up to 32 characters.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: ck_user
+    MinLength: 2
+    MaxLength: 16
+    AllowedPattern: '^[a-z][a-z0-9_]{0,30}[a-z0-9]$'
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: >-
+        Fill in the specifications that can be used under the VSwitch
+        availability zone;</b></font><br>general specifications：<font
+        color='red'><b>ecs.c5.large</b></font><br>note: a few zones do not
+        support general specifications<br>see detail: <a
+        href='https://www.alibabacloud.com/help/en/doc-detail/25378.html'
+        target='_blank'><b><font color='blue'>Instance Specification
+        Family.</font></a></b>
+      zh-cn: >-
+        填写VSwitch可用区下可使用的规格；<br>通用规格：<font
+        color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html'
+        target='_blank'><b><font color='blue'>实例规格族。</font></a></b>
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      ZoneId: '${ZoneId}'
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+    Default: ecs.c5.large
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in).
+      zh-cn: >-
+        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）。
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）。'
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+Resources:
+  VPC:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      VpcName:
+        'Fn::Sub': 'vpc_${CommonName}'
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: VPC
+      ZoneId:
+        Ref: ZoneId
+      CidrBlock: 192.168.0.0/24
+      VSwitchName:
+        'Fn::Sub': 'vswitch_${CommonName}'
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: VPC
+  SecurityGroupIngress_22:
+    Type: 'ALIYUN::ECS::SecurityGroupIngress'
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_80:
+    Type: 'ALIYUN::ECS::SecurityGroupIngress'
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  SecurityGroupIngress_3306:
+    Type: 'ALIYUN::ECS::SecurityGroupIngress'
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3306/3306
+  SecurityGroupIngress_443:
+    Type: 'ALIYUN::ECS::SecurityGroupIngress'
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 443/443
+  RdsInstance:
+    Type: 'ALIYUN::RDS::DBInstance'
+    Properties:
+      DBInstanceDescription:
+        'Fn::Sub': 'vswitch_${CommonName}'
+      Engine: MySQL
+      DBInstanceStorage: 100
+      EngineVersion: '8.0'
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      DBInstanceClass:
+        'Fn::FindInMap':
+          - DatabaseClass
+          - RDS
+          - Ref: DBInstanceClass
+      SecurityIPList: 0.0.0.0/0
+      VpcId:
+        Ref: VPC
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      PayType: Postpaid
+      MasterUserType: Super
+      MasterUsername:
+        Ref: RDSDBUser
+      MasterUserPassword:
+        Ref: DataBasePassword
+  Database:
+    Type: 'ALIYUN::RDS::Database'
+    Properties:
+      CharacterSetName: utf8mb4
+      DBInstanceId:
+        Ref: RdsInstance
+      DBDescription:
+        'Fn::Sub': 'tpcc_${CommonName}'
+      DBName: tpcc
+  ClickHouse:
+    Type: 'ALIYUN::ClickHouse::DBCluster'
+    Properties:
+      DbNodeStorageType: cloud_essd
+      DBNodeStorage: 100
+      Category: HighAvailability
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      DBClusterDescription:
+        'Fn::Sub': '${CommonName}_ck'
+      DBClusterType:
+        'Fn::FindInMap':
+          - DatabaseClass
+          - ClickHouse
+          - Ref: DBInstanceClass
+      VpcId:
+        Ref: VPC
+      DBClusterVersion: 22.8.5.29
+      DBNodeCount: 2
+      PaymentType: Postpaid
+      DBClusterNetworkType: VPC
+  EcsInstance:
+    Type: 'ALIYUN::ECS::Instance'
+    Properties:
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7_8
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      Password:
+        Ref: InstancePassword
+      IoOptimized: optimized
+      AllocatePublicIP: true
+      ZoneId:
+        Ref: ZoneId
+  InstallEnv:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        - 'Fn::GetAtt':
+            - EcsInstance
+            - InstanceId
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        'Fn::Sub': >
+          #!/bin/bash
+
+          wget
+          http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
+
+          yum -y install mysql57-community-release-el7-10.noarch.rpm
+
+          yum -y install * --nogpgcheck mysql-community-server
+
+          yum -y install gcc gcc-c++ autoconf automake make libtool bzr
+          mysql-devel git mysql unzip --nogpgcheck
+
+          bzr branch lp:~percona-dev/perconatools/tpcc-mysql
+
+          cd tpcc-mysql/src
+
+          make
+
+          cd ..
+
+          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser}
+          -p${DataBasePassword} -D tpcc < create_table.sql
+
+          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser}
+          -p${DataBasePassword} -D tpcc < add_fkey_idx.sql
+
+
+          ./tpcc_load ${RdsInstance.InnerConnectionString} tpcc ${RDSDBUser}
+          ${DataBasePassword} 10
+  RunTpcc:
+    Type: 'ALIYUN::ECS::RunCommand'
+    DependsOn: InstallEnv
+    Properties:
+      InstanceIds:
+        - 'Fn::GetAtt':
+            - EcsInstance
+            - InstanceId
+      Type: RunShellScript
+      Timeout: 3600
+      CommandContent:
+        'Fn::Sub': >
+          #!/bin/bash
+
+          tpcc-mysql/tpcc_start -h ${RdsInstance.InnerConnectionString} -d tpcc
+          -u ${RDSDBUser} -p ${DataBasePassword} -w 10 -c 100 -r 180 -l 600 -i
+          10 > tpcc.log 2>&1 &
+  ModuleAcsOosExecuteTemplate:
+    Version: default
+    Type: 'MODULE::ACS::OOS::ExecuteTemplate'
+    Properties:
+      CleanUp: true
+      TemplateContent:
+        'Fn::Sub': |
+          FormatVersion: OOS-2019-06-01
+          Tasks:
+            - Name: DescribeAccounts
+              Action: ACS::ExecuteAPI
+              Properties:
+                Service: ClickHouse
+                API: DescribeAccounts
+                Parameters:
+                  RegionId: '{{ ACS::RegionId }}'
+                  DBClusterId: ${ClickHouse.DBClusterId}
+              Outputs:
+                RequestId:
+                  ValueSelector: .RequestId
+                  Type: String
+            - Name: sleepTask1
+              Action: ACS::Sleep
+              Properties:
+                Duration: 5s
+            - Name: CreateSQLAccount
+              Action: ACS::ExecuteAPI
+              Properties:
+                Service: ClickHouse
+                API: CreateSQLAccount
+                Parameters:
+                  RegionId: '{{ ACS::RegionId }}'
+                  DBClusterId: ${ClickHouse.DBClusterId}
+                  AccountName: ${ClickHouseUser}
+                  AccountPassword: ${DataBasePassword}
+                  AccountType: Super
+            - Name: sleepTask2
+              Action: ACS::Sleep
+              Properties:
+                Duration: 20s
+  SynDb:
+    Type: 'ALIYUN::ClickHouse::SynDb'
+    DependsOn:
+      - ModuleAcsOosExecuteTemplate
+      - RdsInstance
+    Properties:
+      DbClusterId:
+        Ref: ClickHouse
+      CkUserName:
+        Ref: ClickHouseUser
+      CkPassword:
+        Ref: DataBasePassword
+      RdsId:
+        Ref: RdsInstance
+      RdsUserName:
+        Ref: RDSDBUser
+      RdsPassword:
+        Ref: DataBasePassword
+      SkipUnsupported: true
+      SynDbTables:
+        - Schema: tpcc
+          Tables:
+            - customer
+            - district
+            - history
+            - item
+            - new_orders
+            - order_line
+            - orders
+            - stock
+            - warehouse
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - DBInstanceClass
+          - RDSDBUser
+          - ClickHouseUser
+          - DataBasePassword
+        Label:
+          default:
+            en: DataBase Configuration
+            zh-cn: 数据库配置
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          en: ECS Configuration
+          zh-cn: 客户端ECS配置
+    TemplateTags:
+      - 'acs:technical-solution:database:RDS+ClickHouse构建更易用的一站式HTAP服务'
+    Hidden:
+      - CommonName
