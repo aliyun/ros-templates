@@ -435,6 +435,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | 模板                                                                                                                 | 说明       |
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
+| [dts_implements_cache_synchronization_consistency_between_mysql_and_redis.yml](documents/solution/database/dts_implements_cache_synchronization_consistency_between_mysql_and_redis.yml) | 通过DTS实现MySQL与Redis缓存同步一致性方案。 |
 
 - micro
 
