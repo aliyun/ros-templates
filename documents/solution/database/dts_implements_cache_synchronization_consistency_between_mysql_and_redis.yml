@@ -1,0 +1,769 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS
+  zh-cn: 通过DTS实现MySQL与Redis缓存同步一致性方案
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone 1
+      zh-cn: 交换机可用区1
+    Description:
+      zh-cn: ALB支持多可用区部署,为保障业务高可用，请至少选择2个可用区,不能与交换机可用区2相同。
+      en: 'ALB support multiple availability zones. To ensure high service availability, select at least two availability zones, which cannot be the same as switch availability zone 2. '
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  ZoneId2:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone 2
+      zh-cn: 交换机可用区2
+    Description:
+      zh-cn: ALB支持多可用区部署,为保障业务高可用，请至少选择2个可用区,不能与交换机可用区1相同。
+      en: 'ALB support multiple availability zones. To ensure high service availability, select at least two availability zones, which cannot be the same as switch availability zone 1. '
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family.</font></a></b>'
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族。</font></a></b>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    Default: ecs.c5.large
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${InstanceType}
+      ZoneId: ${ZoneId}
+    Default: cloud_efficiency
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  DBName:
+    Type: String
+    Label:
+      en: DB Name
+      zh-cn: 数据库名
+    Description:
+      en: Name of WordPress database.
+      zh-cn: WordPress数据库名。
+    ConstraintDescription:
+      en: Consist of 2 to 64 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 64 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: wordpressdb
+    MinLength: 2
+    MaxLength: 64
+  RDSDBUser:
+    Type: String
+    Label:
+      en: RDS DB Username
+      zh-cn: RDS数据库账号
+    Description:
+      en: Username of WordPress database.
+      zh-cn: WordPress数据库账号。
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: dbuser
+    MinLength: 2
+    MaxLength: 16
+  RDSDBPassword:
+    Type: String
+    Label:
+      en: RDS DB Password
+      zh-cn: RDS数据库密码
+    Description:
+      en: WordPress database password, consisting of letters, numbers, and underline(_),
+        is 8 to 32 characters long,Must contain three different types of characters.
+      zh-cn: WordPress数据库密码，由字母、数字、下划线（_）组成，长度为8~32个字符，必须包含3种不同类型的字符。
+    ConstraintDescription:
+      en: Consisting of letters, numbers, and underline(_),
+        is 8 to 32 characters long.
+      zh-cn: 由字母、数字、下划线（_）组成，长度为8~32个字符。
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+    Default: 'rds.mysql.t1.small'
+  RedisInstanceClass:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: Instance specifications, please refer to：<a href='https://www.alibabacloud.com/help/en/doc-detail/26350.html'
+        target='_blank'><b><font color='blue'>View specifications</font></b></a>
+      zh-cn: 推荐规格：<b><font color='blue'>redis.master.small.default</font></b><br>更多实例规格，请参考：<a
+        href='https://help.aliyun.com/document_detail/26350.html' target='_blank'><b><font
+        color='blue'>查看规格信息</font></b></a>
+    AssociationProperty: ALIYUN::Redis::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  RedisPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols,
+        including:! @ # $ % ^ & * ( ) _ + - ='
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+    ConstraintDescription:
+      en: '8-32 characters, can contain size letters, Numbers and special symbols,
+        including:! @ # $ % ^ & * ( ) _ + - ='
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+    MinLength: '8'
+    MaxLength: '32'
+    NoEcho: true
+  ConsumerGroupUserName:
+    Type: String
+    Label:
+      en: Consumer Group User Name
+      zh-cn: 消费组账号
+    Description:
+      en: The maximum length is 16 characters.  The value can contain letters, digits, and underscores (_).
+      zh-cn: 最长16个字符。可包含英文字母、数字和下划线（_）。
+    Default: demoUser
+  ConsumerGroupPassword:
+    Type: String
+    Label:
+      en: Consumer Group Password
+      zh-cn: 消费组账号的密码
+    Description:
+      en: The name contains 8 to 32 characters.  Contains at least two types of letters, digits, and special characters.
+      zh-cn: 长度为8~32个字符。至少包含英文字母、数字和特殊字符中的两种。
+    MinLength: '8'
+    MaxLength: '32'
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Fn::Join:
+          - '-'
+          - - VSwitch1
+            - StackId
+            - Ref: ALIYUN::StackId
+      CidrBlock: 192.168.0.0/24
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId2
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Fn::Join:
+          - '-'
+          - - VSwitch2
+            - StackId
+            - Ref: ALIYUN::StackId
+      CidrBlock: 192.168.1.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  SecurityGroupIngress_3306:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3306/3306
+  SecurityGroupIngress_443:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 443/443
+  VpcEip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth: 50
+      InstanceChargeType: Postpaid
+      InternetChargeType: PayByTraffic
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: { }
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 2
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 7200
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch1
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7_8
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Password:
+        Ref: InstancePassword
+      IoOptimized: optimized
+      AllocatePublicIP: false
+  VpcEipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: EcsInstance
+      AllocationId:
+        Ref: VpcEip
+    DependsOn:
+      - EcsInstance
+      - VpcEip
+  LoadBalancer:
+    Type: ALIYUN::ALB::LoadBalancer
+    Properties:
+      LoadBalancerName:
+        Ref: ALIYUN::StackName
+      LoadBalancerEdition: Basic
+      VpcId:
+        Ref: Vpc
+      LoadBalancerBillingConfig:
+        PayType: PostPay
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId
+          VSwitchId:
+            Ref: VSwitch1
+        - ZoneId:
+            Ref: ZoneId2
+          VSwitchId:
+            Ref: VSwitch2
+      AddressType: Internet
+  ServerGroup:
+    Type: ALIYUN::ALB::ServerGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ServerGroupType: Instance
+      Protocol: HTTP
+      ServerGroupName:
+        Ref: ALIYUN::StackName
+      Scheduler: Wrr
+      HealthCheckConfig:
+        HealthCheckEnabled: true
+      StickySessionConfig:
+        StickySessionEnabled: false
+  BackendServerAttachment:
+    Type: ALIYUN::ALB::BackendServerAttachment
+    Properties:
+      ServerGroupId:
+        Ref: ServerGroup
+      Servers:
+        - ServerType: Ecs
+          ServerId:
+            Ref: EcsInstance
+          Port: 80
+          Weight: 100
+  Listener:
+    Type: ALIYUN::ALB::Listener
+    Properties:
+      DefaultActions:
+        - Type: ForwardGroup
+          ForwardGroupConfig:
+            ServerGroupTuples:
+              - ServerGroupId:
+                  Ref: ServerGroup
+      LoadBalancerId:
+        Ref: LoadBalancer
+      ListenerProtocol: HTTP
+      ListenerPort: 80
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch1
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage: 100
+      Engine: MySQL
+      EngineVersion: "8.0"
+      MasterUserPassword:
+        Ref: RDSDBPassword
+      MasterUserType: Super
+      MasterUsername:
+        Ref: RDSDBUser
+      DBMappings:
+        - CharacterSetName: utf8mb4
+          DBName:
+            Ref: DBName
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      SecurityIPList: 0.0.0.0/0
+      AllocatePublicConnection: true
+  RedisInstance:
+    Type: ALIYUN::REDIS::Instance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch1
+      InstanceClass:
+        Ref: RedisInstanceClass
+      InstanceName: rds_mysql2redis_redis
+      EngineVersion: "5.0"
+      Connections:
+        PublicConnection:
+          ConnectionPort: 6379
+          ConnectionString: rds-mysql2redis-redis
+      Password:
+        Ref: RedisPassword
+  Whitelist:
+    Type: ALIYUN::REDIS::Whitelist
+    Properties:
+      InstanceId:
+        Ref: RedisInstance
+      SecurityIps: 0.0.0.0/0
+  SubscriptionInstance:
+    DependsOn:
+      - RdsDBInstance
+      - InstallWordpress
+    Type: ALIYUN::DTS::SubscriptionInstance
+    Properties:
+      SourceEndpointInstanceType: MySQL
+      Configuration:
+        DbList:
+          Fn::Sub: |-
+            {"${DBName}":{"name":"${DBName}","all":true}}
+        SubscriptionDataType:
+          DDL: false
+          DML: true
+        SubscriptionInstanceName: Subscription
+        SourceEndpoint:
+          InstanceType: RDS
+          UserName:
+            Ref: RDSDBUser
+          Password:
+            Ref: RDSDBPassword
+          InstanceID:
+            Ref: RdsDBInstance
+        SubscriptionInstanceNetworkType: vpc
+        SubscriptionInstance:
+          VPCId:
+            Ref: Vpc
+          VSwitchId:
+            Ref: VSwitch1
+  ConsumerGroup:
+    Type: ALIYUN::DTS::ConsumerGroup
+    Properties:
+      ConsumerGroupPassword:
+        Ref: ConsumerGroupPassword
+      ConsumerGroupUserName:
+        Ref: ConsumerGroupUserName
+      ConsumerGroupName: mysql2redis_consumer_group
+      SubscriptionInstanceId:
+        Ref: SubscriptionInstance
+  InstallWordpress:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 7200
+      CommandContent:
+        Fn::Sub: |-
+            #!/bin/bash
+            if [ ! -f .ros.provision ]; then
+              echo "Name: 手动搭建WordPress（CentOS 7）" > .ros.provision
+            fi
+            
+            name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            if [[ "$name" != "手动搭建WordPress（CentOS 7）" ]]; then
+              echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance has already applied the configuration of the \\\"$name\\\" tutorial, and the configuration of this tutorial can no longer be applied.\"}"
+              exit 0
+            fi
+            
+            echo "#########################"
+            echo "# Check Network"
+            echo "#########################"
+            ping -c 2 -W 2 aliyun.com > /dev/null
+            if [[ $? -ne 0 ]]; then
+              echo "当前实例无法访问公网"
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance cannot access the public network.\"}"
+              exit 0
+            fi
+            
+            if ! grep -q "^Step1: Prepare Environment$" .ros.provision; then
+              echo "#########################"
+              echo "# Prepare Environment"
+              echo "#########################"
+              systemctl status firewalld
+              systemctl stop firewalld
+              echo "Step1: Prepare Environment" >> .ros.provision
+            else
+              echo "#########################"
+              echo "# Environment has been ready"
+              echo "#########################"
+            fi
+            
+            if ! grep -q "^Step2: Install Nginx$" .ros.provision; then
+              echo "#########################"
+              echo "# Install Nginx"
+              echo "#########################"
+              yum -y install nginx
+              nginx -v
+              echo "Step2: Install Nginx" >> .ros.provision
+            else
+              echo "#########################"
+              echo "# Nginx has been installed"
+              echo "#########################"
+            fi
+            
+            if ! grep -q "^Step3: Install PHP$" .ros.provision; then
+              echo "#########################"
+              echo "# Install PHP"
+              echo "#########################"
+              yum install -y \
+                https://mirrors.aliyun.com/ius/ius-release-el7.rpm \
+                https://mirrors.aliyun.com/epel/epel-release-latest-7.noarch.rpm
+              rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+              yum -y install php70w-devel php70w.x86_64 php70w-cli.x86_64 php70w-common.x86_64 php70w-gd.x86_64 php70w-ldap.x86_64 php70w-mbstring.x86_64 php70w-mcrypt.x86_64  php70w-pdo.x86_64   php70w-mysqlnd  php70w-fpm php70w-opcache php70w-pecl-redis php70w-pecl-mongodb
+              php -v
+              echo "Step4: Install PHP" >> .ros.provision
+            else
+              echo "#########################"
+              echo "# PHP has been installed"
+              echo "#########################"
+            fi
+            
+            if ! grep -q "^Step4: Config Nginx$" .ros.provision; then
+              echo "#########################"
+              echo "# Config Nginx"
+              echo "#########################"
+              cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+              cat > /etc/nginx/nginx.conf << \EOF
+            # For more information on configuration, see:
+            #   * Official English Documentation: http://nginx.org/en/docs/
+            #   * Official Russian Documentation: http://nginx.org/ru/docs/
+            
+            user nginx;
+            worker_processes auto;
+            error_log /var/log/nginx/error.log;
+            pid /run/nginx.pid;
+            
+            # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+            include /usr/share/nginx/modules/*.conf;
+            
+            events {
+                worker_connections 1024;
+            }
+            
+            http {
+                log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                                  '$status $body_bytes_sent "$http_referer" '
+                                  '"$http_user_agent" "$http_x_forwarded_for"';
+            
+                access_log  /var/log/nginx/access.log  main;
+            
+                sendfile            on;
+                tcp_nopush          on;
+                tcp_nodelay         on;
+                keepalive_timeout   65;
+                types_hash_max_size 4096;
+            
+                include             /etc/nginx/mime.types;
+                default_type        application/octet-stream;
+            
+                # Load modular configuration files from the /etc/nginx/conf.d directory.
+                # See http://nginx.org/en/docs/ngx_core_module.html#include
+                # for more information.
+                include /etc/nginx/conf.d/*.conf;
+            
+                server {
+                    listen       80;
+                    listen       [::]:80;
+                    server_name  _;
+                    root         /usr/share/nginx/html/wordpress;
+            
+                    # Load configuration files for the default server block.
+                    include /etc/nginx/default.d/*.conf;
+            
+                    location / {
+                        index index.php index.html index.htm;
+                    }
+            
+                    location ~ .php$ {
+                        root /usr/share/nginx/html/wordpress;    # 将/usr/share/nginx/html替换为您的网站根目录，本文使用/usr/share/nginx/html作为网站根目录。
+                        fastcgi_pass 127.0.0.1:9000;   # Nginx通过本机的9000端口将PHP请求转发给PHP-FPM进行处理。
+                        fastcgi_index index.php;
+                        fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+                        include fastcgi_params;   # Nginx调用fastcgi接口处理PHP请求。
+                    }
+            
+                    error_page 404 /404.html;
+                    location = /404.html {
+                    }
+            
+                    error_page 500 502 503 504 /50x.html;
+                    location = /50x.html {
+                    }
+                }
+            
+            # Settings for a TLS enabled server.
+            #
+            #    server {
+            #        listen       443 ssl http2;
+            #        listen       [::]:443 ssl http2;
+            #        server_name  _;
+            #        root         /usr/share/nginx/html;
+            #
+            #        ssl_certificate "/etc/pki/nginx/server.crt";
+            #        ssl_certificate_key "/etc/pki/nginx/private/server.key";
+            #        ssl_session_cache shared:SSL:1m;
+            #        ssl_session_timeout  10m;
+            #        ssl_ciphers HIGH:!aNULL:!MD5;
+            #        ssl_prefer_server_ciphers on;
+            #
+            #        # Load configuration files for the default server block.
+            #        include /etc/nginx/default.d/*.conf;
+            #
+            #        error_page 404 /404.html;
+            #            location = /40x.html {
+            #        }
+            #
+            #        error_page 500 502 503 504 /50x.html;
+            #            location = /50x.html {
+            #        }
+            #    }
+            
+            }
+            EOF
+              systemctl start nginx
+              systemctl enable nginx
+              echo "Step5: Config Nginx" >> .ros.provision
+            else
+              echo "#########################"
+              echo "# Nginx has been configured"
+              echo "#########################"
+            fi
+            
+            if ! grep -q "^Step5: Config PHP$" .ros.provision; then
+              echo "#########################"
+              echo "# Config PHP"
+              echo "#########################"
+              echo "<?php phpinfo(); ?>" > /usr/share/nginx/html/phpinfo.php
+              systemctl start php-fpm
+              systemctl enable php-fpm
+              echo "Step5: Config PHP" >> .ros.provision
+            else
+              echo "#########################"
+              echo "# PHP has been configured"
+              echo "#########################"
+            fi
+            
+            if ! grep -q "^Step6: Install wordpress$" .ros.provision; then
+              echo "#########################"
+              echo "# Install wordpress"
+              echo "#########################"
+              yum -y install wordpress
+              echo "Step6: Install wordpress" >> .ros.provision
+            else
+              echo "#########################"
+              echo "# wordpress has been installed"
+              echo "#########################"
+            fi
+            
+            if ! grep -q "^Step7: Config wordpress$" .ros.provision; then
+              echo "#########################"
+              echo "# Config wordpress"
+              echo "#########################"
+              DBUser=${RDSDBUser}
+              DBPassword=${RDSDBPassword}
+              DBName=${DBName}
+              DatabaseHost=${RdsDBInstance.PublicConnectionString}
+              mv /usr/share/wordpress /usr/share/nginx/html/wordpress
+              cd /usr/share/nginx/html/wordpress
+              ln -snf /etc/wordpress/wp-config.php wp-config.php
+              sed -i "s/database_name_here/$DBName/" wp-config.php
+              sed -i "s/username_here/$DBUser/" wp-config.php
+              sed -i "s/password_here/$DBPassword/" wp-config.php
+              sed -i "s/localhost/$DatabaseHost/" wp-config.php
+              echo "Step7: Config wordpress" >> .ros.provision
+            else
+              echo "#########################"
+              echo "# wordpress has been configured"
+              echo "#########################"
+            fi
+            
+            systemctl restart nginx
+            ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+    DependsOn:
+      - SecurityGroupIngress_22
+      - SecurityGroupIngress_80
+      - SecurityGroupIngress_443
+      - SecurityGroupIngress_3306
+      - VpcEipAssociation
+  InstallDTSMySQL2Redis:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 7200
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          yum install -y java-1.8.0-openjdk-devel maven wget unzip
+          echo 'JAVA_HOME=/usr/lib/jvm/java-1.8.0' >> /etc/profile
+          echo 'PATH=$PATH:$JAVA_HOME/bin' >> /etc/profile
+          source /etc/profile
+          wget https://database-plg.oss-cn-beijing.aliyuncs.com/dbbp/mysql2redis/subscribe-demo-master.zip
+          unzip subscribe-demo-master.zip
+          rm -rf subscribe-demo-master.zip
+          cd subscribe-demo-master
+          FilePath='src/main/java/com/alibaba/dts/demo/DTSMySQL2RedisDemo.java'
+          sed -i "s/your broker url/${SubscriptionInstance.PublicHost}/" $FilePath
+          sed -i "s/your dts topic/${SubscriptionInstance.SubscribeTopic}/" $FilePath
+          sed -i "s/your sid/${ConsumerGroup.ConsumerGroupID}/" $FilePath
+          sed -i "s/your user name/${ConsumerGroupUserName}/" $FilePath
+          sed -i "s/your password/${RDSDBPassword}/" $FilePath
+          timestamp=`date -d "$time" +%s`
+          sed -i "s/start timestamp/$timestamp/" $FilePath
+          sed -i "s/your redis url/${RedisInstance.PublicConnectionString}/" $FilePath
+          sed -i "s/your redis password/${RedisPassword}/" $FilePath
+          mvn clean install
+          nohup java -jar target/subscribe-demo-1.0-SNAPSHOT-jar-with-dependencies.jar  >message.log 2>&1 &
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+    DependsOn:
+      - Whitelist
+      - InstallWordpress
+Outputs:
+  WordPressUrl:
+    Description: Wordpress default address.
+    Value:
+      Fn::Sub: |-
+        http://${VpcEip.EipAddress}
+  RdsInstanceInnerConnectionString:
+    Description:
+      en: RDS Intranet connection string.
+      zh-cn: RDS内网连接串。
+    Value:
+      Fn::GetAtt:
+        - RdsDBInstance
+        - InnerConnectionString
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - ZoneId2
+          - InstanceType
+          - SystemDiskCategory
+          - InstancePassword
+        Label:
+          default: ECS
+      - Parameters:
+          - DBInstanceClass
+          - DBName
+          - RDSDBUser
+          - RDSDBPassword
+        Label:
+          default: RDS
+      - Parameters:
+          - RedisInstanceClass
+          - RedisPassword
+        Label:
+          default: Redis
+      - Parameters:
+          - ConsumerGroupUserName
+          - ConsumerGroupPassword
+        Label:
+          default: Dts
+    TemplateTags:
+      - acs:technical-solution:database:通过DTS实现MySQL与Redis缓存同步一致性方案
