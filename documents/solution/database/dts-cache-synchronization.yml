@@ -217,24 +217,6 @@ Resources:
     Properties:
       VpcId:
         Ref: Vpc
-  SecurityGroupIngress_22:
-    Type: ALIYUN::ECS::SecurityGroupIngress
-    Properties:
-      SecurityGroupId:
-        Ref: SecurityGroup
-      SourceCidrIp: 0.0.0.0/0
-      IpProtocol: tcp
-      NicType: intranet
-      PortRange: 22/22
-  SecurityGroupIngress_80:
-    Type: ALIYUN::ECS::SecurityGroupIngress
-    Properties:
-      SecurityGroupId:
-        Ref: SecurityGroup
-      SourceCidrIp: 0.0.0.0/0
-      IpProtocol: tcp
-      NicType: intranet
-      PortRange: 80/80
   SecurityGroupIngress_3306:
     Type: ALIYUN::ECS::SecurityGroupIngress
     Properties:
@@ -244,7 +226,7 @@ Resources:
       IpProtocol: tcp
       NicType: intranet
       PortRange: 3306/3306
-  SecurityGroupIngress_443:
+  SecurityGroupIngress_22:
     Type: ALIYUN::ECS::SecurityGroupIngress
     Properties:
       SecurityGroupId:
@@ -252,23 +234,13 @@ Resources:
       SourceCidrIp: 0.0.0.0/0
       IpProtocol: tcp
       NicType: intranet
-      PortRange: 443/443
+      PortRange: 22/22
   VpcEip:
     Type: ALIYUN::VPC::EIP
     Properties:
       Bandwidth: 50
       InstanceChargeType: Postpaid
       InternetChargeType: PayByTraffic
-  WaitConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: { }
-  RosWaitCondition:
-    Type: ALIYUN::ROS::WaitCondition
-    Properties:
-      Count: 2
-      Handle:
-        Ref: WaitConditionHandle
-      Timeout: 7200
   EcsInstance:
     Type: ALIYUN::ECS::Instance
     Properties:
@@ -410,7 +382,6 @@ Resources:
   SubscriptionInstance:
     DependsOn:
       - RdsDBInstance
-      - InstallWordpress
     Type: ALIYUN::DTS::SubscriptionInstance
     Properties:
       SourceEndpointInstanceType: MySQL
@@ -446,248 +417,6 @@ Resources:
       ConsumerGroupName: mysql2redis_consumer_group
       SubscriptionInstanceId:
         Ref: SubscriptionInstance
-  InstallWordpress:
-    Type: ALIYUN::ECS::RunCommand
-    Properties:
-      InstanceIds:
-        - Ref: EcsInstance
-      Type: RunShellScript
-      Sync: true
-      Timeout: 7200
-      CommandContent:
-        Fn::Sub: |-
-            #!/bin/bash
-            if [ ! -f .ros.provision ]; then
-              echo "Name: 手动搭建WordPress（CentOS 7）" > .ros.provision
-            fi
-            
-            name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-            if [[ "$name" != "手动搭建WordPress（CentOS 7）" ]]; then
-              echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
-              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance has already applied the configuration of the \\\"$name\\\" tutorial, and the configuration of this tutorial can no longer be applied.\"}"
-              exit 0
-            fi
-            
-            echo "#########################"
-            echo "# Check Network"
-            echo "#########################"
-            ping -c 2 -W 2 aliyun.com > /dev/null
-            if [[ $? -ne 0 ]]; then
-              echo "当前实例无法访问公网"
-              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance cannot access the public network.\"}"
-              exit 0
-            fi
-            
-            if ! grep -q "^Step1: Prepare Environment$" .ros.provision; then
-              echo "#########################"
-              echo "# Prepare Environment"
-              echo "#########################"
-              systemctl status firewalld
-              systemctl stop firewalld
-              echo "Step1: Prepare Environment" >> .ros.provision
-            else
-              echo "#########################"
-              echo "# Environment has been ready"
-              echo "#########################"
-            fi
-            
-            if ! grep -q "^Step2: Install Nginx$" .ros.provision; then
-              echo "#########################"
-              echo "# Install Nginx"
-              echo "#########################"
-              yum -y install nginx
-              nginx -v
-              echo "Step2: Install Nginx" >> .ros.provision
-            else
-              echo "#########################"
-              echo "# Nginx has been installed"
-              echo "#########################"
-            fi
-            
-            if ! grep -q "^Step3: Install PHP$" .ros.provision; then
-              echo "#########################"
-              echo "# Install PHP"
-              echo "#########################"
-              yum install -y \
-                https://mirrors.aliyun.com/ius/ius-release-el7.rpm \
-                https://mirrors.aliyun.com/epel/epel-release-latest-7.noarch.rpm
-              rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
-              yum -y install php70w-devel php70w.x86_64 php70w-cli.x86_64 php70w-common.x86_64 php70w-gd.x86_64 php70w-ldap.x86_64 php70w-mbstring.x86_64 php70w-mcrypt.x86_64  php70w-pdo.x86_64   php70w-mysqlnd  php70w-fpm php70w-opcache php70w-pecl-redis php70w-pecl-mongodb
-              php -v
-              echo "Step4: Install PHP" >> .ros.provision
-            else
-              echo "#########################"
-              echo "# PHP has been installed"
-              echo "#########################"
-            fi
-            
-            if ! grep -q "^Step4: Config Nginx$" .ros.provision; then
-              echo "#########################"
-              echo "# Config Nginx"
-              echo "#########################"
-              cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
-              cat > /etc/nginx/nginx.conf << \EOF
-            # For more information on configuration, see:
-            #   * Official English Documentation: http://nginx.org/en/docs/
-            #   * Official Russian Documentation: http://nginx.org/ru/docs/
-            
-            user nginx;
-            worker_processes auto;
-            error_log /var/log/nginx/error.log;
-            pid /run/nginx.pid;
-            
-            # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
-            include /usr/share/nginx/modules/*.conf;
-            
-            events {
-                worker_connections 1024;
-            }
-            
-            http {
-                log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
-                                  '$status $body_bytes_sent "$http_referer" '
-                                  '"$http_user_agent" "$http_x_forwarded_for"';
-            
-                access_log  /var/log/nginx/access.log  main;
-            
-                sendfile            on;
-                tcp_nopush          on;
-                tcp_nodelay         on;
-                keepalive_timeout   65;
-                types_hash_max_size 4096;
-            
-                include             /etc/nginx/mime.types;
-                default_type        application/octet-stream;
-            
-                # Load modular configuration files from the /etc/nginx/conf.d directory.
-                # See http://nginx.org/en/docs/ngx_core_module.html#include
-                # for more information.
-                include /etc/nginx/conf.d/*.conf;
-            
-                server {
-                    listen       80;
-                    listen       [::]:80;
-                    server_name  _;
-                    root         /usr/share/nginx/html/wordpress;
-            
-                    # Load configuration files for the default server block.
-                    include /etc/nginx/default.d/*.conf;
-            
-                    location / {
-                        index index.php index.html index.htm;
-                    }
-            
-                    location ~ .php$ {
-                        root /usr/share/nginx/html/wordpress;    # 将/usr/share/nginx/html替换为您的网站根目录，本文使用/usr/share/nginx/html作为网站根目录。
-                        fastcgi_pass 127.0.0.1:9000;   # Nginx通过本机的9000端口将PHP请求转发给PHP-FPM进行处理。
-                        fastcgi_index index.php;
-                        fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
-                        include fastcgi_params;   # Nginx调用fastcgi接口处理PHP请求。
-                    }
-            
-                    error_page 404 /404.html;
-                    location = /404.html {
-                    }
-            
-                    error_page 500 502 503 504 /50x.html;
-                    location = /50x.html {
-                    }
-                }
-            
-            # Settings for a TLS enabled server.
-            #
-            #    server {
-            #        listen       443 ssl http2;
-            #        listen       [::]:443 ssl http2;
-            #        server_name  _;
-            #        root         /usr/share/nginx/html;
-            #
-            #        ssl_certificate "/etc/pki/nginx/server.crt";
-            #        ssl_certificate_key "/etc/pki/nginx/private/server.key";
-            #        ssl_session_cache shared:SSL:1m;
-            #        ssl_session_timeout  10m;
-            #        ssl_ciphers HIGH:!aNULL:!MD5;
-            #        ssl_prefer_server_ciphers on;
-            #
-            #        # Load configuration files for the default server block.
-            #        include /etc/nginx/default.d/*.conf;
-            #
-            #        error_page 404 /404.html;
-            #            location = /40x.html {
-            #        }
-            #
-            #        error_page 500 502 503 504 /50x.html;
-            #            location = /50x.html {
-            #        }
-            #    }
-            
-            }
-            EOF
-              systemctl start nginx
-              systemctl enable nginx
-              echo "Step5: Config Nginx" >> .ros.provision
-            else
-              echo "#########################"
-              echo "# Nginx has been configured"
-              echo "#########################"
-            fi
-            
-            if ! grep -q "^Step5: Config PHP$" .ros.provision; then
-              echo "#########################"
-              echo "# Config PHP"
-              echo "#########################"
-              echo "<?php phpinfo(); ?>" > /usr/share/nginx/html/phpinfo.php
-              systemctl start php-fpm
-              systemctl enable php-fpm
-              echo "Step5: Config PHP" >> .ros.provision
-            else
-              echo "#########################"
-              echo "# PHP has been configured"
-              echo "#########################"
-            fi
-            
-            if ! grep -q "^Step6: Install wordpress$" .ros.provision; then
-              echo "#########################"
-              echo "# Install wordpress"
-              echo "#########################"
-              yum -y install wordpress
-              echo "Step6: Install wordpress" >> .ros.provision
-            else
-              echo "#########################"
-              echo "# wordpress has been installed"
-              echo "#########################"
-            fi
-            
-            if ! grep -q "^Step7: Config wordpress$" .ros.provision; then
-              echo "#########################"
-              echo "# Config wordpress"
-              echo "#########################"
-              DBUser=${RDSDBUser}
-              DBPassword=${RDSDBPassword}
-              DBName=${DBName}
-              DatabaseHost=${RdsDBInstance.PublicConnectionString}
-              mv /usr/share/wordpress /usr/share/nginx/html/wordpress
-              cd /usr/share/nginx/html/wordpress
-              ln -snf /etc/wordpress/wp-config.php wp-config.php
-              sed -i "s/database_name_here/$DBName/" wp-config.php
-              sed -i "s/username_here/$DBUser/" wp-config.php
-              sed -i "s/password_here/$DBPassword/" wp-config.php
-              sed -i "s/localhost/$DatabaseHost/" wp-config.php
-              echo "Step7: Config wordpress" >> .ros.provision
-            else
-              echo "#########################"
-              echo "# wordpress has been configured"
-              echo "#########################"
-            fi
-            
-            systemctl restart nginx
-            ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
-    DependsOn:
-      - SecurityGroupIngress_22
-      - SecurityGroupIngress_80
-      - SecurityGroupIngress_443
-      - SecurityGroupIngress_3306
-      - VpcEipAssociation
   InstallDTSMySQL2Redis:
     Type: ALIYUN::ECS::RunCommand
     Properties:
@@ -719,24 +448,19 @@ Resources:
           sed -i "s/your redis password/${RedisPassword}/" $FilePath
           mvn clean install
           nohup java -jar target/subscribe-demo-1.0-SNAPSHOT-jar-with-dependencies.jar  >message.log 2>&1 &
-          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
     DependsOn:
       - Whitelist
-      - InstallWordpress
+      - SecurityGroupIngress_22
+      - SecurityGroupIngress_3306
 Outputs:
-  WordPressUrl:
-    Description: Wordpress default address.
-    Value:
-      Fn::Sub: |-
-        http://${VpcEip.EipAddress}
   RdsInstanceInnerConnectionString:
     Description:
-      en: RDS Intranet connection string.
-      zh-cn: RDS内网连接串。
+      en: RDS public connection string.
+      zh-cn: RDS外网连接串。
     Value:
       Fn::GetAtt:
         - RdsDBInstance
-        - InnerConnectionString
+        - PublicConnectionString
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
