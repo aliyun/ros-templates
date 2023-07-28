@@ -435,7 +435,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | Template                                                                                                            | Description                                                                                  |
 |---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
-| [dts_implements_cache_synchronization_consistency_between_mysql_and_redis.yml](documents/solution/database/dts_implements_cache_synchronization_consistency_between_mysql_and_redis.yml) | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
+| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
 
 - micro
 
