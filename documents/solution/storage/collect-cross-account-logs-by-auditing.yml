@@ -1,0 +1,134 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Collect cloud product logs across accounts by using the log audit service
+  zh-cn: 通过日志审计服务跨账号采集云产品日志
+Parameters:
+  PayerAccountId:
+    Default: null
+    Type: String
+    Description:
+      en: The ID of the billing account. If you leave this parameter empty, the member is used as its own billing account.
+      zh-cn: 进行结算的账号ID。置空则采用当前账号结算。
+    Label:
+      en: Payer account ID
+      zh-cn: 结算账号ID
+  FolderId:
+    Default: null
+    Type: String
+    Description:
+      en: The ID of the parent folder.
+      zh-cn: 资源夹ID。
+    Label:
+      en: The ID of the parent folder
+      zh-cn: 资源夹ID
+  DisplayNameMember:
+    Type: String
+    Description:
+      en: |-
+        The display name of the member. <br>
+        The name must be 2 to 50 characters in length. The name can contain letters, digits, underscores (_), periods (.), hyphens (-), and spaces. The name must be unique in the resource directory.
+      zh-cn: |-
+        成员显示名称。<br>
+        长度范围：2~50个字符或汉字。格式：允许输入汉字、英文字母、数字、下划线（_）、半角句号（.）、短划线（-）和空格。成员显示名称在资源目录内必须唯一。
+    Label:
+      en: The name of resource manager member
+      zh-cn: 资源管理成员名称
+  DisplayNameSLS:
+    Description:
+      en: Name of SLS log audit.
+      zh-cn: SLS日志审计服务的名称。
+    Label:
+      en: Name of SLS log audit
+      zh-cn: 日志审计服务名称
+    MaxLength: 128
+    Type: String
+  VariableMap:
+    Description:
+      en: "Log audit detailed configuration. See detailed configurable information: </b><a href='https://registry.terraform.io/providers/aliyun/alicloud/latest/docs/resources/log_audit'
+        target='_blank'><b><font color='blue'>alicloud_log_audit Terraform document</b></font></a>"
+      zh-cn: 日志审计服务的详细配置。详细可配置信息见：</b><a href='https://registry.terraform.io/providers/aliyun/alicloud/latest/docs/resources/log_audit'
+        target='_blank'><b><font color='blue'>alicloud_log_audit Terraform文档</b></font></a>
+    Type: Json
+    Default: {"oss_access_enabled": "true", "oss_access_ttl": "180"}
+Resources:
+  ResourceManagerAccount:
+    Type: ALIYUN::ResourceManager::Account
+    Properties:
+      PayerAccountId:
+        Ref: PayerAccountId
+      FolderId:
+        Ref: FolderId
+      DisplayName:
+        Ref: DisplayNameMember
+  DealLogAuditStack:
+    Type: ALIYUN::ROS::Stack
+    Properties:
+      Parameters:
+        aliuid:
+          Ref: ALIYUN::TenantId
+        variable_map:
+          Ref: VariableMap
+        display_name:
+          Ref: DisplayNameSLS
+        multi_account:
+          - Fn::GetAtt:
+              - ResourceManagerAccount
+              - AccountId
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Transform: 'Aliyun::Terraform-v1.2'
+        Workspace:
+          main.tf: |-
+            variable "aliuid" {
+              type = string
+            }
+
+            variable "variable_map" {
+              type = map(string)
+            }
+            
+            variable "display_name" {
+              type = string
+            }
+
+            variable "multi_account" {
+              type = list(string)
+            }
+
+            resource "alicloud_log_audit" "default" {
+              display_name = var.display_name
+              aliuid       = var.aliuid
+              variable_map = var.variable_map
+              multi_account = var.multi_account
+              resource_directory_type = "custom"
+            }
+    DependsOn:
+    - ResourceManagerAccount
+Outputs:
+  AccountId:
+    Description: The ID of resource manager account.
+    Label: The ID of resource manager account
+    Value:
+      Fn::GetAtt:
+        - ResourceManagerAccount
+        - AccountId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - DisplayNameMember
+      - PayerAccountId
+      - FolderId
+      Label:
+        default:
+          en: Resource management account info
+          zh-cn: 资源管理账号信息
+    - Parameters:
+      - DisplayNameSLS
+      - VariableMap
+      Label:
+        default:
+          en: SLS log audit info
+          zh-cn: 日志审计信息
+    TemplateTags:
+      - acs:technical-solution:Storage:跨阿里云账号采集日志
