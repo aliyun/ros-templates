@@ -1,0 +1,118 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  EndpointIPs:
+    Type: Json
+    Label:
+      en: endpoint ip list.
+      zh-cn: 终端节点IP。
+    AssociationProperty: List[Parameter]
+    AssociationPropertyMetadata:
+      Parameter:
+        Type: String
+    MinLength: 2
+    MaxLength: 2
+Resources:
+  Accelerator:
+    Type: ALIYUN::GA::Accelerator
+    Properties:
+      PricingCycle: Month
+      Duration: 1
+      Spec: 1
+      AutoPay: true
+  BandwidthPackage:
+    Type: ALIYUN::GA::BandwidthPackage
+    Properties:
+      BandwidthType: Advanced
+      Type: Basic
+      Bandwidth: 2
+      PricingCycle: Month
+      Duration: 1
+  Addiation:
+    Type: ALIYUN::GA::BandwidthPackageAcceleratorAddition
+    Properties:
+      BandwidthPackageId:
+        Ref: BandwidthPackage
+      AcceleratorId:
+        Ref: Accelerator
+  AccelerateRegion:
+    Type: ALIYUN::GA::IpSets
+    Properties:
+      AcceleratorId:
+        Ref: Accelerator
+      AccelerateRegion:
+      - Bandwidth: 2
+        IpVersion: IPv4
+        AccelerateRegionId: cn-hongkong
+    DependsOn: Addiation
+  Listener:
+    Type: ALIYUN::GA::Listener
+    Properties:
+      PortRanges:
+      - FromPort: 80
+        ToPort: 80
+      Protocol: tcp
+      AcceleratorId:
+        Ref: Accelerator
+      ClientAffinity: SOURCE_IP
+    DependsOn: AccelerateRegion
+  EndpointGroup:
+    Type: ALIYUN::GA::EndpointGroup
+    Properties:
+      EndpointGroupRegion: us-west-1
+      AcceleratorId:
+        Ref: Accelerator
+      ListenerId:
+        Ref: Listener
+      EndpointConfigurations:
+      - Type: Ip
+        Weight: 10
+        Endpoint:
+          Fn::Select:
+          - 0
+          - Ref: EndpointIPs
+      - Type: Ip
+        Weight: 40
+        Endpoint:
+          Fn::Select:
+          - 1
+          - Ref: EndpointIPs
+Outputs:
+  BasicBandwidthPackageId:
+    Description:
+      en: The ID of the basic bandwidth package
+      zh-cn: 基础带宽包ID
+    Value:
+      Fn::GetAtt:
+      - Addiation
+      - BandwidthPackageId
+  AcceleratorId:
+    Description:
+      en: The ID of the Global Accelerator instance
+      zh-cn: 全球加速实例ID
+    Value:
+      Fn::GetAtt:
+      - Addiation
+      - AcceleratorId
+  EndpointGroupId:
+    Description:
+      en: The ID of the endpoint group
+      zh-cn: 终端节点ID
+    Value:
+      Fn::GetAtt:
+      - EndpointGroup
+      - EndpointGroupId
+  ListenerId:
+    Description:
+      en: The ID of the listener
+      zh-cn: 监听ID
+    Value:
+      Fn::GetAtt:
+      - Listener
+      - ListenerId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - EndpointIPs
+    TemplateTags:
+    - acs:document-help:ga:加速访问指定IP的后端服务

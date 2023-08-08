@@ -397,6 +397,13 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | [rds-create-instance-database-and-connection.yml](./documents/help/rds/rds-create-instance-database-and-connection.yml) | Create the RDS MySQL instance, do the basic setup, and connect the instance. |
 
+- ga
+
+| 模板                                                  | 说明                                                                     |
+|------------------------------------------------------|----------------------------------------------------------------------|
+| [ga-accelerated-access-to-specified-ip.yml](./documents/help/ga/ga-accelerated-access-to-specified-ip.yml) | Accelerated Access To Specified IP. |
+
+
 - oss
 
 | Template                                                                                                                                                         | Description                                                                                                                      |
@@ -426,9 +433,17 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | Template                                                                                                                             | Description                                                                                  |
 |--------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models is supported. |
-| [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | Use the Centos7 system to create an ECS instance and install and deploy the Gamer Points Leaderboard application. |
+| [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml) | LingJun LLAMA-2 Best Practice. |
+| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/pai-lingjun-serverless-LLM-best-practice.yml) | PAI LingJun Serverless LLM Best Practice. |
 | [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml) | AIGC Text Generation 3D Model. |
 | [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | How to quickly start Stable Diffusion on Alibaba Cloud and easily play with AI painting. ｜
+
+
+- data-analysis
+
+| Template                                                                                                                 | Description       |
+|------------------------------------------------------------------------------------------------------------------------|-----------------|
+| [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | Use the Centos7 system to create an ECS instance and install and deploy the Gamer Points Leaderboard application. |
 
 - database
 
