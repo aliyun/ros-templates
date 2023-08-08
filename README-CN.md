@@ -464,9 +464,10 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - high-availability-architecture
 
-| 模板                                                                                                                                           | 说明         |
-|----------------------------------------------------------------------------------------------------------------------------------------------|------------|
-| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | 云上高可用博客网站。 |
+| 模板                                                                                                                                            | 说明             |
+|-----------------------------------------------------------------------------------------------------------------------------------------------|----------------|
+| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml)  | 云上高可用博客网站。     |
+| [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                      | 高可用及共享存储Web服务。 |
 
    </details>
 

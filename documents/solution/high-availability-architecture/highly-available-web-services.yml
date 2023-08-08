@@ -1,0 +1,453 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Highly available web services.
+  zh-cn: 高可用及共享存储Web服务。
+Parameters:
+  Zone1:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone1
+      zh-cn: 交换机可用区1
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+  Zone2:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone2
+      zh-cn: 交换机可用区2
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8~30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 服务器登录密码,长度8~30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    ConstraintDescription:
+      en: Length 8~30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8~30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  LoadBalancerSpec:
+    Type: String
+    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
+    Label:
+      en: LoadBalancer Specifications
+      zh-cn: 负载均衡实例规格
+    AssociationPropertyMetadata:
+      ZoneId: ${Zone1}
+  CommonName:
+    Type: String
+    Default: high-availability
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: '${CommonName}_vpc'
+      CidrBlock: 192.168.0.0/16
+  EcsVSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: Zone1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: '${CommonName}_vsw_001'
+      CidrBlock: 192.168.1.0/24
+  EcsVSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: Zone2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: '${CommonName}_vsw_002'
+      CidrBlock: 192.168.2.0/24
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName:
+        Fn::Sub: '${CommonName}_sg'
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+        - PortRange: 22/22
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+      SecurityGroupEgress:
+        - PortRange: '-1/-1'
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: internet
+        - PortRange: '-1/-1'
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+  EcsInstanceGroup1:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      ZoneId:
+        Ref: Zone1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7_6
+      IoOptimized: optimized
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      InstanceName:
+        Fn::Sub: '${CommonName}_ecs_001'
+  EcsInstanceGroup2:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      ZoneId:
+        Ref: Zone2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch2
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7_6
+      IoOptimized: optimized
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      InstanceName:
+        Fn::Sub: '${CommonName}_ecs_002'
+  FileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      StorageType: Capacity
+      ProtocolType: NFS
+      VpcId:
+        Ref: EcsVpc
+  NasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      AccessGroupName: DEFAULT_VPC_GROUP_NAME
+      FileSystemId:
+        Ref: FileSystem
+      NetworkType: Vpc
+  InstanceRunCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstanceGroup1
+        - Ref: EcsInstanceGroup2
+      Sync: true
+      Type: RunShellScript
+      Timeout: '300'
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          if [ ! -f .ros.provision ]; then
+            echo "Name: 高可用及共享存储Web服务" > .ros.provision
+          fi
+          
+          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [[ "$name" != "高可用及共享存储Web服务" ]]; then
+            echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
+            exit 0
+          fi
+          
+          echo "#########################"
+          echo "# Check Network"
+          echo "#########################"
+          ping -c 2 -W 2 aliyun.com > /dev/null
+          if [[ $? -ne 0 ]]; then
+            echo "当前实例无法访问公网"
+            exit 0
+          fi
+          
+          if ! grep -q "^Step1: Prepare Environment$" .ros.provision; then
+            echo "#########################"
+            echo "# Prepare Environment"
+            echo "#########################"
+            systemctl status firewalld
+            systemctl stop firewalld
+            echo "Step1: Prepare Environment" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Environment has been ready"
+            echo "#########################"
+          fi
+          
+          if ! grep -q "^Step2: Install Nginx and deploy service$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Nginx"
+            echo "#########################"
+            sudo yum -y install nginx
+            sudo wget -N -O /usr/share/nginx/html/index.html https://labfileapp.oss-cn-hangzhou.aliyuncs.com/oss/index.html
+            sudo wget -P /usr/share/nginx/html https://labfileapp.oss-cn-hangzhou.aliyuncs.com/oss/lipstick.png
+            sudo systemctl start nginx
+            sudo systemctl enable nginx
+            echo "Step2: Install Nginx and deploy service" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Nginx has been installed"
+            echo "#########################"
+          fi
+          
+          if ! grep -q "^Step3: Mount to the ECS" .ros.provision; then
+            echo "#########################"
+            echo "# Mount to the ECS"
+            echo "#########################"
+            mkdir /nas
+            sudo yum install -y nfs-utils
+            sudo echo "options sunrpc tcp_slot_table_entries=128" >>  /etc/modprobe.d/sunrpc.conf
+            sudo echo "options sunrpc tcp_max_slot_table_entries=128" >>  /etc/modprobe.d/sunrpc.conf
+            sudo mount -t nfs -o vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${NasMountTarget.MountTargetDomain}:/ /nas
+            df -h | grep aliyun
+          else
+            echo "#########################"
+            echo "# The ECS has been attached to the Nas"
+            echo "#########################"
+          fi
+          
+          if ! grep -q "^Step4: Shared file$" .ros.provision; then
+            echo "#########################"
+            echo "# Shared file"
+            echo "#########################"
+            sudo cp -Lvr /usr/share/nginx/html /nas
+            sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+            echo "Step4: Shared file" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# File has been Shared"
+            echo "#########################"
+          fi
+          
+          if ! grep -q "^Step5: Config nginx$" .ros.provision; then
+            echo "#########################"
+            echo "# Shared file"
+            echo "#########################"
+            sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+            cat > /etc/nginx/nginx.conf << \EOF
+          # For more information on configuration, see:
+          #   * Official English Documentation: http://nginx.org/en/docs/
+          #   * Official Russian Documentation: http://nginx.org/ru/docs/
+
+          user nginx;
+          worker_processes auto;
+          error_log /var/log/nginx/error.log;
+          pid /run/nginx.pid;
+
+          # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+          include /usr/share/nginx/modules/*.conf;
+
+          events {
+              worker_connections 1024;
+          }
+
+          http {
+              log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                                '$status $body_bytes_sent "$http_referer" '
+                                '"$http_user_agent" "$http_x_forwarded_for"';
+
+              access_log  /var/log/nginx/access.log  main;
+
+              sendfile            on;
+              tcp_nopush          on;
+              tcp_nodelay         on;
+              keepalive_timeout   65;
+              types_hash_max_size 4096;
+
+              include             /etc/nginx/mime.types;
+              default_type        application/octet-stream;
+
+              # Load modular configuration files from the /etc/nginx/conf.d directory.
+              # See http://nginx.org/en/docs/ngx_core_module.html#include
+              # for more information.
+              include /etc/nginx/conf.d/*.conf;
+
+              server {
+                  listen       80;
+                  listen       [::]:80;
+                  server_name  _;
+                  root         /nas/html;
+
+                  # Load configuration files for the default server block.
+                  include /etc/nginx/default.d/*.conf;
+
+                  location / {
+                      index index.php index.html index.htm;
+                  }
+
+                  location ~ .php$ {
+                      root /usr/share/nginx/html/wordpress;    # 将/usr/share/nginx/html替换为您的网站根目录，本文使用/usr/share/nginx/html作为网站根目录。
+                      fastcgi_pass 127.0.0.1:9000;   # Nginx通过本机的9000端口将PHP请求转发给PHP-FPM进行处理。
+                      fastcgi_index index.php;
+                      fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+                      include fastcgi_params;   # Nginx调用fastcgi接口处理PHP请求。
+                  }
+
+                  error_page 404 /404.html;
+                  location = /404.html {
+                  }
+
+                  error_page 500 502 503 504 /50x.html;
+                  location = /50x.html {
+                  }
+              }
+
+          # Settings for a TLS enabled server.
+          #
+          #    server {
+          #        listen       443 ssl http2;
+          #        listen       [::]:443 ssl http2;
+          #        server_name  _;
+          #        root         /usr/share/nginx/html;
+          #
+          #        ssl_certificate "/etc/pki/nginx/server.crt";
+          #        ssl_certificate_key "/etc/pki/nginx/private/server.key";
+          #        ssl_session_cache shared:SSL:1m;
+          #        ssl_session_timeout  10m;
+          #        ssl_ciphers HIGH:!aNULL:!MD5;
+          #        ssl_prefer_server_ciphers on;
+          #
+          #        # Load configuration files for the default server block.
+          #        include /etc/nginx/default.d/*.conf;
+          #
+          #        error_page 404 /404.html;
+          #            location = /40x.html {
+          #        }
+          #
+          #        error_page 500 502 503 504 /50x.html;
+          #            location = /50x.html {
+          #        }
+          #    }
+
+          }
+          EOF
+            sudo nginx -s reload
+            echo "Step5: Nginx has been configured" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Nginx has been configured"
+            echo "#########################"
+          fi
+  Slb:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName:
+        Fn::Sub: '${CommonName}-slb'
+      PayType: PayOnDemand
+      AddressType: internet
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+  SlbBackendServerAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServerList:
+        Fn::ListMerge:
+          - Fn::GetAtt:
+              - EcsInstanceGroup1
+              - InstanceIds
+          - Fn::GetAtt:
+              - EcsInstanceGroup2
+              - InstanceIds
+      LoadBalancerId:
+        Ref: Slb
+      BackendServerWeightList:
+        - 100
+        - 100
+  SlbListener:
+    DependsOn:
+      - Slb
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      ListenerPort: 80
+      Bandwidth: 10
+      HealthCheck:
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+        HealthCheckType: http
+        UnhealthyThreshold: 3
+        Timeout: 5
+        HealthyThreshold: 3
+        Port: 80
+        URI: /
+        Interval: 2
+      LoadBalancerId:
+        Ref: Slb
+      BackendServerPort: 80
+      Protocol: http
+Outputs:
+  Endpoint:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}
+        - ServerAddress:
+            Fn::GetAtt:
+              - Slb
+              - IpAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - Zone1
+          - Zone2
+        Label:
+          default:
+            en: Availability Zone
+            zh-cn: 可用区配置
+      - Parameters:
+          - EcsInstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: Instance Configure
+            zh-cn: ECS实例配置
+      - Parameters:
+          - LoadBalancerSpec
+        Label:
+          default:
+            en: CLB Configure
+            zh-cn: 负载均衡配置
+    TemplateTags:
+      - 'acs:technical-solution:high-availability-architecture:高可用及共享存储Web服务'
+    Hidden:
+      - CommonName
