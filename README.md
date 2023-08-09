@@ -480,9 +480,10 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - high-availability-architecture
 
-| Template                                                                                                                  | Description                                                                                |
-|---------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| Template                                                                                                                                     | Description                              |
+|----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
 | [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | Highly available blog site on the cloud. |
+| [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | Highly available web services.           |
 
    </details>
 
