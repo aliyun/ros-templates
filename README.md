@@ -451,9 +451,11 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - storage
 
-| Template                                                                                                                 | Description       |
-|--------------------------------------------------------------------------------------------------------------------------|-------------------|
-| [collect-logs-across-Alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-Alibaba-cloud-accounts.yml) | Collect logs across Alibaba cloud accounts. |
+| Template                                                                                                                    | Description                                                 |
+|-----------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
+| [collect-logs-across-Alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-Alibaba-cloud-accounts.yml) | Collect logs across Alibaba cloud accounts.                 |
+| [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)         | Collect logs of OSS across accounts with log audit service. |
+
 
 - cdn-adn-video-cloud
 

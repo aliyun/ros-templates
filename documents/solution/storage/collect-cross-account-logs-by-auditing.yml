@@ -1,0 +1,300 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Collect logs of OSS across accounts by using the log audit service
+  zh-cn: 通过日志审计服务跨账号采集OSS日志
+Parameters:
+  AuthenticationMode:
+    Description:
+      en: Only enterprise accounts can be used for resource management. For individual accounts, please select user-defined authentication mode.
+      zh-cn: 仅支持企业账号开通资源管理（Resource Management），个人账号请通过自定义鉴权模式（User-defined）完成多账号配置。
+    Label:
+      en: Authentication mode
+      zh-cn: 鉴权模式
+    Type: String
+    AllowedValues:
+      - Resource Management
+      - User-defined
+    Default: Resource Management
+  DisplayNameSLS:
+    Description:
+      en: |-
+        Name of SLS log audit. <br>
+        Contains a maximum of 128 characters.
+      zh-cn: |-
+        SLS日志审计服务的名称。<br>
+        长度不超过128个字符。
+    Label:
+      en: Name of SLS log audit
+      zh-cn: 日志审计服务名称
+    MaxLength: 128
+    Type: String
+    Default: test-log-audit
+  DisplayNameMember:
+    Type: String
+    Default: test-log-audit
+    Description:
+      en: |-
+        The display name of the member. <br>
+        The name must be 2 to 50 characters in length. The name can contain letters, digits, underscores (_), periods (.), hyphens (-), and spaces. The name must be unique in the resource directory.
+      zh-cn: |-
+        成员显示名称。<br>
+        长度范围：2~50个字符或汉字。格式：允许输入汉字、英文字母、数字、下划线（_）、半角句号（.）、短划线（-）和空格。成员显示名称在资源目录内必须唯一。
+    Label:
+      en: The name of resource management account
+      zh-cn: 资源管理账号名称
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AuthenticationMode}
+            - Resource Management
+  AccessKey:
+    Type: String
+    Default: null
+    Description:
+      en: Identify a user.
+      zh-cn: 用于标识用户。
+    Label: AccessKey ID
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AuthenticationMode}
+            - User-defined
+  SecretKey:
+    Type: String
+    Default: null
+    Description:
+      en: The key to verify the user.
+      zh-cn: 用于验证用户的密钥。
+    Label: AccessKey Secret
+    AssociationProperty: Password
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AuthenticationMode}
+            - User-defined
+Conditions:
+  ResourceManagementMode:
+    Fn::Equals:
+      - Resource Management
+      - Ref: AuthenticationMode
+  UserDefinedMode:
+    Fn::Equals:
+      - User-defined
+      - Ref: AuthenticationMode
+Resources:
+  ResourceManagerAccount:
+    Condition: ResourceManagementMode
+    Type: ALIYUN::ResourceManager::Account
+    Properties:
+      DisplayName:
+        Ref: DisplayNameMember
+  DealLogAuditStack:
+    Condition: ResourceManagementMode
+    Type: ALIYUN::ROS::Stack
+    Properties:
+      Parameters:
+        aliuid:
+          Ref: ALIYUN::TenantId
+        display_name:
+          Ref: DisplayNameSLS
+        multi_account:
+          - Fn::GetAtt:
+              - ResourceManagerAccount
+              - AccountId
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Transform: 'Aliyun::Terraform-v1.2'
+        Workspace:
+          main.tf: |-
+            variable "aliuid" {
+              type = string
+            }
+            
+            variable "display_name" {
+              type = string
+            }
+
+            variable "multi_account" {
+              type = list(string)
+            }
+
+            resource "alicloud_log_audit" "default" {
+              display_name = var.display_name
+              aliuid       = var.aliuid
+              variable_map = {
+                "oss_access_enabled"  = "true", 
+                "oss_access_ttl"      = "180",
+              }
+              multi_account = var.multi_account
+              resource_directory_type = "custom"
+            }
+    DependsOn:
+    - ResourceManagerAccount
+  DealAccountPermissionPolicyStack:
+    Condition: UserDefinedMode
+    Type: ALIYUN::ROS::Stack
+    Properties:
+      Parameters:
+        aliuid:
+          Ref: ALIYUN::TenantId
+        access_key:
+          Ref: AccessKey
+        secret_key:
+          Ref: SecretKey
+        region:
+          Ref: ALIYUN::Region
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Transform: 'Aliyun::Terraform-v1.2'
+        Workspace:
+          main.tf: |-
+            variable "aliuid" {
+              type = string
+            }
+            
+            variable "access_key" {
+              type = string
+            }
+            
+            variable "secret_key" {
+              type = string
+            }
+            
+            variable "region" {
+              type = string
+            }
+
+            provider "alicloud" {
+              access_key = "${var.access_key}"
+              secret_key = "${var.secret_key}"
+              region     = "${var.region}"
+            }
+            
+            resource "alicloud_ram_policy" "policy" {
+              policy_name     = "AliyunLogAuditServiceMonitorAccess"
+              policy_document = <<EOF
+              {
+                  "Version": "1",
+                  "Statement": [
+                      {
+                          "Action": "log:*",
+                          "Resource": [
+                              "acs:log:*:*:project/slsaudit-*",
+                              "acs:log:*:*:app/audit"
+                          ],
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": [
+                              "rds:ModifySQLCollectorPolicy",
+                              "vpc:*FlowLog*",
+                              "drds:*SqlAudit*",
+                              "kvstore:ModifyAuditLogConfig",
+                              "polardb:ModifyDBClusterAuditLogCollector",
+                              "config:UpdateIntegratedServiceStatus",
+                              "config:StartConfigurationRecorder",
+                              "config:PutConfigurationRecorder"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": "ram:CreateServiceLinkedRole",
+                          "Resource": "*",
+                          "Effect": "Allow",
+                          "Condition": {
+                              "StringEquals": {
+                                  "ram:ServiceName": [
+                                      "config.aliyuncs.com"
+                                  ]
+                              }
+                          }
+                      }
+                  ]
+              }
+              EOF
+            }
+            
+            resource "alicloud_ram_role" "role" {
+              name        = "sls-audit-service-monitor"
+              document    = <<EOF
+              {
+                  "Statement": [
+                      {
+                          "Action": "sts:AssumeRole",
+                          "Effect": "Allow",
+                          "Principal": {
+                              "Service": [
+                                  "${var.aliuid}@log.aliyuncs.com",
+                                  "log.aliyuncs.com"
+                              ]
+                          }
+                      }
+                  ],
+                  "Version": "1"
+              }
+              EOF
+            }
+            
+            resource "alicloud_ram_role_policy_attachment" "attach" {
+              policy_name = alicloud_ram_policy.policy.policy_name
+              policy_type = "Custom"
+              role_name   = alicloud_ram_role.role.name
+            }
+            
+            resource "alicloud_ram_role_policy_attachment" "system_attach" {
+              policy_name = "ReadOnlyAccess"
+              policy_type = "System"
+              role_name   = alicloud_ram_role.role.name
+            }
+            
+            data "alicloud_account" "current" {
+            }
+
+            output "current_account_id" {
+              value = "${data.alicloud_account.current.id}"
+            }
+  DealUserDefinedLogAuditStack:
+    Condition: UserDefinedMode
+    Type: ALIYUN::ROS::Stack
+    Properties:
+      Parameters:
+        aliuid:
+          Ref: ALIYUN::TenantId
+        display_name:
+          Ref: DisplayNameSLS
+        multi_account:
+          - Fn::GetAtt:
+              - DealAccountPermissionPolicyStack
+              - Outputs.current_account_id
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Transform: 'Aliyun::Terraform-v1.2'
+        Workspace:
+          main.tf: |-
+            variable "aliuid" {
+              type = string
+            }
+
+            variable "display_name" {
+              type = string
+            }
+
+            variable "multi_account" {
+              type = list(string)
+            }
+
+            resource "alicloud_log_audit" "default" {
+              display_name = var.display_name
+              aliuid       = var.aliuid
+              variable_map = {
+                "oss_access_enabled"  = "true", 
+                "oss_access_ttl"      = "180",
+              }
+              multi_account = var.multi_account
+            }
+    DependsOn:
+    - DealAccountPermissionPolicyStack
