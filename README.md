@@ -447,10 +447,11 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - database
 
-| Template                                                                                                            | Description                                                                                  |
-|---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| Template                                                                                                         | Description                                                                                 |
+|------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
 | [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
+| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | Build a one-stop HTAP service based on RDS and ClickHouse. |
 
 - micro
 
