@@ -435,6 +435,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。 ｜
 | [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml) | LLAMA-2全托管灵骏最佳实践。 ｜
 | [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml) | PAI灵骏智算资源（Serverless版）大模型最佳实践。 ｜
+| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml) | 大模型结合向量数据库AnalyticDB，构建一站式企业专属Chatbot。 ｜
 
 - data-analysis
 
