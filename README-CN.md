@@ -385,6 +385,12 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |------------------------------------------------------|----------------------------------------------------------------------|
 | [ack-cube-game.yml](./documents/help/ack/ack-cube-game.yml) | 使用ACK部署魔方游戏。 |
 
+- ga
+
+| 模板                                                  | 说明                                                                     |
+|------------------------------------------------------|----------------------------------------------------------------------|
+| [ga-accelerated-access-to-specified-ip.yml](./documents/help/ga/ga-accelerated-access-to-specified-ip.yml) | 加速访问指定IP的后端服务。 |
+
 
 - alb
 
@@ -425,10 +431,16 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | 模板                                                                                                                                                                   | 说明                                                                                          |
 |----------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
 | [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。 |
-| [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
 | [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml) | AIGC文本生成3D模型。 |
 | [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。 ｜
+| [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml) | LLAMA-2全托管灵骏最佳实践。 ｜
+| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml) | PAI灵骏智算资源（Serverless版）大模型最佳实践。 ｜
 
+- data-analysis
+
+| 模板                                                                                                         | 说明       |
+|------------------------------------------------------------------------------------------------------------------|-------------------|
+| [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
 
 - database
 
