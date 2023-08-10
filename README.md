@@ -437,6 +437,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/pai-lingjun-serverless-LLM-best-practice.yml) | PAI LingJun Serverless LLM Best Practice. |
 | [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml) | AIGC Text Generation 3D Model. |
 | [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | How to quickly start Stable Diffusion on Alibaba Cloud and easily play with AI painting. ｜
+| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml) | Large model combines the AnalyticDB to build Chatbot. ｜
 
 
 - data-analysis
