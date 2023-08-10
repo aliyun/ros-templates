@@ -465,9 +465,11 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - storage
 
-| 模板                                                                                                                 | 说明       |
-|--------------------------------------------------------------------------------------------------------------------------|-------------------|
-| [collect-logs-across-Alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-Alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。 |
+| 模板                                                                                                                 | 说明                  |
+|--------------------------------------------------------------------------------------------------------------------------|---------------------|
+| [collect-logs-across-Alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-Alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。         |
+| [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)         | 通过日志审计服务跨账号采集OSS日志。 |
+
 
 - cdn-and-video-cloud
 
