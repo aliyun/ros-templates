@@ -1,0 +1,84 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Build a dialogue model based on ChatGLM and LangChain.
+  zh-cn: 基于ChatGLM和LangChain搭建对话模型。
+Parameters:
+  WorkspaceName:
+    Type: String
+    Label:
+      zh-cn: 工作空间名称
+      en: Workspace name
+    Description:
+      zh-cn: |-
+        长度为3~23 个字符，可以包含字母、下划线或数字。
+        必须以大小字母开头。
+        当前地域内唯一。
+      en: |-
+        The value contains 3 to 23 characters including letters, underscores (_), and digits. 
+        Must start with a small letter. 
+        Only in the current area.
+    AllowedPattern: ^[a-zA-Z][_a-zA-Z0-9]{2,22}$
+    Default: chatglm_demo
+  WorkspaceDescription:
+    Type: String
+    Label:
+      zh-cn: 工作空间描述
+      en: Workspace description
+    Description:
+      zh-cn: 不超过80个字符。
+      en: No more than 80 characters.
+    Default:
+      Build a dialogue model based on ChatGLM and LangChain.
+  ServiceName:
+    Type: String
+    Label:
+      zh-cn: 服务名称
+      cn: Service name
+    Default: chatglm_demo
+Resources:
+  Workspace:
+    Type: ALIYUN::PAI::Workspace
+    Properties:
+      EnvTypes:
+        - dev
+        - prod
+      Description:
+        Ref: WorkspaceDescription
+      WorkspaceName:
+        Ref: WorkspaceName
+  EAS:
+    Type: ALIYUN::PAI::Service
+    Properties:
+      ServiceConfig:
+        metadata:
+          name:
+            Ref: ServiceName
+          instance: 1
+          enable_webservice: true
+        cloud:
+          computing:
+            instance_type: ml.gu7i.c16m60.1-gu30
+        containers:
+          - image: 'eas-registry-vpc.cn-hangzhou.cr.aliyuncs.com/pai-eas/chatglm-webui:1.0'
+            script: 'python webui/webui_server.py --listen --port=8000'
+            port: 8000
+    DependsOn:
+      - Workspace
+Outputs:
+  Namespace:
+    Description:
+      zh-cn: 服务所在的命名空间。
+      en: The namespace where the service resides.
+    Value:
+      Fn::GetAtt:
+        - EAS
+        - Namespace
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - WorkspaceName
+        - WorkspaceDescription
+        - ServiceName
+    TemplateTags:
+      - acs:technical-solution:AI:基于ChatGLM和LangChain搭建对话模型
