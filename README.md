@@ -433,11 +433,13 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | Template                                                                                                                             | Description                                                                                  |
 |--------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models is supported. |
-| [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml) | LingJun LLAMA-2 Best Practice. |
-| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/pai-lingjun-serverless-LLM-best-practice.yml) | PAI LingJun Serverless LLM Best Practice. |
-| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml) | AIGC Text Generation 3D Model. |
-| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | How to quickly start Stable Diffusion on Alibaba Cloud and easily play with AI painting. ｜
-| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml) | Large model combines the AnalyticDB to build Chatbot. ｜
+| [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml) | LingJun LLAMA-2 Best Practice.                                                               |
+| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/pai-lingjun-serverless-LLM-best-practice.yml) | PAI LingJun Serverless LLM Best Practice.                                                    |
+| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml) | AIGC Text Generation 3D Model.                                                               |
+| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | How to quickly start Stable Diffusion on Alibaba Cloud and easily play with AI painting.     |
+| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml) | Large model combines the AnalyticDB to build Chatbot.                                        |
+| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                     | Build a dialogue model based on ChatGLM and LangChain.                                       |
+
 
 
 - data-analysis
