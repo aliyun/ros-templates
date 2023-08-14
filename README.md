@@ -490,6 +490,12 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | Highly available blog site on the cloud. |
 | [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | Highly available web services.           |
 
+- internet-application-development
+
+| Template                                                                                                                           | Description                    |
+|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
+| [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml) | Nginx access log data archive. |
+
    </details>
 
 - trial
