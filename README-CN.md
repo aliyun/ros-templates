@@ -486,6 +486,12 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml)  | 云上高可用博客网站。     |
 | [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                      | 高可用及共享存储Web服务。 |
 
+- internet-application-development
+
+| 模板                                                                                                                                   | 说明             |
+|--------------------------------------------------------------------------------------------------------------------------------------|----------------|
+| [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml)           | Nginx访问日志数据归档。     |
+
    </details>
 
 - trial

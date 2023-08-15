@@ -1,0 +1,484 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Nginx access log data archive
+  zh-cn: Nginx访问日志数据归档
+Parameters:
+  CommonName:
+    Type: String
+    Default: app01
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: Availability zone
+      zh-cn: 可用区
+    Description:
+      en: Available area id, <a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b><font color='blue'>View region and zone info</font></b></a>.
+      zh-cn: 可用区ID，</font><a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>。
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    Default: cn-hangzhou-h
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance type
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+    Default: ecs.g6.large
+  EcsDiskCategory:
+    Type: String
+    Label:
+      en: System disk type
+      zh-cn: 系统盘类型
+    Default: cloud_ssd
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${EcsInstanceType}
+      ZoneId: ${VSwitchZoneId}
+  SlsProjectName:
+    Type: String
+    Label:
+      en: Name of sls project
+      zh-cn: 日志项目的名称
+    Description:
+      en: The name contains 3 to 36 characters. It must start and end with a lowercase letter or number. The value can contain lowercase letters, digits, and hyphens (-).
+      zh-cn: 长度为3~36个字符。必须以小写英文字母或数字开头和结尾。可包含小写英文字母、数字和短划线（-）。
+    Default: sls-project-app01
+  SlsLogstoreName:
+    Type: String
+    Label:
+      en: Name of sls logstore
+      zh-cn: 日志库的名称
+    Description:
+      en: |-
+        The name of the log library must be unique within a logging project.
+        The name contains 3 to 36 characters. It must start and end with a lowercase letter or number. The value can contain lowercase letters, digits, and hyphens (-).
+      zh-cn: |-
+        在一个日志项目中，日志库的名称必须具有唯一性。
+        长度为3~36个字符。必须以小写英文字母或数字开头和结尾。可包含小写英文字母、数字和短划线（-）。
+    Default: sls-logstore-app01
+  OssBucketName:
+    Type: String
+    Label:
+      en: Bucket name
+      zh-cn: 存储空间名称
+    Description:
+      en: The name contains 3 to 36 characters. It must start and end with a lowercase letter or number. The value can contain lowercase letters, digits, and hyphens (-).
+      zh-cn: 长度为3~36个字符。必须以小写英文字母或数字开头和结尾。可包含小写英文字母、数字和短划线（-）。
+    Default: bucket-app01
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: vpc_${CommonName}
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      VSwitchName:
+        Fn::Sub: vsw_${CommonName}
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          IpProtocol: tcp
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+        - PortRange: 22/22
+          IpProtocol: tcp
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+        - PortRange: 3306/3306
+          IpProtocol: tcp
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName:
+        Fn::Sub: sg_${CommonName}
+      SecurityGroupType: normal
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      InstanceName:
+        Fn::Sub: ecs_${CommonName}
+      InstanceChargeType: PostPaid
+      InstanceType:
+        Ref: EcsInstanceType
+      ImageId: centos_7
+      SystemDiskCategory:
+        Ref: EcsDiskCategory
+      SystemDiskSize: 40
+      AllocatePublicIP: true
+      InternetChargeType: PayByTraffic
+      InternetMaxBandwidthOut: 1
+      ZoneId:
+        Ref: VSwitchZoneId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+  SlsProject:
+    Type: ALIYUN::SLS::Project
+    Properties:
+      Name:
+        Ref: SlsProjectName
+  SlsLogStore:
+    Type: ALIYUN::SLS::Logstore
+    Properties:
+      LogstoreName:
+        Ref: SlsLogstoreName
+      ProjectName:
+        Ref: SlsProjectName
+    DependsOn:
+    - SlsProject
+  SlsIndex:
+    Type: ALIYUN::SLS::Index
+    Properties:
+      ProjectName:
+        Ref: SlsProject
+      FullTextIndex:
+        Enable: true
+      LogstoreName:
+        Ref: SlsLogstoreName
+    DependsOn:
+      - SlsLogStore
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: OssBucketName
+      StorageClass: IA
+      DeletionForce: true
+  InstallNginx:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance
+      Timeout: 600
+      Type: RunShellScript
+      Sync: true
+      CommandContent: |-
+        #!/bin/bash
+        sudo yum update -y
+        sudo yum install -y nginx
+        sudo systemctl start nginx
+  CreateLogs:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance
+      Type: RunShellScript
+      Frequency: '0 * * * * ?'
+      Timed: true
+      CommandContent: |-
+        #!/bin/bash
+        cur_date=$(date +'%d/%b/%Y')
+        echo "127.0.0.0 - - [${cur_date}:$(date +'%H:%M:%S %z')] \"GET / HTTP/1.1\" 200 4897 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36\"" | tee -a /var/log/nginx/access.log
+    DependsOn:
+      - InstallNginx
+  InstallLogAgent:
+    Type: ALIYUN::OOS::Execution
+    Properties:
+      TemplateName: ACS-ECS-BulkyInstallLogAgent
+      SafetyCheck: Skip
+      Parameters:
+        regionId:
+          Ref: ALIYUN::Region
+        OOSAssumeRole: ''
+        targets:
+          ResourceIds:
+            - Fn::GetAtt:
+              - EcsInstance
+              - InstanceId
+          RegionId:
+            Ref: ALIYUN::Region
+          Type: ResourceIds
+        rateControl:
+          Mode: Concurrency
+          MaxErrors: 100%
+          Concurrency: 1
+        action: install
+    DependsOn:
+      - InstallNginx
+      - SlsIndex
+  SlsMachineGroup:
+    Type: ALIYUN::SLS::MachineGroup
+    Properties:
+      GroupName: app01
+      ProjectName:
+        Ref: SlsProject
+      MachineIdentifyType: ip
+      MachineList:
+        - Fn::GetAtt:
+          - EcsInstance
+          - PrivateIp
+    DependsOn:
+      - InstallLogAgent
+  SlsLogtailConfig:
+    Type: ALIYUN::SLS::LogtailConfig
+    Properties:
+      ProjectName:
+        Ref: SlsProject
+      LogtailConfigName: app01
+      LogstoreName:
+        Fn::GetAtt:
+          - SlsLogStore
+          - LogstoreName
+      RawConfigData:
+        configName: app01
+        logSample: |-
+          log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+           '$request_time $request_length '
+           '$status $body_bytes_sent "$http_referer" '
+           '"$http_user_agent"';
+        inputType: file
+        outputType: LogService
+        outputDetail:
+          logstoreName:
+            Fn::GetAtt:
+              - SlsLogStore
+              - LogstoreName
+        inputDetail:
+          discardUnmatch: false
+          maxDepth: 10
+          advanced:
+            tail_size_kb: 1024
+            blacklist: { }
+            k8s:
+              ExternalEnvTag: { }
+          logPath: /var/log/nginx
+          filePattern: access.log
+          enableRawLog: false
+          topicFormat: none
+          fileEncoding: utf8
+          adjustTimezone: false
+          logTimezone: ''
+          preserve: true
+          preserveDepth: 1
+          dockerFile: false
+          dockerIncludeLabel: { }
+          dockerExcludeLabel: { }
+          dockerIncludeEnv: { }
+          dockerExcludeEnv: { }
+          logType: common_reg_log
+          regex: (\S*)\s*-\s*(\S*)\s*\[(\d+/\S+/\d+:\d+:\d+:\d+)\s+\S+\]\s*"(\S+)\s+(\S+)\s+\S+"\s*(\S*)\s*(\S*)\s*(\S*)\s*(\S*)\s*"([^"]*)"\s*"([^"]*)".*
+          key:
+            - remote_addr
+            - remote_user
+            - time_local
+            - request_method
+            - request_uri
+            - request_time
+            - request_length
+            - status
+            - body_bytes_sent
+            - http_referer
+            - http_user_agent
+  ApplyConfigToMachineGroup:
+    Type: ALIYUN::SLS::ApplyConfigToMachineGroup
+    Properties:
+      ProjectName:
+        Ref: SlsProject
+      ConfigName:
+        Fn::GetAtt:
+          - SlsLogtailConfig
+          - LogtailConfigName
+      GroupName:
+        Fn::GetAtt:
+          - SlsMachineGroup
+          - GroupName
+  RoleNameSuffix:
+    Type: ALIYUN::RandomString
+    Properties:
+      sequence: lowercase
+  DealLogOssExportStack:
+    Type: ALIYUN::ROS::Stack
+    Properties:
+      Parameters:
+        sls_project_name:
+          Ref: SlsProjectName
+        sls_logstore_name:
+          Ref: SlsLogstoreName
+        bucket_name:
+          Ref: OssBucketName
+        export_name:
+          Ref: CommonName
+        aliuid:
+          Ref: ALIYUN::TenantId
+        role_name:
+          Fn::Join:
+            - '-'
+            - - 'oss-export'
+              - Fn::GetAtt:
+                - RoleNameSuffix
+                - value
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Transform: 'Aliyun::Terraform-v1.2'
+        Workspace:
+          main.tf: |-
+            variable "sls_project_name" {
+              type = string
+            }
+            
+            variable "sls_logstore_name" {
+              type = string
+            }
+            
+            variable "bucket_name" {
+              type = string
+            }
+            
+            variable "export_name" {
+              type = string
+            }
+            
+            variable "aliuid" {
+              type = string
+            }
+            
+            variable "role_name" {
+              type = string
+            }
+            
+            resource "alicloud_ram_role" "log_export_to_oss_role" {
+              name        = var.role_name
+              document    = <<EOF
+              {
+                  "Statement": [
+                      {
+                          "Action": "sts:AssumeRole",
+                          "Effect": "Allow",
+                          "Principal": {
+                              "Service": [
+                                  "${var.aliuid}@log.aliyuncs.com",
+                                  "log.aliyuncs.com"
+                              ]
+                          }
+                      }
+                  ],
+                  "Version": "1"
+              }
+              EOF
+            }
+            
+            resource "alicloud_ram_role_policy_attachment" "oss_write_attachment" {
+              policy_name = "AliyunOSSFullAccess"
+              policy_type = "System"
+              role_name   = var.role_name
+              depends_on = [
+                alicloud_ram_role.log_export_to_oss_role
+              ]
+            }
+            
+            resource "alicloud_ram_role_policy_attachment" "log_read_attachment" {
+              policy_name = "AliyunLogReadOnlyAccess"
+              policy_type = "System"
+              role_name   = var.role_name
+              depends_on = [
+                alicloud_ram_role.log_export_to_oss_role
+              ]
+            }
+            
+            resource "alicloud_log_oss_export" "example" {
+              project_name      = var.sls_project_name
+              logstore_name     = var.sls_logstore_name
+              export_name       = var.export_name
+              display_name      = var.export_name
+              bucket            = var.bucket_name
+              prefix            = "app01"
+              suffix            = ""
+              buffer_interval   = 300
+              buffer_size       = 250
+              compress_type     = "gzip"
+              path_format       = "%Y/%m/%d/%H/%M"
+              content_type      = "json"
+              json_enable_tag   = true
+              role_arn          = "acs:ram::${var.aliuid}:role/${var.role_name}"
+              time_zone         = "+0800"
+              depends_on = [
+                alicloud_ram_role_policy_attachment.log_read_attachment,
+                alicloud_ram_role_policy_attachment.oss_write_attachment
+              ]
+            }
+    DependsOn:
+      - SlsProject
+      - SlsLogStore
+      - OssBucket
+      - ApplyConfigToMachineGroup
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - VSwitchZoneId
+        - EcsInstanceType
+        - EcsImageId
+        - EcsDiskCategory
+        Label:
+          default:
+            en: ECS configure
+            zh-cn: 云服务器ECS配置
+      - Parameters:
+        - SlsProjectName
+        - SlsLogstoreName
+        Label:
+          default:
+            en: SLS
+            zh-cn: 日志服务SLS配置
+      - Parameters:
+        - OssBucketName
+        Label:
+          default:
+            en: OSS bucket
+            zh-cn: 对象存储OSS配置
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:Nginx访问日志数据归档
+    Hidden:
+      - CommonName
+Outputs:
+  VpcId:
+    Description: Vpc id.
+    Value:
+      Ref: EcsVpc
+  VSwitchId:
+    Description: VSwitch id.
+    Value:
+      Ref: EcsVSwitch
+  SecurityGroupId:
+    Description: SecurityGroup id.
+    Value:
+      Ref: EcsSecurityGroup
+  EcsInstanceId:
+    Description: The id of the ecs instance.
+    Value:
+      Fn::GetAtt:
+        - EcsInstance
+        - InstanceId
+  ProjectName:
+    Description: The name of SLS project.
+    Value:
+      Fn::GetAtt:
+        - SlsProject
+        - Name
+  RoleName:
+    Description: The name of RAM role.
+    Value:
+      Fn::Join:
+        - '-'
+        - - 'oss-export'
+          - Fn::GetAtt:
+            - RoleNameSuffix
+            - value
