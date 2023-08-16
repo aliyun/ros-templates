@@ -450,6 +450,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |------------------------------------------------------------------------------------------------------------------|-------------------|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
 | [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | 通过DTS实现MySQL与Redis缓存同步一致性方案。 |
+| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                    | 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。 |
 | [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | RDS+ClickHouse，构建更易用的一站式HTAP服务。|
 
 - micro
@@ -492,9 +493,10 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |--------------------------------------------------------------------------------------------------------------------------------------|----------------|
 | [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml)           | Nginx访问日志数据归档。     |
 
-   </details>
+  </details>
 
-- trial
+  <details>
+    <summary>trail</summary>
 
 | 模板                                                                                                                                   | 说明                                                |
 |--------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------|
@@ -528,7 +530,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [redis-game-player-leaderboard.yml](./documents/trial/redis-game-player-leaderboard.yml)                                             | Redis 游戏玩家排行榜。                                    |
 | [sls-collect-logs-in-nginx-mode.yml](./documents/trial/sls-collect-logs-in-nginx-mode.yml)                                           | 通过日志服务SLS快速采集Nginx日志。                             |
 | [tair-restores-data-through-data-flashback.yml](./documents/trial/tair-restores-data-through-data-flashback.yml)                     | Tair 通过数据闪回恢复数据。                                  |
-
+  </details>
 </details>
 
 <details>

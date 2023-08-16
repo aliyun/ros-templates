@@ -453,8 +453,9 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | Template                                                                                                         | Description                                                                                 |
 |------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
-| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
-| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | Build a one-stop HTAP service based on RDS and ClickHouse. |
+| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml)                             | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
+| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)           | Online one-click upgrade of RDS MySQL to PolarDB MySQL version without modifying any code and configuration of the application. |
+| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml)                                     | Build a one-stop HTAP service based on RDS and ClickHouse. |
 
 - micro
 
@@ -496,10 +497,10 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
 | [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml) | Nginx access log data archive. |
 
-   </details>
+  </details>
 
-- trial
-
+  <details>
+    <summary>trail</summary>
 
 | Template                                                                                                                             | Description                                                                                              |
 |--------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
@@ -532,7 +533,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [redis-game-player-leaderboard.yml](./documents/trial/redis-game-player-leaderboard.yml)                                             | Redis game player leaderboard.                                                                           |
 | [sls-collect-logs-in-nginx-mode.yml](./documents/trial/sls-collect-logs-in-nginx-mode.yml)                                           | Quickly collect Nginx logs through Log Service SLS.                                                      |
 | [tair-restores-data-through-data-flashback.yml](./documents/trial/tair-restores-data-through-data-flashback.yml)                     | Restore data in Tair through data flashback.                                                             |
-
+  </details>
 </details>
 
 <details>
