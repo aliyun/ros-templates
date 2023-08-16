@@ -1,0 +1,101 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh: 搭建实时数仓并实现查询加速。
+  en: Build real-time data warehouse and realize query acceleration.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Available Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
+        VSwitch and used for Flink instance.</font></b>
+      zh-cn: 可用区ID。<br><b>注：用于创建VSwitch，并给Flink实例使用。
+    AssociationProperty: ZoneId
+  BucketName:
+    Type: String
+    Label:
+      en: Bucket Name
+      zh-cn: 存储空间名称
+    Description:
+      en: The name must be 3 to 63 bytes in length, The name must start and end with
+        a lowercase letter or digit.The name can contain only lowercase letters, digits,
+        and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally
+        unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
+      zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
+    Default: bucket-create-by-ros
+  FlinkInstanceName:
+    Type: String
+    Label:
+      en: Flink instance name
+      zh-cn: Flink实例名称
+    Description:
+      en: The name must be 1 to 60 bytes in length, The name must start and end with
+        a lowercase letter.The name can contain only lowercase letters, digits, and
+        hyphens (-).;<br><b>note：<font color='blue'>A instance name must be globally
+        unique within Flink. The name cannot be changed after the flink instance is
+        created.</b></font>
+      zh-cn: 长度为1~60个字符，必须以小写字母开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
+    Default: instance-create-by-ros
+Resources:
+  ECSVPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: vpc-create-by-ros
+      CidrBlock: 192.168.0.0/16
+  ECSVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: ECSVPC
+      VSwitchName: vsw-create-by-ros
+      CidrBlock: 192.168.0.0/20
+  OSSBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+  FlinkInstance:
+    Type: ALIYUN::Flink::Instance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: ECSVPC
+      VSwitchIds:
+      - Ref: ECSVSwitch
+      InstanceName:
+        Ref: FlinkInstanceName
+      ChargeType: Postpaid
+      Bucket:
+        Ref: OSSBucket
+  AutoEnableService:
+    Type: 'ALIYUN::ROS::AutoEnableService'
+    Properties:
+      ServiceName: MaxCompute
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          en: Availability Zone
+          zh-cn: 可用区配置
+    - Parameters:
+      - BucketName
+      Label:
+        default:
+          en: OSS
+          zh-cn: OSS 配置
+    - Parameters:
+      - FlinkInstanceName
+      Label:
+        default:
+          en: Flink
+          zh-cn: Flink 配置
+    TemplateTags:
+    - 'acs:technical-solution:data-analysis:搭建实时数仓并实现查询加速'

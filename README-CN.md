@@ -440,8 +440,10 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - data-analysis
 
-| 模板                                                                                                         | 说明       |
-|------------------------------------------------------------------------------------------------------------------|-------------------|
+| 模板                                                                                                                    | 说明       |
+|-----------------------------------------------------------------------------------------------------------------------|-------------------|
+| [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | 基于Flink+Hologres搭建实时数仓。 |
+| [flink-maxcompute-data-warehouse.yml](./documents/solution/data-analysis/flink-maxcompute-data-warehouse.yml)         | 搭建实时数仓并实现查询加速。 |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
 
 - database
@@ -461,9 +463,10 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - network
 
-| 模板                                                                                                                                | 说明            |
-|-----------------------------------------------------------------------------------------------------------------------------------|---------------|
+| 模板                                                                                                                                  | 说明            |
+|-------------------------------------------------------------------------------------------------------------------------------------|---------------|
 | [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml) | 跨地域跨账号网络互通方案。 |
+| [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                           | 互联网应用全球加速。 |
 
 - storage
 
