@@ -1,0 +1,79 @@
+FormatVersion: OOS-2019-06-01
+Description:
+  en: Show docker logs
+  zh-cn: 查看日志
+  name-en: ACS-ECS-BulkyShowDockerLogs
+  name-zh-cn: 查看日志
+Parameters:
+  regionId:
+    Type: String
+    Label:
+      en: RegionId
+      zh-cn: 地域ID
+    AssociationProperty: RegionId
+    Default: '{{ ACS::RegionId }}'
+  targets:
+    Type: Json
+    Label:
+      en: TargetInstance
+      zh-cn: 目标实例
+    AssociationProperty: Targets
+    AssociationPropertyMetadata:
+      ResourceType: ALIYUN::ECS::Instance
+      RegionId: regionId
+RamRole: ''
+Tasks:
+  - Name: getInstance
+    Description:
+      en: Views the ECS instances
+      zh-cn: 获取ECS实例
+    Action: ACS::SelectTargets
+    Properties:
+      ResourceType: ALIYUN::ECS::Instance
+      RegionId: '{{ regionId }}'
+      Filters:
+        - '{{ targets }}'
+    Outputs:
+      instanceIds:
+        Type: List
+        ValueSelector: Instances.Instance[].InstanceId
+  - Name: showDockerLogs
+    Action: ACS::ECS::RunCommand
+    Description:
+      en: Runs show docker logs on linux instance
+      zh-cn: 查看docker日志
+    Properties:
+      instanceId: '{{ ACS::TaskLoopItem }}'
+      regionId: '{{ regionId }}'
+      commandType: RunShellScript
+      timeout: 3600
+      commandContent: |
+        docker logs `docker ps |grep aigc|awk -F' ' '{print $1}'`
+    Loop:
+      Items: '{{ getInstance.instanceIds }}'
+      RateControl:
+        Mode: Concurrency
+        MaxErrors: 0
+        Concurrency: 1
+      Outputs:
+        commandOutputs:
+          AggregateType: Fn::ListJoin
+          AggregateField: commandOutput
+    Outputs:
+      commandOutput:
+        Type: String
+        ValueSelector: invocationOutput
+Outputs:
+  commandOutput:
+    Type: String
+    Value: '{{ downloadLinuxFile.commandOutputs }}'
+Metadata:
+  ALIYUN::OOS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - regionId
+          - targets
+        Label:
+          default:
+            zh-cn: 选择实例
+            en: Select Instances

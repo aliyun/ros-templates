@@ -1,0 +1,397 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: chatglm finetune ROS templates
+  zh-cn: chatglm微调ROS模版
+Conditions:
+  CreateVpcConditions:
+    Fn::Equals:
+    - true
+    - Ref: WhetherCreateVpc
+Parameters:
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+    AllowedValues:
+      - ecs.gn7i-c16g1.4xlarge
+      - ecs.gn7i-c32g1.8xlarge
+      - ecs.gn7i-c32g1.16xlarge
+      - ecs.gn7i-c32g1.32xlarge
+      - ecs.gn7i-c48g1.12xlarge
+      - ecs.gn7i-c56g1.14xlarge
+      - ecs.gn6e-c12g1.3xlarge
+      - ecs.gn6e-c12g1.12xlarge
+      - ecs.gn6e-c12g1.24xlarge
+      - ecs.gn6i-c4g1.xlarge
+      - ecs.gn6i-c8g1.2xlarge
+      - ecs.gn6i-c16g1.4xlarge
+      - ecs.gn6i-c24g1.12xlarge
+      - ecs.gn6i-c24g1.24xlarge
+      - ecs.gn5-c8g1.2xlarge
+      - ecs.gn5-c8g1.4xlarge
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  WhetherCreateVpc:
+    Type: Boolean
+    Label:
+      en: WhetherCreateVpc
+      zh-cn: 是否新建VPC
+    Default: false
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR IPv4 Block
+      zh-cn: 专有网络IPv4网段
+    Description:
+      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use
+        the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${WhetherCreateVpc}
+          - true
+    Default: 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: VpcCidrBlock
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${WhetherCreateVpc}
+          - true
+    Default: 192.168.1.0/24
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${WhetherCreateVpc}
+          - false
+    Default: ''
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${WhetherCreateVpc}
+          - false
+    Default: ''
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${EcsInstanceType}
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+    Default: cloud_essd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间 (GB)
+      en: System Disk Space (GB)
+    Default: 1024
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Condition: CreateVpcConditions
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Ref: ALIYUN::StackName
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Condition: CreateVpcConditions
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      # 按照软件名称设置安全组名称
+      VpcId:
+        Fn::If:
+        - CreateVpcConditions
+        - Ref: EcsVpc
+        - Ref: VpcId
+      # 按照软件监听的端口，设置入方向规则（安全组默认出方向的全部端口都是放行的）
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 8080/8080
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::If:
+        - CreateVpcConditions
+        - Ref: EcsVpc
+        - Ref: VpcId
+      VSwitchId:
+        Fn::If:
+        - CreateVpcConditions
+        - Ref: EcsVSwitch
+        - Ref: VSwitchId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      IoOptimized: optimized
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      # 系统盘大小可以根据需要调整
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      MaxAmount: 1
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      # 设置公网带宽
+      InternetMaxBandwidthOut: 5
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
+
+# 如果不需要执行命令，请删除WaitCondition、WaitConditionHandle、InstanceRunCommand
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      # 等待命令执行完成的超时时间
+      Timeout: 300
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+      CommandContent:
+        Fn::Sub:
+        - |
+          #!/bin/bash
+
+          nohup /root/anaconda3/bin/jupyter lab --allow-root > jupyter.log 2>&1 &
+          
+          # 4. 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+
+          # 脚本里任何地方如果发现执行失败，使用以下命令返回FAILURE和错误信息
+          # ${CurlCli} -d "{\"Data\" : \"error message\", \"status\" : \"FAILURE\"}"
+        - CurlCli:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+      ContentEncoding: PlainText
+      Type: RunShellScript
+      Timeout: 300
+
+# outputs是根据软件需求定义
+# Outputs are defined according to software requirements
+# 以下是以nginx为例，输出了网站公网访问地址
+# The following is an example of nginx, which outputs the public network access address of the website
+Outputs:
+  endpoint:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Label:
+      zh-cn: NoteBook 登陆地址
+      en: Login Url
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}:8080/lab
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    ## 参数组的顺序会确定用户创建服务实例页面的参数排列顺序
+    ## The order of the parameter groups determines the order in which the parameters are arranged on the user creation service instance page
+    ## 此参数组配置将实例规格放在第一位；如果服务可用的实例规格只存在于部分可用区，这种方式可以保证用户先选定目标规格
+    ## This parameter group configuration puts the instance type first; if the instance type available for the service only exists in some availability zones, this method can ensure that the user first selects the target type
+    - Parameters:
+        - PayType
+        - PayPeriodUnit
+        - PayPeriod
+      Label:
+        default:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+    - Parameters:
+      - EcsInstanceType
+      Label:
+        default:
+          zh-cn: ECS实例规格配置
+          en: ECS Instance Type Configuration
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - WhetherCreateVpc
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - VpcId
+      - VSwitchId
+      Label:
+        default:
+          zh-cn: VPC配置
+          en: VPC Configuration
+    - Parameters:
+      - InstancePassword
+      Label:
+        default:
+          en: Instance password
+          zh-cn: ECS实例密码配置
+    - Parameters:
+      - SystemDiskCategory
+      - SystemDiskSize
+      Label:
+        default:
+          en: ECS detail configuration
+          zh-cn: ECS实例详细配置
+    TemplateTags:
+    - acs:example:ISV软件部署:创建单ECS实例并部署Nginx

@@ -1,0 +1,400 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 单节点vault
+# 参数配置
+Parameters:
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  PayPeriod:
+    Type: Number
+    Description:
+      en: When the resource purchase duration is Month, the value of Period ranges from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+  VpcId:
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Type: String
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
+      zh-cn: 现有虚拟专有网络的实例ID
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+  VSwitchId:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+    Type: String
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+  AllocatePublicIp:
+    Default: true
+    Type: Boolean
+    Label:
+      zh-cn: 开启公网IP
+      en: allocate public ip
+  InternetMaxBandwidthOut:
+    Default: 5
+    Type: Number
+    Label:
+      zh-cn: 流量公网带宽
+      en: Internet Max Bandwidth Out
+    MinValue: 0
+    MaxValue: 100
+    Description:
+      zh-cn: 取值范围0-100, 0为不开公网ip
+      en: no public ip if zero
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AllocatePublicIp}
+            - true
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+    MinLength: 8
+    MaxLength: 30
+  TlsCert:
+    Type: String
+    Label:
+      en: TLS certificate
+      zh-cn: TLS证书
+    Description:
+      en: The TLS certificate when using https to access vault server
+      zh-cn: 使用https协议访问Vault服务端，用来进行端到端加密的TLS证书
+    NoEcho: true
+    AssociationProperty: FileContent
+    TextArea: true
+  TlsKey:
+    Type: String
+    Label:
+      en: TLS key
+      zh-cn: TLS key
+    Description:
+      en: The TLS key when using https to access vault server
+      zh-cn: 使用https协议访问Vault服务端，用来进行端到端加密的TLS key
+    NoEcho: true
+    AssociationProperty: FileContent
+    TextArea: true
+Conditions:
+  IfAllocatePublicIp:
+    Fn::Equals:
+      - Ref: AllocatePublicIp
+      - true
+# 资源配置
+Resources:
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      VpcId:
+        Ref: VpcId
+      # 安全组入端口
+      SecurityGroupIngress:
+        - PortRange: 8200/8200
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  # 定义waitCondition和waitConditionHandle来等待跳板机命令执行完毕部署成功
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 240
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      # 实例名
+      InstanceName:
+        Fn::Join:
+          - '-'
+          - - Ref: ALIYUN::StackName
+            - '[1,4]'
+      IoOptimized: optimized
+      # 付费类型
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      # 网络配置
+      VpcId:
+        Ref: VpcId
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      # 磁盘类型和大小
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 200
+      DiskMappings:
+        - Category: cloud_essd
+          Size: 200
+      MaxAmount: 1
+      # 镜像
+      ImageId: centos_7
+      # 实例类型
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      # 公网带宽
+      InternetMaxBandwidthOut:
+        Fn::If:
+          - IfAllocatePublicIp
+          - Ref: InternetMaxBandwidthOut
+          - 0
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            set -x
+  
+            init_and_mount_data_disk() {
+              local fs_type=$1
+              local mount_point=$2
+            
+              # 找出磁盘设备（排除分区）
+              devices=(`lsblk -o NAME,FSTYPE --noheadings --nodeps | awk '$2 == "" {print $1}'`)
+              # 找出不存在文件系统的磁盘设备
+              for device in ${!devices[@]};
+              do
+                lsblk -o NAME,FSTYPE --noheadings  | awk '$2 != "" {print $1}' | grep ${!device}
+                if [[ $? -eq 1 ]]; then
+                  data_disk=${!device}
+                  break
+                fi
+              done
+              
+              # 为数据盘创建文件系统
+              mkfs -t ${!fs_type} /dev/${!data_disk}
+              
+              cp /etc/fstab /etc/fstab.bak
+              mkdir ${!mount_point}
+              # 更新/etc/fstab并挂载磁盘
+              echo `blkid /dev/${!data_disk} | awk '{print $2}' | sed 's/\\\"//g'` ${!mount_point} ext4 defaults 0 0 >> /etc/fstab
+              mount -a
+            }
+
+            # 挂盘到/opt/vault
+            init_and_mount_data_disk ext4 /opt/vault
+            
+            wget '{{ computenest::file::vault }}'
+            rpm -ivh vault-*.rpm
+            
+            cp /etc/vault.d/vault.hcl /etc/vault.d/vault.hcl.default
+            cat > /etc/vault.d/vault.hcl <<"EOF"
+            # Full configuration options can be found at https://www.vaultproject.io/docs/configuration
+            
+            ui = true
+            mlock = true
+            
+            storage "file" {
+              path = "/opt/vault/data"
+            }
+            
+            # HTTPS listener
+            listener "tcp" {
+              address       = "0.0.0.0:8200"
+              tls_cert_file = "/opt/vault/tls/tls.crt"
+              tls_key_file  = "/opt/vault/tls/tls.key"
+            }
+            EOF
+            
+            cp /opt/vault/tls/tls.crt /opt/vault/tls/tls.crt.default 
+            cp /opt/vault/tls/tls.key /opt/vault/tls/tls.key.default 
+            cat > /opt/vault/tls/tls.crt <<"EOF"
+            ${TlsCert}
+            EOF
+            cat > /opt/vault/tls/tls.key << "EOF"
+            ${TlsKey}
+            EOF
+            
+            systemctl enable vault
+            # 启动Vault服务，但是Vault服务端还没有初始化
+            # 用户必须手工初始化，并妥善保存unseal keys和root token
+            systemctl start vault
+
+            # 执行成功回调WaitCondition结束waitCondition的等待
+            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+          # 获取到waitConditionHandle的地址放到 ${CurlCli}变量里
+          - CurlCli:
+              Fn::GetAtt:
+                - WaitConditionHandle
+                - CurlCli
+            TlsCert:
+              Ref: TlsCert
+            TlsKey:
+              Ref: TlsKey
+      Type: RunShellScript
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      Timeout: '240'
+# 定义输出
+Outputs:
+  PrivateEndpoint:
+    Description:
+      zh-cn: 内网访问地址
+      en: Private web address
+    Value:
+      Fn::Sub:
+        - https://${ServerAddress}:8200
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - PrivateIps
+  PublicEndpoint:
+    Condition: IfAllocatePublicIp
+    Description:
+      zh-cn: 公网访问地址
+      en: Public web Address
+    Value:
+      Fn::Sub:
+        - https://${ServerAddress}:8200
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - PublicIps
+  HowToStart:
+    Description:
+      zh-cn: 配置说明
+    Value: 1.Vault实例未初始化，请访问web页面或者远程登录ECS实例使用命令行进行初始化，获取unseal keys和root token并妥善保管。2.请将证书中的域名指向服务实例的公网IP，并通过域名访问以避免浏览器安全报警
+
+Metadata:
+  ALIYUN::ROS::Interface:
+    # 分组信息
+    ParameterGroups:
+      - Parameters:
+          - PayType
+          - PayPeriodUnit
+          - PayPeriod
+        Label:
+          default:
+            en: PayType Configuration
+            zh-cn: 付费类型配置
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            zh-cn: 可用区配置
+            en: Zone Configuration
+      - Parameters:
+          - VpcId
+          - VSwitchId
+        Label:
+          default:
+            zh-cn: 选择已有基础资源配置
+            en: Choose existing Infrastructure Configuration
+      - Parameters:
+          - EcsInstanceType
+          - AllocatePublicIp
+          - InternetMaxBandwidthOut
+          - InstancePassword
+        Label:
+          default:
+            en: Instance
+            zh-cn: ECS实例配置
+      - Parameters:
+          - TlsCert
+          - TlsKey
+        Label:
+          default:
+            en: Vault configuration
+            zh-cn: Vault配置

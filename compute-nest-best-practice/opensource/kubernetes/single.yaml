@@ -1,0 +1,491 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Description:
+  en: Deploying Kubernetes Cluster with Multiple Nodes.
+  zh-cn: 单机部署K8S集群。
+Parameters:
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  PayPeriod:
+    Type: Number
+    Description:
+      en: When the resource purchase duration is Month, the value of Period ranges from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+  VpcId:
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Type: String
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
+      zh-cn: 现有虚拟专有网络的实例ID。
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+  VSwitchId:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+    Type: String
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID。
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+  AutoCreateSecurityGroup:
+    Type: Boolean
+    Default: true
+    Label:
+      zh-cn: 自动创建安全组
+      en: auto create security group
+  SecurityGroupId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AutoCreateSecurityGroup}
+            - false
+    Default: ''
+    Description:
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network & Security
+      zh-cn: 现有业务安全组的实例ID。
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+  EcsInstanceType:
+    Type: String
+    Description:
+      en: Master nodes must have a minimum of 2 cores and 4GB of RAM.
+      zh-cn: 实例类型,节点不可小于2核4G。
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+  SystemDiskSize:
+    Default: 40
+    Type: Number
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    MinValue: 40
+    MaxValue: 500
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+  SystemDiskCategory:
+    Default: cloud_essd
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+    Type: String
+    Description:
+      zh-cn: 系统盘类型，须选择实例支持的磁盘类型。
+      en: System disk type, you must select the type of disk that the instance.
+    AllowedValues:
+      - cloud_efficiency
+      - cloud_ssd
+      - cloud_essd
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+  DataDiskSize:
+    Default: 40
+    Type: Number
+    Description:
+      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    MinValue: 40
+    MaxValue: 500
+    Label:
+      zh-cn: 数据盘空间
+      en: Data Disk Space
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${NeedCreateDataDisk}
+            - true
+  InternetMaxBandwidthOut:
+    Default: 100
+    Type: Number
+    Label:
+      zh-cn: Master节点公网带宽
+      en: Master Node Internet Max Bandwidth Out
+    MinValue: 1
+    MaxValue: 100
+    Description:
+      zh-cn: 取值范围1-100。
+      en: The value range is from 1 to 100.
+  InternetChargeType:
+    Default: PayByTraffic
+    Type: String
+    Label:
+      zh-cn: 流量付费类型
+      en: Internet Charge Type
+    AllowedValues:
+      - PayByBandwidth
+      - PayByTraffic
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 节点登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    MinLength: 8
+    MaxLength: 30
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  AckDistroVersion:
+    Type: String
+    Label:
+      zh-cn: Ack-Distro基础镜像版本
+      en: Ack-Distro base image version.
+    AllowedValues:
+      - v1-22-15-ack-10
+      - v1-20-11-ack-23
+    Default: v1-22-15-ack-10
+    Description:
+      zh-cn: Ack-Distro镜像版本，<a href="https://github.com/AliyunContainerService/ackdistro/releases/">版本说明</a>。
+      en: Ack-Distro Image Version,<a href="https://github.com/AliyunContainerService/ackdistro/releases/">Version Description</a>.
+  NeedCreateDataDisk:
+    Type: Boolean
+    Default: false
+    Label:
+      zh-cn: 创建节点数据盘
+      en: Create node data disk.
+Conditions:
+  IfAutoCreateSecurityGroup:
+    Fn::Equals:
+      - Ref: AutoCreateSecurityGroup
+      - true
+  IfCreateDataDisk:
+    Fn::Equals:
+      - Ref: NeedCreateDataDisk
+      - true
+Resources:
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Condition: IfAutoCreateSecurityGroup
+    Properties:
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      VpcId:
+        Ref: VpcId
+      # 只开放访问外网的规则
+      SecurityGroupEgress:
+        - PortRange: '-1/-1'
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+      SecurityGroupIngress:
+        - PortRange: 6443/6443
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+  # 定义waitCondition和waitConditionHandle来等待命令执行完毕部署成功
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 1000
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  MasterEcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      # 实例名
+      InstanceName:
+        Fn::Join:
+          - '-'
+          - - Ref: ALIYUN::StackName
+            - '[1,4]'
+      IoOptimized: optimized
+      # 付费类型
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      # 网络配置
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Fn::If:
+          - IfAutoCreateSecurityGroup
+          - Ref: EcsSecurityGroup
+          - Ref: SecurityGroupId
+      # 磁盘类型和大小
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      DiskMappings:
+        Fn::If:
+          - IfCreateDataDisk
+          - - Category: cloud_essd
+              Size:
+                Ref: DataDiskSize
+          - Ref: ALIYUN::NoValue
+      MaxAmount: 1
+      # 镜像
+      ImageId: centos_7
+      # 实例类型
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: true
+      InternetMaxBandwidthOut:
+        Ref: InternetMaxBandwidthOut
+      InternetChargeType:
+        Ref: InternetChargeType
+  # 到机器上执行命令
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn:
+      - MasterEcsInstanceGroup
+    Properties:
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            # 安装sealer
+            ARCH=amd64
+            get_arch=`arch`
+            if [[ $get_arch != "x86_64" ]];then
+                ARCH=arm64
+            fi
+            # 部署物功能暂不支持参数化和特殊符合如中划线等，所以只能暂时这么写了
+            if [[ ${!ARCH} == "amd64" ]];then
+                # 根据版本选择对应的部署物
+                echo "deploy amd64"
+                # 使用-q是为了避免云助手执行时影响后续输出
+                wget -q '{{ computenest::file::sealerAmd64 }}' -O sealer-latest-linux-amd64.tar.gz && \
+                tar -xvf sealer-latest-linux-${!ARCH}.tar.gz -C /usr/bin
+                if [[ ${AckDistroVersion} == "v1-22-15-ack-10" ]];then
+                    wget -q '{{ computenest::file::ackdistroAmd64V12215Ack10 }}'
+                elif [[ ${AckDistroVersion} == "v1-20-11-ack-23" ]];then
+                    wget -q '{{ computenest::file::ackdistroAmd64V12011Ack23 }}'
+                fi
+            else
+                echo "deploy arm64"
+                wget -q '{{ computenest::file::sealerArm64 }}' -O sealer-latest-linux-arm64.tar.gz && \
+                tar -xvf sealer-latest-linux-${!ARCH}.tar.gz -C /usr/bin
+                if [[ ${AckDistroVersion} == "v1-22-15-ack-10" ]];then
+                    wget -q '{{ computenest::file::ackdistroArm64V12215Ack10 }}'
+                elif [[ ${AckDistroVersion} == "v1-20-11-ack-23" ]];then
+                    wget -q '{{ computenest::file::ackdistroArm64V12011Ack23 }}'
+                fi
+            fi
+            sealer load -i ackdistro-${!ARCH}-${AckDistroVersion}.tar
+            sealer run ack-agility-registry.cn-shanghai.cr.aliyuncs.com/ecp_builder/ackdistro:${AckDistroVersion} -m ${Master} -p ${Password} >> deployK8sOutput.txt 2>&1
+            # cert for external ip
+            sed 's#https://apiserver.cluster.local:6443#https://${ExternalIp}:6443#g' ~/.kube/config > ~/.kube/external_ip_config
+            sealer cert --alt-names ${ExternalIp}
+            echo "公网方式 通过 kubectl 连接 Kubernetes 集群"
+            echo "1. 安装和设置 kubectl 客户端。有关详细信息请参见: https://kubernetes.io/docs/tasks/tools/"
+            echo "2. 配置集群凭证：将以下内容复制到本地计算机 $HOME/.kube/config 文件中（没有~/.kube目录请新建），配置完成后，即可使用 kubectl 从计算机访问 Kubernetes 集群。"
+            cat  ~/.kube/external_ip_config
+            echo "
+              
+            "          
+            sed 's#https://apiserver.cluster.local:6443#https://${Master}:6443#g' ~/.kube/config > ~/.kube/internal_ip_config
+            echo "私网方式 通过 kubectl 连接 Kubernetes 集群"
+            echo "1. 安装和设置 kubectl 客户端。有关详细信息请参见: https://kubernetes.io/docs/tasks/tools/"
+            echo "2. 配置集群凭证：将以下内容复制到本地计算机 $HOME/.kube/config 文件中（没有~/.kube目录请新建），配置完成后，即可使用 kubectl 从计算机访问 Kubernetes 集群。"
+            cat  ~/.kube/internal_ip_config
+            
+            # 安装监控
+            ARGUS_VERSION=3.5.7 /bin/bash -c "$(curl -sS https://cms-agent-${RegionId}.oss-${RegionId}-internal.aliyuncs.com/Argus/agent_install_ecs-1.7.sh)" >> /root/install_cms_agent.log 2>&1
+            # 执行成功回调WaitCondition结束waitCondition的等待
+            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}" > /dev/null 2>/dev/null
+          - Master:
+              Fn::Select:
+                - 0
+                - Fn::GetAtt:
+                    - MasterEcsInstanceGroup
+                    - PrivateIps
+            ExternalIp:
+              Fn::Select:
+                - 0
+                - Fn::GetAtt:
+                    - MasterEcsInstanceGroup
+                    - PublicIps
+            Password:
+              Ref: InstancePassword
+            AckDistroVersion:
+              Ref: AckDistroVersion
+            CurlCli:
+              Fn::GetAtt:
+                - WaitConditionHandle
+                - CurlCli
+      Type: RunShellScript
+      InstanceIds:
+        - Fn::Select:
+            - 0
+            - Fn::GetAtt:
+                - MasterEcsInstanceGroup
+                - InstanceIds
+      Timeout: '1000'
+Outputs:
+  MasterPublicIp:
+    Description:
+      zh-cn: Master公网IP地址
+      en: Master Private IP Addresses
+    Value:
+      Fn::GetAtt:
+        - MasterEcsInstanceGroup
+        - PublicIps
+  MasterPrivateIp:
+    Description:
+      zh-cn: Master内网IP地址
+      en: Master Private IP Addresses
+    Value:
+      Fn::GetAtt:
+        - MasterEcsInstanceGroup
+        - PrivateIps
+  ConnectApiServer:
+    Description:
+      zh-cn: 如何连接ApiServer
+      en: How Connect With Api Server
+    Value:
+      Fn::Sub:
+        - |
+          获取集群访问凭证方式: <br> 
+          方式1：运维管理页中，选择执行"获取集群凭证"运维项，在执行结果中查看凭证。<br>
+          方式2：远程连接master节点，公网访问凭证：~/.kube/external_ip_config，私网访问凭证： ~/.kube/internal_ip_config <br>
+          方式3：<br>
+          1.登录阿里云ECS控制台:${AssistantAddress}。<br>
+          2.查看该命令执行Id: ${InvokeId} 的执行结果。
+        - AssistantAddress:
+            Fn::Sub:
+              - |
+                https://ecs.console.aliyun.com/cloud-assistant/region/${RegionId}/
+              - RegionId:
+                  Ref: ALIYUN::Region
+          InvokeId:
+            Fn::GetAtt:
+              - InstanceRunCommand
+              - InvokeId
+Metadata:
+  ALIYUN::ROS::Interface:
+    # 分组信息
+    ParameterGroups:
+      - Parameters:
+          - PayType
+          - PayPeriodUnit
+          - PayPeriod
+        Label:
+          default:
+            en: PayType Configuration
+            zh-cn: 付费类型配置
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            zh-cn: 可用区配置
+            en: Zone Configuration
+      - Parameters:
+          - AckDistroVersion
+        Label:
+          default:
+            zh-cn: Ack-Distro镜像版本
+            en: Ack-Distro image version
+      - Parameters:
+          - VpcId
+          - VSwitchId
+          - AutoCreateSecurityGroup
+          - SecurityGroupId
+        Label:
+          default:
+            zh-cn: 网络配置
+            en: Choose existing Infrastructure Configuration
+      - Parameters:
+          - EcsInstanceType
+          - InternetChargeType
+          - InternetMaxBandwidthOut
+          - SystemDiskCategory
+          - SystemDiskSize
+          - NeedCreateDataDisk
+          - DataDiskSize
+          - InstancePassword
+        Label:
+          default:
+            en: Instance Configuration
+            zh-cn: 节点配置
