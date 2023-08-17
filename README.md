@@ -477,11 +477,12 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)         | Collect logs of OSS across accounts with log audit service. |
 
 
-- cdn-adn-video-cloud
+- cdn-and-video-cloud
 
-| Template                                                                                                                  | Description                                                                                 |
-|---------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| [cdn-speeds-up-distribution-of-file-on-oss.yml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yml) | Use a CDN to speed up the distribution of file resources stored on OSS. |
+| Template                                                                                                                                | Description                                                             |
+|-----------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| [cdn-speeds-up-distribution-of-file-on-oss.yml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yml)   | Use a CDN to speed up the distribution of file resources stored on OSS. |
+| [dcdn-acceleration.yml](documents/solution/cdn-and-video-cloud/dcdn-acceleration.yml)                                                   | Accelerate resource request scenario practices.                         |
 
 
 - high-availability-architecture
