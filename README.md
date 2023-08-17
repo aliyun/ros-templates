@@ -454,6 +454,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 | Template                                                                                                         | Description                                                                                 |
 |------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | Automatic database scaling and SQL optimization|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
 | [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml)                             | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
 | [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)           | Online one-click upgrade of RDS MySQL to PolarDB MySQL version without modifying any code and configuration of the application. |
