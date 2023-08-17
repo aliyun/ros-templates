@@ -3,36 +3,45 @@ Description:
   zh-cn: 云上公网架构设计和安全管理。
   en: Public network architecture design and security management on the cloud.
 Parameters:
-  ZoneId[0]:
+  ZoneId_0:
     Type: String
     Label:
-      zh-cn: 交换机可用区A
-      en: VSwitch Availability Zone A
+      zh-cn: 可用区A
+      en: Availability Zone A
     Description:
-      zh-cn: 可用区ID。
-      en: Availability Zone ID.
-    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
-    Default: cn-hangzhou-h
-  ZoneId[1]:
+      en: To create an availability zone for the instance, <font color='red'><b>ensure that the current region has 
+        at least two different availability zones to choose from</b>.
+      zh-cn: 创建实例的可用区，<font color='red'><b>请确保当前地域有至少两个不同的可用区可供选择</b>。
+    AssociationProperty: ALIYUN::NLB::Zone::ZoneId
+  ZoneId_1:
     Type: String
     Label:
-      zh-cn: 交换机可用区B
-      en: VSwitch Availability Zone B
+      zh-cn: 可用区B
+      en: Availability Zone B
     Description:
-      zh-cn: 可用区ID。
-      en: Availability Zone ID.
-    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
-    Default: cn-hangzhou-i
+      en: To create an availability zone for the instance, <font color='red'><b>ensure that the current region has
+        at least two different availability zones to choose from</b>.
+      zh-cn: 创建实例的可用区，<font color='red'><b>请确保当前地域有至少两个不同的可用区可供选择</b>。
+    AssociationProperty: ALIYUN::NLB::Zone::ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      en: ECS Instance Type
+      zh-cn: ECS实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System disk type
+      zh-cn: 系统盘类型
 Resources:
-  PrdVpc[0]:
-    Type:
-      ALIYUN::ECS::VPC
+  PrdVpc_0:
+    Type: ALIYUN::ECS::VPC
     Properties:
       VpcName: VPC_PRD1
       CidrBlock: 192.168.0.0/24
-  PrdVpc[1]:
-    Type:
-      ALIYUN::ECS::VPC
+  PrdVpc_1:
+    Type: ALIYUN::ECS::VPC
     Properties:
       VpcName: VPC_PRD2
       CidrBlock: 192.168.1.0/24
@@ -42,7 +51,516 @@ Resources:
     Properties:
       VpcName: VPC_DMZ
       CidrBlock: 192.168.2.0/24
-  VSwitch[0]:
+  SecurityGroup_0:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: PrdVpc_0
+  SecurityGroup_1:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: PrdVpc_1
+  PrdVSwitch_0_0:
     Type: ALIYUN::ECS::VSwitch
     Properties:
+      VpcId:
+        Ref: PrdVpc_0
+      ZoneId:
+        Ref: ZoneId_0
+      CidrBlock: 192.168.0.0/25
+  PrdVSwitch_0_1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: PrdVpc_0
+      ZoneId:
+        Ref: ZoneId_1
+      CidrBlock: 192.168.0.128/25
+  PrdVSwitch_1_0:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: PrdVpc_1
+      ZoneId:
+        Ref: ZoneId_0
+      CidrBlock: 192.168.1.0/25
+  PrdVSwitch_1_1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: PrdVpc_1
+      ZoneId:
+        Ref: ZoneId_1
+      CidrBlock: 192.168.1.128/25
+  DmzVSwitch_0:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: DmzVpc
+      ZoneId:
+        Ref: ZoneId_0
+      CidrBlock: 192.168.2.0/25
+  DmzVSwitch_1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: DmzVpc
+      ZoneId:
+        Ref: ZoneId_1
+      CidrBlock: 192.168.2.128/25
+  CENInstance:
+    Type: ALIYUN::CEN::CenInstance
+  CENTransitRouter:
+    Type: ALIYUN::CEN::TransitRouter
+    Properties:
+      CenId:
+        Fn::GetAtt:
+          - CENInstance
+          - CenId
+  CENTransitRouterVpcAttachment_0:
+    Type: ALIYUN::CEN::TransitRouterVpcAttachment
+    Properties:
+      TransitRouterId:
+        Fn::GetAtt:
+          - CENTransitRouter
+          - TransitRouterId
+      VpcId:
+        Ref: PrdVpc_0
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId_0
+          VSwitchId:
+            Ref: PrdVSwitch_0_0
+        - ZoneId:
+            Ref: ZoneId_1
+          VSwitchId:
+            Ref: PrdVSwitch_0_1
+      DeletionForce: true
+  CENTransitRouterVpcAttachment_1:
+    Type: ALIYUN::CEN::TransitRouterVpcAttachment
+    Properties:
+      TransitRouterId:
+        Fn::GetAtt:
+          - CENTransitRouter
+          - TransitRouterId
+      VpcId:
+        Ref: PrdVpc_1
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId_0
+          VSwitchId:
+            Ref: PrdVSwitch_1_0
+        - ZoneId:
+            Ref: ZoneId_1
+          VSwitchId:
+            Ref: PrdVSwitch_1_1
+      DeletionForce: true
+  CENTransitRouterVpcAttachment_2:
+    Type: ALIYUN::CEN::TransitRouterVpcAttachment
+    Properties:
+      TransitRouterId:
+        Fn::GetAtt:
+          - CENTransitRouter
+          - TransitRouterId
+      VpcId:
+        Ref: DmzVpc
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId_0
+          VSwitchId:
+            Ref: DmzVSwitch_0
+        - ZoneId:
+            Ref: ZoneId_1
+          VSwitchId:
+            Ref: DmzVSwitch_1
+      DeletionForce: true
+  CommonBandwidthPackage:
+    Type: ALIYUN::VPC::CommonBandwidthPackage
+    Properties:
+      Bandwidth: 1000
+      InternetChargeType: PayByBandwidth
+  PrdEcsInstance_0_0:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: PrdVpc_0
+      SecurityGroupId:
+        Ref: SecurityGroup_0
+      VSwitchId:
+        Ref: PrdVSwitch_0_0
+      InstanceName: APP01
+      ZoneId:
+        Ref: ZoneId_0
+      InstanceChargeType: PostPaid
+      InstanceType:
+        Ref: InstanceType
+      ImageId: centos_7
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize: 40
+      AllocatePublicIP: false
+  PrdEcsInstance_0_1:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: PrdVpc_0
+      SecurityGroupId:
+        Ref: SecurityGroup_0
+      VSwitchId:
+        Ref: PrdVSwitch_0_1
+      InstanceName: APP02
+      ZoneId:
+        Ref: ZoneId_1
+      InstanceChargeType: PostPaid
+      InstanceType:
+        Ref: InstanceType
+      ImageId: centos_7
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize: 40
+      AllocatePublicIP: false
+  PrdEcsInstance_1_0:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: PrdVpc_1
+      SecurityGroupId:
+        Ref: SecurityGroup_1
+      VSwitchId:
+        Ref: PrdVSwitch_1_0
+      InstanceName: APP03
+      ZoneId:
+        Ref: ZoneId_0
+      InstanceChargeType: PostPaid
+      InstanceType:
+        Ref: InstanceType
+      ImageId: centos_7
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize: 40
+      AllocatePublicIP: false
+  PrdEcsInstance_1_1:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: PrdVpc_1
+      SecurityGroupId:
+        Ref: SecurityGroup_1
+      VSwitchId:
+        Ref: PrdVSwitch_1_1
+      InstanceName: APP04
+      ZoneId:
+        Ref: ZoneId_1
+      InstanceChargeType: PostPaid
+      InstanceType:
+        Ref: InstanceType
+      ImageId: centos_7
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize: 40
+      AllocatePublicIP: false
+  DmzNlbLoadBalancer:
+    Type: ALIYUN::NLB::LoadBalancer
+    Properties:
+      AddressType: Internet
+      VpcId:
+        Ref: DmzVpc
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId_0
+          VSwitchId:
+            Ref: DmzVSwitch_0
+        - ZoneId:
+            Ref: ZoneId_1
+          VSwitchId:
+            Ref: DmzVSwitch_1
+      AddressIpVersion: Ipv4
+      BandwidthPackageId:
+        Ref: CommonBandwidthPackage
+  PrdNlbLoadBalancer_0:
+    Type: ALIYUN::NLB::LoadBalancer
+    Properties:
+      AddressType: Internet
+      VpcId:
+        Ref: PrdVpc_0
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId_0
+          VSwitchId:
+            Ref: PrdVSwitch_0_0
+        - ZoneId:
+            Ref: ZoneId_1
+          VSwitchId:
+            Ref: PrdVSwitch_0_1
+      AddressIpVersion: Ipv4
+      BandwidthPackageId:
+        Ref: CommonBandwidthPackage
+  PrdNlbLoadBalancer_1:
+    Type: ALIYUN::NLB::LoadBalancer
+    Properties:
+      AddressType: Internet
+      VpcId:
+        Ref: PrdVpc_1
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId_0
+          VSwitchId:
+            Ref: PrdVSwitch_1_0
+        - ZoneId:
+            Ref: ZoneId_1
+          VSwitchId:
+            Ref: PrdVSwitch_1_1
+      AddressIpVersion: Ipv4
+      BandwidthPackageId:
+        Ref: CommonBandwidthPackage
+  NlbServerGroup_0:
+    Type: ALIYUN::NLB::ServerGroup
+    Properties:
+      ServerGroupType: Ip
+      ServerGroupName: NlbServerGroup_PRD_0
+      VpcId:
+        Ref: PrdVpc_0
+      Protocol: TCP
+      Scheduler: Wrr
+      Servers:
+        - ServerType: Ip
+          ServerId:
+            Fn::GetAtt:
+              - PrdEcsInstance_0_0
+              - InstanceId
+          ServerIp: 192.168.0.0
+          Port: 80
+      HealthCheckConfig:
+        HttpCheckMethod: HEAD
+        HealthCheckType: Tcp
+  NlbServerGroup_1:
+    Type: ALIYUN::NLB::ServerGroup
+    Properties:
+      ServerGroupType: Ip
+      ServerGroupName: NlbServerGroup_PRD_1
+      VpcId:
+        Ref: PrdVpc_1
+      Protocol: TCP
+      Scheduler: Wrr
+      Servers:
+        - ServerType: Ip
+          ServerId:
+            Fn::GetAtt:
+              - PrdEcsInstance_1_0
+              - InstanceId
+          ServerIp: 192.168.1.0
+          Port: 80
+      HealthCheckConfig:
+        HttpCheckMethod: HEAD
+        HealthCheckType: Tcp
+  NlbListener_0:
+    Type: ALIYUN::NLB::Listener
+    Properties:
+      ListenerPort: 80
+      ListenerProtocol: TCP
+      ServerGroupId:
+        Fn::GetAtt:
+          - NlbServerGroup_0
+          - ServerGroupId
+      LoadBalancerId:
+        Fn::GetAtt:
+          - PrdNlbLoadBalancer_0
+          - LoadBalancerId
+  NlbListener_1:
+    Type: ALIYUN::NLB::Listener
+    Properties:
+      ListenerPort: 80
+      ListenerProtocol: TCP
+      ServerGroupId:
+        Fn::GetAtt:
+          - NlbServerGroup_1
+          - ServerGroupId
+      LoadBalancerId:
+        Fn::GetAtt:
+          - PrdNlbLoadBalancer_1
+          - LoadBalancerId
+  NatGateWay:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Ref: DmzVpc
+      VSwitchId:
+        Ref: DmzVSwitch_0
+      DeletionForce: true
+  Eip:
+    Type: ALIYUN::VPC::EIP
+  EipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - Eip
+          - AllocationId
+      InstanceId:
+        Fn::GetAtt:
+          - NatGateWay
+          - NatGatewayId
+  AlbLoadBalancer_0:
+    Type: ALIYUN::ALB::LoadBalancer
+    Properties:
+      LoadBalancerName: ALB_HZ_0
+      AddressType: Intranet
+      VpcId:
+        Ref: PrdVpc_0
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId_0
+          VSwitchId:
+            Ref: PrdVSwitch_0_0
+        - ZoneId:
+            Ref: ZoneId_1
+          VSwitchId:
+            Ref: PrdVSwitch_0_1
+      AddressAllocatedMode: Dynamic
+      AddressIpVersion: IPv4
+      LoadBalancerEdition: Basic
+      LoadBalancerBillingConfig:
+        PayType: PostPay
+  AlbLoadBalancer_1:
+    Type: ALIYUN::ALB::LoadBalancer
+    Properties:
+      LoadBalancerName: ALB_HZ_1
+      AddressType: Intranet
+      VpcId:
+        Ref: PrdVpc_1
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId_0
+          VSwitchId:
+            Ref: PrdVSwitch_1_0
+        - ZoneId:
+            Ref: ZoneId_1
+          VSwitchId:
+            Ref: PrdVSwitch_1_1
+      AddressAllocatedMode: Dynamic
+      AddressIpVersion: IPv4
+      LoadBalancerEdition: Basic
+      LoadBalancerBillingConfig:
+        PayType: PostPay
+  AlbServerGroup_0:
+    Type: ALIYUN::ALB::ServerGroup
+    Properties:
+      VpcId:
+        Ref: PrdVpc_0
+      HealthCheckConfig:
+        HealthCheckEnabled: true
+      ServerGroupName: AlbServerGroup_PRD_0
+      StickySessionConfig:
+        StickySessionEnabled: false
+  AlbServerGroup_1:
+    Type: ALIYUN::ALB::ServerGroup
+    Properties:
+      VpcId:
+        Ref: PrdVpc_1
+      HealthCheckConfig:
+        HealthCheckEnabled: true
+      ServerGroupName: AlbServerGroup_PRD_1
+      StickySessionConfig:
+        StickySessionEnabled: false
+  AlbBackendServerAttachment_0_0:
+    Type: ALIYUN::ALB::BackendServerAttachment
+    Properties:
+      ServerGroupId:
+        Fn::GetAtt:
+          - AlbServerGroup_0
+          - ServerGroupId
+      Servers:
+        - ServerType: Ecs
+          ServerId:
+            Fn::GetAtt:
+              - PrdEcsInstance_0_0
+              - InstanceId
+          Port: 80
+  AlbBackendServerAttachment_0_1:
+    Type: ALIYUN::ALB::BackendServerAttachment
+    Properties:
+      ServerGroupId:
+        Fn::GetAtt:
+          - AlbServerGroup_0
+          - ServerGroupId
+      Servers:
+        - ServerType: Ecs
+          ServerId:
+            Fn::GetAtt:
+              - PrdEcsInstance_0_1
+              - InstanceId
+          Port: 80
+  AlbBackendServerAttachment_1_0:
+    Type: ALIYUN::ALB::BackendServerAttachment
+    Properties:
+      ServerGroupId:
+        Fn::GetAtt:
+          - AlbServerGroup_1
+          - ServerGroupId
+      Servers:
+        - ServerType: Ecs
+          ServerId:
+            Fn::GetAtt:
+              - PrdEcsInstance_1_0
+              - InstanceId
+          Port: 80
+  AlbBackendServerAttachment_1_1:
+    Type: ALIYUN::ALB::BackendServerAttachment
+    Properties:
+      ServerGroupId:
+        Fn::GetAtt:
+          - AlbServerGroup_1
+          - ServerGroupId
+      Servers:
+        - ServerType: Ecs
+          ServerId:
+            Fn::GetAtt:
+              - PrdEcsInstance_1_1
+              - InstanceId
+          Port: 80
+  AlbListener_0:
+    Type: ALIYUN::ALB::Listener
+    Properties:
+      ListenerPort: 80
+      LoadBalancerId:
+        Fn::GetAtt:
+          - AlbLoadBalancer_0
+          - LoadBalancerId
+      ListenerProtocol: HTTP
+      DefaultActions:
+        - Type: ForwardGroup
+          ForwardGroupConfig:
+            ServerGroupTuples:
+              - ServerGroupId:
+                  Fn::GetAtt:
+                    - AlbServerGroup_0
+                    - ServerGroupId
+  AlbListener_1:
+    Type: ALIYUN::ALB::Listener
+    Properties:
+      ListenerPort: 80
+      LoadBalancerId:
+        Fn::GetAtt:
+          - AlbLoadBalancer_1
+          - LoadBalancerId
+      ListenerProtocol: HTTP
+      DefaultActions:
+        - Type: ForwardGroup
+          ForwardGroupConfig:
+            ServerGroupTuples:
+              - ServerGroupId:
+                  Fn::GetAtt:
+                    - AlbServerGroup_1
+                    - ServerGroupId
 
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId_0
+          - ZoneId_1
+          - InstanceType
+          - SystemDiskCategory
+    TemplateTags:
+      - acs:technical-solution:network:云上公网架构设计和安全管理
