@@ -499,6 +499,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | Template                                                                                                                           | Description                    |
 |------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
 | [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml) | Nginx access log data archive. |
+| [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | Storage and Media Processing Solution for Video Website. |
 
   </details>
 
