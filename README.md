@@ -444,8 +444,10 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - data-analysis
 
-| Template                                                                                                                 | Description       |
-|------------------------------------------------------------------------------------------------------------------------|-----------------|
+| Template                                                                                                              | Description       |
+|-----------------------------------------------------------------------------------------------------------------------|-----------------|
+| [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | Build real-time warehouse based on Flink+Hologres. |
+| [flink-maxcompute-data-warehouse.yml](./documents/solution/data-analysis/flink-maxcompute-data-warehouse.yml)         | Build real-time data warehouse and realize query acceleration. |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | Use the Centos7 system to create an ECS instance and install and deploy the Gamer Points Leaderboard application. |
 
 - database
@@ -465,9 +467,10 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - network
 
-| Template                                                                                                                                | Description                                            |
-|-----------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| Template                                                                                                                            | Description                                            |
+|-------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
 | [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml) | Cross region and account network interwork scheme. |
+| [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                           | Internet application is accelerating globally. |
 
 - storage
 
@@ -497,6 +500,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | Template                                                                                                                           | Description                    |
 |------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
 | [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml) | Nginx access log data archive. |
+| [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | Storage and Media Processing Solution for Video Website. |
 
   </details>
 

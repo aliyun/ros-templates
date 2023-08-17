@@ -1,0 +1,466 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Storage and Media Processing Solution for Video Website.
+  zh-cn: 视频网站的存储与媒体处理方案。
+Parameters:
+  BucketNameScr:
+    Type: String
+    Label:
+      en: Source Bucket Name
+      zh-cn: 源存储空间名称
+    Description:
+      en: The name must be 3 to 63 bytes in length, The name must start and end with
+        a lowercase letter or digit.The name can contain only lowercase letters, digits,
+        and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally
+        unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
+      zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
+    Default: vod-bucket-src
+  BucketNameTarget:
+    Type: String
+    Label:
+      en: Target Bucket Name
+      zh-cn: 目标存储空间名称
+    Description:
+      en: The name must be 3 to 63 bytes in length, The name must start and end with
+        a lowercase letter or digit.The name can contain only lowercase letters, digits,
+        and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally
+        unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
+      zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
+    Default: vod-bucket-target
+  Zone1:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone1
+      zh-cn: 交换机可用区1
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  Zone2:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone2
+      zh-cn: 交换机可用区2
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: video-website
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+      CidrBlock: 192.168.0.0/16
+  EcsVSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: Zone1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw-001
+      CidrBlock: 192.168.1.0/24
+  EcsVSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: Zone2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw-002
+      CidrBlock: 192.168.2.0/24
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+      - PortRange: 8000/8000
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 443/443
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      SecurityGroupEgress:
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  RoleForEcs:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ${CommonName}-${ALIYUN::StackId}-role
+      Description: RAMRoleForECS
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - ecs.aliyuncs.com
+      MaxSessionDuration: 3600
+      DeletionForce: true
+      PolicyAttachments:
+        System:
+        - AliyunSTSAssumeRoleAccess
+  EcsInstanceGroup1:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: Zone1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      IoOptimized: optimized
+      SystemDiskCategory: cloud_essd
+      InternetMaxBandwidthOut: 5
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs1
+      RamRoleName:
+        Ref: RoleForEcs
+  EcsInstanceGroup2:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: Zone2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch2
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
+      IoOptimized: optimized
+      SystemDiskCategory: cloud_essd
+      InternetMaxBandwidthOut: 5
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs2
+      RamRoleName:
+        Ref: RoleForEcs
+  AlbLoadBalancer:
+    Type: ALIYUN::ALB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      LoadBalancerName:
+        Fn::Sub: ${CommonName}-alb
+      LoadBalancerEdition: Basic
+      LoadBalancerBillingConfig:
+        PayType: PostPay
+      AddressType: Internet
+      AddressAllocatedMode: Dynamic
+      ZoneMappings:
+      - ZoneId:
+          Ref: Zone1
+        VSwitchId:
+          Ref: EcsVSwitch1
+      - ZoneId:
+          Ref: Zone2
+        VSwitchId:
+          Ref: EcsVSwitch2
+  AlbServerGroup:
+    Type: ALIYUN::ALB::ServerGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      HealthCheckConfig:
+        HealthCheckEnabled: true
+        HealthCheckPath: /
+        HealthCheckCodes:
+        - http_2xx
+        - http_3xx
+        HealthCheckProtocol: HTTP
+      ServerGroupName:
+        Fn::Sub: ${CommonName}-server-group
+      StickySessionConfig:
+        StickySessionEnabled: false
+  ServerAttachment:
+    Type: ALIYUN::ALB::BackendServerAttachment
+    Properties:
+      ServerGroupId:
+        Ref: AlbServerGroup
+      Servers:
+      - ServerType: Ecs
+        ServerId:
+          Ref: EcsInstanceGroup1
+        Port: 8000
+        Weight: 100
+      - ServerType: Ecs
+        ServerId:
+          Ref: EcsInstanceGroup2
+        Port: 8000
+        Weight: 100
+  AlbListener:
+    Type: ALIYUN::ALB::Listener
+    Properties:
+      ListenerPort: 8000
+      DefaultActions:
+      - Type: ForwardGroup
+        ForwardGroupConfig:
+          ServerGroupTuples:
+          - ServerGroupId:
+              Ref: AlbServerGroup
+      LoadBalancerId:
+        Ref: AlbLoadBalancer
+      ListenerProtocol: HTTP
+  OssBucketScr:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketNameScr
+      StorageClass: Standard
+      DeletionForce: true
+  OssBucketTarget:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketNameTarget
+      StorageClass: Standard
+      DeletionForce: true
+  VideoUploadService:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Ref: EcsInstanceGroup1
+      - Ref: EcsInstanceGroup2
+      Sync: true
+      Type: RunShellScript
+      Timeout: 300
+      CommandContent:
+        Fn::Sub: |
+          #!/bin/bash
+
+          wget https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20230620/xpnk/server.zip
+          yum install unzip -y
+          unzip server.zip
+          cd server
+          pip3 install --upgrade pip
+          pip3 install -r requirements.txt
+          pip3 install uwsgi
+          sed -i "s/socket=127.0.0.1:5000/http=0.0.0.0:8000/g" uwsgi.ini
+          uwsgi uwsgi.ini
+  Queue:
+    Type: ALIYUN::MNS::Queue
+    Properties:
+      QueueName:
+        Fn::Sub: ${CommonName}-mns-queue
+  VodStorage:
+    Type: ALIYUN::VOD::Storage
+    Properties:
+      StorageType: user_oss_bucket
+      StorageLocation:
+        Fn::Sub: ${OssBucketScr.DomainName}
+      DefaultUpload: true
+  MessageCallback:
+    Type: ALIYUN::VOD::MessageCallback
+    Properties:
+      CallbackType: MNS
+      MnsEndpoint:
+        Fn::Sub: http://${ALIYUN::TenantId}.mns.${ALIYUN::Region}.aliyuncs.com/
+      MnsQueueName:
+        Fn::Sub: ${Queue.QueueName}
+      EventTypeList: FileUploadComplete
+  AliyunFCServerlessDevsRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunFCServerlessDevsRole
+      Description: 应用中心需要您的角色中包含应用所需策略，推荐创建并使用系统默认角色 AliyunFCServerlessDevsRole。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - fc.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+      DeletionForce: true
+      PolicyAttachments:
+        System:
+        - AliyunNASFullAccess
+        - AliyunFCFullAccess
+        - AliyunFCServerlessDevsRolePolicy
+        - AliyunOSSReadOnlyAccess
+        - AliyunECSReadOnlyAccess
+        - AliyunVPCReadOnlyAccess
+        - AliyunLogReadOnlyAccess
+  AliyunFcRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunFcDefaultRole
+      Description: Service Role for FC to operate other resource
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - fc.aliyuncs.com
+      MaxSessionDuration: 3600
+      DeletionForce: true
+      IgnoreExisting: true
+      PolicyAttachments:
+        System:
+        - AliyunFCDefaultRolePolicy
+        - AliyunOSSFullAccess
+  Application:
+    Type: ALIYUN::FC::Application
+    Properties:
+      Name:
+        Fn::Sub: ffmpeg-app-${ALIYUN::StackId}
+      RoleARN:
+        Fn::GetAtt:
+        - AliyunFCServerlessDevsRole
+        - Arn
+      Parameters:
+        serviceName:
+          Fn::Sub: ffmpeg-app-${ALIYUN::StackId}
+        functionName:
+          Fn::Sub: ffmpeg-app-${ALIYUN::StackId}
+        region:
+          Ref: ALIYUN::Region
+        roleArn:
+          Fn::GetAtt:
+          - AliyunFcRole
+          - Arn
+      Template: ffmpeg-app
+      AutoDeploy: true
+  FcTrigger:
+    Type: ALIYUN::FC::Trigger
+    Properties:
+      ServiceName:
+        Fn::Sub: ffmpeg-app-${ALIYUN::StackId}
+      FunctionName: VideoWatermark
+      TriggerName: fc-trigger
+      TriggerType: eventbridge
+      TriggerConfig:
+        triggerEnable: true
+        asyncInvocationType: true
+        eventSinkConfig:
+          deliveryOption:
+            mode: event-streaming
+            eventSchema: RawData
+        eventSourceConfig:
+          eventSourceType: MNS
+          eventSourceParameters:
+            sourceMNSParameters:
+              RegionId:
+                Ref: ALIYUN::Region
+              QueueName:
+                Fn::Sub: ${Queue.QueueName}
+            eventRuleFilterPattern: '{}'
+        runOptions:
+          mode: event-streaming
+          errorsTolerance: ALL
+          retryStrategy:
+            pushRetryStrategy: EXPONENTIAL_DECAY_RETRY
+          deadLetterQueue: null
+    DependsOn:
+    - Application
+    - MessageCallback
+    - VodStorage
+Outputs:
+  VideoUrl:
+    Description:
+      en: Video upload address.
+      zh-cn: 视频上传地址。
+    Value:
+      Fn::Sub:
+      - http://${AlbDnsName}:8000
+      - AlbDnsName:
+          Fn::GetAtt:
+          - AlbLoadBalancer
+          - DNSName
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - BucketNameScr
+      - BucketNameTarget
+      Label:
+        default:
+          en: OSS bucket
+          zh-cn: 对象存储OSS配置
+    - Parameters:
+      - Zone1
+      - Zone2
+      - EcsInstanceType
+      - InstancePassword
+      Label:
+        default:
+          en: ECS configure
+          zh-cn: 云服务器ECS配置
+    TemplateTags:
+    - acs:technical-solution:internet-application-development:视频网站的存储与媒体处理方案
+    Hidden:
+    - CommonName
