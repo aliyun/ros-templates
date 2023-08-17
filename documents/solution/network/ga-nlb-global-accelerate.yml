@@ -1,0 +1,300 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh: 互联网应用全球加速。
+  en: Internet application is accelerating globally.
+Parameters:
+  ZoneId1:
+    Type: String
+    Label:
+      en: Available Zone ID1
+      zh-cn: 可用区ID1
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
+        VSwitch and used for Flink instance.</font></b>
+      zh-cn: 可用区ID1。<br><b>注：用于创建VSwitch，并给ECS实例使用。
+    AssociationProperty: ZoneId
+  ZoneId2:
+    Type: String
+    Label:
+      en: Available Zone ID2
+      zh-cn: 可用区ID2
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
+        VSwitch and used for Flink instance.</font></b>
+      zh-cn: 可用区ID2。<br><b>注：用于创建VSwitch，并给ECS实例使用。
+    AssociationProperty: ZoneId
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_efficiency
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8~30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8~30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8~30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8~30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  AccelerateRegionId:
+    Type: String
+    Label:
+      en: Accelerate region ID.
+      zh-cn: 加速地域ID。
+    AssociationProperty: ALIYUN::ECS::RegionId
+    Default: cn-hongkong
+  DomainName:
+    Type: String
+    Label:
+      zh-cn: 加速域名
+      en: Accelerated domain name
+    Description:
+      zh-cn: 用于加速源站的域名。
+      en: Domain name used to accelerate the source station.
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: VPC_EU
+      CidrBlock: 192.168.0.0/16
+  EcsVSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName: vsw_001
+      CidrBlock: 192.168.1.0/24
+  EcsVSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName: vsw_002
+      CidrBlock: 192.168.2.0/24
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Sub: 'SecurityGroup_1'
+      SecurityGroupIngress:
+      - PortRange: 443/443
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+  EcsInstanceGroup1:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      ZoneId:
+        Ref: ZoneId1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7_6
+      SystemDiskCategory: cloud_efficiency
+      SystemDiskSize: 40
+      MaxAmount: 2
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      InstanceName: APP[1,3]
+  EcsInstanceGroup2:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      ZoneId:
+        Ref: ZoneId2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch2
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7_6
+      SystemDiskCategory: cloud_efficiency
+      SystemDiskSize: 40
+      MaxAmount: 2
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      InstanceName: APP[3,3]
+  NlbLoadBalancer:
+    Type: ALIYUN::NLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      LoadBalancerName: NLB_EU
+      AddressType: Internet
+      ZoneMappings:
+      - ZoneId:
+          Ref: ZoneId1
+        VSwitchId:
+          Ref: EcsVSwitch1
+      - ZoneId:
+          Ref: ZoneId2
+        VSwitchId:
+          Ref: EcsVSwitch2
+  NlbServerGroup:
+    Type: ALIYUN::NLB::ServerGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      HealthCheckConfig:
+        HealthCheckConnectTimeout:
+        HealthCheckEnabled: true
+        HttpCheckMethod: Get
+      ServerGroupName: SERVER_GROUP_TEST
+      Servers:
+      - ServerType: Ecs
+        ServerId:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstanceGroup1
+            - InstanceIds
+        Port: 443
+      - ServerType: Ecs
+        ServerId:
+          Fn::Select:
+          - 1
+          - Fn::GetAtt:
+            - EcsInstanceGroup1
+            - InstanceIds
+        Port: 443
+      - ServerType: Ecs
+        ServerId:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstanceGroup2
+            - InstanceIds
+        Port: 443
+      - ServerType: Ecs
+        ServerId:
+          Fn::Select:
+          - 1
+          - Fn::GetAtt:
+            - EcsInstanceGroup2
+            - InstanceIds
+        Port: 443
+  NlbListener:
+    Type: ALIYUN::NLB::Listener
+    Properties:
+      ListenerPort: 443
+      ListenerProtocol: TCP
+      LoadBalancerId:
+        Ref: NlbLoadBalancer
+      ServerGroupId:
+        Ref: NlbServerGroup
+  Accelerator:
+    Type: ALIYUN::GA::Accelerator
+    Properties:
+      PricingCycle: Month
+      Duration: 1
+      Spec: 1
+      AutoPay: true
+  BandwidthPackage:
+    Type: ALIYUN::GA::BandwidthPackage
+    Properties:
+      BandwidthType: Advanced
+      Type: Basic
+      Bandwidth: 2
+      PricingCycle: Month
+      Duration: 1
+  Addiation:
+    Type: ALIYUN::GA::BandwidthPackageAcceleratorAddition
+    Properties:
+      BandwidthPackageId:
+        Ref: BandwidthPackage
+      AcceleratorId:
+        Ref: Accelerator
+  AccelerateRegion:
+    Type: ALIYUN::GA::IpSets
+    Properties:
+      AcceleratorId:
+        Ref: Accelerator
+      AccelerateRegion:
+      - Bandwidth: 2
+        IpVersion: IPv4
+        AccelerateRegionId:
+          Ref: AccelerateRegionId
+    DependsOn: Addiation
+  Listener:
+    Type: ALIYUN::GA::Listener
+    Properties:
+      Name: TCP_443
+      PortRanges:
+      - FromPort: 443
+        ToPort: 443
+      Protocol: tcp
+      AcceleratorId:
+        Ref: Accelerator
+      ClientAffinity: SOURCE_IP
+    DependsOn: AccelerateRegion
+  DomainRecord:
+    Type: ALIYUN::DNS::DomainRecord
+    Properties:
+      Type: CNAME
+      RR: www
+      Value:
+        Fn::GetAtt:
+        - NlbLoadBalancer
+        - DNSName
+      DomainName:
+        Ref: DomainName
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId1
+      - ZoneId2
+      Label:
+        default:
+          en: Availability Zone
+          zh-cn: 可用区配置
+    - Parameters:
+      - EcsInstanceType
+      - InstancePassword
+      Label:
+        default:
+          en: Instance Configure
+          zh-cn: ECS实例配置
+    - Parameters:
+      - AccelerateRegionId
+      - DomainName
+      Label:
+        default:
+          en: Accelerated domain configuration
+          zh-cn: 加速域名配置
+    TemplateTags:
+    - 'acs:technical-solution:network:互联网应用全球加速'
