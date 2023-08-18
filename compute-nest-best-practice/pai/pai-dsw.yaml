@@ -1,0 +1,171 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+  # 新建ack所在的vpc的网段
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR IPv4 Block
+      zh-cn: 专有网络IPv4网段
+    Description:
+      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    Default: 192.168.0.0/16
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+  # 新建ack所在的交换机的网段
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    Default: 192.168.1.0/24
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: VpcCidrBlock
+  InstanceSpec:
+    Label:
+      zh-cn: PAI实例的规格
+      en: The ECS specification of the instance
+    Type: String
+    AllowedValues:
+      - ecs.gn7i-c8g1.2xlarge
+  WorkspaceName:
+    Type: String
+    Label:
+      zh-cn: 工作空间名
+      en: workspace name
+Resources:
+  # 新建vpc
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Ref: ALIYUN::StackName
+      CidrBlock:
+        Ref: VpcCidrBlock
+  # 新建vswitch
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName:
+        Ref: ALIYUN::StackName
+      VpcId:
+        Ref: EcsVpc
+      ZoneId:
+        Ref: ZoneId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  FileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      # 协议类型
+      ProtocolType: NFS
+      # 存储类型
+      StorageType: Capacity
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: EcsVSwitch
+      VpcId:
+        Ref: EcsVpc
+  Workspace:
+    Type: 'ALIYUN::PAI::Workspace'
+    Properties:
+      EnvTypes:
+        - prod
+      Description: modelscope
+      WorkspaceName:
+        Ref: WorkspaceName
+  Dataset:
+    Type: 'ALIYUN::PAI::Dataset'
+    Properties:
+      DatasetName:
+        Ref: ALIYUN::StackName
+      DataSourceType: NAS
+      WorkspaceId:
+        'Fn::GetAtt':
+          - Workspace
+          - WorkspaceId
+      Property: DIRECTORY
+      Uri:
+        Fn::Join:
+          - ""
+          - - nas://
+            - Fn::GetAtt:
+                - FileSystem
+                - FileSystemId
+            - .
+            - Ref: ALIYUN::Region
+            - /
+  DSW:
+    Type: 'ALIYUN::PaiDswApi::Instance'
+    Properties:
+      ImageUrl: registry.cn-beijing.aliyuncs.com/pai-dlc/pytorch-training:1.12-cpu-py39-ubuntu20.04
+      WorkspaceId:
+        'Fn::GetAtt':
+          - Workspace
+          - WorkspaceId
+      InstanceName:
+        Ref: 'ALIYUN::StackName'
+      EcsSpec:
+        Ref: InstanceSpec
+      Datasets:
+        - MountPath: /mnt
+          DatasetId:
+            Fn::GetAtt:
+              - Dataset
+              - DatasetId
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - WorkspaceName
+          - InstanceSpec
+        Label:
+          default: PAI
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            zh-cn: 可用区配置
+            en: Zone Configuration
+      - Parameters:
+          - VpcCidrBlock
+          - VSwitchCidrBlock
+        Label:
+          default:
+            zh-cn: 选择网络配置
+            en: Choose existing Infrastructure Configuration
+Outputs:
+  InstanceId:
+    Description:
+      zh-cn: 实例id
+      en: instance id
+    Value:
+      'Fn::GetAtt':
+        - DSW
+        - InstanceId
+  WorkspaceId:
+    Description:
+      zh-cn: 工作空间的ID
+      en: The ID of the workspace.
+    Value:
+      'Fn::GetAtt':
+        - Workspace
+        - WorkspaceId
+  Creator:
+    Description:
+      zh-cn: 创建者的用户ID
+      en: The user ID of the creator.
+    Value:
+      'Fn::GetAtt':
+        - Workspace
+        - Creator

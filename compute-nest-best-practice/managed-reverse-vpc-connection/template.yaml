@@ -1,0 +1,215 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: the best practice of managed reverse VPC connection
+  zh-cn: 托管版VPC私网反向访问最佳实践
+# 定义参数
+Parameters:
+  # 用户服务信息列表，包括用户服务域名、用户服务IP和用户服务端口
+  VpcReverseParameters:
+    Type: Json
+    AssociationProperty: List[Parameters]
+    Default: []
+    AssociationPropertyMetadata:
+      Parameters:
+        AccessDomain:
+          Type: String
+          Label:
+            zh-cn: 用户服务域名
+        AccessIp:
+          Type: String
+          Label:
+            zh-cn: 用户服务IP
+        AccessPort:
+          Type: String
+          Label:
+            zh-cn: 用户服务端口
+  # 可用区
+  ZoneId:
+    Type: String
+    AssociationPropertyMetadata:
+      ComputeNestNetworkConfigZone: true
+    Description:
+      en: Availability zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+      zh-cn: 可用区ID
+    Label:
+      en: VSwitch Available Zone
+      zh-cn: 可用区
+  # 数据盘类型
+  DataDiskCategory:
+    Type: String
+    AllowedValues:
+      - cloud_efficiency
+      - cloud_ssd
+      - cloud_essd
+    Default: cloud_efficiency
+    Label:
+      en: Disk Type
+      zh-cn: 数据盘类型
+  # 数据盘空间
+  DataDiskSize:
+    Type: Number
+    Label:
+      en: Data Disk Space
+      zh-cn: 数据盘空间
+    MinValue: 20
+    MaxValue: 500
+    Default: 40
+  # 专有网络VPC实例ID
+  VpcId:
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+  # 安全组ID
+  SecurityGroupId:
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+    Default: sg-2zeip0loevltubwfzrtm
+    Label:
+      zh-cn: 安全组ID
+      en: Security Group ID
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    Type: String
+  # 交换机实例ID
+  VSwitchId:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+  # Ecs实例类型
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  # FullNat表ID，可在VPC NAT网关页面查询
+  FullNatTableId:
+    Type: String
+    AssociationProperty: ALIYUN::VPC::NatGateway::ForwardTableId
+  # Nat网关ID，可在VPC NAT网关页面查询
+  NatGatewayId:
+    Type: String
+    AssociationProperty: ALIYUN::VPC::NatGateway::NatGatewayId
+  # NatIp网段
+  NatIpCidr:
+    Type: String
+Resources:
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 1800
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    DependsOn:
+      - VPCNatIp
+    Properties:
+      InstanceName:
+        Fn::Join:
+          - '-'
+          - - Ref: ALIYUN::StackName
+            - '[1,4]'
+      IoOptimized: optimized
+      ZoneId:
+        Ref: ZoneId
+      DiskMappings:
+        - Category:
+            Ref: DataDiskCategory
+          Device: /dev/xvdb
+          Size:
+            Ref: DataDiskSize
+      SystemDiskSize: 40
+      UserData:
+        Fn::Sub:
+          - |
+            #!/bin/sh
+            # 读取用户传入的域名列表和模板创建的NatIP列表，一一映射到/etc/host文件中
+            Hosts="${AccessDomains}"
+            PrivateIps="${NatIp}"
+            Hosts=(`echo $Hosts | sed 's/\[//g' | sed 's/\]//g' | sed 's/,//g'`)
+            PrivateIps=(`echo $PrivateIps | sed 's/\[//g' | sed 's/\]//g' | sed 's/,//g'`)
+            arraylength=${!#Hosts[@]}
+            for (( i=0; i<$arraylength; i++ ));
+              do
+                echo ${!PrivateIps[$i]} ${!Hosts[$i]} >> /etc/hosts
+              done
+            ${CurlCli} -d "{\"Data\" : \"SUCCESS\", \"Status\" : \"SUCCESS\"}"
+          - CurlCli:
+              Fn::GetAtt:
+                - WaitConditionHandle
+                - CurlCli
+            NatIp:
+              Fn::GetAtt:
+                - VPCNatIp
+                - NatIp
+            AccessDomains:
+              Fn::SelectMapList:
+                - AccessDomain
+                - Ref: VpcReverseParameters
+      InstanceChargeType: PrePaid
+      PeriodUnit: Month
+      Period: 1
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      VSwitchId:
+        Ref: VSwitchId
+      MaxAmount: 1
+      SystemDiskCategory: cloud_efficiency
+      VpcId:
+        Ref: VpcId
+      ImageId: m-2zefr7ixarlg8coevwzl
+      InstanceType:
+        Ref: EcsInstanceType
+      HostName: reverse-vpc
+      Password: passw0RD
+      AllocatePublicIP: false
+  # 创建NatIP，用于跨VPC的转发
+  VPCNatIp:
+    Type: ALIYUN::VPC::NatIp
+    Count:
+      Fn::Length:
+        Ref: VpcReverseParameters
+    Properties:
+      NatIpCidr:
+        Ref: NatIpCidr
+      NatIpDescription: test
+      NatIpName: test
+      NatGatewayId:
+        Ref: NatGatewayId
+Outputs:
+  NatIp:
+    Value:
+      Fn::GetAtt:
+        - VPCNatIp
+        - NatIp
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - DataDiskCategory
+          - DataDiskSize
+          - VpcId
+          - SecurityGroupId
+          - VSwitchId
+        Label:
+          default:
+            en: instance
+            zh-cn: 实例规格
+      - Parameters:
+          - VpcReverseParameters
+        Label:
+          default:
+            en: Vpc Reverse Connection
+            zh-cn: 反向访问参数

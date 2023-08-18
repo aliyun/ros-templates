@@ -444,8 +444,10 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - data-analysis
 
-| Template                                                                                                                 | Description       |
-|------------------------------------------------------------------------------------------------------------------------|-----------------|
+| Template                                                                                                              | Description       |
+|-----------------------------------------------------------------------------------------------------------------------|-----------------|
+| [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | Build real-time warehouse based on Flink+Hologres. |
+| [flink-maxcompute-data-warehouse.yml](./documents/solution/data-analysis/flink-maxcompute-data-warehouse.yml)         | Build real-time data warehouse and realize query acceleration. |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | Use the Centos7 system to create an ECS instance and install and deploy the Gamer Points Leaderboard application. |
 
 - database
@@ -453,8 +455,9 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | Template                                                                                                         | Description                                                                                 |
 |------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
-| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
-| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | Build a one-stop HTAP service based on RDS and ClickHouse. |
+| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml)                             | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
+| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)           | Online one-click upgrade of RDS MySQL to PolarDB MySQL version without modifying any code and configuration of the application. |
+| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml)                                     | Build a one-stop HTAP service based on RDS and ClickHouse. |
 
 - micro
 
@@ -464,10 +467,11 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - network
 
-| Template                                                                                                                                | Description                                            |
-|-----------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| Template                                                                                                                            | Description                                            |
+|-------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
 | [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml) | Cross region and account network interwork scheme. |
 | [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml) | Public network architecture design and security management on the cloud. |
+| [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                           | Internet application is accelerating globally. |
 
 - storage
 
@@ -491,10 +495,17 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | Highly available blog site on the cloud. |
 | [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | Highly available web services.           |
 
-   </details>
+- internet-application-development
 
-- trial
+| Template                                                                                                                           | Description                    |
+|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
+| [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml) | Nginx access log data archive. |
+| [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | Storage and Media Processing Solution for Video Website. |
 
+  </details>
+
+  <details>
+    <summary>trail</summary>
 
 | Template                                                                                                                             | Description                                                                                              |
 |--------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
@@ -527,7 +538,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [redis-game-player-leaderboard.yml](./documents/trial/redis-game-player-leaderboard.yml)                                             | Redis game player leaderboard.                                                                           |
 | [sls-collect-logs-in-nginx-mode.yml](./documents/trial/sls-collect-logs-in-nginx-mode.yml)                                           | Quickly collect Nginx logs through Log Service SLS.                                                      |
 | [tair-restores-data-through-data-flashback.yml](./documents/trial/tair-restores-data-through-data-flashback.yml)                     | Restore data in Tair through data flashback.                                                             |
-
+  </details>
 </details>
 
 <details>

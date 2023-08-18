@@ -1,0 +1,465 @@
+ROSTemplateFormatVersion: '2015-09-01'
+# 定义参数
+Parameters:
+  # 可用区
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    Label:
+      en: VSwitch Available Zone
+      zh-cn: 可用区
+  # 付费类型：按量付费/包年包月
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+  # 购买资源时长周期，只在付费类型为包年包月时显示
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  # 购买资源时长，只在付费类型为包年包月时显示
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  # 数据盘类型
+  DataDiskCategory:
+    Type: String
+    AllowedValues:
+      - cloud_efficiency        # 高效云盘
+      - cloud_ssd               # SSD云盘
+      - cloud_essd              # ESSD云盘
+    Default: cloud_essd
+    Label:
+      en: Data Disk Type
+      zh-cn: 数据盘类型
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+  # 数据盘空间
+  DataDiskSize:
+    Type: Number
+    Label:
+      en: Data Disk Space
+      zh-cn: 数据盘空间
+    MinValue: 20
+    MaxValue: 500
+    Default: 40
+  # 专有网络VPC实例ID
+  VpcId:
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+  # 交换机实例ID
+  VSwitchId:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+  # Ecs实例类型
+  AutoCreateSecurityGroup:
+    Type: Boolean
+    Default: true
+    Label:
+      zh-cn: 自动创建安全组
+      en: auto create security group
+  SecurityGroupId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AutoCreateSecurityGroup}
+            - false
+    Default: ''
+    Description:
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network & Security
+      zh-cn: 现有业务安全组的实例ID
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    MinLength: 8
+    MaxLength: 30
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  SystemDiskCategory:
+    Type: String
+    AllowedValues:
+      - cloud_efficiency        # 高效云盘
+      - cloud_ssd               # SSD云盘
+      - cloud_essd              # ESSD云盘
+    Default: cloud_essd
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+  SystemDiskSize:
+    Default: 40
+    Type: Number
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    MinValue: 40
+    MaxValue: 500
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+  AllocatePublicIp:
+    Default: false
+    Type: Boolean
+    Label:
+      zh-cn: 开启公网IP
+      en: allocate public ip
+  InternetMaxBandwidthOut:
+    Default: 0
+    Type: Number
+    Label:
+      zh-cn: 流量公网带宽
+      en: Internet Max Bandwidth Out
+    MinValue: 0
+    MaxValue: 100
+    Description:
+      zh-cn: 取值范围0-100, 0为不开公网ip
+      en: no public ip if zero
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AllocatePublicIp}
+            - true
+  InternetChargeType:
+    Default: PayByTraffic
+    Type: String
+    Label:
+      zh-cn: 流量付费类型
+      en: Internet Charge Type
+    AllowedValues:
+      - PayByBandwidth
+      - PayByTraffic
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${AllocatePublicIp}
+            - true
+  # 数据库root账户密码
+  MySQLPassword:
+    # 查询该参数时只输出星号（*）
+    NoEcho: true
+    Type: String
+    Description:
+      en: 'Database root account passwor, 8-32 characters, including uppercase and lowercase letters, numbers and special symbols (including: !@#$%^&*-+=_).'
+      zh-cn: 数据库root账户密码，长度8-32个字符，可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    Label:
+      en: Root Account Password
+      zh-cn: 数据库root账户密码
+    ConstraintDescription:
+      en: '8-32 characters, including uppercase and lowercase letters, numbers and special symbols (including: !@#$%^&*-+=_).'
+      zh-cn: 8-32个字符，可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    MinLength: '8'
+    MaxLength: '32'
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+Conditions:
+  IfAutoCreateSecurityGroup:
+    Fn::Equals:
+      - Ref: AutoCreateSecurityGroup
+      - true
+  IfAllocatePublicIp:
+    Fn::Equals:
+      - Ref: AllocatePublicIp
+      - true
+# 定义资源
+Resources:
+  # 定义WaitCondition和WaitConditionHandle来等待命令在Ecs中执行完毕部署成功
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 1800
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: 3306/3306
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+      VpcId:
+        Ref: VpcId
+  # Ecs实例
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      # I/O优化实例
+      IoOptimized: optimized
+      DiskMappings:
+        - Category:
+            Ref: DataDiskCategory
+          Device: /dev/xvdb
+          Size:
+            Ref: DataDiskSize
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      # cloud-init执行用户命令
+      # /var/log/cloud-init.log /var/log/cloud-init-output.log 可以看到执行日志
+      # /var/lib/cloud/instance/scripts/part-001 为具体的脚本 可以sh 执行来排查问题
+      UserData:
+        Fn::Sub:
+          - |
+            #!/bin/sh
+
+            # sleep一段时间确保网络就绪
+            sleep 10
+
+            # 对数据盘进行分区
+            cat >> /root/InitDataDisk.sh << "EOF"
+            #!/bin/bash
+            echo "p
+            n
+            p
+
+
+
+            w
+            " |  fdisk -u /dev/vdb
+            EOF
+            /bin/bash /root/InitDataDisk.sh
+            rm -f /root/InitDataDisk.sh
+            # 在新分区上创建文件系统
+            mkfs.ext4 /dev/vdb1
+            # 创建目录，MySQL将安装在该目录下
+            mkdir /data
+            # 挂载文件系统
+            mount /dev/vdb1 /data
+            # 向 /etc/fstab 写入新分区信息
+            echo /dev/vdb1 /data ext4 defaults,nodelalloc,noatime 0 2 >> /etc/fstab
+            cd /data/
+
+            # 启动MySQL服务
+            rm -f mysql-community-release-el6-5.noarch.rpm
+            service mysqld start
+
+            # 以超级用户身份登入，创建admin用户，并允许admin用户以Password为密码远程登录
+            mysqladmin -u root password '${Password}'
+            echo "create database test character set utf8 collate utf8_bin;" > ./test.sql
+            echo "CREATE USER 'admin'@'%' IDENTIFIED BY '${Password}';" >> ./test.sql
+            echo "GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' WITH GRANT OPTION;" >> ./test.sql
+            mysql -u root -p'${Password}' < ./test.sql
+            rm ./test.sql
+            # 将MySQL的配置和数据路径移动到数据盘上
+            systemctl stop mysqld
+            rsync -av /var/lib/mysql /data
+            # 修改配置文件
+            sed -i 's/\/var\/lib/\/data/g' /etc/my.cnf
+            echo -e '\n' >> /etc/my.cnf
+            echo '[client]' >> /etc/my.cnf
+            echo 'port=3306' >> /etc/my.cnf
+            echo 'socket=/data/mysql/mysql.sock' >> /etc/my.cnf
+            # 重启MySQL
+            systemctl start mysqld
+
+            # 执行成功回调WaitCondition结束WaitCondition的等待
+            ${CurlCli} -d "{\"Data\" : \"SUCCESS\", \"Status\" : \"SUCCESS\"}"
+
+          # 获取到WaitConditionHandle的地址放到 ${CurlCli}变量里
+          - CurlCli:
+              Fn::GetAtt:
+                - WaitConditionHandle
+                - CurlCli
+            # 数据库root账户密码
+            Password:
+              Ref: MySQLPassword
+      # 付费方式：按量付费
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      # 系统盘类型
+      SystemDiskCategory: cloud_essd
+      # 实例名
+      InstanceName:
+        Ref: ALIYUN::StackName
+      VpcId:
+        Ref: VpcId
+      SecurityGroupId:
+        Fn::If:
+          - IfAutoCreateSecurityGroup
+          - Ref: EcsSecurityGroup
+          - Ref: SecurityGroupId
+      VSwitchId:
+        Ref: VSwitchId
+      # 指定CentOS 7.9镜像，如果修改镜像，UserData脚本需要进行适配
+      ImageId: centos_7
+      InstanceType:
+        Ref: EcsInstanceType
+      # Ecs登录密码
+      Password:
+        Ref: InstancePassword
+      # 是否为实例分配公网IP
+      AllocatePublicIP:
+        Ref: AllocatePublicIp
+      InternetMaxBandwidthOut:
+        Fn::If:
+          - IfAllocatePublicIp
+          - Ref: InternetMaxBandwidthOut
+          - 0
+# 定义输出
+Outputs:
+  # 将数据库连接地址显示在控制台
+  DBConnectionPublicAddress:
+    Condition: IfAllocatePublicIp
+    Value:
+      # 将Ecs的公网IP拼接成数据库连接地址
+      Fn::Sub:
+        - mysql://${Domain}:3306
+        - Domain:
+            Fn::GetAtt:
+              - EcsInstance
+              - PublicIp
+  # 将数据库连接地址显示在控制台
+  DBConnectionPrivateAddress:
+    Condition: IfAllocatePublicIp
+    Value:
+      # 将Ecs的公网IP拼接成数据库连接地址
+      Fn::Sub:
+        - mysql://${Domain}:3306
+        - Domain:
+            Fn::GetAtt:
+              - EcsInstance
+              - PrivateIp
+# 定义元数据
+Metadata:
+  ALIYUN::ROS::Interface:
+    # 定义资源分组，创建服务实例时，同一分组的参数分布在一起
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - Password
+        Label:
+          en: Basic Configuration
+          zh-cn: 基础配置
+      - Parameters:
+          - PayType
+          - PayPeriodUnit
+          - PayPeriod
+        Label:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+      - Parameters:
+          - VpcId
+          - VSwitchId
+          - AutoCreateSecurityGroup
+          - SecurityGroupId
+        Label:
+          default:
+            zh-cn: 选择已有基础资源配置
+            en: Choose existing Infrastructure Configuration
+      - Parameters:
+          - EcsInstanceType
+          - SystemDiskCategory
+          - SystemDiskSize
+          - DataDiskCategory
+          - DataDiskSize
+          - InstanceCount
+          - InstancePassword
+        Label:
+          default:
+            en: Instance
+            zh-cn: ECS实例配置
+      - Parameters:
+          - AllocatePublicIp
+          - InternetChargeType
+          - InternetMaxBandwidthOut
+        Label:
+          default:
+            en: Network Configurate
+            zh-cn: ECS网络配置
+      - Parameters:
+          - MySQLPassword
+        Label:
+          default:
+            en: MYSQL Configuration
+            zh-cn: MYSQL配置

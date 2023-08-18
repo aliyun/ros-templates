@@ -1,0 +1,138 @@
+FormatVersion: OOS-2019-06-01
+Description: 执行指定微调脚本运维操作
+Parameters:
+  regionId:
+    Type: String
+    Label:
+      en: RegionId
+      zh-cn: 地域ID
+    AssociationProperty: RegionId
+    Default: '{{ ACS::RegionId }}'
+  serviceInstanceId:
+    Type: String
+    Label:
+      en: TargetInstance
+      zh-cn: 目标实例
+    AssociationProperty: ALIYUN::ComputeNest::ServiceInstance::ServiceInstanceId
+    AssociationPropertyMetadata:
+      Disabled: true
+  workingDir:
+    Type: String
+    Default: /root/ChatGLM-Efficient-Tuning
+    Description: 脚本执行路径
+  finetuneScriptPath:
+    Type: String
+    Default: src/train_bash.py
+    Description: 微调脚本路径
+  dataset:
+    Type: String
+    Default: alpaca_gpt4_zh
+    Description: 数据集名称
+  modelName:
+    Type: String
+    Default: THUDM/chatglm-6b
+    AllowedValues:
+      - THUDM/chatglm-6b
+      - THUDM/chatglm2-6b
+  stage:
+    Type: String
+    Description: 微调阶段
+    Default: sft
+    AllowedValues:
+      - sft
+      - ppo
+      - rm
+  finetuneType:
+    Type: String
+    Description: 微调类型
+    Default: lora
+    AllowedValues:
+      - lora
+      - p-tuning
+      - full
+  trainingEpoch:
+    Type: Number
+    Description: 训练轮次
+    Default: 3
+  precision:
+    Type: String
+    Description: 训练精度
+    Default: fp16
+    AllowedValues:
+      - fp16
+      - fp32
+      - fp64
+  outputDir:
+    Type: String
+    Description: 模型输出地址
+    Default: path_to_sft_checkpoint
+  timeout:
+    Label:
+      en: Timeout
+      zh-cn: 超时时间
+    Type: Number
+    Default: 600
+Tasks:
+  - Name: getInstance
+    Description:
+      en: Views the ECS instances
+      zh-cn: 获取ECS实例
+    Action: ACS::SelectTargets
+    Properties:
+      ResourceType: ALIYUN::ECS::Instance
+      RegionId: '{{ regionId }}'
+      Filters:
+        - Type: All
+          RegionId: '{{regionId}}'
+          Parameters:
+            RegionId: '{{regionId}}'
+            Status: Running
+            Tags:
+              - Key: acs:computenest:serviceInstanceId
+                Value: '{{serviceInstanceId}}'
+    Outputs:
+      instanceIds:
+        Type: List
+        ValueSelector: Instances.Instance[].InstanceId
+  - Name: runCommand
+    Action: ACS::ECS::RunCommand
+    Description: 执行云助手命令
+    Properties:
+      commandContent: |-
+        #!/bin/bash
+        source /root/anaconda3/bin/activate chatglm_etuning
+        CUDA_VISIBLE_DEVICES=0
+        nohup /root/anaconda3/envs/chatglm_etuning/bin/python src/train_bash.py \
+          --model_name_or_path {{modelName}} \
+          --stage {{stage}} \
+          --do_train \
+          --dataset {{dataset}} \
+          --finetuning_type {{finetuneType}} \
+          --output_dir {{outputDir}} \
+          --per_device_train_batch_size 4 \
+          --gradient_accumulation_steps 4 \
+          --lr_scheduler_type cosine \
+          --logging_steps 10 \
+          --save_steps 1000 \
+          --learning_rate 5e-5 \
+          --num_train_epochs {{trainingEpoch}} \
+          --plot_loss \
+          --{{precision}} >> finetune_log.log 2>&1 &
+      workingDir: '{{workingDir}}'
+      instanceId: '{{ ACS::TaskLoopItem }}'
+      commandType: RunShellScript
+      timeout: '{{timeout}}'
+    Loop:
+      Items: '{{ getInstance.instanceIds }}'
+      Outputs:
+        commandOutputs:
+          AggregateType: Fn::ListJoin
+          AggregateField: commandOutput
+    Outputs:
+      commandOutput:
+        Type: String
+        ValueSelector: invocationOutput
+Outputs:
+  commandOutputs:
+    Type: List
+    Value: '{{ runCommand.commandOutputs }}'

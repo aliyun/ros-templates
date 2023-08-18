@@ -440,8 +440,10 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - data-analysis
 
-| 模板                                                                                                         | 说明       |
-|------------------------------------------------------------------------------------------------------------------|-------------------|
+| 模板                                                                                                                    | 说明       |
+|-----------------------------------------------------------------------------------------------------------------------|-------------------|
+| [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | 基于Flink+Hologres搭建实时数仓。 |
+| [flink-maxcompute-data-warehouse.yml](./documents/solution/data-analysis/flink-maxcompute-data-warehouse.yml)         | 搭建实时数仓并实现查询加速。 |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
 
 - database
@@ -450,6 +452,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |------------------------------------------------------------------------------------------------------------------|-------------------|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
 | [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | 通过DTS实现MySQL与Redis缓存同步一致性方案。 |
+| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                    | 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。 |
 | [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | RDS+ClickHouse，构建更易用的一站式HTAP服务。|
 
 - micro
@@ -460,10 +463,11 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - network
 
-| 模板                                                                                                                                | 说明            |
-|-----------------------------------------------------------------------------------------------------------------------------------|---------------|
+| 模板                                                                                                                                  | 说明            |
+|-------------------------------------------------------------------------------------------------------------------------------------|---------------|
 | [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml) | 跨地域跨账号网络互通方案。 |
 | [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml) | 云上公网架构设计和安全管理。 |
+| [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                           | 互联网应用全球加速。 |
 
 - storage
 
@@ -487,9 +491,17 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml)  | 云上高可用博客网站。     |
 | [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                      | 高可用及共享存储Web服务。 |
 
-   </details>
+- internet-application-development
 
-- trial
+| 模板                                                                                                                                   | 说明             |
+|--------------------------------------------------------------------------------------------------------------------------------------|----------------|
+| [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml)           | Nginx访问日志数据归档。     |
+| [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | 视频网站的存储与媒体处理方案。 |
+
+  </details>
+
+  <details>
+    <summary>trail</summary>
 
 | 模板                                                                                                                                   | 说明                                                |
 |--------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------|
@@ -523,7 +535,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [redis-game-player-leaderboard.yml](./documents/trial/redis-game-player-leaderboard.yml)                                             | Redis 游戏玩家排行榜。                                    |
 | [sls-collect-logs-in-nginx-mode.yml](./documents/trial/sls-collect-logs-in-nginx-mode.yml)                                           | 通过日志服务SLS快速采集Nginx日志。                             |
 | [tair-restores-data-through-data-flashback.yml](./documents/trial/tair-restores-data-through-data-flashback.yml)                     | Tair 通过数据闪回恢复数据。                                  |
-
+  </details>
 </details>
 
 <details>
