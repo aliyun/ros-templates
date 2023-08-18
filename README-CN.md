@@ -466,6 +466,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | 模板                                                                                                                                  | 说明            |
 |-------------------------------------------------------------------------------------------------------------------------------------|---------------|
 | [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml) | 跨地域跨账号网络互通方案。 |
+| [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml) | 云上公网架构设计和安全管理。 |
 | [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                           | 互联网应用全球加速。 |
 
 - storage
