@@ -467,6 +467,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | Template                                                                                                                                | Description                                            |
 |-----------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
 | [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml) | Cross region and account network interwork scheme. |
+| [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml) | Public network architecture design and security management on the cloud. |
 
 - storage
 
