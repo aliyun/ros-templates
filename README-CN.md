@@ -479,9 +479,10 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - cdn-and-video-cloud
 
-| 模板                                                                                                                               | 说明            |
-|----------------------------------------------------------------------------------------------------------------------------------------|------------------------|
+| 模板                                                                                                                                    | 说明                     |
+|---------------------------------------------------------------------------------------------------------------------------------------|------------------------|
 | [cdn-speeds-up-distribution-of-file-on-oss.yml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yml) | 使用CDN加速OSS上存储的文件资源分发。  |
+| [dcdn-acceleration.yml](documents/solution/cdn-and-video-cloud/dcdn-acceleration.yml)                                                 | 加速资源请求场景实践。            |
 
 
 - high-availability-architecture
