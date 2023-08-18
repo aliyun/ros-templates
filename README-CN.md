@@ -501,6 +501,12 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml)           | Nginx访问日志数据归档。     |
 | [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | 视频网站的存储与媒体处理方案。 |
 
+- security-and-compliance
+
+| 模板                                                                                                                                                                              | 说明            |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | 高效构建安全合规的新账号。 |
+
   </details>
 
   <details>

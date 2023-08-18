@@ -1,0 +1,525 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.2
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - folder_ids
+    TemplateTags:
+    - acs:technical-solution:security-and-compliance:高效构建安全合规的新账号
+    Hidden:
+    - idp_metadata
+    - ALIYUN__StackId
+Workspace:
+  main.tf: |-
+    terraform {
+      required_providers {
+        alicloud = {
+          source = "hashicorp/alicloud"
+          version = "1.205.0"
+        }
+      }
+    }
+
+    locals {
+      suffix = element(split("-", var.ALIYUN__StackId), length(split("-", var.ALIYUN__StackId))-1)
+    }
+
+    module "account_create" {
+      source = "./modules/account-create"
+
+      account_name = "account-new-demo-${local.suffix}"
+      account_name_prefix = "demo-${local.suffix}"
+      folder_id = element(var.folder_ids, 0)
+    }
+
+    module "account_deploy" {
+      source = "./modules/account-deploy"
+
+      idp_metadata = var.idp_metadata
+      account_id = module.account_create.account_id
+    }
+  modules/account-create/main.tf: |-
+    # Create member account
+    resource "alicloud_resource_manager_account" "rd_account_app" {
+      display_name = var.account_name
+      account_name_prefix = var.account_name_prefix
+      folder_id = var.folder_id
+    }
+  modules/account-create/outputs.tf: |-
+    # outputs.tf https://learn.hashicorp.com/tutorials/terraform/outputs
+    output "account_id" {
+      value = alicloud_resource_manager_account.rd_account_app.id
+    }
+  modules/account-create/variables.tf: |-
+    variable "account_name" {}
+
+    variable "account_name_prefix" {}
+
+    variable "folder_id" {}
+  modules/account-deploy/auth-authorize-role/main.tf: |-
+    locals {
+      policy_name     = var.policy_name
+      policy_document = var.policy_document
+      attach_roles    = var.attach_roles
+      attach_users    = var.attach_users
+
+      reader_name        = var.reader_name
+      reader_policy_type = var.reader_policy_type
+      reader_policy_name = var.reader_policy_name
+    }
+
+    # Create policy
+    resource "alicloud_ram_policy" "policy" {
+      policy_name     = local.policy_name
+      policy_document = local.policy_document
+      description     = "create by Terraform"
+      force           = true
+    }
+
+    # Add policy to user
+    resource "alicloud_ram_user_policy_attachment" "user_attach" {
+      for_each    = toset(local.attach_users)
+      policy_name = alicloud_ram_policy.policy.name
+      policy_type = alicloud_ram_policy.policy.type
+      user_name   = each.value
+    }
+
+    # Add policy to role
+    resource "alicloud_ram_role_policy_attachment" "role_attach" {
+      for_each    = toset(local.attach_roles)
+      policy_name = alicloud_ram_policy.policy.name
+      policy_type = alicloud_ram_policy.policy.type
+      role_name   = each.value
+    }
+
+    # Add policy to reader role
+    resource "alicloud_ram_role_policy_attachment" "reader_attach" {
+      policy_name = local.reader_policy_name
+      policy_type = local.reader_policy_type
+      role_name   = local.reader_name
+    }
+  modules/account-deploy/auth-authorize-role/variables.tf: |-
+    variable "policy_name" {}
+
+    variable "policy_document" {
+        type = string
+    }
+
+    variable "attach_roles" {
+        type = list(string)
+    }
+
+    variable "attach_users" {
+        type = list(string)
+    }
+
+    variable "reader_name" {}
+
+    variable "reader_policy_type" {}
+
+    variable "reader_policy_name" {}
+  modules/account-deploy/auth-create-idp/idp/main.tf: |-
+    resource "alicloud_ram_saml_provider" "idp" {
+      saml_provider_name            = var.sso_provider_name
+      encodedsaml_metadata_document = var.encodedsaml_metadata_document
+      description                   = "Created with Terraform automation scripts."
+    }
+  modules/account-deploy/auth-create-idp/idp/outputs.tf: |-
+    output "idp_arn" {
+      value = alicloud_ram_saml_provider.idp.arn
+    }
+  modules/account-deploy/auth-create-idp/idp/variables.tf: |-
+    variable "sso_provider_name" {}
+
+    variable "encodedsaml_metadata_document" {}
+  modules/account-deploy/auth-create-idp/main.tf: |-
+    module "idp" {
+      source = "./idp"
+
+      sso_provider_name = var.sso_provider_name
+      encodedsaml_metadata_document = base64encode(trim(var.metadata, " \t\n"))
+    }
+  modules/account-deploy/auth-create-idp/outputs.tf: |-
+    output "idp_arn" {
+      value = module.idp.idp_arn
+    }
+  modules/account-deploy/auth-create-idp/variables.tf: |-
+    variable "sso_provider_name" {}
+
+    variable "metadata" {}
+  modules/account-deploy/auth-create-role/main.tf: |-
+    # Create ram roles from IDP
+    module "ram_role" {
+      source    = "./role"
+
+      for_each          = {for role in var.ram_roles.roles : role.role_name => role}
+      account_uid       = var.account_id
+      role_name         = each.value.role_name
+      role_description  = each.value.description
+      sso_provider_name = var.sso_provider_name
+    }
+  modules/account-deploy/auth-create-role/outputs.tf: |-
+    output "role_arns" {
+      value      = {
+      for role in var.ram_roles.roles :role.role_name => module.ram_role[role.role_name].role_arn
+      }
+      depends_on = [module.ram_role]
+    }
+  modules/account-deploy/auth-create-role/role/main.tf: |
+    resource "alicloud_ram_role" "ram_role" {
+      name = var.role_name
+      description = var.role_description
+      document    = <<EOF
+      {
+        "Statement": [
+            {
+                "Action": "sts:AssumeRole",
+                "Condition": {
+                    "StringEquals": {
+                        "saml:recipient": "https://signin.aliyun.com/saml-role/sso"
+                    }
+                },
+                "Effect": "Allow",
+                "Principal": {
+                    "Federated": [
+                        "acs:ram::${var.account_uid}:saml-provider/${var.sso_provider_name}"
+                    ]
+                }
+            }
+        ],
+        "Version": "1"
+      }
+      EOF
+      force = true
+    }
+  modules/account-deploy/auth-create-role/role/outputs.tf: |
+    output "role_arn" {
+      value = alicloud_ram_role.ram_role.arn
+      description = "Output role arn."
+    }
+  modules/account-deploy/auth-create-role/role/variables.tf: |-
+    variable "role_name" {}
+
+    variable "role_description" {}
+
+    variable "sso_provider_name" {}
+
+    variable "account_uid" {}
+  modules/account-deploy/auth-create-role/variables.tf: |-
+    variable "sso_provider_name" {}
+
+    variable "ram_roles" {}
+
+    variable "account_id" {}
+  modules/account-deploy/auth-create-user/main.tf: |-
+    locals {
+      user_name    = var.user_name
+    }
+
+    resource "alicloud_ram_user" "user" {
+      name     = local.user_name
+      force    = true
+    }
+  modules/account-deploy/auth-create-user/outputs.tf: |-
+    output "user_id" {
+      value = alicloud_ram_user.user.id
+    }
+  modules/account-deploy/auth-create-user/variables.tf: variable "user_name" {}
+  modules/account-deploy/main.tf: |-
+    locals {
+      user_name = "AutomationSecurity_DAT09"
+      idp_metadata = var.idp_metadata
+      account_id = var.account_id
+    }
+
+    provider "alicloud" {
+      assume_role {
+        role_arn           = format("acs:ram::%s:role/ResourceDirectoryAccountAccessRole", local.account_id)
+        session_name       = "AccountLandingZoneSetup"
+        session_expiration = 999
+      }
+    }
+
+    provider "alicloud" {
+      alias = "network_role"
+      region = "cn-shanghai"
+      assume_role {
+        role_arn           = format("acs:ram::%s:role/ResourceDirectoryAccountAccessRole", local.account_id)
+        session_name       = "AccountLandingZoneSetup"
+        session_expiration = 999
+      }
+    }
+
+    resource "time_sleep" "wait" {
+      create_duration = "10s"
+      triggers = {
+        account_id = local.account_id
+      }
+    }
+
+    module "auth_create_idp" {
+      source = "./auth-create-idp"
+      depends_on = [time_sleep.wait]
+
+      sso_provider_name = "idp"
+      metadata = local.idp_metadata
+    }
+
+    module "auth_create_user" {
+      source = "./auth-create-user"
+      depends_on = [time_sleep.wait]
+
+      user_name = local.user_name
+    }
+
+    module "auth_create_role" {
+      source = "./auth-create-role"
+      depends_on = [time_sleep.wait]
+
+      sso_provider_name = "idp"
+      ram_roles = {
+        "roles" = [
+          {
+            "role_name"   = "admin"
+            "description" = "Administrator role for member accounts"
+          },
+          {
+            "role_name"   = "reader"
+            "description" = "Reader role for member accounts"
+          }
+        ]
+      }
+      account_id = local.account_id
+    }
+
+    module "auth_authorize_role" {
+      source = "./auth-authorize-role"
+      depends_on = [module.auth_create_user, module.auth_create_role]
+
+      policy_name = "AliyunContributor"
+      policy_document = <<EOF
+      {
+        "Version": "1",
+        "Statement": [
+          {
+            "Action": [
+              "RAM:*"
+            ],
+            "Resource": [
+              "*"
+            ],
+            "Effect": "Deny"
+          },
+          {
+            "Action": [
+              "*"
+            ],
+            "Resource": [
+              "*"
+            ],
+            "Effect": "Allow"
+          }
+        ]
+      }
+      EOF
+      attach_roles = ["admin"]
+      attach_users = [local.user_name]
+      reader_name = "reader"
+      reader_policy_type = "System"
+      reader_policy_name = "AliyunLogReadOnlyAccess"
+    }
+
+    module "network_create_vpc_vsw" {
+      source = "./network-create-vpc-vsw"
+      providers = {
+        alicloud = alicloud.network_role
+      }
+      depends_on = [time_sleep.wait]
+
+      vpc_name = "autovpc1"
+      vpc_cidr_block = "172.16.0.0/12"
+      switch_cidr_block = "172.16.0.0/21"
+      vswitch_name = "autovsw1"
+      zone_id = "cn-shanghai-b"
+    }
+  modules/account-deploy/network-create-vpc-vsw/main.tf: |-
+    terraform {
+      required_providers {
+        alicloud = {
+          source = "hashicorp/alicloud"
+        }
+      }
+    }
+
+    locals {
+      vpc_name = var.vpc_name
+      vpc_cidr_block = var.vpc_cidr_block
+      switch_cidr_block = var.switch_cidr_block
+      vswitch_name = var.vswitch_name
+      zone_id = var.zone_id
+    }
+
+    module "network_config" {
+      source = "./network"
+
+      vpc_name = local.vpc_name
+      vpc_cidr_block = local.vpc_cidr_block
+      vswitch_name = local.vswitch_name
+      switch_cidr_block = local.switch_cidr_block
+      zone_id = local.zone_id
+    }
+  modules/account-deploy/network-create-vpc-vsw/network/main.tf: |-
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = var.vpc_name
+      cidr_block = var.vpc_cidr_block
+    }
+
+    resource "alicloud_vswitch" "vsw" {
+      vpc_id            = alicloud_vpc.vpc.id
+      vswitch_name      = var.vswitch_name
+      cidr_block        = var.switch_cidr_block
+      zone_id           = var.zone_id
+    }
+  modules/account-deploy/network-create-vpc-vsw/network/outputs.tf: |-
+    output "vpc_id" {
+      value = alicloud_vpc.vpc.id
+    }
+
+    output "vswitch_id" {
+      value = alicloud_vswitch.vsw.id
+    }
+  modules/account-deploy/network-create-vpc-vsw/network/variables.tf: |-
+    variable "vpc_name" {}
+
+    variable "vpc_cidr_block" {}
+
+    variable "vswitch_name" {}
+
+    variable "switch_cidr_block" {}
+
+    variable "zone_id" {}
+  modules/account-deploy/network-create-vpc-vsw/outputs.tf: |-
+    output "vpc_id" {
+      value = module.network_config.vpc_id
+    }
+
+    output "vswitch_id" {
+      value = module.network_config.vswitch_id
+    }
+  modules/account-deploy/network-create-vpc-vsw/variables.tf: |-
+    variable "vpc_name" {}
+
+    variable "vpc_cidr_block" {}
+
+    variable "switch_cidr_block" {}
+
+    variable "vswitch_name" {}
+
+    variable "zone_id" {}
+  modules/account-deploy/outputs.tf: |-
+    output "vpc_id" {
+      value = module.network_create_vpc_vsw.vpc_id
+    }
+
+    output "vswitch_id" {
+      value = module.network_create_vpc_vsw.vswitch_id
+    }
+  modules/account-deploy/variables.tf: |-
+    variable "idp_metadata" {}
+
+    variable "account_id" {}
+  outputs.tf: |-
+    output "account_id" {
+      value = module.account_create.account_id
+      description = <<EOF
+      {
+        "AssociationProperty": "ALIYUN::ResourceManager::Folder",
+        "Description": {
+          "en": "ID of resource account created in Resource Directory.",
+          "zh-cn": "资源目录中创建的资源账号的ID。"
+        }
+      }
+      EOF
+    }
+
+    output "vpc_id" {
+      value = module.account_deploy.vpc_id
+      description = <<EOF
+      {
+        "AssociationProperty": "ALIYUN::ResourceManager::Folder",
+        "Description": {
+          "en": "ID of VPC created in resource account.",
+          "zh-cn": "资源账号中创建的VPC的ID。"
+        }
+      }
+      EOF
+    }
+
+    output "vswitch_id" {
+      value = module.account_deploy.vswitch_id
+      description = <<EOF
+      {
+        "AssociationProperty": "ALIYUN::ResourceManager::Folder",
+        "Description": {
+          "en": "ID of VSwitch created in resource account.",
+          "zh-cn": "资源账号创建的VSwitch的ID。"
+        }
+      }
+      EOF
+    }
+  variables.tf: |-
+    variable "folder_ids" {
+      type = list(string)
+      description = <<EOF
+      {
+        "Type": "Json",
+        "Label": {
+          "en": "Folder ID",
+          "zh-cn": "资源夹ID"
+        },
+        "Description": {
+          "en": "Folder of Resource Directory in which to create a resource account.",
+          "zh-cn": "要在其中创建资源账号的资源目录的资源夹。"
+        },
+        "AssociationProperty": "ALIYUN::ResourceManager::Folder",
+        "MinLength": 1,
+        "MaxLength": 1
+      }
+      EOF
+    }
+
+    variable "idp_metadata" {
+      type = string
+      default = <<-EOF
+      <?xml version="1.0" encoding="UTF-8"?><md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" ID="SIMELg4ew1fqqUq3Wtug2atgLF1b8Cz5dhsF" entityID="https://qulkokcn.aliyunidaas.com/api/v2/app_msthbzqwwwzsijtwxsfcmvdvzy/saml2/meta" validUntil="2123-07-06T07:44:38.640Z">
+      <md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+      <md:KeyDescriptor use="signing">
+      <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+      <ds:X509Data>
+      <ds:X509Certificate>MIIEFTCCAv2gAwIBAgISCYYAsS9tZ7Muu0/fHvCbyJbUMA0GCSqGSIb3DQEBCwUAMIGSMScwJQYDVQQDDB5hcHBfbXN0aGJ6cXd3d3pzaWp0d3hzZmNtdmR2enkxKTAnBgNVBAsMIGlkYWFzX2hqbnZ1eWxzeG9nbjc1Z25tNjJicHdraG1pMRwwGgYDVQQKDBNBbGliYWJhIENsb3VkIElEYWFTMREwDwYDVQQIDAhaaGVqaWFuZzELMAkGA1UEBhMCQ04wHhcNMjMwNzA1MTYwMDAwWhcNMzMwNzA1MTYwMDAwWjCBkjEnMCUGA1UEAwweYXBwX21zdGhienF3d3d6c2lqdHd4c2ZjbXZkdnp5MSkwJwYDVQQLDCBpZGFhc19oam52dXlsc3hvZ243NWdubTYyYnB3a2htaTEcMBoGA1UECgwTQWxpYmFiYSBDbG91ZCBJRGFhUzERMA8GA1UECAwIWmhlamlhbmcxCzAJBgNVBAYTAkNOMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsG58tm1xxcrU0K5qZL5Rn+M7EHZLdmP0D5mVPJlK3je9wx6xBT/zyFffDUE/GNvtRevmjjmvhwazojhXGYaa05y+fS9mplIk8dBK7E397QG4IaKlH6FrZiN4pRne89pIts6jAixk+349yXMlkA+EfToj3XuyVkOauqdXcz7NNW/mqrUx306SjF7BUpygXh/EGsu0LonJfiqLGKDbuuetZcx+NrRXa1Qw7gwFV0PlwCkQXp7TorTa1sNWFdxYNCED5lMAhcfDqBsTFExwLoymPxzVBTw4IV1DNpHdzUQ9QouCoZ4+lnbXwSZTQ6jkIFEq3eUnDdb4M/kEAv3RcCYoxQIDAQABo2MwYTAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUovCEbjoAeeEV8DMfyfGrYOb0yAEwHwYDVR0jBBgwFoAUovCEbjoAeeEV8DMfyfGrYOb0yAEwDQYJKoZIhvcNAQELBQADggEBABHQ+NqVONzEOvDIVvg+XgrF5hjdGeoGGUqPBIqziPWxDQ6KCQMYlAsCV0xSGtigC3xoVtqHxC0yJIw3E6HsHPbn34uKk0Bs895wBrXuvv/tFCPVOYJukVrvY/I1iEBc8mbXr30jUe+EDZujXeE7m86MQEmDBG4HuB66Myax9feVZnnq0t6j4l09n3/BozSuhAFi9L4oUgYEIUFaUFVSL+KhNiFnHiqFZugXdsEoC69dPykrhl4eWgps+bfdK29bICZJ7FrOLS085b4TWnKbMWHZX9fSkNuWX9HXFCYiWSMAVT4AlUuvtv1gmz1TUX1gEvOaFpdJ20p3GN4r5fvOVxA=</ds:X509Certificate>
+      </ds:X509Data>
+      </ds:KeyInfo>
+      </md:KeyDescriptor>
+      <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</md:NameIDFormat>
+      <md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:persistent</md:NameIDFormat>
+      <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat>
+      <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://qulkokcn.aliyunidaas.com/login/app/app_msthbzqwwwzsijtwxsfcmvdvzy/saml2/sso"/>
+      <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://qulkokcn.aliyunidaas.com/login/app/app_msthbzqwwwzsijtwxsfcmvdvzy/saml2/sso"/>
+      </md:IDPSSODescriptor>
+      </md:EntityDescriptor>
+      EOF
+      description = <<EOF
+      {
+        "Label": {
+          "en": "IdP Metadata File",
+          "zh-cn": "身份提供商（IdP）元数据文件"
+        },
+        "TextArea": true
+      }
+      EOF
+    }
+
+    variable "ALIYUN__StackId" {
+      type = string
+    }
