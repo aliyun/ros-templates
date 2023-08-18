@@ -1,0 +1,302 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: This solution introduces how to use DAS to implement automatic scaling and automatic
+    SQL optimization of the RDS MySQL database.
+  zh-cn: 本方案介绍如何用数据库自治服务DAS实现RDS MySQL数据库的自动扩缩容和自动SQL优化。
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ZoneId
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: ECS instance type.
+      zh-cn: ECS实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  EcsPassword:
+    Type: String
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: RDS db instance type.
+      zh-cn: RDS实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      Engine: MySQL
+      EngineVersion: '8.0'
+      Category: HighAvailability
+  RdsAccountName:
+    Type: String
+    Label:
+      zh-cn: 数据库用户名
+      en: RDS Account Name
+    Default: dbuser
+  RdsAccountPassword:
+    Type: String
+    Label:
+      en: RDS Password
+      zh-cn: 数据库密码
+    Description:
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols,
+        including:! @ # $ % ^ & * ( ) _ + - ='
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+    ConstraintDescription:
+      en: '8-32 characters, can contain size letters, Numbers and special symbols,
+        including:! @ # $ % ^ & * ( ) _ + - ='
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+    AllowedPattern: ^[a-zA-Z0-9-\!\@\#\$\%\^\&\*\-\+\=\_]*$
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  RdsDatabaseName:
+    Type: String
+    Label:
+      en: RDS Database Name
+      zh-cn: RDS数据库名称
+    Default: testdb
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  SecurityGroupIngress_3306:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3306/3306
+  SecurityGroupIngress_443:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 443/443
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7
+      InstanceChargeType: PostPaid
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory: cloud_efficiency
+      SystemDiskSize: 20
+      AllocatePublicIP: true
+      InternetChargeType: PayByBandwidth
+      InternetMaxBandwidthOut: 1
+      Password:
+        Ref: EcsPassword
+  RdsInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      PayType: Postpaid
+      Engine: MySQL
+      DBInstanceStorage: 20
+      EngineVersion: '8.0'
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList:
+        Fn::GetAtt:
+        - EcsInstance
+        - PrivateIp
+    DependsOn: EcsInstance
+  RdsAccount:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: RdsInstance
+      AccountPassword:
+        Ref: RdsAccountPassword
+      AccountType: Super
+      AccountName:
+        Ref: RdsAccountName
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RdsInstance
+      DBName:
+        Ref: RdsDatabaseName
+      CharacterSetName: utf8
+  InstallCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          echo "################################"
+          echo "# Install MySQL Client"
+          echo "################################"
+          sudo yum install -y mysql
+          mysql --version
+
+          echo "################################"
+          echo "# Create MySQL Table"
+          echo "################################"
+          export MYSQL_HOST=${RdsInstance.InnerConnectionString}
+          export MYSQL_PWD=${RdsAccountPassword}
+          mysql -u ${RdsAccountName} -D ${RdsDatabaseName} -e "CREATE TABLE "students" ("id" bigint(20) NOT NULL COMMENT 'id', "sid" char(64) NOT NULL COMMENT 'student id',"name" varchar(64) NOT NULL COMMENT 'name',"birth_date" date NOT NULL COMMENT 'birth date',"gender" char(16) NOT NULL COMMENT 'gender',"extra_info" varchar(1024) DEFAULT NULL);"
+
+          echo "################################"
+          echo "# Prepare MySQL Script"
+          echo "################################"
+          cat > ~/parallel_queries.sh << \EOF
+          #!/bin/bash
+
+          # MySQL configuration
+          MYSQL_USER=${RdsAccountName}
+          MYSQL_PASS=${RdsAccountPassword}
+          MYSQL_DB=${RdsDatabaseName}
+          MYSQL_HOST=${RdsInstance.InnerConnectionString}
+
+          # Slow SELECT query
+          slow_query() {
+            while true; do
+              mysql -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "SELECT * FROM students WHERE SLEEP(2);"
+            done
+          }
+          # Slow UPDATE query
+          slow_update() {
+            while true; do
+              mysql -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "UPDATE students SET name=CONCAT(name, 'a') WHERE id = FLOOR(1 + (RAND() * 1000000)) AND SLEEP(2);"
+            done
+          }
+
+          # Run queries in parallel
+          for i in {1..10}; do
+            slow_query &
+            slow_update &
+          done
+
+          # 等待所有后台进程完成
+          wait
+          EOF
+
+          chmod +x ~/parallel_queries.sh
+    DependsOn:
+    - RdsAccount
+    - RdsDatabase
+Outputs:
+  RdsInnerConnectionString:
+    Description:
+      zh-cn: 内网连接地址。
+      en: Rds Inner Connection address.
+    Value:
+      Fn::GetAtt:
+      - RdsInstance
+      - InnerConnectionString
+  EcsInstanceId:
+    Description:
+      zh-cn: ECS实例ID
+      en: Ecs Instance ID
+    Value:
+      Fn::GetAtt:
+      - EcsInstance
+      - InstanceId
+  RdsInstanceId:
+    Description:
+      zh-cn: RDS实例ID
+      en: RDS Instance ID
+    Value:
+      Fn::GetAtt:
+      - RdsInstance
+      - DBInstanceId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - EcsInstanceType
+      - EcsPassword
+      Label:
+        default: ECS
+    - Parameters:
+      - DBInstanceClass
+      - RdsAccountName
+      - RdsAccountPassword
+      - RdsDatabaseName
+      Label:
+        default: RDS
+    TemplateTags:
+    - acs:technical-solution:database:数据库自动扩缩容和自动SQL优化

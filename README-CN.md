@@ -451,6 +451,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | 模板                                                                                                         | 说明       |
 |------------------------------------------------------------------------------------------------------------------|-------------------|
+| [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | 数据库自动扩缩容和自动SQL优化。 |
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
 | [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | 通过DTS实现MySQL与Redis缓存同步一致性方案。 |
 | [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                    | 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。 |
