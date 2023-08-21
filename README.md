@@ -469,11 +469,12 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - network
 
-| Template                                                                                                                            | Description                                            |
-|-------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
-| [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml) | Cross region and account network interwork scheme. |
-| [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml) | Public network architecture design and security management on the cloud. |
-| [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                           | Internet application is accelerating globally. |
+| Template                                                                                                                              | Description                                                              |
+|---------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml)   | Cross region and account network interwork scheme.                       |
+| [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml)                         | Public network architecture design and security management on the cloud. |
+| [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                             | Internet application is accelerating globally.                           |
+| [enterprise-cloud-network-architecture-planning.yml](./documents/solution/network/enterprise-cloud-network-architecture-planning.yml) | Enterprise cloud network architecture planning.                          |
 
 - storage
 
