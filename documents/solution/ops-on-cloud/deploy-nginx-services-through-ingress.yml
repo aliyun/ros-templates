@@ -1,0 +1,275 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Deploy Nginx and expose and monitor services through Ingress.
+  zh-cn: 部署Nginx并通过Ingress暴露和监控服务。
+Parameters:
+  AckName:
+    Type: String
+    Label:
+      en: Cluster Name
+      zh-cn: 集群名称
+    Description:
+      en: The name must be 1 to 63 characters in length and can contain letters, Chinese
+        characters, digits, and hyphens (-).
+      zh-cn: 名称为1~63个字符，可包含数字、汉字、英文字符或中划线（-）。
+    Default: cluster-for-nginx
+    AllowedPattern: ^[a-zA-Z0-9\u4e00-\u9fa5][-a-zA-Z0-9\u4e00-\u9fa5]{0,62}$
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Available Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+    Description:
+      en: If the available zone cannot be selected, please switch regions.
+      zh-cn: 如果选择不到可用区，请切换地域。
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 节点规格
+    Description:
+      en: It is recommended to use a new generation of ecs instances. If the instance
+        specification cannot be selected, please change the availability zone again.
+      zh-cn: 建议使用新一代的 ecs 实例，如果选择不到实例规格，请重新更换可用区。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    AllowedPattern: ^(ecs\.[a-z6-9]+\.)[1-9]?xlarge$
+  LoginPassword:
+    Type: String
+    Label:
+      en: Set node login password
+      zh-cn: 设置节点登录密码
+    Description:
+      en: |-
+        The password must be 8 to 32 characters in length. <br>
+        It must consist three of the the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
+        Special characters include <span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>.<br>
+      zh-cn: 长度为8-30位，需包含大写字母、小写字母、特殊符号和数字中的三个，允许的特殊字符包括<span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>。
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: ack-for-nginx
+Resources:
+  ModuleAcsCsProvision:
+    Type: MODULE::ACS::CS::Provision
+    Version: default
+    DependsOn: EnableServiceSls
+  EnableServiceSls:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: SLS
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  Vswitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName:
+        Fn::Sub: ${CommonName}-${ZoneId}-vsw
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+      SecurityGroupEgress:
+        - PortRange: -1/-1
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: internet
+        - PortRange: -1/-1
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: Vswitch
+      NatGatewayName:
+        Fn::Sub: ${CommonName}-ngw
+  Ack:
+    Type: ALIYUN::CS::ManagedKubernetesCluster
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchIds:
+      - Ref: Vswitch
+      PodVswitchIds:
+      - Ref: Vswitch
+      Name:
+        Ref: AckName
+      NumOfNodes: 2
+      ClusterSpec: ack.pro.small
+      ServiceCidr: 172.16.0.0/16
+      Addons:
+      - Name: security-inspector
+      - Name: terway-eniip
+        Config: '{"IPVlan":"false","NetworkPolicy":"false","ENITrunking":"false"}'
+      - Name: csi-plugin
+      - Name: csi-provisioner
+      - Name: storage-operator
+        Config: '{"CnfsOssEnable":"false","CnfsNasEnable":"false"}'
+      - Name: logtail-ds
+        Config: '{"IngressDashboardEnabled":"true"}'
+      - Name: nginx-ingress-controller
+        Config: '{"IngressSlbNetworkType":"internet","IngressSlbSpec":"slb.s2.small"}'
+      - Name: ack-node-local-dns
+      - Name: arms-prometheus
+      - Name: ack-node-problem-detector
+        Config: '{"sls_project_name":""}'
+      EndpointPublicAccess: true
+      SnatEntry: true
+      IsEnterpriseSecurityGroup: true
+      WorkerInstanceTypes:
+      - Ref: InstanceType
+      WorkerSystemDiskCategory: cloud_essd
+      WorkerSystemDiskSize: 120
+      LoginPassword:
+        Ref: LoginPassword
+      Runtime:
+        Name: containerd
+        Version: 1.6.20
+    DependsOn:
+      - NatGateway
+      - ModuleAcsCsProvision
+      - EnableServiceSls
+  AckNginx:
+    Type: ALIYUN::CS::ClusterApplication
+    Properties:
+      ClusterId:
+        Ref: Ack
+      YamlContent: |-
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: nginx-deployment-basic
+          labels:
+            app: nginx
+        spec:
+          replicas: 2
+          selector:
+            matchLabels:
+              app: nginx
+          template:
+            metadata:
+              labels:
+                app: nginx
+            spec:
+              containers:
+                - name: nginx
+                  image: nginx:1.9.1
+                  ports:
+                    - containerPort: 80
+                  resources:
+                    limits:
+                      cpu: 500m
+                  env:
+                    - name: aliyun_logs_log-nginxvarlog
+                      value: stdout
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: nginxservice
+          namespace: ''
+          annotations:
+            service.beta.kubernetes.io/alicloud-loadbalancer-bandwidth: '20'
+        spec:
+          selector:
+            app: nginx
+          ports:
+            - protocol: TCP
+              port: 80
+              targetPort: 80
+              name: test
+          type: ClusterIP
+          ipFamilyPolicy: SingleStack
+  WaitService:
+    Type: ALIYUN::ROS::Sleep
+    DependsOn: AckNginx
+    Properties:
+      CreateDuration: 180
+  NginxIngress:
+    Type: ALIYUN::CS::ClusterApplication
+    DependsOn: WaitService
+    Properties:
+      ClusterId:
+        Ref: Ack
+      YamlContent: |-
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: ingress-demo
+          labels:
+            ingress-controller: nginx
+        spec:
+          rules:
+            - http:
+                paths:
+                  - path: /
+                    pathType: ImplementationSpecific
+                    backend:
+                      service:
+                        name: nginxservice
+                        port:
+                          number: 80
+          ingressClassName: nginx
+  WaitIngress:
+    Type: ALIYUN::ROS::Sleep
+    DependsOn: NginxIngress
+    Properties:
+      CreateDuration: 180
+  NginxAddress:
+    Type: DATASOURCE::CS::ClusterApplicationResources
+    Properties:
+      ClusterId:
+        Ref: Ack
+      Kind: Ingress
+      Name: ingress-demo
+      JsonPath: $.status.loadBalancer.ingress.[0].ip
+      FirstMatch: true
+    DependsOn: WaitIngress
+Outputs:
+  NginxUrl:
+    Description:
+      en: Nginx page url.
+      zh-cn: Nginx 访问地址。
+    Value:
+      Fn::Sub: http://${NginxAddress}
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - AckName
+        - ZoneId
+        - InstanceType
+        - LoginPassword
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:technical-solution:ops-on-cloud:部署Nginx并通过Ingress暴露和监控服务
