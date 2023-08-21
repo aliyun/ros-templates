@@ -498,6 +498,14 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | Highly available blog site on the cloud. |
 | [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | Highly available web services.           |
 
+
+- ops-on-cloud
+
+| Template                                                                                                                                     | Description                              |
+|----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
+| [deploy-nginx-services-through-ingress.yml](documents/solution/ops-on-cloud/deploy-nginx-services-through-ingress.yml) | Deploy Nginx and expose and monitor services through Ingress. |
+
+
 - internet-application-development
 
 | Template                                                                                                                           | Description                    |
