@@ -490,6 +490,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |-----------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
 | [cdn-speeds-up-distribution-of-file-on-oss.yml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yml)   | Use a CDN to speed up the distribution of file resources stored on OSS. |
 | [dcdn-acceleration.yml](documents/solution/cdn-and-video-cloud/dcdn-acceleration.yml)                                                   | Accelerate resource request scenario practices.                         |
+| [dcdn-speeds-up-data-storage-on-oss.yml](documents/solution/cdn-and-video-cloud/dcdn-speeds-up-data-storage-on-oss.yml)         | Use a CDN to speed up the  Multimedia data storage and distribution on  OSS.    |
 
 
 - high-availability-architecture
