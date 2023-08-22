@@ -1,0 +1,361 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Cloud-native observable operation and maintenance.
+  zh-cn: 云原生可观测运维。
+Parameters:
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    Label:
+      en: Availability zone
+      zh-cn: 可用区
+    Description:
+      en: Available area id, <a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b><font color='blue'>View region and zone info</font></b></a>.
+      zh-cn: 可用区ID，</font><a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>。
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance type
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: vpc-test
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName: vsw-test
+      CidrBlock: 192.168.0.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+  SlsProject:
+    Type: ALIYUN::SLS::Project
+    Properties:
+      Name:
+        Fn::Sub: project-test-${ALIYUN::StackId}
+  SSHKeyPair:
+    Type: ALIYUN::ECS::SSHKeyPair
+    Properties:
+      KeyPairName:
+        Fn::Sub: ess-${ALIYUN::StackId}
+  K8sCluster:
+    Type: ALIYUN::CS::ManagedKubernetesCluster
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchIds:
+        - Ref: VSwitch
+      PodVswitchIds:
+        - Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ServiceCidr: 172.16.0.0/16
+      ZoneIds:
+        - Ref: ZoneId
+      WorkerInstanceTypes:
+        - Ref: EcsInstanceType
+      Name:
+        Fn::Sub: ACK-test-${ALIYUN::StackId}
+      ClusterSpec: ack.pro.small
+      NumOfNodes: 0
+      NodePools:
+        - NodePoolInfo:
+            Name: default-nodepool
+          ScalingGroup:
+            VSwitchIds:
+              - Ref: VSwitch
+            InstanceTypes:
+              - Ref: EcsInstanceType
+            SystemDiskSize: 120
+            SystemDiskCategory: cloud_essd
+            KeyPair:
+              Fn::GetAtt:
+                - SSHKeyPair
+                - KeyPairName
+          KubernetesConfig:
+            Runtime: containerd
+            RuntimeVersion: 1.6.20
+          Count: 3
+      Addons:
+        - Name: terway-eniip
+        - Name: csi-plugin
+        - Name: csi-provisioner
+        - Name: logtail-ds
+          Config:
+            Fn::Sub:
+              - '{"IngressDashboardEnabled":"true","sls_project_name":"${sls_project_name}"}'
+              - sls_project_name:
+                  Fn::GetAtt:
+                    - SlsProject
+                    - Name
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: oss-test-${ALIYUN::StackId}
+      StorageClass: Standard
+      DeletionForce: true
+      RedundancyType: ZRS
+  Sleep:
+    Type: ALIYUN::ROS::Sleep
+    Properties:
+      CreateDuration: 300
+    DependsOn: K8sCluster
+  LogStores:
+    Type: DATASOURCE::SLS::Logstores
+    DependsOn: Sleep
+    Properties:
+      Project:
+        Fn::GetAtt:
+          - SlsProject
+          - Name
+      LogstoreName: audit
+  SlsLogtailConfig:
+    Type: ALIYUN::SLS::LogtailConfig
+    DependsOn: Sleep
+    Properties:
+      ProjectName:
+        Ref: SlsProject
+      LogtailConfigName: app01
+      LogstoreName:
+        Fn::Select:
+          - 0
+          - Fn::GetAtt:
+              - LogStores
+              - Logstores
+      RawConfigData:
+        configName: logtail-test
+        inputDetail:
+          adjustTimezone: false
+          advanced:
+            collect_containers_flag: false
+            force_multiconfig: false
+            k8s:
+              ExternalEnvTag: { }
+            tail_size_kb: 1024
+          delayAlarmBytes: 0
+          delaySkipBytes: 0
+          discardNonUtf8: false
+          discardUnmatch: false
+          dockerExcludeEnv: { }
+          dockerExcludeLabel: { }
+          dockerFile: true
+          dockerIncludeEnv: { }
+          dockerIncludeLabel: { }
+          enableRawLog: false
+          enableTag: false
+          fileEncoding: utf8
+          filePattern: '*.Log'
+          filterKey: [ ]
+          filterRegex: [ ]
+          key:
+            - content
+          localStorage: true
+          logBeginRegex: .*
+          logPath: /apsara/nuwa
+          logTimezone: ''
+          logType: common_reg_log
+          maxDepth: 10
+          maxSendRate: -1
+          mergeType: topic
+          preserve: true
+          preserveDepth: 1
+          priority: 0
+          regex: (.*)
+          sendRateExpire: 0
+          sensitive_keys: [ ]
+          shardHashKey: [ ]
+          tailExisted: false
+          timeFormat: ''
+          topicFormat: none
+        inputType: file
+        logSample: ''
+        outputDetail:
+          compressType: ''
+          logstoreName:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - LogStores
+                  - Logstores
+        outputType: LogService
+  ApplyConfigToMachineGroup:
+    Type: ALIYUN::SLS::ApplyConfigToMachineGroup
+    DependsOn: Sleep
+    Properties:
+      ProjectName:
+        Fn::GetAtt:
+          - SlsProject
+          - Name
+      ConfigName:
+        Fn::GetAtt:
+          - SlsLogtailConfig
+          - LogtailConfigName
+      GroupName:
+        Fn::Sub:
+          - 'k8s-group-${your_k8s_cluster_id}'
+          - your_k8s_cluster_id:
+              Fn::GetAtt:
+                - K8sCluster
+                - ClusterId
+  DealLogOssExportStack:
+    Type: ALIYUN::ROS::Stack
+    DependsOn:
+      - Sleep
+    Properties:
+      Parameters:
+        sls_project_name:
+          Fn::GetAtt:
+            - SlsProject
+            - Name
+        sls_logstore_name:
+          Fn::Select:
+            - 0
+            - Fn::GetAtt:
+                - LogStores
+                - Logstores
+        bucket_name:
+          Fn::GetAtt:
+            - OssBucket
+            - Name
+        export_name: app01
+        aliuid:
+          Ref: ALIYUN::TenantId
+        role_name:
+          Fn::Sub: oss-export-${ALIYUN::StackId}
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Transform: 'Aliyun::Terraform-v1.2'
+        Workspace:
+          main.tf: |-
+            variable "sls_project_name" {
+              type = string
+            }
+
+            variable "sls_logstore_name" {
+              type = string
+            }
+
+            variable "bucket_name" {
+              type = string
+            }
+
+            variable "export_name" {
+              type = string
+            }
+
+            variable "aliuid" {
+              type = string
+            }
+
+            variable "role_name" {
+              type = string
+            }
+
+            resource "alicloud_ram_role" "log_export_to_oss_role" {
+              name        = var.role_name
+              document    = <<EOF
+              {
+                  "Statement": [
+                      {
+                          "Action": "sts:AssumeRole",
+                          "Effect": "Allow",
+                          "Principal": {
+                              "Service": [
+                                  "${var.aliuid}@log.aliyuncs.com",
+                                  "log.aliyuncs.com"
+                              ]
+                          }
+                      }
+                  ],
+                  "Version": "1"
+              }
+              EOF
+            }
+
+            resource "alicloud_ram_role_policy_attachment" "oss_write_attachment" {
+              policy_name = "AliyunOSSFullAccess"
+              policy_type = "System"
+              role_name   = var.role_name
+              depends_on = [
+                alicloud_ram_role.log_export_to_oss_role
+              ]
+            }
+
+            resource "alicloud_ram_role_policy_attachment" "log_read_attachment" {
+              policy_name = "AliyunLogReadOnlyAccess"
+              policy_type = "System"
+              role_name   = var.role_name
+              depends_on = [
+                alicloud_ram_role.log_export_to_oss_role
+              ]
+            }
+
+            resource "alicloud_log_oss_export" "example" {
+              project_name      = var.sls_project_name
+              logstore_name     = var.sls_logstore_name
+              export_name       = var.export_name
+              display_name      = var.export_name
+              bucket            = var.bucket_name
+              prefix            = "app01"
+              suffix            = ""
+              buffer_interval   = 300
+              buffer_size       = 250
+              compress_type     = "gzip"
+              path_format       = "%Y/%m/%d/%H/%M"
+              content_type      = "json"
+              json_enable_tag   = true
+              role_arn          = "acs:ram::${var.aliuid}:role/${var.role_name}"
+              time_zone         = "+0800"
+              depends_on = [
+                alicloud_ram_role_policy_attachment.log_read_attachment,
+                alicloud_ram_role_policy_attachment.oss_write_attachment
+              ]
+            }
+Outputs:
+  BucketName:
+    Description:
+      en: OSS bucket name.
+      zh-cn: OSS bucket名称。
+    Value:
+      Fn::GetAtt:
+        - OssBucket
+        - Name
+  ProjectName:
+    Description:
+      en: SLS project name.
+      zh-cn: 日志project名称。
+    Value:
+      Fn::GetAtt:
+        - SlsProject
+        - Name
+  LogstoreName:
+    Description:
+      en: SLS logstore name.
+      zh-cn: 日志logstore名称。
+    Value:
+      Fn::Select:
+        - 0
+        - Fn::GetAtt:
+            - LogStores
+            - Logstores
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - EcsInstanceType
+    TemplateTags:
+      - acs:technical-solution:Storage:云原生可观测运维

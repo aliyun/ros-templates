@@ -481,6 +481,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |-----------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
 | [collect-logs-across-alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-alibaba-cloud-accounts.yml) | Collect logs across Alibaba cloud accounts.                 |
 | [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)         | Collect logs of OSS across accounts with log audit service. |
+| [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml)         | Cloud-native observable operation and maintenance. |
 
 
 - cdn-and-video-cloud
