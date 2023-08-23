@@ -1,0 +1,134 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: {}
+Parameters:
+  SubDomainNamePrefix:
+    Default: null
+    Type: String
+    Description:
+      zh-cn: 当您需要配置二级域名为您的OSS源站加速时，必须填写二级域名前缀。否则，请保持配置为空即可。
+      en: >-
+        When you want to configure a second-level domain name to accelerate your
+        OSS origin server, you must enter the second-level domain name prefix.
+        Otherwise, leave the configuration blank.
+    Label:
+      zh-cn: 域名前缀
+      en: Sub Domain Name Prefix
+  BucketName:
+    ConstraintDescription:
+      zh-cn: 3 到 63 个字符，不以连字符 (-) 开头和结尾，可以包含小写字母、数字和连字符 (-)
+      en: >-
+        3 to 63 characters, not beginning and ending with a hyphen (-), can
+        contain lowercase letters, Numbers and hyphens (-)
+    Description:
+      zh-cn: >-
+        3到63个字符，不以连字符(-)开头和结尾，可以包含小写字母、数字和连字符(-)；<br>备注：<font
+        color='blue'><b>需要保证整个网络的唯一性，已经存在的无法创建</b></font>
+      en: >-
+        3 to 63 characters, not beginning and ending with a hyphen (-), can
+        contain lowercase letters, Numbers and hyphens (-);<br>Note: <font
+        color='blue'><b>need whole network uniqueness, already existing can not
+        be created.</b></font>
+    Default: application-cdn-oss
+    MinLength: 3
+    Label:
+      zh-cn: 存储空间名称
+      en: Bucket Name
+    AllowedPattern: '^[a-z0-9]+[a-z0-9\-]*[a-z0-9]+$'
+    MaxLength: 63
+    Type: String
+  RR:
+    Default: '@'
+    Type: String
+    Description:
+      zh-cn: 主机记录，如果你想解析@.exmaple.com，主机记录应该填写“@”而不是“空”</font>
+      en: >-
+        Host record, if you want to resolve @.exmaple.com, the host record
+        should fill in "@" instead of empty</font>
+    Label:
+      zh-cn: 主机记录
+      en: Host Record
+  DomainName:
+    Default: ros-service1.top
+    Type: String
+    Description:
+      zh-cn: >-
+        配置自定义域名，您设置的域名必须进行ICP备案，否则影响您资源的创建和使用。详见：<b><a
+        href='https://help.aliyun.com/zh/icp-filing/getting-started/to-prepare-the-icp-record-domain-name-1?spm=a2c4g.2357270.0.i7'
+        target='_blank'><font color='blue'>ICP备案域名</font></a></b>
+      en: >-
+        To configure a custom domain name, you must file ICP ICP for the domain
+        name that you set, otherwise the creation and use of your resources will
+        be affected. See: <b><a
+        href='https://help.aliyun.com/zh/icp-filing/getting-started/to-prepare-the-icp-record-domain-name-1?spm=a2c4g.2357270.0.i7'
+        target='_blank'><font color='blue'>ICP Filing Domain Name</font></a></b>
+    Label:
+      zh-cn: 自定义域名
+      en: Domain Name
+Outputs: {}
+Conditions:
+  SubDomainName:
+    'Fn::Equals':
+      - null
+      - Ref: SubDomainNamePrefix
+Resources:
+  Record:
+    Type: 'ALIYUN::DNS::DomainRecord'
+    Properties:
+      Type: CNAME
+      RR:
+        Ref: RR
+      Value:
+        'Fn::GetAtt':
+          - DCDNDomain
+          - Cname
+      DomainName:
+        Ref: DomainName
+  BucketDomain:
+    Type: 'ALIYUN::OSS::Domain'
+    Properties:
+      BucketName:
+        'Fn::GetAtt':
+          - Bucket
+          - Name
+      DomainName:
+        'Fn::If':
+          - SubDomainName
+          - Ref: DomainName
+          - 'Fn::Sub': '${SubDomainNamePrefix}.${DomainName}'
+  DCDNDomain:
+    Type: 'ALIYUN::DCDN::Domain'
+    Properties:
+      DomainName:
+        'Fn::If':
+          - SubDomainName
+          - Ref: DomainName
+          - 'Fn::Sub': '${SubDomainNamePrefix}.${DomainName}'
+      Sources:
+        - Content:
+            'Fn::GetAtt':
+              - Bucket
+              - DomainName
+          Type: oss
+          Port: 80
+          Weight: '100'
+  Bucket:
+    Type: 'ALIYUN::OSS::Bucket'
+    Properties:
+      BucketName:
+        Ref: BucketName
+      DeletionForce: true
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - BucketName
+        Label:
+          default: OSS
+      - Parameters:
+          - SubDomainNamePrefix
+          - DomainName
+          - RR
+        Label:
+          default: Domain
+    TemplateTags:
+      - 'acs:technical-solution:多媒体数据存储与分发'
