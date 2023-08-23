@@ -23,6 +23,12 @@ Parameters:
         a backup VSwitch and used for the MSE gateway.</font></b>
       zh-cn: 可用区ID。<br><b>注：用于创建备VSwitch，并给MSE网关使用。<font color='blue'>需要和ZoneId不在同一个可用区。</font></b>
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  ManagedKubernetesClusterName:
+    Type: String
+    Label:
+      en: Managed Kubernetes Cluster Name
+      zh-cn: ACK托管版集群名称
+    Default: testcluster
   WorkerInstanceType:
     Type: String
     Label:
@@ -52,8 +58,14 @@ Parameters:
     Label:
       en: Worker System Disk Size(GB)
       zh-cn: Worker节点系统盘大小(GB)
-    Default: 120
+    Default: 40
     MinValue: 40
+  MseMicroRegistryInstanceName:
+    Type: String
+    Label:
+      en: Microservices Registry Instance Name
+      zh-cn: 注册配置中心实例名称
+    Default: test
 Resources:
   Vpc:
     Type: ALIYUN::ECS::VPC
@@ -91,14 +103,15 @@ Resources:
       InternetSlbSpec: slb.s2.small
       Spec: MSE_GTW_2_4_200_c
       Replica: 2
-  MseCluster:
+  MseMicroRegistryInstance:
     Type: ALIYUN::MSE::Cluster
     Properties:
       VpcId:
         Ref: Vpc
       VSwitchId:
         Ref: VSwitch
-      ClusterAliasName: test
+      ClusterAliasName:
+        Ref: MseMicroRegistryInstanceName
       MseVersion: mse_pro
       InstanceCount: 3
       ClusterVersion: NACOS_2_0_0
@@ -113,7 +126,7 @@ Resources:
       GatewayUniqueId:
         Ref: MseGateway
       Name:
-        Ref: MseCluster
+        Ref: MseMicroRegistryInstance
       Source: MSE
   ManagedKubernetesCluster:
     Type: ALIYUN::CS::ManagedKubernetesCluster
@@ -124,7 +137,8 @@ Resources:
       - Ref: VSwitch
       PodVswitchIds:
       - Ref: VSwitch
-      Name: testcluster
+      Name:
+        Ref: ManagedKubernetesClusterName
       KubernetesVersion: 1.26.3-aliyun.1
       ZoneIds:
       - Ref: ZoneId
@@ -154,6 +168,7 @@ Resources:
           - Ref: VSwitch
           SystemDiskCategory:
             Ref: WorkerSystemDiskCategory
+          SystemDiskPerformanceLevel: PL0
           SystemDiskSize:
             Ref: WorkerSystemDiskSize
           InstanceTypes:
@@ -167,7 +182,7 @@ Outputs:
   MseNacosAddress:
     Value:
       Fn::GetAtt:
-      - MseCluster
+      - MseMicroRegistryInstance
       - IntranetDomain
 Metadata:
   ALIYUN::ROS::Interface:
@@ -185,3 +200,8 @@ Metadata:
       Label:
         en: ACK Configuration
         zh-cn: ACK配置
+    - Parameters:
+        - MseMicroRegistryInstanceName
+      Label:
+        en: MSE Configuration
+        zh-cn: MSE配置
