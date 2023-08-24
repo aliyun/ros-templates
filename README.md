@@ -475,6 +475,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml)                         | Public network architecture design and security management on the cloud. |
 | [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                             | Internet application is accelerating globally.                           |
 | [enterprise-cloud-network-architecture-planning.yml](./documents/solution/network/enterprise-cloud-network-architecture-planning.yml) | Enterprise cloud network architecture planning.                          |
+| [two-region-three-center-high-availability.yml](./documents/solution/network/two-region-three-center-high-availability.yml)           | Two regions and three centers high availability.                         |
 
 - storage
 
