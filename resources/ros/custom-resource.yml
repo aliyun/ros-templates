@@ -32,42 +32,50 @@ Resources:
       FunctionName:
         Ref: FunctionName
       Handler: index.handler
-      Runtime: python2.7
+      Runtime: python3
       Code:
         SourceCode: |
           import time
           import json
-          import urllib2
+          import urllib.request
           import logging
-
-
+          
           def handler(event, context):
               logger = logging.getLogger()
-
+              logger.setLevel(logging.INFO)
               event = json.loads(event)
               logger.info('receive request: %s', event)
-
+          
               res_props = event['ResourceProperties']
-
-              result = dict(
-                  RequestId=event['RequestId'],
-                  LogicalResourceId=event['LogicalResourceId'],
-                  StackId=event['StackId'],
-                  Status='SUCCESS',
-                  PhysicalResourceId='dummy'
-              )
+          
+              result = {
+                  'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'],
+                  'StackId': event['StackId'],
+                  'Status': 'SUCCESS',
+                  'PhysicalResourceId': 'MyCustomResourceId',
+                  'Data': {}
+              }
+          
               if event['RequestType'] != 'Delete':
-                  result['Data'] = dict(z=res_props['X'] + res_props['Y'])
-
+                  result['Data']['z'] = res_props['X'] + res_props['Y']
+          
               headers = {
                   'Content-type': 'application/json',
                   'Accept': 'application/json',
-                  'Date': time.strftime('%a, %d %b %Y %X GMT', time.gmtime())
+                  'Date': time.strftime('%a, %d %b %Y %X GMT', time.gmtime()),
+                  'User-Agent': 'MyCustomUserAgent'
               }
-              req = urllib2.Request(event['ResponseURL'], data=json.dumps(result), headers=headers)
-              resp = urllib2.urlopen(req)
-              resp_content = resp.read()
+          
+              req = urllib.request.Request(event['ResponseURL'], data=json.dumps(result).encode('utf-8'), headers=headers)
+              resp = urllib.request.urlopen(req)
+              resp_content = resp.read().decode('utf-8')
               logger.info('response: %s', resp_content)
+          
+              if resp.getcode() != 200:
+                  logger.error('Failed to send response, status code: %s', resp.getcode())
+              else:
+                  logger.info('Response sent successfully')
   SimpleTest:
     Type: Custom::Add
     Properties:
