@@ -6,20 +6,8 @@ Parameters:
   ZoneId:
     Type: String
     Label:
-      en: VSwitch Availability Zone 1
-      zh-cn: 交换机可用区1
-    Description:
-      zh-cn: ALB支持多可用区部署,为保障业务高可用，请至少选择2个可用区,不能与交换机可用区2相同。
-      en: 'ALB support multiple availability zones. To ensure high service availability, select at least two availability zones, which cannot be the same as switch availability zone 2. '
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
-  ZoneId2:
-    Type: String
-    Label:
-      en: VSwitch Availability Zone 2
-      zh-cn: 交换机可用区2
-    Description:
-      zh-cn: ALB支持多可用区部署,为保障业务高可用，请至少选择2个可用区,不能与交换机可用区1相同。
-      en: 'ALB support multiple availability zones. To ensure high service availability, select at least two availability zones, which cannot be the same as switch availability zone 1. '
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
   InstanceType:
     Type: String
@@ -184,7 +172,7 @@ Resources:
     Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
-  VSwitch1:
+  VSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
       ZoneId:
@@ -194,24 +182,10 @@ Resources:
       VSwitchName:
         Fn::Join:
           - '-'
-          - - VSwitch1
+          - - VSwitch
             - StackId
             - Ref: ALIYUN::StackId
       CidrBlock: 192.168.0.0/24
-  VSwitch2:
-    Type: ALIYUN::ECS::VSwitch
-    Properties:
-      ZoneId:
-        Ref: ZoneId2
-      VpcId:
-        Ref: Vpc
-      VSwitchName:
-        Fn::Join:
-          - '-'
-          - - VSwitch2
-            - StackId
-            - Ref: ALIYUN::StackId
-      CidrBlock: 192.168.1.0/24
   SecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
@@ -235,19 +209,13 @@ Resources:
       IpProtocol: tcp
       NicType: intranet
       PortRange: 22/22
-  VpcEip:
-    Type: ALIYUN::VPC::EIP
-    Properties:
-      Bandwidth: 50
-      InstanceChargeType: Postpaid
-      InternetChargeType: PayByTraffic
   EcsInstance:
     Type: ALIYUN::ECS::Instance
     Properties:
       VpcId:
         Ref: Vpc
       VSwitchId:
-        Ref: VSwitch1
+        Ref: VSwitch
       SecurityGroupId:
         Ref: SecurityGroup
       ImageId: centos_7_8
@@ -258,75 +226,7 @@ Resources:
       Password:
         Ref: InstancePassword
       IoOptimized: optimized
-      AllocatePublicIP: false
-  VpcEipAssociation:
-    Type: ALIYUN::VPC::EIPAssociation
-    Properties:
-      InstanceId:
-        Ref: EcsInstance
-      AllocationId:
-        Ref: VpcEip
-    DependsOn:
-      - EcsInstance
-      - VpcEip
-  LoadBalancer:
-    Type: ALIYUN::ALB::LoadBalancer
-    Properties:
-      LoadBalancerName:
-        Ref: ALIYUN::StackName
-      LoadBalancerEdition: Basic
-      VpcId:
-        Ref: Vpc
-      LoadBalancerBillingConfig:
-        PayType: PostPay
-      ZoneMappings:
-        - ZoneId:
-            Ref: ZoneId
-          VSwitchId:
-            Ref: VSwitch1
-        - ZoneId:
-            Ref: ZoneId2
-          VSwitchId:
-            Ref: VSwitch2
-      AddressType: Internet
-  ServerGroup:
-    Type: ALIYUN::ALB::ServerGroup
-    Properties:
-      VpcId:
-        Ref: Vpc
-      ServerGroupType: Instance
-      Protocol: HTTP
-      ServerGroupName:
-        Ref: ALIYUN::StackName
-      Scheduler: Wrr
-      HealthCheckConfig:
-        HealthCheckEnabled: true
-      StickySessionConfig:
-        StickySessionEnabled: false
-  BackendServerAttachment:
-    Type: ALIYUN::ALB::BackendServerAttachment
-    Properties:
-      ServerGroupId:
-        Ref: ServerGroup
-      Servers:
-        - ServerType: Ecs
-          ServerId:
-            Ref: EcsInstance
-          Port: 80
-          Weight: 100
-  Listener:
-    Type: ALIYUN::ALB::Listener
-    Properties:
-      DefaultActions:
-        - Type: ForwardGroup
-          ForwardGroupConfig:
-            ServerGroupTuples:
-              - ServerGroupId:
-                  Ref: ServerGroup
-      LoadBalancerId:
-        Ref: LoadBalancer
-      ListenerProtocol: HTTP
-      ListenerPort: 80
+      InternetMaxBandwidthOut: 80
   RdsDBInstance:
     Type: ALIYUN::RDS::DBInstance
     Properties:
@@ -335,7 +235,7 @@ Resources:
       VpcId:
         Ref: Vpc
       VSwitchId:
-        Ref: VSwitch1
+        Ref: VSwitch
       DBInstanceClass:
         Ref: DBInstanceClass
       DBInstanceStorage: 100
@@ -362,7 +262,7 @@ Resources:
       VpcId:
         Ref: Vpc
       VSwitchId:
-        Ref: VSwitch1
+        Ref: VSwitch
       InstanceClass:
         Ref: RedisInstanceClass
       InstanceName: rds_mysql2redis_redis
@@ -406,7 +306,7 @@ Resources:
           VPCId:
             Ref: Vpc
           VSwitchId:
-            Ref: VSwitch1
+            Ref: VSwitch
   ConsumerGroup:
     Type: ALIYUN::DTS::ConsumerGroup
     Properties:
@@ -466,7 +366,6 @@ Metadata:
     ParameterGroups:
       - Parameters:
           - ZoneId
-          - ZoneId2
           - InstanceType
           - SystemDiskCategory
           - InstancePassword
