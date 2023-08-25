@@ -1,0 +1,60 @@
+name: iact3-test
+
+on:
+  pull_request_target:
+    types: [ opened, synchronize, reopened ]
+
+
+jobs:
+  iact3Validate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name:  White list
+      id: white-list
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: | 
+        white_list=($(curl -sSL -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/${{ github.repository }}/collaborators" | jq -r '.[].login'))
+        if [[ " ${white_list[@]} " =~ " ${{ github.actor }} " ]]; then
+          echo "type=test" >> $GITHUB_OUTPUT
+        else
+          echo "type=validate" >> $GITHUB_OUTPUT
+        fi
+
+    - uses: actions/checkout@v3
+      id: checkout
+      with:
+        fetch-depth: 0
+
+    - name: Find changed templates
+      id: changed-templates
+      run: |
+        git fetch origin +refs/pull/${{ github.event.pull_request.number }}/merge
+        git checkout -qf FETCH_HEAD
+        echo "changed_files=$(git --no-pager diff --name-only FETCH_HEAD $(git merge-base FETCH_HEAD master)  | xargs)" >> $GITHUB_OUTPUT
+        echo $(git --no-pager diff --name-only FETCH_HEAD $(git merge-base FETCH_HEAD master)  | xargs)
+
+    - name: Test templates
+      uses: aliyun/alibabacloud-ros-tool-iact3@master
+      with:
+        templates: ${{ steps.changed-templates.outputs.changed_files }}
+        access_key_id: ${{ secrets.ACCESS_KEY_ID }}
+        access_key_secret: ${{ secrets.ACCESS_KEY_SECRET }}
+        type: ${{ steps.white-list.outputs.type }}
+      id: test-templates
+
+    - name: DingTalk Robot
+      if: always()
+      continue-on-error: true
+      run: |
+        if [[ "${{ steps.test-templates.outputs.status }}" = "success" ]]; then
+          curl -H 'Content-Type: application/json;charset=utf-8' -d '{"msgtype": "text","text": {"content": "Iact3-Action CI pass. ${{ github.event.pull_request.user.login }} PR#${{ github.event.pull_request.number }}:${{ github.event.pull_request.title }} ${{ github.event.pull_request.html_url }} "}}' ${{ secrets.DINGDING_WEBHOOK }}
+        else
+          curl -H 'Content-Type: application/json;charset=utf-8' -d '{"msgtype": "text","text": {"content": "Iact3-Action CI failed. ${{ github.event.pull_request.user.login }} PR#${{ github.event.pull_request.number }}:${{ github.event.pull_request.title }} ${{ github.event.pull_request.html_url }} "}}' ${{ secrets.DINGDING_WEBHOOK }}
+        fi
+        
+  
+
+
+

@@ -471,6 +471,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml)                         | 云上公网架构设计和安全管理。 |
 | [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                             | 互联网应用全球加速。     |
 | [enterprise-cloud-network-architecture-planning.yml](./documents/solution/network/enterprise-cloud-network-architecture-planning.yml) | 企业云上网络架构规划。    |
+| [two-region-three-center-high-availability.yml](./documents/solution/network/two-region-three-center-high-availability.yml)           | 两地三中心异地多活。     |
 
 - storage
 
@@ -478,6 +479,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |-----------------------------------------------------------------------------------------------------------------------------|---------------------|
 | [collect-logs-across-alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。         |
 | [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)         | 通过日志审计服务跨账号采集OSS日志。 |
+| [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml)         | 云原生可观测运维。 |
 
 
 - cdn-and-video-cloud

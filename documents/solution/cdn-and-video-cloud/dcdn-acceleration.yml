@@ -25,46 +25,131 @@ Parameters:
     Description:
       zh-cn: 需要加速的源站域名。
       en: The source domain name that needs to be accelerated.
+  ZoneId:
+    Type: String
+    Label:
+      en: Primary VSwitch Availability Zone
+      zh-cn: 主可用区
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating ECS resources.</font></b>
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格。</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: 'Fill in the specifications that can be used under the VSwitch availability
+        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.c5.large</b></font><br>note:
+        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
+        target=''_blank''><b><font color=''blue''>Instance Specification Family.</font></a></b>'
+      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.c5.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
+        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
+        color='blue'>实例规格族。</font></a></b>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    Default: ecs.c5.large
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${InstanceType}
+      ZoneId: ${ZoneId}
+    Default: cloud_efficiency
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
 Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7_8
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Password:
+        Ref: InstancePassword
+      IoOptimized: optimized
+      UserData:
+        Fn::Sub: |-
+          #!/bin/bash
+          # 这里配置安装脚本
+          yum install -y nginx
+          # 配置启动脚本
+          sudo systemctl start nginx
   Domain:
     Type: ALIYUN::DCDN::Domain
     Properties:
       Sources:
-      - Type: domain
-        Content:
-          Fn::Join:
-            - .
-            - Fn::Select:
-                - '1:'
-                - Fn::Split:
-                    - .
-                    - Ref: DomainName
+        - Type: ipaddr
+          Content:
+            Fn::GetAtt:
+              - EcsInstance
+              - PublicIp
+          Weight: 100
+          Port: 80
+          Priority: 20
       DomainName:
         Ref: DomainName
       Scope:
         Ref: Scope
-  DomainRecord:
-    Type: ALIYUN::DNS::DomainRecord
-    Properties:
-      Type: CNAME
-      RR:
-        Fn::Select:
-          - 0
-          - Fn::Split:
-              - .
-              - Ref: DomainName
-      Value:
-        Fn::GetAtt:
-          - Domain
-          - Cname
-      DomainName:
-        Fn::Join:
-          - .
-          - Fn::Select:
-              - '1:'
-              - Fn::Split:
-                  - .
-                  - Ref: DomainName
 Outputs:
   Cname:
     Description: CNAME
@@ -80,7 +165,16 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
     - Parameters:
-      - Scope
-      - DomainName
+        - DomainName
+        - Scope
+      Label:
+        default: DCDN
+    - Parameters:
+        - ZoneId
+        - InstanceType
+        - SystemDiskCategory
+        - InstancePassword
+      Label:
+        default: ECS
     TemplateTags:
     - acs:document-help:cdn-and-video-cloud:加速资源请求场景实践
