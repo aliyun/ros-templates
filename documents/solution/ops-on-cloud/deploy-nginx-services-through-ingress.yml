@@ -36,19 +36,6 @@ Parameters:
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
     AllowedPattern: ^(ecs\.[a-z6-9]+\.)[1-9]?xlarge$
-  LoginPassword:
-    Type: String
-    Label:
-      en: Set node login password
-      zh-cn: 设置节点登录密码
-    Description:
-      en: |-
-        The password must be 8 to 32 characters in length. <br>
-        It must consist three of the the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
-        Special characters include <span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>.<br>
-      zh-cn: 长度为8-30位，需包含大写字母、小写字母、特殊符号和数字中的三个，允许的特殊字符包括<span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>。
-    AssociationProperty: ALIYUN::ECS::Instance::Password
-    NoEcho: true
   CommonName:
     Type: String
     Default: ack-for-nginx
@@ -101,17 +88,20 @@ Resources:
           IpProtocol: all
           DestCidrIp: 0.0.0.0/0
           NicType: intranet
-  NatGateway:
-    Type: ALIYUN::VPC::NatGateway
+  RandomString:
+    Type: ALIYUN::RandomString
     Properties:
-      ZoneId:
-        Ref: ZoneId
-      VpcId:
-        Ref: Vpc
-      VSwitchId:
-        Ref: Vswitch
-      NatGatewayName:
-        Fn::Sub: ${CommonName}-ngw
+      length: 10
+      character_classes:
+        - class: lowercase
+          min: 1
+        - class: uppercase
+          min: 1
+        - class: digits
+          min: 1
+      character_sequences:
+        - sequence: '!@#$%^&*()_+-='
+          min: 1
   Ack:
     Type: ALIYUN::CS::ManagedKubernetesCluster
     Properties:
@@ -123,7 +113,7 @@ Resources:
       - Ref: Vswitch
       Name:
         Ref: AckName
-      NumOfNodes: 2
+      NumOfNodes: 3
       ClusterSpec: ack.pro.small
       ServiceCidr: 172.16.0.0/16
       Addons:
@@ -142,125 +132,24 @@ Resources:
       - Name: arms-prometheus
       - Name: ack-node-problem-detector
         Config: '{"sls_project_name":""}'
-      EndpointPublicAccess: true
+      EndpointPublicAccess: false
       SnatEntry: true
-      IsEnterpriseSecurityGroup: true
+      LoadBalancerSpec: slb.s1.small
+      IsEnterpriseSecurityGroup: false
       WorkerInstanceTypes:
       - Ref: InstanceType
       WorkerSystemDiskCategory: cloud_essd
-      WorkerSystemDiskSize: 120
+      WorkerSystemDiskSize: 40
       LoginPassword:
-        Ref: LoginPassword
+        Fn::GetAtt:
+          - RandomString
+          - value
       Runtime:
         Name: containerd
         Version: 1.6.20
     DependsOn:
-      - NatGateway
       - ModuleAcsCsProvision
       - EnableServiceSls
-  AckNginx:
-    Type: ALIYUN::CS::ClusterApplication
-    Properties:
-      ClusterId:
-        Ref: Ack
-      YamlContent: |-
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: nginx-deployment-basic
-          labels:
-            app: nginx
-        spec:
-          replicas: 2
-          selector:
-            matchLabels:
-              app: nginx
-          template:
-            metadata:
-              labels:
-                app: nginx
-            spec:
-              containers:
-                - name: nginx
-                  image: nginx:1.9.1
-                  ports:
-                    - containerPort: 80
-                  resources:
-                    limits:
-                      cpu: 500m
-                  env:
-                    - name: aliyun_logs_log-nginxvarlog
-                      value: stdout
-        ---
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: nginxservice
-          namespace: ''
-          annotations:
-            service.beta.kubernetes.io/alicloud-loadbalancer-bandwidth: '20'
-        spec:
-          selector:
-            app: nginx
-          ports:
-            - protocol: TCP
-              port: 80
-              targetPort: 80
-              name: test
-          type: ClusterIP
-          ipFamilyPolicy: SingleStack
-  WaitService:
-    Type: ALIYUN::ROS::Sleep
-    DependsOn: AckNginx
-    Properties:
-      CreateDuration: 180
-  NginxIngress:
-    Type: ALIYUN::CS::ClusterApplication
-    DependsOn: WaitService
-    Properties:
-      ClusterId:
-        Ref: Ack
-      YamlContent: |-
-        apiVersion: networking.k8s.io/v1
-        kind: Ingress
-        metadata:
-          name: ingress-demo
-          labels:
-            ingress-controller: nginx
-        spec:
-          rules:
-            - http:
-                paths:
-                  - path: /
-                    pathType: ImplementationSpecific
-                    backend:
-                      service:
-                        name: nginxservice
-                        port:
-                          number: 80
-          ingressClassName: nginx
-  WaitIngress:
-    Type: ALIYUN::ROS::Sleep
-    DependsOn: NginxIngress
-    Properties:
-      CreateDuration: 180
-  NginxAddress:
-    Type: DATASOURCE::CS::ClusterApplicationResources
-    Properties:
-      ClusterId:
-        Ref: Ack
-      Kind: Ingress
-      Name: ingress-demo
-      JsonPath: $.status.loadBalancer.ingress.[0].ip
-      FirstMatch: true
-    DependsOn: WaitIngress
-Outputs:
-  NginxUrl:
-    Description:
-      en: Nginx page url.
-      zh-cn: Nginx 访问地址。
-    Value:
-      Fn::Sub: http://${NginxAddress}
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -268,7 +157,6 @@ Metadata:
         - AckName
         - ZoneId
         - InstanceType
-        - LoginPassword
     Hidden:
       - CommonName
     TemplateTags:
