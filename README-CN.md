@@ -441,12 +441,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - data-analysis
 
-| 模板                                                                                                                    | 说明       |
-|-----------------------------------------------------------------------------------------------------------------------|-------------------|
-| [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | 基于Flink+Hologres搭建实时数仓。 |
-| [flink-maxcompute-data-warehouse.yml](./documents/solution/data-analysis/flink-maxcompute-data-warehouse.yml)         | 搭建实时数仓并实现查询加速。 |
+| 模板                                                                                                                    | 说明                                 |
+|-----------------------------------------------------------------------------------------------------------------------|------------------------------------|
+| [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | 基于Flink+Hologres搭建实时数仓。            |
+| [flink-maxcompute-data-warehouse.yml](./documents/solution/data-analysis/flink-maxcompute-data-warehouse.yml)         | 搭建实时数仓并实现查询加速。                     |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
-| [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml) | 基于AnalyticDB MySQL湖仓版的用户运营分析实践。 |
+| [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml)                     | 基于AnalyticDB MySQL湖仓版的用户运营分析实践。    |
+| [cloud-native-enterprise-data-lake.yml](./documents/solution/data-analysis/cloud-native-enterprise-data-lake.yml)     | 云原生企业级数据湖。                         |
 
 - database
 

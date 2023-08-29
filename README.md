@@ -445,12 +445,13 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - data-analysis
 
-| Template                                                                                                              | Description       |
-|-----------------------------------------------------------------------------------------------------------------------|-----------------|
-| [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | Build real-time warehouse based on Flink+Hologres. |
-| [flink-maxcompute-data-warehouse.yml](./documents/solution/data-analysis/flink-maxcompute-data-warehouse.yml)         | Build real-time data warehouse and realize query acceleration. |
+| Template                                                                                                              | Description                                                                                                       |
+|-----------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
+| [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | Build real-time warehouse based on Flink+Hologres.                                                                |
+| [flink-maxcompute-data-warehouse.yml](./documents/solution/data-analysis/flink-maxcompute-data-warehouse.yml)         | Build real-time data warehouse and realize query acceleration.                                                    |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | Use the Centos7 system to create an ECS instance and install and deploy the Gamer Points Leaderboard application. |
-| [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml) | User operation analysis practice based on AnalyticDB MySQL Lakehouse Edition. |
+| [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml)                     | User operation analysis practice based on AnalyticDB MySQL Lakehouse Edition.                                     |
+| [cloud-native-enterprise-data-lake.yml](./documents/solution/data-analysis/cloud-native-enterprise-data-lake.yml)     | Cloud-native enterprise data lake.                                                                                |
 
 - database
 
