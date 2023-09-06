@@ -428,16 +428,16 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - ai
 
-| 模板                                                                                                                                                               | 说明                                                                                         |
-|------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
-| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。 |
-| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml)                                                   | AIGC文本生成3D模型。 |
-| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml)                           | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。 |
-| [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml)                                                                     | LLAMA-2全托管灵骏最佳实践。 |
-| [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                     | PAI AI绘画解决方案。 |
-| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml)                                              | PAI灵骏智算资源（Serverless版）大模型最佳实践。 |
-| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml)                                                                   | 大模型结合向量数据库AnalyticDB，构建一站式企业专属Chatbot。 |
-| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                     | 基于ChatGLM和LangChain搭建对话模型。 |
+| 模板                                                                                                                                                               | 说明                                                                          |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。                                     |
+| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml)                                                   | AIGC文本生成3D模型。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/tg3dm) |
+| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml)                           | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。                                         |
+| [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml)                                                                     | LLAMA-2全托管灵骏最佳实践。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/pai_lingjun) |
+| [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                     | PAI AI绘画解决方案。                                                               |
+| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml)                                              | PAI灵骏智算资源（Serverless版）大模型最佳实践。                                              |
+| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml)                                                                   | 向量数据库构建企业智能知识库。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/baeeikb) |
+| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                     | 基于ChatGLM和LangChain搭建对话模型。                                                  |
 
 - data-analysis
 
@@ -451,25 +451,25 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - database
 
-| 模板                                                                                                         | 说明       |
-|------------------------------------------------------------------------------------------------------------------|-------------------|
-| [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | 数据库自动扩缩容和自动SQL优化。 |
-| [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。 |
-| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | 通过DTS实现MySQL与Redis缓存同步一致性方案。 |
-| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                    | 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。 |
-| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | RDS+ClickHouse，构建更易用的一站式HTAP服务。|
+| 模板                                                                                                         | 说明                                                                                            |
+|------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | 数据库自动扩缩容和自动SQL优化。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/adsa_sql)                |
+| [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。                                                                             |
+| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | 通过DTS实现MySQL与Redis缓存同步一致性方案。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/rtsorarctebcc) |
+| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                    | 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。                                          |
+| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | RDS+ClickHouse构建一站式HTAP。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/rdsclickhouse_htap)  |
 
 - micro
 
 | 模板                                                                                                                 | 说明       |
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
-| [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-end-to-end-canary-release-for-ack-application.yml) | 基于MSE实现ACK应用的全链路灰度。 |
+| [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-end-to-end-canary-release-for-ack-application.yml) | 基于MSE实现ACK应用的全链路灰度。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/iflgbomse) |
 
 - network
 
 | 模板                                                                                                                                    | 说明             |
 |---------------------------------------------------------------------------------------------------------------------------------------|----------------|
-| [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml)   | 跨地域跨账号网络互通方案。  |
+| [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml)   | 跨地域跨账号网络互通方案。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/cracani) |
 | [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml)                         | 云上公网架构设计和安全管理。 |
 | [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                             | 互联网应用全球加速。     |
 | [enterprise-cloud-network-architecture-planning.yml](./documents/solution/network/enterprise-cloud-network-architecture-planning.yml) | 企业云上网络架构规划。    |
@@ -479,7 +479,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | 模板                                                                                                                          | 说明                  |
 |-----------------------------------------------------------------------------------------------------------------------------|---------------------|
-| [collect-logs-across-alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。         |
+| [collect-logs-across-alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/cacac_logs) |
 | [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)         | 通过日志审计服务跨账号采集OSS日志。 |
 | [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml)         | 云原生可观测运维。 |
 
@@ -495,25 +495,26 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - high-availability-architecture
 
-| 模板                                                                                                                                            | 说明             |
-|-----------------------------------------------------------------------------------------------------------------------------------------------|----------------|
-| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml)  | 云上高可用博客网站。     |
-| [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                      | 高可用及共享存储Web服务。 |
+| 模板                                                                                                                                           | 说明                                                                       |
+|----------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| [alb-cross-region-load-balance.yml](documents/solution/high-availability-architecture/alb-cross-region-load-balance.yml)           | ALB实现跨地域负载均衡。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/alb_acrlb) |
+| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | 云上高可用博客网站。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/habwoc)    |
+| [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | 高可用及共享存储Web服务。                                                           |
 
 
 - ops-on-cloud
 
 | 模板                                                                                                                     | 说明                                                            |
 |------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
-| [deploy-nginx-services-through-ingress.yml](documents/solution/ops-on-cloud/deploy-nginx-services-through-ingress.yml) | 部署Nginx并通过Ingress暴露和监控服务。 |
+| [deploy-nginx-services-through-ingress.yml](documents/solution/ops-on-cloud/deploy-nginx-services-through-ingress.yml) | 部署Nginx并通过Ingress暴露和监控服务。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/nginx_ingress) |
 
 
 - internet-application-development
 
-| 模板                                                                                                                                   | 说明             |
-|--------------------------------------------------------------------------------------------------------------------------------------|----------------|
-| [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml)           | Nginx访问日志数据归档。     |
-| [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | 视频网站的存储与媒体处理方案。 |
+| 模板                                                                                                                                   | 说明                                                                        |
+|--------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml)           | Nginx访问日志数据归档。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/oss_nginx)|
+| [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | 视频网站的存储与媒体处理方案。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/vsaps) |
 
 - security-and-compliance
 
