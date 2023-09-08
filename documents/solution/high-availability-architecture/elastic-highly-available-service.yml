@@ -1,0 +1,425 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Build elastic and highly available services based on CLB and ESS. This solution
+    takes WordPress as an example. ESS deploys two ECS instances in two availability
+    zones and automatically binds them to the default server group of CLB so that
+    they can be accessed. Among them, the ECS instance uses the RDS high-availability
+    instance as the database, and the CLB listens to WordPress service port 80 and
+    performs health checks. In addition, scaling rules are configured in ESS, and
+    when the average CPU value exceeds or falls below a certain threshold, the capacity
+    will be automatically scaled.
+  zh-cn: 
+    基于CLB、ESS构建弹性高可用服务。本方案以WordPress为例，通过ESS在2个可用区分别部署2台ECS实例，并自动绑定到CLB的默认服务器组，从而对外提供服务。其中，ECS实例使用RDS高可用版实例作为数据库，CLB监听WordPress
+    80端口并进行健康检查。此外，ESS中配置了伸缩规则，当CPU平均值超过或低于特定阈值时，会自动扩缩容。
+Parameters:
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: LoadBalancer Specifications
+      zh-cn: 负载均衡实例规格
+    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
+    Default: slb.s1.small
+  ZoneId1:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone1
+      zh-cn: 可用区1
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+  ZoneId2:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone2
+      zh-cn: 可用区2
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+  InstanceType1:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型1
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId1}
+  InstanceType2:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型2
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId2}
+  RdsInstanceClass:
+    Type: String
+    Label:
+      en: RDS Instance Class
+      zh-cn: RDS实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId1}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+  RdsDBPassword:
+    Type: String
+    Label:
+      en: RDS Database Account Password
+      zh-cn: RDS数据库账号密码
+    Description:
+      en: 'The password must be 8 to 32 characters in length and must contain at least
+        three of the following types: uppercase letters, lowercase letter, digits,
+        and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
+    AllowedPattern: 
+      ^(?=.*[a-zA-Z])(?=.*[a-z0-9])(?=.*[a-z!@#$%^&*()_+=-])(?=.*[A-Z0-9])(?=.*[A-Z!@#$%^&*()_+=-])(?=.*[0-9!@#$%^&*()_+=-])[a-zA-Z0-9!@#$%^&*()_+=-]{8,32}$
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: ha
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+      CidrBlock: 192.168.0.0/16
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId1
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw-001
+      CidrBlock: 192.168.1.0/24
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId2
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw-002
+      CidrBlock: 192.168.2.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+      - PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      SecurityGroupEgress:
+      - PortRange: '-1/-1'
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+      - PortRange: '-1/-1'
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  ClbLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName:
+        Fn::Sub: ${CommonName}-clb
+      PayType: PayOnDemand
+      AddressType: internet
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+  ClbListener:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      ListenerPort: 80
+      Bandwidth: 10
+      HealthCheck:
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
+        HealthCheckType: http
+        UnhealthyThreshold: 3
+        Timeout: 5
+        HealthyThreshold: 3
+        Port: 80
+        URI: /
+        Interval: 5
+      LoadBalancerId:
+        Ref: ClbLoadBalancer
+      BackendServerPort: 80
+      Protocol: http
+  RdsInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId1
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch1
+      DBInstanceDescription:
+        Fn::Sub: ${CommonName}-rds-instance
+      Engine: MySQL
+      DBInstanceStorage: 100
+      EngineVersion: '8.0'
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      DBInstanceClass:
+        Ref: RdsInstanceClass
+      SecurityIPList:
+        Fn::Sub: ${VSwitch1.CidrBlock},${VSwitch2.CidrBlock}
+      PayType: Postpaid
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      CharacterSetName: utf8mb4
+      DBInstanceId:
+        Ref: RdsInstance
+      DBDescription: wordpress
+      DBName: wordpress
+  RdsAccount:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      AccountName: wp_admin
+      AccountType: Normal
+      AccountDescription: wordpress admin
+      AccountPassword:
+        Ref: RdsDBPassword
+      DBInstanceId:
+        Ref: RdsInstance
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RdsInstance
+      DBName:
+        Ref: RdsDatabase
+      AccountName:
+        Ref: RdsAccount
+  EssScalingGroup:
+    Type: ALIYUN::ESS::ScalingGroup
+    Properties:
+      VSwitchIds:
+      - Ref: VSwitch1
+      - Ref: VSwitch2
+      ScalingGroupName:
+        Fn::Sub: ${CommonName}-asg
+      RemovalPolicys:
+      - NewestInstance
+      MinSize: 2
+      MaxSize: 10
+      DefaultCooldown: 300
+      MultiAZPolicy: COMPOSABLE
+      AzBalance: true
+      LoadBalancerIds:
+      - Ref: ClbLoadBalancer
+    DependsOn: SecurityGroup
+  EssScalingConfiguration:
+    Type: ALIYUN::ESS::ScalingConfiguration
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7_9_x64_20G_alibase_20220727.vhd
+      ScalingConfigurationName:
+        Fn::Sub: ${CommonName}-asc
+      ScalingGroupId:
+        Ref: EssScalingGroup
+      InstanceTypes:
+      - Ref: InstanceType1
+      - Ref: InstanceType2
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 200
+      InstanceName:
+        Fn::Sub: ${CommonName}-wordpress
+      InternetMaxBandwidthOut: 100
+      UserData:
+        Fn::Sub: |-
+          #!/bin/bash
+          script=/root/setup-wordpress.sh
+          cat<<\EOF>$script
+          #!/bin/bash
+          if [ ! -f .ros.provision ]; then
+            echo "Name: ha-service" > .ros.provision
+          fi
+
+          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [[ "$name" != "ha-service" ]]; then
+            echo "ha-service installed, skip"
+            exit 0
+          fi
+
+          if ! grep -q "^Step1: Install Environment$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Environment"
+            echo "#########################"
+            yum -y install httpd httpd-manual mod_ssl mod_perl mod_auth_mysql sysbench
+            systemctl start httpd
+            systemctl enable httpd
+            systemctl status httpd
+
+            yum install -y yum-utils epel-release http://rpms.remirepo.net/enterprise/remi-release-7.rpm 
+            yum-config-manager --enable remi-php82
+            yum -y install php php-opcache php-mysqlnd php-pdo php-gd php-ldap php-odbc php-pear php-xml php-xmlrpc php-mbstring php-soap
+            echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php
+            systemctl restart httpd
+            echo "Step1: Install Environment" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Environment has been installed"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step2: Install and Config WordPress$" .ros.provision; then
+            echo "################################"
+            echo "# Install and Config WordPress"
+            echo "################################"
+            wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/WordPress/wordpress-6.3.1-zh_CN.tar.gz
+            tar -xvf wordpress-6.3.1-zh_CN.tar.gz -C /var/www/html
+            mv /var/www/html/wordpress/* /var/www/html
+            chown -R apache:apache /var/www/html/wordpress
+            chmod -R 755 /var/www/html/wordpress
+            mv /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
+            sed -i 's/localhost/${RdsInstance.InnerConnectionString}/' /var/www/html/wp-config.php
+            sed -i 's/username_here/${RdsAccount}/' /var/www/html/wp-config.php
+            sed -i 's/password_here/${RdsDBPassword}/' /var/www/html/wp-config.php
+            sed -i 's/database_name_here/${RdsDatabase}/' /var/www/html/wp-config.php
+            systemctl restart httpd
+            echo "Step2: Install and Config WordPress" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# WordPress has been installed and configed"
+            echo "#########################"
+          fi
+          EOF
+  EssScalingGroupEnable:
+    Type: ALIYUN::ESS::ScalingGroupEnable
+    Properties:
+      ScalingGroupId:
+        Ref: EssScalingGroup
+      ScalingConfigurationId:
+        Ref: EssScalingConfiguration
+  ESSLifecycleOOSRunCommandRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: ESSLifecycleOOSRunCommandRole
+      IgnoreExisting: true
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - oos.aliyuncs.com
+        Version: '1'
+      Policies:
+      - PolicyName: ESSLifecycleOOSRunCommandRolePolicy
+        PolicyDocument:
+          Statement:
+          - Action:
+            - ecs:DescribeInvocationResults
+            - "ecs:DescribeInvocationResults"
+            - ecs:DescribeInvocations
+            - ecs:RunCommand
+            Resource:
+            - '*'
+            Effect: Allow
+          - Action:
+            - ess:CompleteLifecycleAction
+            Resource:
+            - '*'
+            Effect: Allow
+          Version: '1'
+  ESSLifecycleHook:
+    Type: ALIYUN::ESS::LifecycleHook
+    Properties:
+      LifecycleHookName:
+        Fn::Sub: ${CommonName}-ash-scaleout
+      ScalingGroupId:
+        Ref: EssScalingGroup
+      LifecycleTransition: SCALE_OUT
+      NotificationArn:
+        Fn::Sub: acs:ess:${ALIYUN::Region}:${ALIYUN::TenantId}:oos/ACS-ESS-LifeCycleRunCommand
+      NotificationMetadata:
+        Fn::Sub: |-
+          {
+            "commandContent": "bash -x /root/setup-wordpress.sh",
+            "commandType": "RunShellScript",
+            "timeout": 120,
+            "OOSAssumeRole": "${ESSLifecycleOOSRunCommandRole.RoleName}",
+            "regionId": "${!regionId}",
+            "instanceIds": "${!instanceIds}",
+            "lifecycleHookId": "${!lifecycleHookId}",
+            "rateControl": "{\"Mode\":\"Concurrency\",\"MaxErrors\":0,\"Concurrency\":10}",
+            "lifecycleActionToken": "${!lifecycleActionToken}"
+          }
+  EssScalingRule:
+    Type: ALIYUN::ESS::ScalingRule
+    Properties:
+      ScalingRuleName:
+        Fn::Sub: ${CommonName}-asr-scaleout
+      ScalingGroupId:
+        Ref: EssScalingGroup
+      ScalingRuleType: TargetTrackingScalingRule
+      AdjustmentType: QuantityChangeInCapacity
+      AdjustmentValue: 1
+      MetricName: CpuUtilization
+      TargetValue: 80
+      ScaleOutEvaluationCount: 3
+      ScaleInEvaluationCount: 3
+      EstimatedInstanceWarmup: 0
+Outputs:
+  Endpoint:
+    Description:
+      zh-cn: 公网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+      - http://${ServerAddress}
+      - ServerAddress:
+          Fn::GetAtt:
+          - ClbLoadBalancer
+          - IpAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        default:
+          en: CLB Configuration
+          zh-cn: 负载均衡配置
+    - Parameters:
+      - ZoneId1
+      - ZoneId2
+      Label:
+        default:
+          en: Availability Zone
+          zh-cn: 可用区配置
+    - Parameters:
+      - InstanceType1
+      - InstanceType2
+      Label:
+        default:
+          en: Instance Configuration
+          zh-cn: 实例配置
+    - Parameters:
+      - RdsInstanceClass
+      - RdsDBPassword
+      Label:
+        default:
+          en: RDS Configuration
+          zh-cn: RDS配置
+    TemplateTags:
+    - 'acs:technical-solution:high-availability-architecture:弹性高可用服务'
+    Hidden:
+    - CommonName
