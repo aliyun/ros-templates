@@ -499,11 +499,12 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - high-availability-architecture
 
-| Template                                                                                                                                     | Description                                  |
-|----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------|
-| [alb-cross-region-load-balance.yml](documents/solution/high-availability-architecture/alb-cross-region-load-balance.yml)                     | Cross-regional load balancing based on ALB.  |
-| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | Highly available blog site on the cloud.     |
-| [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | Highly available web services.               |
+| Template                                                                                                                                     | Description                                                        |
+|----------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| [alb-cross-region-load-balance.yml](documents/solution/high-availability-architecture/alb-cross-region-load-balance.yml)                     | Cross-regional load balancing based on ALB.                        |
+| [elastic-highly-available-service.yml](documents/solution/high-availability-architecture/elastic-highly-available-service.yml)               | Build elastic and highly available services based on CLB and ESS.  |
+| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | Highly available blog site on the cloud.                           |
+| [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | Highly available web services.                                     |
 
 
 - ops-on-cloud
