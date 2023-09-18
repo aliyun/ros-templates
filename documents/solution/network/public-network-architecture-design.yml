@@ -51,16 +51,28 @@ Resources:
     Properties:
       VpcName: VPC_DMZ
       CidrBlock: 192.168.2.0/24
-  SecurityGroup_0:
+  PrdSecurityGroup_0:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: PrdVpc_0
-  SecurityGroup_1:
+      SecurityGroupIngress:
+        - PortRange: -1/-1
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: all
+          NicType: intranet
+  PrdSecurityGroup_1:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: PrdVpc_1
+      SecurityGroupIngress:
+        - PortRange: -1/-1
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: all
+          NicType: intranet
   PrdVSwitch_0_0:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -109,21 +121,23 @@ Resources:
       ZoneId:
         Ref: ZoneId_1
       CidrBlock: 192.168.2.128/25
-  CENInstance:
+  CenInstance:
     Type: ALIYUN::CEN::CenInstance
-  CENTransitRouter:
+    Properties:
+      Name: DmzCen
+  CenTransitRouter:
     Type: ALIYUN::CEN::TransitRouter
     Properties:
       CenId:
         Fn::GetAtt:
-          - CENInstance
+          - CenInstance
           - CenId
-  CENTransitRouterVpcAttachment_0:
+  PrdCenTransitRouterVpcAttachment_0:
     Type: ALIYUN::CEN::TransitRouterVpcAttachment
     Properties:
       TransitRouterId:
         Fn::GetAtt:
-          - CENTransitRouter
+          - CenTransitRouter
           - TransitRouterId
       VpcId:
         Ref: PrdVpc_0
@@ -137,12 +151,12 @@ Resources:
           VSwitchId:
             Ref: PrdVSwitch_0_1
       DeletionForce: true
-  CENTransitRouterVpcAttachment_1:
+  PrdCenTransitRouterVpcAttachment_1:
     Type: ALIYUN::CEN::TransitRouterVpcAttachment
     Properties:
       TransitRouterId:
         Fn::GetAtt:
-          - CENTransitRouter
+          - CenTransitRouter
           - TransitRouterId
       VpcId:
         Ref: PrdVpc_1
@@ -156,12 +170,12 @@ Resources:
           VSwitchId:
             Ref: PrdVSwitch_1_1
       DeletionForce: true
-  CENTransitRouterVpcAttachment_2:
+  DmzCenTransitRouterVpcAttachment:
     Type: ALIYUN::CEN::TransitRouterVpcAttachment
     Properties:
       TransitRouterId:
         Fn::GetAtt:
-          - CENTransitRouter
+          - CenTransitRouter
           - TransitRouterId
       VpcId:
         Ref: DmzVpc
@@ -175,6 +189,203 @@ Resources:
           VSwitchId:
             Ref: DmzVSwitch_1
       DeletionForce: true
+  CenTransitRouterRouteTable_0:
+    Type: ALIYUN::CEN::TransitRouterRouteTable
+    Properties:
+      TransitRouterRouteTableName: Prd_tr_1
+      TransitRouterId:
+        Fn::GetAtt:
+          - CenTransitRouter
+          - TransitRouterId
+  CenTransitRouterRouteTable_1:
+    Type: ALIYUN::CEN::TransitRouterRouteTable
+    Properties:
+      TransitRouterRouteTableName: Prd_tr_2
+      TransitRouterId:
+        Fn::GetAtt:
+          - CenTransitRouter
+          - TransitRouterId
+  DmzTransitRouterRouteTablePropagation_0:
+    Type: ALIYUN::CEN::TransitRouterRouteTablePropagation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+          - CenTransitRouter
+          - SystemTransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+          - PrdCenTransitRouterVpcAttachment_0
+          - TransitRouterAttachmentId
+  DmzTransitRouterRouteTablePropagation_1:
+    Type: ALIYUN::CEN::TransitRouterRouteTablePropagation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+          - CenTransitRouter
+          - SystemTransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+          - PrdCenTransitRouterVpcAttachment_1
+          - TransitRouterAttachmentId
+  PrdTransitRouterRouteTablePropagation_0:
+    Type: ALIYUN::CEN::TransitRouterRouteTablePropagation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+          - CenTransitRouterRouteTable_0
+          - TransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+          - DmzCenTransitRouterVpcAttachment
+          - TransitRouterAttachmentId
+  PrdTransitRouterRouteTablePropagation_1:
+    Type: ALIYUN::CEN::TransitRouterRouteTablePropagation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+          - CenTransitRouterRouteTable_1
+          - TransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+          - DmzCenTransitRouterVpcAttachment
+          - TransitRouterAttachmentId
+  PrdCenTransitRouterRouteEntryToDmz_0:
+    Type: ALIYUN::CEN::TransitRouterRouteEntry
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+          - CenTransitRouterRouteTable_0
+          - TransitRouterRouteTableId
+      TransitRouterRouteEntryDestinationCidrBlock: 0.0.0.0/0
+      TransitRouterRouteEntryNextHopType: Attachment
+      TransitRouterRouteEntryNextHopId:
+        Fn::GetAtt:
+          - DmzCenTransitRouterVpcAttachment
+          - TransitRouterAttachmentId
+  PrdCenTransitRouterRouteEntryToDmz_1:
+    Type: ALIYUN::CEN::TransitRouterRouteEntry
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+          - CenTransitRouterRouteTable_1
+          - TransitRouterRouteTableId
+      TransitRouterRouteEntryDestinationCidrBlock: 0.0.0.0/0
+      TransitRouterRouteEntryNextHopType: Attachment
+      TransitRouterRouteEntryNextHopId:
+        Fn::GetAtt:
+          - DmzCenTransitRouterVpcAttachment
+          - TransitRouterAttachmentId
+  DmzTransitRouterRouteTableAssociation:
+    Type: ALIYUN::CEN::TransitRouterRouteTableAssociation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+          - CenTransitRouter
+          - SystemTransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+          - DmzCenTransitRouterVpcAttachment
+          - TransitRouterAttachmentId
+  PrdTransitRouterRouteTableAssociation_0:
+    Type: ALIYUN::CEN::TransitRouterRouteTableAssociation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+          - CenTransitRouterRouteTable_0
+          - TransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+          - PrdCenTransitRouterVpcAttachment_0
+          - TransitRouterAttachmentId
+  PrdTransitRouterRouteTableAssociation_1:
+    Type: ALIYUN::CEN::TransitRouterRouteTableAssociation
+    Properties:
+      TransitRouterRouteTableId:
+        Fn::GetAtt:
+          - CenTransitRouterRouteTable_1
+          - TransitRouterRouteTableId
+      TransitRouterAttachmentId:
+        Fn::GetAtt:
+          - PrdCenTransitRouterVpcAttachment_1
+          - TransitRouterAttachmentId
+  DmzRouterEntryToPrd_0:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 192.168.0.0/24
+      RouteTableId:
+        Fn::GetAtt:
+          - DmzVpc
+          - RouteTableId
+      NextHopType: Attachment
+      NextHopId:
+        Fn::GetAtt:
+          - DmzCenTransitRouterVpcAttachment
+          - TransitRouterAttachmentId
+  DmzRouterEntryToPrd_1:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 192.168.1.0/24
+      RouteTableId:
+        Fn::GetAtt:
+          - DmzVpc
+          - RouteTableId
+      NextHopType: Attachment
+      NextHopId:
+        Fn::GetAtt:
+          - DmzCenTransitRouterVpcAttachment
+          - TransitRouterAttachmentId
+  PrdRouterEntryToDmz_0_0:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId:
+        Fn::GetAtt:
+          - PrdVpc_0
+          - RouteTableId
+      NextHopType: Attachment
+      NextHopId:
+        Fn::GetAtt:
+          - PrdCenTransitRouterVpcAttachment_0
+          - TransitRouterAttachmentId
+  PrdRouterEntryToDmz_0_1:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 192.168.2.0/24
+      RouteTableId:
+        Fn::GetAtt:
+          - PrdVpc_0
+          - RouteTableId
+      NextHopType: Attachment
+      NextHopId:
+        Fn::GetAtt:
+          - PrdCenTransitRouterVpcAttachment_0
+          - TransitRouterAttachmentId
+  PrdRouterEntryToDmz_1_0:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId:
+        Fn::GetAtt:
+          - PrdVpc_1
+          - RouteTableId
+      NextHopType: Attachment
+      NextHopId:
+        Fn::GetAtt:
+          - PrdCenTransitRouterVpcAttachment_1
+          - TransitRouterAttachmentId
+  PrdRouterEntryToDmz_1_1:
+    Type: ALIYUN::ECS::Route
+    Properties:
+      DestinationCidrBlock: 192.168.2.0/24
+      RouteTableId:
+        Fn::GetAtt:
+          - PrdVpc_1
+          - RouteTableId
+      NextHopType: Attachment
+      NextHopId:
+        Fn::GetAtt:
+          - PrdCenTransitRouterVpcAttachment_1
+          - TransitRouterAttachmentId
   CommonBandwidthPackage:
     Type: ALIYUN::VPC::CommonBandwidthPackage
     Properties:
@@ -186,7 +397,7 @@ Resources:
       VpcId:
         Ref: PrdVpc_0
       SecurityGroupId:
-        Ref: SecurityGroup_0
+        Ref: PrdSecurityGroup_0
       VSwitchId:
         Ref: PrdVSwitch_0_0
       InstanceName: APP01
@@ -206,7 +417,7 @@ Resources:
       VpcId:
         Ref: PrdVpc_0
       SecurityGroupId:
-        Ref: SecurityGroup_0
+        Ref: PrdSecurityGroup_0
       VSwitchId:
         Ref: PrdVSwitch_0_1
       InstanceName: APP02
@@ -226,7 +437,7 @@ Resources:
       VpcId:
         Ref: PrdVpc_1
       SecurityGroupId:
-        Ref: SecurityGroup_1
+        Ref: PrdSecurityGroup_1
       VSwitchId:
         Ref: PrdVSwitch_1_0
       InstanceName: APP03
@@ -246,7 +457,7 @@ Resources:
       VpcId:
         Ref: PrdVpc_1
       SecurityGroupId:
-        Ref: SecurityGroup_1
+        Ref: PrdSecurityGroup_1
       VSwitchId:
         Ref: PrdVSwitch_1_1
       InstanceName: APP04
@@ -355,7 +566,7 @@ Resources:
       ServerGroupName: AlbServerGroup_PRD_1
       StickySessionConfig:
         StickySessionEnabled: false
-  AlbBackendServerAttachment_0_0:
+  AlbBackendServerAttachment_0:
     Type: ALIYUN::ALB::BackendServerAttachment
     Properties:
       ServerGroupId:
@@ -369,21 +580,13 @@ Resources:
               - PrdEcsInstance_0_0
               - InstanceId
           Port: 80
-  AlbBackendServerAttachment_0_1:
-    Type: ALIYUN::ALB::BackendServerAttachment
-    Properties:
-      ServerGroupId:
-        Fn::GetAtt:
-          - AlbServerGroup_0
-          - ServerGroupId
-      Servers:
         - ServerType: Ecs
           ServerId:
             Fn::GetAtt:
               - PrdEcsInstance_0_1
               - InstanceId
           Port: 80
-  AlbBackendServerAttachment_1_0:
+  AlbBackendServerAttachment_1:
     Type: ALIYUN::ALB::BackendServerAttachment
     Properties:
       ServerGroupId:
@@ -397,14 +600,6 @@ Resources:
               - PrdEcsInstance_1_0
               - InstanceId
           Port: 80
-  AlbBackendServerAttachment_1_1:
-    Type: ALIYUN::ALB::BackendServerAttachment
-    Properties:
-      ServerGroupId:
-        Fn::GetAtt:
-          - AlbServerGroup_1
-          - ServerGroupId
-      Servers:
         - ServerType: Ecs
           ServerId:
             Fn::GetAtt:
@@ -475,6 +670,71 @@ Resources:
       HealthCheckConfig:
         HttpCheckMethod: HEAD
         HealthCheckType: Tcp
+      Servers:
+        - ServerType: Ip
+          ServerId:
+            Fn::Jq:
+              - First
+              - .[0].LoadBalancerAddresses | .[0].Address
+              - Fn::GetAtt:
+                  - AlbLoadBalancer_0
+                  - ZoneMappings
+          ServerIp:
+            Fn::Jq:
+              - First
+              - .[0].LoadBalancerAddresses | .[0].Address
+              - Fn::GetAtt:
+                  - AlbLoadBalancer_0
+                  - ZoneMappings
+          Port: 80
+        - ServerType: Ip
+          ServerId:
+            Fn::Jq:
+              - First
+              - .[1].LoadBalancerAddresses | .[0].Address
+              - Fn::GetAtt:
+                  - AlbLoadBalancer_0
+                  - ZoneMappings
+          ServerIp:
+            Fn::Jq:
+              - First
+              - .[1].LoadBalancerAddresses | .[0].Address
+              - Fn::GetAtt:
+                  - AlbLoadBalancer_0
+                  - ZoneMappings
+          Port: 80
+        - ServerType: Ip
+          ServerId:
+            Fn::Jq:
+              - First
+              - .[0].LoadBalancerAddresses | .[0].Address
+              - Fn::GetAtt:
+                  - AlbLoadBalancer_1
+                  - ZoneMappings
+          ServerIp:
+            Fn::Jq:
+              - First
+              - .[0].LoadBalancerAddresses | .[0].Address
+              - Fn::GetAtt:
+                  - AlbLoadBalancer_1
+                  - ZoneMappings
+          Port: 80
+        - ServerType: Ip
+          ServerId:
+            Fn::Jq:
+              - First
+              - .[1].LoadBalancerAddresses | .[0].Address
+              - Fn::GetAtt:
+                  - AlbLoadBalancer_1
+                  - ZoneMappings
+          ServerIp:
+            Fn::Jq:
+              - First
+              - .[1].LoadBalancerAddresses | .[0].Address
+              - Fn::GetAtt:
+                  - AlbLoadBalancer_1
+                  - ZoneMappings
+          Port: 80
   DmzNlbListener:
     Type: ALIYUN::NLB::Listener
     Properties:
