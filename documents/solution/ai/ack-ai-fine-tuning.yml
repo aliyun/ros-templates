@@ -1,0 +1,220 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Use the cloud-native AI suite to submit model fine-tuning training tasks and deploy GPU shared inference services.
+  zh-cn: 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。
+Parameters:
+  AckName:
+    Type: String
+    Label:
+      en: Cluster Name
+      zh-cn: 集群名称
+    Description:
+      en: The name must be 1 to 63 characters in length and can contain letters, Chinese
+        characters, digits, and hyphens (-).
+      zh-cn: 名称为1~63个字符，可包含数字、汉字、英文字符或中划线（-）。
+    Default: ai-test
+    AllowedPattern: ^[a-zA-Z0-9\u4e00-\u9fa5][-a-zA-Z0-9\u4e00-\u9fa5]{0,62}$
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Available Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+    Description:
+      en: If the available zone cannot be selected, please switch regions.
+      zh-cn: 如果选择不到可用区，请切换地域。
+  LoginPassword:
+    Type: String
+    Label:
+      en: Set node login password
+      zh-cn: 设置节点登录密码
+    Description:
+      en: |-
+        The password must be 8 to 32 characters in length. <br>
+        It must consist three of the the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
+        Special characters include <span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>.<br>
+      zh-cn: 长度为8-30位，需包含大写字母、小写字母、特殊符号和数字中的三个，允许的特殊字符包括<span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>。
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: ack-ai
+Resources:
+  ModuleAcsCsProvision:
+    Type: MODULE::ACS::CS::Provision
+    Version: default
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  Vswitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName:
+        Fn::Sub: ${CommonName}-${ZoneId}-vsw
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+      SecurityGroupEgress:
+        - PortRange: -1/-1
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: internet
+        - PortRange: -1/-1
+          Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: Vswitch
+      NatGatewayName:
+        Fn::Sub: ${CommonName}-ngw
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Name:
+        Fn::Sub: ${CommonName}-eip
+      Bandwidth: 100
+      InternetChargeType: PayByTraffic
+  EipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    DependsOn: Sleep
+    Properties:
+      AllocationId:
+        Ref: Eip
+      InstanceId:
+        Fn::Jq:
+          - First
+          - .[0].instance_id
+          - Fn::GetAtt:
+              - Ack
+              - Nodes
+  Sleep:
+    Type: ALIYUN::ROS::Sleep
+    DependsOn: Ack
+    Properties:
+      CreateDuration: 180
+  Ack:
+    Type: ALIYUN::CS::ManagedKubernetesCluster
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupId:
+        Ref: SecurityGroup
+      VSwitchIds:
+        - Ref: Vswitch
+      Name:
+        Ref: AckName
+      NumOfNodes: 1
+      ProxyMode: ipvs
+      ClusterSpec: ack.pro.small
+      ServiceCidr: 172.16.0.0/16
+      ContainerCidr: 10.0.0.0/8
+      NodeCidrMask: 26
+      Addons:
+        - Name: flannel
+        - Name: csi-plugin
+        - Name: csi-provisioner
+        - Name: storage-operator
+          Config: '{"CnfsOssEnable":"false","CnfsNasEnable":"false"}'
+        - Name: nginx-ingress-controller
+          Config: '{"IngressSlbNetworkType":"internet","IngressSlbSpec":"slb.s2.small"}'
+        - Name: ack-node-local-dns
+        - Name: arms-prometheus
+      EndpointPublicAccess: true
+      SnatEntry: true
+      IsEnterpriseSecurityGroup: true
+      WorkerInstanceTypes:
+        - ecs.gn7i-c16g1.4xlarge
+      WorkerSystemDiskCategory: cloud_essd
+      WorkerSystemDiskSize: 120
+      LoginPassword:
+        Ref: LoginPassword
+      Runtime:
+        Name: containerd
+        Version: 1.6.20
+      CloudMonitorFlags: false
+      ZoneIds:
+        - Ref: ZoneId
+    DependsOn:
+      - ModuleAcsCsProvision
+      - NatGateway
+  Nas:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      ProtocolType: NFS
+      FileSystemType: standard
+      StorageType: Capacity
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: Vswitch
+      Description:
+        Fn::Sub: ${CommonName}-nas
+  NasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: Vswitch
+      Status: Active
+      FileSystemId:
+        Ref: Nas
+      NetworkType: Vpc
+      AccessGroupName: DEFAULT_VPC_GROUP_NAME
+Outputs:
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登陆地址。
+      en: Ecs login address.
+    Value:
+      Fn::Sub:
+        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Fn::Jq:
+              - First
+              - .[0].instance_id
+              - Fn::GetAtt:
+                  - Ack
+                  - Nodes
+          Region:
+            Ref: ALIYUN::Region
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - AckName
+        - ZoneId
+        - LoginPassword
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:technical-solution:ack:训练大模型及部署GPU共享推理服务

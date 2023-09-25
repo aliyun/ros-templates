@@ -440,6 +440,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | How to quickly start Stable Diffusion on Alibaba Cloud and easily play with AI painting.     |
 | [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml) | Large model combines the AnalyticDB to build Chatbot.                                        |
 | [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                     | Build a dialogue model based on ChatGLM and LangChain.                                       |
+| [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)                                                                                           | Use the cloud-native AI suite to submit model fine-tuning training tasks and deploy GPU shared inference services.     |
 
 
 
