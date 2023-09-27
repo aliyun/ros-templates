@@ -3,68 +3,172 @@ Description:
   en: Build a dialogue model based on ChatGLM and LangChain.
   zh-cn: 基于ChatGLM和LangChain搭建对话模型。
 Parameters:
-  WorkspaceName:
+  ZoneId:
     Type: String
     Label:
-      zh-cn: 工作空间名称
-      en: Workspace name
+      en: Primary VSwitch Availability Zone
+      zh-cn: 主可用区
     Description:
-      zh-cn: |-
-        长度为3~23 个字符，可以包含字母、下划线或数字。
-        必须以大小字母开头。
-        当前地域内唯一。
-      en: |-
-        The value contains 3 to 23 characters including letters, underscores (_), and digits. 
-        Must start with a small letter. 
-        Only in the current area.
-    AllowedPattern: ^[a-zA-Z][_a-zA-Z0-9]{2,22}$
-    Default: chatglm_demo
-  WorkspaceDescription:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating ECS resources.</font></b>
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格。</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  EcsInstanceType:
     Type: String
     Label:
-      zh-cn: 工作空间描述
-      en: Workspace description
+      en: Instance Type
+      zh-cn: 实例类型
     Description:
-      zh-cn: 不超过80个字符。
-      en: No more than 80 characters.
-    Default:
-      Build a dialogue model based on ChatGLM and LangChain.
-  ServiceName:
+      zh-cn: <br>规格详见：<a href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font color='blue'>实例规格族</font></a></b>
+      en: '<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html'' target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  SystemDiskCategory:
     Type: String
     Label:
-      zh-cn: 服务名称
-      cn: Service name
-    Default: chatglm_demo
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: >-
+        <br>Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in).<br>
+        When you later connect to the ECS instance, you will need to enter the user name administrator and the password set here.
+      zh-cn: >-
+        <br>服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）。<br>
+        在后续连接ECS实例时，您需要输入用户名administrator和此处设置的密码。
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
 Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+        - PortRange: 80/80
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+        - PortRange: 443/443
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+        - PortRange: 3389/3389
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_2_1903_x64_20G_alibase_20230731.vhd
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      InternetMaxBandwidthOut: 5
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+  NasFileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      ProtocolType: NFS
+      FileSystemType: standard
+      StorageType: Performance
+      DeletionForce: true
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
   Workspace:
     Type: ALIYUN::PAI::Workspace
     Properties:
       EnvTypes:
         - dev
         - prod
-      Description:
-        Ref: WorkspaceDescription
+      Description: Build a dialogue model based on ChatGLM and LangChain.
       WorkspaceName:
-        Ref: WorkspaceName
+        Fn::Sub:
+          - 'chatglm_demo_${StackId}'
+          - StackId:
+              Fn::Jq:
+                - First
+                - .[0]
+                - Fn::Split:
+                    - '-'
+                    - Ref: ALIYUN::StackId
   EAS:
     Type: ALIYUN::PAI::Service
     Properties:
       ServiceConfig:
         metadata:
           name:
-            Ref: ServiceName
+            Fn::Sub:
+              - 'chatglm_demo_${StackId}'
+              - StackId:
+                  Fn::Jq:
+                    - First
+                    - .[0]
+                    - Fn::Split:
+                        - '-'
+                        - Ref: ALIYUN::StackId
           instance: 1
           enable_webservice: true
         cloud:
           computing:
             instance_type: ml.gu7i.c16m60.1-gu30
+            instances: Null
         containers:
           - image:
               Fn::Sub:
-                - 'eas-registry-vpc.${Region}.cr.aliyuncs.com/pai-eas/chatglm-webui:1.0'
+                - 'eas-registry-vpc.${Region}.cr.aliyuncs.com/pai-eas/chat-llm-webui:2.0'
                 - Region:
                     Ref: ALIYUN::Region
-            script: 'python webui/webui_server.py --listen --port=8000'
+            script: 'python webui/webui_server.py --port=8000 --model-path=THUDM/chatglm-6b'
             port: 8000
     DependsOn:
       - Workspace
@@ -81,8 +185,13 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
       - Parameters:
-        - WorkspaceName
-        - WorkspaceDescription
-        - ServiceName
+          - ZoneId
+          - EcsInstanceType
+          - SystemDiskCategory
+          - InstancePassword
+        Label:
+          default:
+            en: ECS
+            zh-cn: 云服务器
     TemplateTags:
       - acs:technical-solution:AI:基于ChatGLM和LangChain搭建对话模型
