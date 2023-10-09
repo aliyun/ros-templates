@@ -1,0 +1,384 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建两台位于不同可用区的ECS实例，并部署高可用HTTP服务。
+  en: Create two ECS instances in different availability zones and deploy the highly available HTTP service.
+Parameters:
+  ZoneId_0:
+    Type: String
+    Label:
+      zh-cn: 可用区A
+      en: Availability Zone A
+    Description:
+      en: To create an availability zone for the instance, <font color='red'><b>ensure that the current region has 
+        at least two different availability zones to choose from</b>.
+      zh-cn: 创建实例的可用区，<font color='red'><b>请确保当前地域有至少两个不同的可用区可供选择</b>。
+    AssociationProperty: ALIYUN::NLB::Zone::ZoneId
+  ZoneId_1:
+    Type: String
+    Label:
+      zh-cn: 可用区B
+      en: Availability Zone B
+    Description:
+      en: To create an availability zone for the instance, <font color='red'><b>ensure that the current region has
+        at least two different availability zones to choose from</b>.
+      zh-cn: 创建实例的可用区，<font color='red'><b>请确保当前地域有至少两个不同的可用区可供选择</b>。
+    AssociationProperty: ALIYUN::NLB::Zone::ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      en: ECS Instance Type
+      zh-cn: ECS实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System disk type
+      zh-cn: 系统盘类型
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: VPC_PRD1
+      CidrBlock: 192.168.0.0/21
+  Vsw_0:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId_0
+      CidrBlock: 192.168.0.0/23
+  Vsw_1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId_1
+      CidrBlock: 192.168.6.0/23
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+        - PortRange: 80/80
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+        - PortRange: 8080/8080
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+  SSHKeyPair:
+    Type: ALIYUN::ECS::SSHKeyPair
+    Properties:
+      KeyPairName:
+        Ref: ALIYUN::StackName
+  Ecs_0:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupId:
+        Ref: SecurityGroup
+      VSwitchId:
+        Ref: Vsw_0
+      InstanceName: APP01
+      ZoneId:
+        Ref: ZoneId_0
+      InstanceChargeType: PostPaid
+      InstanceType:
+        Ref: InstanceType
+      ImageId: centos_7
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize: 40
+      AllocatePublicIP: false
+      KeyPairName:
+        Fn::GetAtt:
+          - SSHKeyPair
+          - KeyPairName
+  Ecs_1:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupId:
+        Ref: SecurityGroup
+      VSwitchId:
+        Ref: Vsw_1
+      InstanceName: APP02
+      ZoneId:
+        Ref: ZoneId_1
+      InstanceChargeType: PostPaid
+      InstanceType:
+        Ref: InstanceType
+      ImageId: centos_7
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize: 40
+      AllocatePublicIP: false
+      KeyPairName:
+        Fn::GetAtt:
+          - SSHKeyPair
+          - KeyPairName
+  NatGateWay:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: Vsw_0
+      DeletionForce: true
+  Eip:
+    Type: ALIYUN::VPC::EIP
+  EipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - Eip
+          - AllocationId
+      InstanceId:
+        Fn::GetAtt:
+          - NatGateWay
+          - NatGatewayId
+  DnatEntry_22:
+    Type: ALIYUN::ECS::ForwardEntry
+    Properties:
+      ExternalIp:
+        Fn::GetAtt:
+          - Eip
+          - EipAddress
+      ExternalPort: 22
+      ForwardTableId:
+        Fn::GetAtt:
+          - NatGateWay
+          - ForwardTableId
+      InternalIp:
+        Fn::GetAtt:
+          - Ecs_0
+          - PrivateIp
+      IpProtocol: TCP
+      InternalPort: 22
+    DependsOn: EipAssociation
+  DnatEntry_80:
+    Type: ALIYUN::ECS::ForwardEntry
+    Properties:
+      ExternalIp:
+        Fn::GetAtt:
+          - Eip
+          - EipAddress
+      ExternalPort: 80
+      ForwardTableId:
+        Fn::GetAtt:
+          - NatGateWay
+          - ForwardTableId
+      InternalIp:
+        Fn::GetAtt:
+          - Ecs_0
+          - PrivateIp
+      IpProtocol: TCP
+      InternalPort: 80
+    DependsOn: EipAssociation
+  DnatEntry_8080:
+    Type: ALIYUN::ECS::ForwardEntry
+    Properties:
+      ExternalIp:
+        Fn::GetAtt:
+          - Eip
+          - EipAddress
+      ExternalPort: 8080
+      ForwardTableId:
+        Fn::GetAtt:
+          - NatGateWay
+          - ForwardTableId
+      InternalIp:
+        Fn::GetAtt:
+          - Ecs_0
+          - PrivateIp
+      IpProtocol: TCP
+      InternalPort: 8080
+    DependsOn: EipAssociation
+  SnatEntry:
+    Type: ALIYUN::VPC::SnatEntry
+    Properties:
+      SnatTableId:
+        Fn::GetAtt:
+          - NatGateWay
+          - SNatTableId
+      SnatIp:
+        Fn::GetAtt:
+          - Eip
+          - EipAddress
+    DependsOn:
+      - DnatEntry_22
+      - DnatEntry_80
+      - DnatEntry_8080
+  RunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      CommandContent: |-
+        #!/bin/bash
+        yum install nodejs -y
+        cat >> /root/user.js << "EOF"
+        var http = require("http");
+        var os=require('os') ;
+        http.createServer(function(request, response) {
+            console.log("request from user, ip: " + request.connection.remoteAddress);
+            response.setHeader("Access-Control-Allow-Origin", "*");
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+            response.writeHead(200, {"Content-Type": "text/html"});
+            response.write("<h1>Hello user!</h1>Time: " + new Date());
+            response.write("---HostName: " + os.hostname());
+            response.end();
+        }).listen(80);
+        console.log("ecs start listen 80 port!");
+        EOF
+
+        cat >> /root/admin.js << "EOF"
+        var http = require("http");
+        var os=require('os') ;
+        http.createServer(function(request, response) {
+            console.log("request from administrator, ip: " + request.connection.remoteAddress);
+            response.setHeader("Access-Control-Allow-Origin", "*");
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+            response.writeHead(200, {"Content-Type": "text/html"});
+            response.write("<h1>Hello administrator!</h1>Time: " + new Date());
+            response.write("---HostName: " + os.hostname());
+            response.end();
+        }).listen(8080);
+        console.log("ecs start listen 8080 port!");
+        EOF
+
+        nohup node user.js > user.log 2>&1 &
+        nohup node admin.js > admin.log 2>&1 &
+      Type: RunShellScript
+      InstanceIds:
+        - Fn::GetAtt:
+            - Ecs_0
+            - InstanceId
+        - Fn::GetAtt:
+            - Ecs_1
+            - InstanceId
+    DependsOn:
+      - DnatEntry_22
+      - DnatEntry_80
+      - DnatEntry_8080
+      - SnatEntry
+  LoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      PayType: PayOnDemand
+      LoadBalancerSpec: slb.s1.small
+  BackendServerAttachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      LoadBalancerId:
+        Fn::GetAtt:
+          - LoadBalancer
+          - LoadBalancerId
+      BackendServers:
+        - ServerId:
+            Fn::GetAtt:
+              - Ecs_0
+              - InstanceId
+          Weight: 100
+        - ServerId:
+            Fn::GetAtt:
+              - Ecs_1
+              - InstanceId
+          Weight: 100
+  SlbListener_0:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      ListenerPort: 80
+      Protocol: http
+      Bandwidth: 50
+      BackendServerPort: 80
+      LoadBalancerId:
+        Fn::GetAtt:
+          - LoadBalancer
+          - LoadBalancerId
+  SlbListener_1:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      ListenerPort: 8080
+      Protocol: http
+      Bandwidth: 50
+      BackendServerPort: 8080
+      LoadBalancerId:
+        Fn::GetAtt:
+          - LoadBalancer
+          - LoadBalancerId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - ZoneId_0
+        - ZoneId_1
+        - InstanceType
+        - SystemDiskCategory
+        Label:
+          default: ECS配置
+    TemplateTags:
+      - acs:example:网站:部署高可用HTTP服务
+Outputs:
+  VpcId:
+    Value:
+      Ref: Vpc
+  NatGatewayId:
+    Value:
+      Fn::GetAtt:
+        - NatGateWay
+        - NatGatewayId
+  UserWebsite:
+    Value:
+      Fn::Sub:
+        - 'http://${your_public_ip}'
+        - your_public_ip:
+            Fn::GetAtt:
+              - Eip
+              - EipAddress
+    Description:
+      en: User access website
+      zh-cn: 用户访问网址
+  AdminWebsite:
+    Value:
+      Fn::Sub:
+        - 'http://${your_public_ip}:8080'
+        - your_public_ip:
+            Fn::GetAtt:
+              - Eip
+              - EipAddress
+    Description:
+      en: Administrator access website
+      zh-cn: 管理员访问网址
+  EcsInstanceIds:
+    Value:
+      Fn::Sub:
+        - '${ecs_0},${ecs_1}'
+        - ecs_0:
+            Fn::GetAtt:
+              - Ecs_0
+              - InstanceId
+          ecs_1:
+            Fn::GetAtt:
+              - Ecs_1
+              - InstanceId
+    Description:
+      zh-cn: ECS实例id
+      en: The ids of ECS instance
+  LoadBalancerId:
+    Value:
+      Fn::GetAtt:
+        - LoadBalancer
+        - LoadBalancerId
