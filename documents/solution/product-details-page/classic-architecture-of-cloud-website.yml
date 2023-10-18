@@ -1,0 +1,476 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Classic architecture of cloud website.
+  zh-cn: 云上网站经典架构。
+Parameters:
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Load balancer spec.
+      zh-cn: 负载均衡实例规格
+    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${Zone1}
+  APPEcsInstanceType:
+    Type: String
+    Label:
+      en: Core business system ECS instance specifications
+      zh-cn: 核心业务系统ECS实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${Zone1}
+  RegionEcsInstanceType:
+    Type: String
+    Label:
+      en: Regional server instance specifications
+      zh-cn: 区域服务器实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${Zone2}
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Rds instance type
+      zh-cn: RDS实例类型
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${Zone1}
+      Engine: MySQL
+      EngineVersion: "5.7"
+      Category: HighAvailability
+      DBInstanceStorageType: local_ssd
+  ECSInstancePassword:
+    Type: String
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  RDSUserPassword:
+    Type: String
+    Label:
+      en: RDS user Password
+      zh-cn: RDS 用户密码
+    Description:
+      en: RDS user login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: RDS用户密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  Zone1:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone1
+      zh-cn: 交换机可用区1
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  Zone2:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone2
+      zh-cn: 交换机可用区2
+    Description:
+      en: Please make sure that <font color='red'><b>VSwitch Availability Zone2 is different from VSwitch Availability Zone1</b></font>.
+      zh-cn: 请确保<font color='red'><b>交换机可用区2与交换机可用区1不相同</b></font>。
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: vpc
+      CidrBlock: 192.168.0.0/16
+  VSwitch001:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: Zone1
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Fn::Sub: vsw_001
+      CidrBlock: 192.168.0.0/24
+  VSwitch002:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: Zone2
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Fn::Sub: vsw_002
+      CidrBlock: 192.168.1.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: security_group
+      SecurityGroupIngress:
+      - PortRange: 8080/8080
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      SecurityGroupEgress:
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  Eip001:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Name: eip001
+      InternetChargeType: PayByTraffic
+  Eip002:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Name: eip002
+      InternetChargeType: PayByTraffic
+  Eip001Association:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      AllocationId: 
+        Ref: Eip001
+      InstanceId:
+        Ref: Slb
+  Eip002Assocaition:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      AllocationId:
+        Ref: Eip002
+      InstanceId:
+        Ref: EcsInstance
+  Slb:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName: slb_app
+      PayType: PayOnDemand
+      InstanceChargeType: PayByCLCU
+      AddressIPVersion: ipv4
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch001
+      AddressType: intranet
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+  SlbBackend:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      LoadBalancerId:
+        Ref: Slb
+      BackendServers:
+      - ServerId:
+          Fn::Select:
+          - '0'
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - InstanceIds
+        Weight: 100
+      - ServerId:
+          Fn::Select:
+            - '1'
+            - Fn::GetAtt:
+              - EcsInstanceGroup
+              - InstanceIds 
+        Weight: 100
+  SlbListner:
+    Type: ALIYUN::SLB::Listener
+    Properties:
+      Protocol: tcp
+      ListenerPort: 80
+      BackendServerPort: 80
+      AclStatus: "off"
+      LoadBalancerId:
+        Ref: Slb
+      Scheduler: wrr
+      Bandwidth: -1
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      InstanceChargeType: PostPaid
+      ZoneId:
+        Ref: Zone1
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch001
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 2
+      InstanceType:
+        Ref: APPEcsInstanceType
+      Password:
+        Ref: ECSInstancePassword
+      InstanceName: APP[1,3]
+      HostName: APP[1,3]
+      AllocatePublicIP: false
+  InstallHttpd:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          yum install -y httpd
+          yum install -y mysql
+          systemctl start httpd
+          systemctl enable httpd
+          cat <<EOF > /var/www/html/local.html
+          <html>
+          hostname:`hostname`
+          </html>
+          EOF
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      InstanceChargeType: PostPaid
+      ZoneId:
+        Ref: Zone2
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch002
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7
+      IoOptimized: optimized
+      SystemDiskCategory: cloud_essd
+      SystemDiskPerformanceLevel: PL0
+      SystemDiskSize: 40
+      DiskMappings:
+      - Size: 100
+        Category: cloud_essd
+      InstanceType:
+        Ref: RegionEcsInstanceType
+      Password:
+        Ref: ECSInstancePassword
+      InstanceName: region001
+      HostName: region001
+      AllocatePublicIP: false
+  InstallPHP:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: 
+        - |
+          #!/bin/bash
+          mkdir -p /opt/pma
+          cd /opt/pma/
+          wget --no-check-certificate https://files.phpmyadmin.net/phpMyAdmin/4.8.5/phpMyAdmin-4.8.5-all-languages.zip
+          yum install -y httpd php-mysql php
+          yum remove -y php.x86_64 php-cli.x86_64 php-common.x86_64 php-gd.x86_64 php-ldap.x86_64 php-mbstring.x86_64 php-mcrypt.x86_64 php-mysql.x86_64 php-pdo.x86_64
+          rpm -Uvh https://mirror.webtatic.com/yum/el7/epel-release.rpm
+          rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+          yum install -y php56w.x86_64 php56w-cli.x86_64 php56w-common.x86_64 php56w-gd.x86_64 php56w-ldap.x86_64 php56w-mbstring.x86_64 php56w-mcrypt.x86_64 php56w-mysql.x86_64 php56w-pdo.x86_64
+          yum install -y unzip
+          unzip phpMyAdmin-4.8.5-all-languages.zip
+          cp -a phpMyAdmin-4.8.5-all-languages /var/www/html/pma
+          cd /var/www/html/pma
+          cp config.sample.inc.php config.inc.php
+          sed -i "17,17c \$cfg[\'blowfish_secret\'] = \'e259bce8e511a1a5176840f26dc27717\';" config.inc.php
+          sed -i "31,31c \$cfg['Servers'][$i]['host'] = '${DBEndpoint}';" config.inc.php
+          systemctl start httpd 
+        - DBEndpoint:
+            Fn::GetAtt:
+            - Rds
+            - InnerConnectionString
+  Rds:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      Engine: MySQL
+      DBInstanceStorage: 100
+      EngineVersion: "5.7"
+      Port: 3306
+      Category: HighAvailability
+      DBInstanceStorageType: local_ssd
+      DBInstanceClass: 
+        Ref: DBInstanceClass
+      SecurityIPList: 192.168.0.0/16
+      ZoneId:
+        Ref: Zone1
+      SlaveZoneIds:
+      - Ref: Zone2
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Fn::Join:
+        - ','
+        - - Ref: VSwitch001
+          - Ref: VSwitch002
+      PayType: Postpaid
+      MasterUserType: Normal
+      MasterUsername: appdb_user
+      MasterUserPassword: 
+        Ref: RDSUserPassword
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      CharacterSetName: utf8
+      DBInstanceId:
+        Ref: Rds
+      DBName: appdb
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: Rds
+      DBName: appdb
+      AccountName: appdb_user
+Outputs:
+  EcsInstances:
+    Description:
+      en: View the list of created ECS instances.
+      zh-cn: 查看创建的ECS实例列表。
+    Value:
+      Fn::Sub:
+      - <a href="https://ecs.console.aliyun.com/server/region/${region}?instanceIds=${instance1},${instance2},${instance3}"
+        target="_blank">URL</a>
+      - region:
+          Ref: ALIYUN::Region
+        instance1:
+          Fn::Select:
+          - '0'
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - InstanceIds
+        instance2:
+          Fn::Select:
+          - '1'
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - InstanceIds
+        instance3:
+          Fn::GetAtt:
+            - EcsInstance
+            - InstanceId
+  SlbLoadBalancer:
+    Description:
+      en: View the created SLB LoadBalancer
+      zh-cn: 查看创建的SLB实例
+    Value:
+      Fn::Sub:
+      - <a href="https://slb.console.aliyun.com/slb/${region}/slbs/${LoadBalancerId}"
+        target="_blank">URL</a>
+      - region:
+          Ref: ALIYUN::Region
+        LoadBalancerId:
+          Ref: Slb
+  RdsInstance:
+    Description: 
+      en: View the created RDS instacne.
+      zh-cn: 查看创建的RDS实例
+    Value:
+      Fn::Sub:
+      - <a href="https://rdsnext.console.aliyun.com/detail/${RDSinstance}/basicInfo?region=${region}"
+        target="_blank">URL</a>
+      - region:
+          Ref: ALIYUN::Region
+        RDSinstance:
+          Ref: Rds
+  RdsDatabaseName:
+    Description:
+      en: Rds database name.
+      zh-cn: RDS 数据库名称
+    Value: appdb
+  RdsUserName: 
+    Description:
+      en: RDS user name.
+      zh-cn: RDS用户名称。
+    Value: appdb_user
+Rules:
+  DifferentZones:
+    Assertions:
+    - Assert:
+        Fn::Not:
+          Fn::Equals:
+          - Ref: Zone1
+          - Ref: Zone2
+      AssertDescription: Zones must be different.
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        default:
+          en: SLB param
+          zh-cn: SLB实例配置
+    - Parameters:
+      - APPEcsInstanceType
+      - RegionEcsInstanceType
+      - ECSInstancePassword
+      Label:
+        default:
+          en: Instance
+          zh-cn: ECS实例配置
+    - Parameters:
+      - DBInstanceClass
+      - RDSUserPassword
+      Label:
+        default:
+          en: DB instance param.
+          zh-cn: RDS实例配置
+    - Parameters:
+      - Zone1
+      - Zone2
+      Label:
+        default:
+          en: Availability Zone
+          zh-cn: 可用区配置
+    TemplateTags:
+    - acs:technical-solution:ecs:云上网站经典架构
