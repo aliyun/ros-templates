@@ -518,6 +518,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml)           | Nginx访问日志数据归档。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/oss_nginx)|
 | [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | 视频网站的存储与媒体处理方案。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/vsaps) |
 
+- product-details-page
+
+| 模板                                                                                                                                   | 说明                                                                        |
+|--------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [classic-architecture-of-cloud-website.yml](documents/solution/product-details-page/classic-architecture-of-cloud-website.yml)           | 云上网站经典架构。 |
+
+
 - security-and-compliance
 
 | 模板                                                                                                                                                                              | 说明            |
