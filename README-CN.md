@@ -428,17 +428,17 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - ai
 
-| 模板                                                                                                                                                               | 说明                                                                          |
-|------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
-| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。                                     |
-| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml)                                                   | AIGC文本生成3D模型。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/tg3dm) |
-| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml)                           | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。                                         |
+| 模板                                                                                                                                                               | 说明                                                                                |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
+| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。                                           |
+| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml)                                                   | AIGC文本生成3D模型。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/tg3dm)           |
+| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml)                           | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。                                               |
 | [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml)                                                                     | LLAMA-2全托管灵骏最佳实践。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/pai_lingjun) |
-| [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                     | PAI AI绘画解决方案。                                                               |
-| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml)                                              | PAI灵骏智算资源（Serverless版）大模型最佳实践。                                              |
-| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml)                                                                   | 向量数据库构建企业智能知识库。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/baeeikb) |
-| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                     | 基于ChatGLM和LangChain搭建对话模型。                                                  |
-| [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)                                                                                           | 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。                                 |
+| [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                     | PAI AI绘画解决方案。                                                                     |
+| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml)                                              | PAI灵骏智算资源（Serverless版）大模型最佳实践。                                                    |
+| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml)                                                                   | 向量数据库构建企业智能知识库。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/baeeikb)       |
+| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                     | 基于ChatGLM和LangChain搭建对话模型。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/calbadm)     |
+| [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)                                                                                           | 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。                                                  |
 
 - data-analysis
 
@@ -452,13 +452,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - database
 
-| 模板                                                                                                         | 说明                                                                                            |
-|------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
-| [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | 数据库自动扩缩容和自动SQL优化。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/adsa_sql)                |
-| [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。                                                                             |
+| 模板                                                                                                         | 说明                                                                                           |
+|------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | 数据库自动扩缩容和自动SQL优化。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/adsa_sql)               |
+| [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。                                                                            |
 | [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | 通过DTS实现MySQL与Redis缓存同步一致性方案。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/rtsorarctebcc) |
-| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                    | 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。                                          |
-| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | RDS+ClickHouse构建一站式HTAP。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/rdsclickhouse_htap)  |
+| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                    | 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。   ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/rds_polardb)  |
+| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | RDS+ClickHouse构建一站式HTAP。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/rdsclickhouse_htap) |
 
 - micro
 
@@ -468,13 +468,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - network
 
-| 模板                                                                                                                                    | 说明             |
-|---------------------------------------------------------------------------------------------------------------------------------------|----------------|
+| 模板                                                                                                                                    | 说明                                                                       |
+|---------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | [cross-region-account-network-interwork-scheme.yml](./documents/solution/network/cross-region-account-network-interwork-scheme.yml)   | 跨地域跨账号网络互通方案。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/cracani) |
-| [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml)                         | 云上公网架构设计和安全管理。 |
-| [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                             | 互联网应用全球加速。     |
-| [enterprise-cloud-network-architecture-planning.yml](./documents/solution/network/enterprise-cloud-network-architecture-planning.yml) | 企业云上网络架构规划。    |
-| [two-region-three-center-high-availability.yml](./documents/solution/network/two-region-three-center-high-availability.yml)           | 两地三中心异地多活。     |
+| [public-network-architecture-design.yml](./documents/solution/network/public-network-architecture-design.yml)                         | 云上公网架构设计和安全管理。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/cbpnadasm)    |
+| [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                             | 互联网应用全球加速。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/gaoia) |
+| [enterprise-cloud-network-architecture-planning.yml](./documents/solution/network/enterprise-cloud-network-architecture-planning.yml) | 企业云上网络架构规划。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ecnap) |
+| [two-region-three-center-high-availability.yml](./documents/solution/network/two-region-three-center-high-availability.yml)           | 两地三中心异地多活。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/tltcamanidl)   |
 
 - storage
 
@@ -529,7 +529,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | 模板                                                                                                                                                                              | 说明            |
 |---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
-| [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | 高效构建安全合规的新账号。 |
+| [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | 高效构建安全合规的新账号。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ecosacna) |
 
   </details>
 
