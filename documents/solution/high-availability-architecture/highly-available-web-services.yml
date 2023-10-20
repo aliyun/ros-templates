@@ -8,22 +8,39 @@ Parameters:
     Label:
       en: VSwitch Availability Zone1
       zh-cn: 交换机可用区1
+    Description:
+      en: Availability zone 1 must be different from Availability zone 2.
+      zh-cn: 可用区1要不同与可用区2。
     AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
   Zone2:
     Type: String
     Label:
       en: VSwitch Availability Zone2
       zh-cn: 交换机可用区2
+    Description:
+      en: Availability zone 2 must be different from Availability zone 1.
+      zh-cn: 可用区2要不同与可用区1。
     AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-  EcsInstanceType:
+  EcsInstanceType1:
     Type: String
     Label:
-      en: Instance Type
-      zh-cn: 实例类型
+      en: Instance Type Of Availability Zone1
+      zh-cn: 可用区1的实例类型
     AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
     AssociationPropertyMetadata:
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
+      ZoneId: ${Zone1}
+  EcsInstanceType2:
+    Type: String
+    Label:
+      en: Instance Type Of Availability Zone2
+      zh-cn: 可用区2的实例类型
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${Zone2}
   InstancePassword:
     Type: String
     Label:
@@ -124,7 +141,7 @@ Resources:
       SystemDiskSize: 40
       MaxAmount: 1
       InstanceType:
-        Ref: EcsInstanceType
+        Ref: EcsInstanceType1
       Password:
         Ref: InstancePassword
       InstanceName:
@@ -146,19 +163,32 @@ Resources:
       SystemDiskSize: 40
       MaxAmount: 1
       InstanceType:
-        Ref: EcsInstanceType
+        Ref: EcsInstanceType2
       Password:
         Ref: InstancePassword
       InstanceName:
         Fn::Sub: '${CommonName}_ecs_002'
-  FileSystem:
+  MasterFileSystem:
     Type: ALIYUN::NAS::FileSystem
     Properties:
       StorageType: Capacity
+      Description: MasterNAS
+      ZoneId:
+        Ref: Zone1
       ProtocolType: NFS
       VpcId:
         Ref: EcsVpc
-  NasMountTarget:
+  BackupFileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      StorageType: Capacity
+      Description: BackupNAS
+      ZoneId:
+        Ref: Zone2
+      ProtocolType: NFS
+      VpcId:
+        Ref: EcsVpc
+  MasterNasMountTarget:
     Type: ALIYUN::NAS::MountTarget
     Properties:
       VpcId:
@@ -167,7 +197,18 @@ Resources:
         Ref: EcsVSwitch1
       AccessGroupName: DEFAULT_VPC_GROUP_NAME
       FileSystemId:
-        Ref: FileSystem
+        Ref: MasterFileSystem
+      NetworkType: Vpc
+  BackupNasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch2
+      AccessGroupName: DEFAULT_VPC_GROUP_NAME
+      FileSystemId:
+        Ref: BackupFileSystem
       NetworkType: Vpc
   InstanceRunCommand:
     Type: 'ALIYUN::ECS::RunCommand'
@@ -218,8 +259,8 @@ Resources:
             echo "# Install Nginx"
             echo "#########################"
             sudo yum -y install nginx
-            sudo wget -N -O /usr/share/nginx/html/index.html https://labfileapp.oss-cn-hangzhou.aliyuncs.com/oss/index.html
-            sudo wget -P /usr/share/nginx/html https://labfileapp.oss-cn-hangzhou.aliyuncs.com/oss/lipstick.png
+            sudo wget -O /usr/share/nginx/html/index.html https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20231013/jhgg/index.html
+            sudo wget -O /usr/share/nginx/html/lipstick.png https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20230925/zevs/lipstick.png
             sudo systemctl start nginx
             sudo systemctl enable nginx
             echo "Step2: Install Nginx and deploy service" >> .ros.provision
@@ -233,11 +274,13 @@ Resources:
             echo "#########################"
             echo "# Mount to the ECS"
             echo "#########################"
-            mkdir /nas
+            mkdir /nas_master
+            mkdir /nas_backup
             sudo yum install -y nfs-utils
             sudo echo "options sunrpc tcp_slot_table_entries=128" >>  /etc/modprobe.d/sunrpc.conf
             sudo echo "options sunrpc tcp_max_slot_table_entries=128" >>  /etc/modprobe.d/sunrpc.conf
-            sudo mount -t nfs -o vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${NasMountTarget.MountTargetDomain}:/ /nas
+            sudo mount -t nfs -o vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${MasterNasMountTarget.MountTargetDomain}:/ /nas_master
+            sudo mount -t nfs -o vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${BackupNasMountTarget.MountTargetDomain}:/ /nas_backup
             df -h | grep aliyun
           else
             echo "#########################"
@@ -249,7 +292,7 @@ Resources:
             echo "#########################"
             echo "# Shared file"
             echo "#########################"
-            sudo cp -Lvr /usr/share/nginx/html /nas
+            sudo cp -Lvr /usr/share/nginx/html /nas_master
             sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
             echo "Step4: Shared file" >> .ros.provision
           else
@@ -258,113 +301,62 @@ Resources:
             echo "#########################"
           fi
           
-          if ! grep -q "^Step5: Config nginx$" .ros.provision; then
+          if ! grep -q "^Step5: Install inotify-tools、rsync$" .ros.provision; then
             echo "#########################"
-            echo "# Shared file"
+            echo "# Install inotify-tools、rsync"
             echo "#########################"
-            sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
-            cat > /etc/nginx/nginx.conf << \EOF
-          # For more information on configuration, see:
-          #   * Official English Documentation: http://nginx.org/en/docs/
-          #   * Official Russian Documentation: http://nginx.org/ru/docs/
-
-          user nginx;
-          worker_processes auto;
-          error_log /var/log/nginx/error.log;
-          pid /run/nginx.pid;
-
-          # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
-          include /usr/share/nginx/modules/*.conf;
-
-          events {
-              worker_connections 1024;
-          }
-
-          http {
-              log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
-                                '$status $body_bytes_sent "$http_referer" '
-                                '"$http_user_agent" "$http_x_forwarded_for"';
-
-              access_log  /var/log/nginx/access.log  main;
-
-              sendfile            on;
-              tcp_nopush          on;
-              tcp_nodelay         on;
-              keepalive_timeout   65;
-              types_hash_max_size 4096;
-
-              include             /etc/nginx/mime.types;
-              default_type        application/octet-stream;
-
-              # Load modular configuration files from the /etc/nginx/conf.d directory.
-              # See http://nginx.org/en/docs/ngx_core_module.html#include
-              # for more information.
-              include /etc/nginx/conf.d/*.conf;
-
-              server {
-                  listen       80;
-                  listen       [::]:80;
-                  server_name  _;
-                  root         /nas/html;
-
-                  # Load configuration files for the default server block.
-                  include /etc/nginx/default.d/*.conf;
-
-                  location / {
-                      index index.php index.html index.htm;
-                  }
-
-                  location ~ .php$ {
-                      root /usr/share/nginx/html/wordpress;    # 将/usr/share/nginx/html替换为您的网站根目录，本文使用/usr/share/nginx/html作为网站根目录。
-                      fastcgi_pass 127.0.0.1:9000;   # Nginx通过本机的9000端口将PHP请求转发给PHP-FPM进行处理。
-                      fastcgi_index index.php;
-                      fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
-                      include fastcgi_params;   # Nginx调用fastcgi接口处理PHP请求。
-                  }
-
-                  error_page 404 /404.html;
-                  location = /404.html {
-                  }
-
-                  error_page 500 502 503 504 /50x.html;
-                  location = /50x.html {
-                  }
-              }
-
-          # Settings for a TLS enabled server.
-          #
-          #    server {
-          #        listen       443 ssl http2;
-          #        listen       [::]:443 ssl http2;
-          #        server_name  _;
-          #        root         /usr/share/nginx/html;
-          #
-          #        ssl_certificate "/etc/pki/nginx/server.crt";
-          #        ssl_certificate_key "/etc/pki/nginx/private/server.key";
-          #        ssl_session_cache shared:SSL:1m;
-          #        ssl_session_timeout  10m;
-          #        ssl_ciphers HIGH:!aNULL:!MD5;
-          #        ssl_prefer_server_ciphers on;
-          #
-          #        # Load configuration files for the default server block.
-          #        include /etc/nginx/default.d/*.conf;
-          #
-          #        error_page 404 /404.html;
-          #            location = /40x.html {
-          #        }
-          #
-          #        error_page 500 502 503 504 /50x.html;
-          #            location = /50x.html {
-          #        }
-          #    }
-
-          }
-          EOF
-            sudo nginx -s reload
-            echo "Step5: Nginx has been configured" >> .ros.provision
+            sudo yum install -y inotify-tools rsync
+            echo "Step6: Install inotify-tools、rsync" >> .ros.provision
           else
             echo "#########################"
-            echo "# Nginx has been configured"
+            echo "# Inotify-tools has been installed"
+            echo "#########################"
+          fi
+          if ! grep -q "^Step6: Install synchronization server$" .ros.provision; then
+            echo "#########################"
+            echo "# Install synchronization server"
+            echo "#########################"
+            sudo wget -P /etc/systemd/system/ https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20231017/pftz/sync_nas.sh
+            sudo wget -P /etc/systemd/system/ https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/en-US/20230925/wmaj/sync_check_switch.sh
+            sudo chmod +x /etc/systemd/system/sync_nas.sh
+            sudo chmod +x /etc/systemd/system/sync_check_switch.sh
+            cat > /etc/systemd/system/sync-check-switch.service << \EOF
+          [Unit]
+          Description=Sync Check Switch
+          After=network.target
+          
+          [Service]
+          ExecStart=/etc/systemd/system/sync_check_switch.sh
+          RestartSec=3
+          Restart=always
+          
+          [Install]
+          WantedBy=default.target
+          EOF
+          
+            cat > /etc/systemd/system/sync-nas.service << \EOF
+          [Unit]
+          Description=Sync NAS Service
+          After=network.target
+          
+          [Service]
+          ExecStart=/etc/systemd/system/sync_nas.sh
+          Restart=always
+          RestartSec=3
+          
+          [Install]
+          WantedBy=default.target
+          EOF
+          
+            sudo systemctl daemon-reload
+            sudo systemctl start sync-nas.service
+            sudo systemctl enable sync-check-switch.service
+            sudo systemctl start sync-check-switch.service
+            sudo systemctl enable sync-nas.service
+            echo "Step6: Install " >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Synchronization server has been installed"
             echo "#########################"
           fi
   Slb:
@@ -424,6 +416,15 @@ Outputs:
             Fn::GetAtt:
               - Slb
               - IpAddress
+Rules:
+  DifferentZones:
+    Assertions:
+      - Assert:
+          Fn::Not:
+            Fn::Equals:
+              - Ref: Zone1
+              - Ref: Zone2
+        AssertDescription: Zones must be different
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -435,7 +436,8 @@ Metadata:
             en: Availability Zone
             zh-cn: 可用区配置
       - Parameters:
-          - EcsInstanceType
+          - EcsInstanceType1
+          - EcsInstanceType2
           - InstancePassword
         Label:
           default:
