@@ -530,6 +530,13 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | Storage and Media Processing Solution for Video Website. |
 
 
+- product-details-page
+
+| Template                                                                                                                           | Description                    |
+|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
+| [classic-architecture-of-cloud-website.yml](documents/solution/product-details-page/classic-architecture-of-cloud-website.yml) | Classic architecture of cloud website. |
+
+
 - security-and-compliance
 
 | Template                                                                                                                                                                        | Description                                                   |
