@@ -511,6 +511,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [deploy-nginx-services-through-ingress.yml](documents/solution/ops-on-cloud/deploy-nginx-services-through-ingress.yml) | 部署Nginx并通过Ingress暴露和监控服务。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/nginx_ingress) |
 
 
+- product-details-page
+
+| Template                                                                                                                                     | Description                              |
+|----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
+| [e-commerce-business-and-database.yml](documents/solution/product-details-page/e-commerce-business-and-database.yml) | 电商业务及数据库上云。 |
+
+
 - internet-application-development
 
 | 模板                                                                                                                                   | 说明                                                                        |
