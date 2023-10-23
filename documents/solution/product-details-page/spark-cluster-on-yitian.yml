@@ -1,0 +1,572 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Spark Cluster on Yitian.
+  zh-cn: 倚天ECS实例部署Spark集群。
+Conditions:
+  Testing:
+    Ref: AutomaticTesting
+Parameters:
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      NetworkCategory: vpc
+      Constraints:
+        Architecture: ARM
+    Default: ecs.g8y.large
+  BucketName:
+    Type: String
+    Label:
+      zh-cn: 存储空间名称
+      en: Bucket Name
+    Description:
+      en: The Bucket name cannot be changed after it is created successfully. The Bucket name must be unique in OSS.
+      zh-cn: Bucket名称，创建成功后将不可更改，Bucket名称在OSS全局范围内必须唯一。
+    ConstraintDescription:
+      en: Must begin and be end with a lowercase letter or number. The length is within
+        [3, 63]
+      zh-cn: 必须以小写英文字母或数字开头和结尾。长度为3~63个字符。
+    AllowedPattern: ^[a-z0-9]{1}[a-z0-9\-]{1,62}[a-z0-9]{1}$
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: spark-on-ros
+  AutomaticTesting:
+    Type: Boolean
+    Default: false
+    Label:
+      en: Automatic Testing
+      zh-cn: 是否自动测试
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+      CidrBlock: 192.168.0.0/16
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: ${CommonName}-${ZoneId}-vsw
+      CidrBlock: 192.168.0.0/24
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    DependsOn:
+      - MasterEcs
+      - WorkerEcs
+    Properties:
+      NatGatewayName:
+        Fn::Sub: ${CommonName}-ngw
+      VSwitchId:
+        Ref: EcsVSwitch
+      NatType: Enhanced
+      VpcId:
+        Ref: EcsVpc
+      NetworkType: internet
+  EIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth: 100
+      InternetChargeType: PayByTraffic
+      Name:
+        Fn::Sub: ${CommonName}-eip
+  SnatEntry:
+    Type: ALIYUN::VPC::SnatEntry
+    DependsOn: ElasticIpAssociation
+    Properties:
+      SnatTableId:
+        Fn::GetAtt:
+          - NatGateway
+          - SNatTableId
+      SnatEntryName:
+        Fn::Sub: ${CommonName}-snat
+      SourceVSwitchIds:
+        - Ref: EcsVSwitch
+      SnatIp:
+        Fn::GetAtt:
+          - EIP
+          - EipAddress
+  ElasticIpAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: EIP
+  ForwardEntry:
+    Type: ALIYUN::ECS::ForwardEntry
+    DependsOn: ElasticIpAssociation
+    Properties:
+      ExternalIp:
+        Fn::GetAtt:
+          - EIP
+          - EipAddress
+      ExternalPort: 22
+      ForwardTableId:
+        Fn::GetAtt:
+          - NatGateway
+          - ForwardTableId
+      InternalIp: 192.168.0.5
+      IpProtocol: TCP
+      InternalPort: 22
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+      - PortRange: 8034/8034
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 18080/18080
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 443/443
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      SecurityGroupEgress:
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  DeploymentSet:
+    Type: ALIYUN::ECS::DeploymentSet
+    Properties:
+      DeploymentSetName:
+        Fn::Sub: yitian-${CommonName}
+  MasterEcs:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      DeploymentSetId:
+        Ref: DeploymentSet
+      ImageId: aliyun_3_arm64_20G_alibase
+      IoOptimized: optimized
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 100
+      MaxAmount: 1
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      InstanceName:
+        Fn::Sub: ${CommonName}-master
+      AllocatePublicIP: true
+      PrivateIpAddress: 192.168.0.5
+      InternetMaxBandwidthOut: 100
+      HostName: spark-master
+  WorkerEcs:
+    Type: ALIYUN::ECS::Instance
+    Count: 6
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      DeploymentSetId:
+        Ref: DeploymentSet
+      ImageId: aliyun_3_arm64
+      IoOptimized: optimized
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 100
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      InstanceName:
+        Fn::Sub: ${CommonName}-node-${ALIYUN::Index}
+      AllocatePublicIP: false
+      PrivateIpAddress:
+        Fn::Sub: '192.168.0.1${ALIYUN::Index}'
+      HostName:
+        Fn::Sub: spark-node-${ALIYUN::Index}
+      DiskMappings:
+        - Category: cloud_essd
+          DiskName: Data-1
+          Size: 500
+        - Category: cloud_essd
+          DiskName: Data-2
+          Size: 500
+        - Category: cloud_essd
+          DiskName: Data-3
+          Size: 500
+        - Category: cloud_essd
+          DiskName: Data-4
+          Size: 500
+        - Category: cloud_essd
+          DiskName: Data-5
+          Size: 500
+        - Category: cloud_essd
+          DiskName: Data-6
+          Size: 500
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: ${CommonName}-${ALIYUN::StackId}
+      PolicyAttachments:
+        System:
+        - AliyunOSSFullAccess
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Ref: User
+  InstallMasterEnv:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - MasterEcs
+          - InstanceIds
+      Sync: true
+      Type: RunShellScript
+      Timeout: '600'
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          #默认使用分部部署spark
+
+          #创建文件夹
+          mkdir /root/fastmr
+
+          #sleep 10s,等待其他资源ready
+          sleep 10
+
+          #生成本地执行文件
+          cat > /root/fastmr/install_env.sh <<EOF 
+          #部署spark全流程
+
+          #配置hostname解析
+          echo "192.168.0.5 master1" >>/etc/hosts
+          echo "192.168.0.5 spark-master" >>/etc/hosts
+          echo "192.168.0.10 spark-node-0" >>/etc/hosts
+          echo "192.168.0.11 spark-node-1" >>/etc/hosts
+          echo "192.168.0.12 spark-node-2" >>/etc/hosts
+          echo "192.168.0.13 spark-node-3" >>/etc/hosts
+          echo "192.168.0.14 spark-node-4" >>/etc/hosts
+          echo "192.168.0.15 spark-node-5" >>/etc/hosts
+
+          #下载所有包
+          wget -P /root http://mirrors.cloud.aliyuncs.com/keentune/booster/sparkv1/spark_all_package.tar.gz
+          cd /root && tar -xf spark_all_package.tar.gz
+          cd /root && tar -xf trust.tar.gz
+          mv /root/TPC.tar.gz /opt && cd /opt &&  tar -xf TPC.tar.gz
+          mv /root/apache-hive-3.1.2-bin.tar.gz /opt && cd /opt &&  tar -xf apache-hive-3.1.2-bin.tar.gz
+          mv /root/mracc-spark-3.2.1-bin-hadoop3.3.1.tgz /opt && cd /opt &&  tar -xf mracc-spark-3.2.1-bin-hadoop3.3.1.tgz
+
+          cd /root &&  tar -xf tpcds-kit.tar.gz
+          mv /root/hadoop-3.3.1.tar.gz   /opt/ && cd /opt &&  tar -xf hadoop-3.3.1.tar.gz
+          echo "spark-node-0" > /opt/hadoop-3.3.1/etc/hadoop/workers
+          echo "spark-node-1" >> /opt/hadoop-3.3.1/etc/hadoop/workers
+          echo "spark-node-2" >> /opt/hadoop-3.3.1/etc/hadoop/workers
+          echo "spark-node-3" >> /opt/hadoop-3.3.1/etc/hadoop/workers
+          echo "spark-node-4" >> /opt/hadoop-3.3.1/etc/hadoop/workers
+          echo "spark-node-5" >> /opt/hadoop-3.3.1/etc/hadoop/workers
+          cd /opt && rm -rf hadoop && ln -s hadoop-3.3.1 hadoop
+
+          mv /root/liblic.so  /usr/lib/
+          mv /root/start_cluster.sh  /root/fastmr
+          mv /root/tpcds_test.sh  /root/fastmr
+
+          #配置互信
+          chmod 400 -R /root/trust/
+          rm -rf /root/.ssh/id_rsa
+          rm -rf /root/.ssh/id_rsa.pub
+          cat /root/trust/authorized_keys >> /root/.ssh/authorized_keys
+          cp /root/trust/id_rsa.pub /root/.ssh/
+          cp /root/trust/id_rsa /root/.ssh/
+
+          #下载hive mysql，spark，TPC测试工具
+          yum install -y java-1.8.0-openjdk-devel.aarch64
+
+          #配置环境变量
+          echo -e "export SPARK_HOME=/opt/mracc-spark-3.2.1-bin-hadoop3.3.1 \n" >>/etc/profile.d/env.sh
+          echo -e "export HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop" >>/etc/profile.d/env.sh
+          echo -e "export HIVE_HOME=/opt/apache-hive-3.1.2-bin \n" >>/etc/profile.d/env.sh
+          echo -e "export HADOOP_HOME=/opt/hadoop \n" >>/etc/profile.d/env.sh
+          echo -e "export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk/ \n" >>/etc/profile.d/env.sh
+
+          #安装mysql
+          yum install -y mysql-server.aarch64
+          #重启mysql
+          service mysqld restart
+          #mysql增加hive用户并授权
+          mysql -uroot -D mysql -e "create user 'hive'@'localhost' identified by '123456';" 
+          mysql -uroot -D mysql -e "grant all privileges on *.* to 'hive'@'localhost';"
+          mysql -uroot -D mysql -e "create user 'hive'@'%' identified by '123456';"
+          mysql -uroot -D mysql -e "grant all privileges on *.* to 'hive'@'%';"
+          mysql -uroot -D mysql -e "flush privileges;"
+          mysql -uroot -D mysql -e "alter user user() identified by '123456';"
+          #重启mysql
+          service mysqld restart
+
+          #配置hive环境变量
+          echo 'export PATH=$PATH:/usr/lib/jvm/java-1.8.0-openjdk/bin:/opt/hadoop/bin:/opt/mracc-spark-3.2.1-bin-hadoop3.3.1/bin:/opt/apache-hive-3.1.2-bin/bin' >> /etc/profile.d/env.sh
+
+          #环境变量生效
+          source /etc/profile.d/env.sh
+          #hive初始化
+          schematool -dbType mysql -initSchema
+
+          echo "**环境初始化完成，可以进行下一步操作**"
+
+          EOF
+
+          #可在 /root/fastmr/install_env.log 文件中查看运行日志。
+          sh /root/fastmr/install_env.sh >/root/fastmr/install_env.log 2>&1
+  InstallNodeEnv:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - WorkerEcs
+          - InstanceId
+      Sync: true
+      Type: RunShellScript
+      Timeout: '600'
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+
+          #创建文件夹
+          mkdir /root/fastmr
+
+          #sleep 10s,等待其他资源ready
+          sleep 10
+
+          #下载磁盘加载脚本
+          wget -P /root/fastmr http://mirrors.cloud.aliyuncs.com/keentune/booster/sparkv1/mkfs_nvme.sh
+
+
+          #mkfs_nvme.sh加权限
+          chmod 755 /root/fastmr/mkfs_nvme.sh
+
+          #对6块磁盘进行挂载，系统盘+6块盘参数为8
+          sh /root/fastmr/mkfs_nvme.sh 8
+
+          #创建shffle路径
+          for i in {1..6}
+          do
+          mkdir -p /mnt/disk$i/spark_shuffle
+          done
+
+          #生成本地执行文件
+          cat > /root/fastmr/install_env.sh <<EOF 
+          #部署spark全流程
+
+          #配置hostname解析
+          echo "192.168.0.5 master1" >>/etc/hosts
+          echo "192.168.0.5 spark-master" >>/etc/hosts
+          echo "192.168.0.10 spark-node-0" >>/etc/hosts
+          echo "192.168.0.11 spark-node-1" >>/etc/hosts
+          echo "192.168.0.12 spark-node-2" >>/etc/hosts
+          echo "192.168.0.13 spark-node-3" >>/etc/hosts
+          echo "192.168.0.14 spark-node-4" >>/etc/hosts
+          echo "192.168.0.15 spark-node-5" >>/etc/hosts
+
+          #配置互信
+          wget -P /root http://mirrors.cloud.aliyuncs.com/keentune/booster/sparkv1/trust.tar.gz
+          cd /root && tar -xf trust.tar.gz
+          chmod 400 -R /root/trust/
+          rm -rf /root/.ssh/id_rsa
+          rm -rf /root/.ssh/id_rsa.pub
+          cat  /root/trust/authorized_keys >> /root/.ssh/authorized_keys
+          cp /root/trust/id_rsa.pub /root/.ssh/
+          cp /root/trust/id_rsa /root/.ssh/
+
+          #下载hive mysql，spark，TPC测试工具
+          yum install -y java-1.8.0-openjdk-devel.aarch64
+
+          wget -P /root http://mirrors.cloud.aliyuncs.com/keentune/booster/sparkv1/tpcds-kit.tar.gz
+          wget -P /opt http://mirrors.cloud.aliyuncs.com/keentune/booster/sparkv1/hadoop-3.3.1.tar.gz
+
+          cd /root &&  tar -xf tpcds-kit.tar.gz
+          cd /opt &&  tar -xf hadoop-3.3.1.tar.gz
+          echo "spark-node-0" > /opt/hadoop-3.3.1/etc/hadoop/workers
+          echo "spark-node-1" >> /opt/hadoop-3.3.1/etc/hadoop/workers
+          echo "spark-node-2" >> /opt/hadoop-3.3.1/etc/hadoop/workers
+          echo "spark-node-3" >> /opt/hadoop-3.3.1/etc/hadoop/workers
+          echo "spark-node-4" >> /opt/hadoop-3.3.1/etc/hadoop/workers
+          echo "spark-node-5" >> /opt/hadoop-3.3.1/etc/hadoop/workers
+          cd /opt && rm -rf hadoop && ln -s hadoop-3.3.1 hadoop
+
+          echo "**环境初始化完成，可以进行下一步操作**"
+
+          EOF
+
+          #可在 /root/fastmr/install_env.log 文件中查看运行日志。
+          sh /root/fastmr/install_env.sh > /root/fastmr/install_env.log 2>&1
+  StartCluster:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn:
+      - InstallNodeEnv
+      - InstallMasterEnv
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - MasterEcs
+          - InstanceIds
+      Sync: true
+      Type: RunShellScript
+      Timeout: '600'
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          cat > /root/fastmr/conf.ini  <<EOF 
+          # 输入worker节点ip
+
+          ip=192.168.0.10
+          ip=192.168.0.11
+          ip=192.168.0.12
+          ip=192.168.0.13
+          ip=192.168.0.14
+          ip=192.168.0.15
+          
+          # 配置oss
+          endpoint=oss-${ALIYUN::Region}-internal.aliyuncs.com
+          
+          #替换为当前账号的AK和SK
+          accessKeyId=${AccessKey.AccessKeyId}
+          accessKeySecret=${AccessKey.AccessKeySecret}
+          
+          #tpcds，确认当前账号OSS bucket名称，替换spark-perf-oss-yarn，注意最后要有/
+          oss_path:oss://${OssBucket.Name}/spark-test/
+          
+          EOF
+          sleep 60
+          bash /root/fastmr/start_cluster.sh |tee /root/fastmr/start_cluster.log
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+      AccessControl: private
+      DeletionForce: true
+  Testing1:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn: StartCluster
+    Condition: Testing
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - MasterEcs
+          - InstanceIds
+      Sync: true
+      Type: RunShellScript
+      Timeout: 600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          cd /root/fastmr
+          sh /root/fastmr/tpcds_test.sh 1024 y |tee /root/fastmr/tpcds_test.log 2>&1 &
+  MasterEcsData:
+    Type: DATASOURCE::ECS::Instances
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - MasterEcs
+          - InstanceIds
+Outputs:
+  MasterEcsLoginAddress:
+    Description:
+      zh-cn: Master Ecs登陆地址。
+      en: Master Ecs login address.
+    Value:
+      Fn::Sub: https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${MasterEcs}
+  SparkWebSiteURL:
+    Description:
+      zh-cn: Spark集群Web地址。
+      en: Spark cluster web address.
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}:18080
+        - PublicIp:
+            Fn::Jq:
+              - First
+              - .[0].PublicIpAddress[0]
+              - Fn::GetAtt:
+                - MasterEcsData
+                - Instances
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - EcsInstanceType
+      - BucketName
+      - ZoneId
+      - InstancePassword
+    TemplateTags:
+    - acs:technical-solution:ecs:yitian-Spark集群
+    Hidden:
+    - CommonName
+    - AutomaticTesting
