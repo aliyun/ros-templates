@@ -515,6 +515,13 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [deploy-nginx-services-through-ingress.yml](documents/solution/ops-on-cloud/deploy-nginx-services-through-ingress.yml) | Deploy Nginx and expose and monitor services through Ingress. |
 
 
+- product-details-page
+
+| Template                                                                                                                                     | Description                              |
+|----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
+| [e-commerce-business-and-database.yml](documents/solution/product-details-page/e-commerce-business-and-database.yml) | E-commerce business and database on the cloud. |
+
+
 - internet-application-development
 
 | Template                                                                                                                           | Description                    |
