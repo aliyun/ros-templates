@@ -519,7 +519,9 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 | Template                                                                                                                                     | Description                              |
 |----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
+| [classic-architecture-of-cloud-website.yml](documents/solution/product-details-page/classic-architecture-of-cloud-website.yml) | Classic architecture of cloud website. |
 | [e-commerce-business-and-database.yml](documents/solution/product-details-page/e-commerce-business-and-database.yml) | E-commerce business and database on the cloud. |
+| [spark-cluster-on-yitian.yml](documents/solution/product-details-page/spark-cluster-on-yitian.yml) | Spark Cluster on Yitian. |
 
 
 - internet-application-development
@@ -528,13 +530,6 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
 | [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml) | Nginx access log data archive. |
 | [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | Storage and Media Processing Solution for Video Website. |
-
-
-- product-details-page
-
-| Template                                                                                                                           | Description                    |
-|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
-| [classic-architecture-of-cloud-website.yml](documents/solution/product-details-page/classic-architecture-of-cloud-website.yml) | Classic architecture of cloud website. |
 
 
 - security-and-compliance
