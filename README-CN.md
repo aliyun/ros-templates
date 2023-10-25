@@ -324,6 +324,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [data-migration/low-cost-link-to-business-data.yml](./solutions/data-migration/low-cost-link-to-business-data.yml) | 本实践适用于提供业务数据搬迁上云服务。业务数据量一般都比较大，迁移上云需要大量的网络带宽，BGP费用比较高。 阿里云对用户开放所需地域购买静态单线共享带宽包的权限（移动/联通/电信均可），可用为迁移数据有效降低成本。 |
 | [data-migration/self-built-hive-data-warehouse-migrated-to-emr.yml](./solutions/data-migration/self-built-hive-data-warehouse-migrated-to-emr.yml) | 本方案利用ROS创建自建Hadoop集群的数据迁移到阿里云自建Hadoop或者EMR。 |
 | [database/polardb-migration-from-rds.yml](./solutions/database/polardb-migration-from-rds.yml) | 解决RDS MySQL或自建MySQL遇到的性能或容量瓶颈，迁移上下PolarDB链路打通。 |
+| [database/deploy-mysql-based-on-ebs.yml](./solutions/database/deploy-mysql-based-on-ebs.yml) | 基于EBS ESSD部署高性能的MySQL服务。 |
 | [devops/container-application-devops-for-ack-cluster.yml](./solutions/devops/container-application-devops-for-ack-cluster.yml) | DevOps的目的是构建一种文化和环境，使构建，测试，发布软件更加快捷，频繁和可靠。而到了容器时代，需要部署的机器不但量更大，变化更剧烈，有的甚至需要根据条件自动升缩，为了满足企业敏捷的需求，持续部署也成了必须，本方案使用云效完成容器应用（小程序后端服务）的自动化构建和持续部署。 |
 | [enterprise-on-cloud/create-ddh-and-deploy-cloud-server.yml](./solutions/enterprise-on-cloud/create-ddh-and-deploy-cloud-server.yml) | 介绍本地部署或托管在IDC环境的 VMware系统迁移上云至独立宿主机（DDH）的最佳实践。使用DDH在云端构建由独享物理服务器组成的资源池，同时配合ECS成熟稳定的虚拟化技术体系，充分利用云上资源弹性、按使用付费的优势，快速构建高性能、高可靠和可快速动态伸缩的虚拟化系统，满足安全、合规、自定义部署、自带许可证（BYOL）等企业级需求；此模板完成创建DDH并部署云服务器。 |
 | [enterprise-on-cloud/e-commerce-business-and-db-on-the-cloud.yml](./solutions/enterprise-on-cloud/e-commerce-business-and-db-on-the-cloud.yml) | 此模板可创建出电商资源建站和数据库迁移方案所需资源，属于企业上云的最佳实践之一。 |
