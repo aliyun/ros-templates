@@ -3,29 +3,19 @@ Description:
   zh-cn: 基于EBS ESSD部署高性能的MySQL服务
   en: Deploy high-performance MySQL services based on EBS ESSD.
 Parameters:
-  SysDiskSize:
-    Default: 40
-    Type: Number
-    Label:
-      zh-cn: 系统盘大小
-      en: System Disk Size
-  SysDiskType:
+  DataDiskType:
     Default: cloud_essd
     Type: String
     Label:
-      zh-cn: 系统盘磁盘类型
-      en: System Disk Category
-  DataDiskPerformance:
-    Default: PL0
-    AllowedValues:
-      - PL0
-      - PL1
-      - PL2
-      - PL3
+      zh-cn: 数据盘磁盘类型
+      en: Data Disk Category
+  MySQLPassword:
+    Default: ''
+    NoEcho: true
     Type: String
     Label:
-      zh-cn: 数据盘性能等级
-      en: Data Disk Performance
+      zh-cn: 数据库密码
+      en: Mysql Password
   EcsType:
     Default: ecs.g6.large
     AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
@@ -37,21 +27,6 @@ Parameters:
     Label:
       zh-cn: ECS 实例规格
       en: InstanceType
-  EcsImageId:
-    Default: CentOS7_9
-    AllowedValues:
-      - CentOS7_9
-    Type: String
-    Label:
-      zh-cn: 镜像
-      en: ImageId
-  VpcCidrBlock:
-    Default: 192.168.0.0/16
-    AssociationProperty: 'ALIYUN::VPC::VPC::CidrBlock'
-    Type: String
-    Label:
-      zh-cn: 专有网络IPv4网段
-      en: VPC CIDR IPv4 Block
   ZoneId:
     Default: ''
     AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
@@ -59,58 +34,12 @@ Parameters:
     Label:
       zh-cn: 可用区
       en: Availability Zone
-  MySQLPassword:
-    Default: ''
-    NoEcho: true
-    Type: String
-    Label:
-      zh-cn: 数据库密码
-      en: Mysql Password
-  InternetMaxBandwidthOut:
-    Default: 100
-    Type: Number
-    Label:
-      zh-cn: 带宽值
-      en: Internet Max Bandwidth Out
-  MySQLPort:
-    Default: 3306
-    Type: Number
-    Label:
-      zh-cn: 数据库端口
-      en: Mysql Port
-  DataDiskType:
+  SysDiskType:
     Default: cloud_essd
-    AllowedValues:
-      - cloud_essd
     Type: String
     Label:
-      zh-cn: 数据盘磁盘类型
-      en: Data Disk Category
-  VSwitchCidrBlock:
-    Default: 192.168.0.0/24
-    AssociationProperty: 'ALIYUN::VPC::VSwitch::CidrBlock'
-    Type: String
-    Description:
-      zh-cn: 必须属于VPC的子网段。
-      en: Must belong to the subnet segment of VPC.
-    Label:
-      zh-cn: 交换机子网网段
-      en: VSwitch CIDR Block
-  DataDiskSize:
-    Default: 100
-    Type: Number
-    Label:
-      zh-cn: 数据盘大小
-      en: Data Disk Size
-  InternetChargeType:
-    Default: PayByTraffic
-    AllowedValues:
-      - PayByBandwidth
-      - PayByTraffic
-    Type: String
-    Label:
-      zh-cn: 带宽付费类型
-      en: InternetChargeType
+      zh-cn: 系统盘磁盘类型
+      en: System Disk Category
   EcsPassword:
     Type: String
     Description:
@@ -207,8 +136,7 @@ Resources:
           - '-'
           - - StackId
             - Ref: 'ALIYUN::StackId'
-      CidrBlock:
-        Ref: VpcCidrBlock
+      CidrBlock: 192.168.0.0/16
   WriteCommand:
     Type: 'ALIYUN::ECS::RunCommand'
     Properties:
@@ -452,8 +380,7 @@ Resources:
         Ref: 'ALIYUN::StackName'
       VpcId:
         Ref: VPC
-      CidrBlock:
-        Ref: VSwitchCidrBlock
+      CidrBlock: 192.168.0.0/24
       ZoneId:
         Ref: ZoneId
   RunCommand:
@@ -466,7 +393,7 @@ Resources:
             #!/bin/sh
 
             sed -i "s/#{MYSQL_PASSWORD}/${MySQLPassword}/g;
-            s/#{MYSQL_PORT}/${MySQLPort}/g;" /tmp/prepare_mysql.sh
+            s/#{MYSQL_PORT}/3306/g;" /tmp/prepare_mysql.sh
 
             sh /tmp/prepare_mysql.sh | tee ~/prepare_mysql.log
           - {}
@@ -483,19 +410,15 @@ Resources:
         Ref: SysDiskType
       VpcId:
         Ref: VPC
-      InternetMaxBandwidthOut:
-        Ref: InternetMaxBandwidthOut
+      InternetMaxBandwidthOut: 100
       SecurityGroupId:
         Ref: SecurityGroup
-      SystemDiskSize:
-        Ref: SysDiskSize
-      ImageId:
-        Ref: EcsImageId
+      SystemDiskSize: 40
+      ImageId: CentOS7_9
       AllocatePublicIP: true
       VSwitchId:
         Ref: VSwitch
-      InternetChargeType:
-        Ref: InternetChargeType
+      InternetChargeType: PayByTraffic
       IoOptimized: optimized
       Password:
         Ref: EcsPassword
@@ -510,10 +433,8 @@ Resources:
         Ref: DataDiskType
       ZoneId:
         Ref: ZoneId
-      PerformanceLevel:
-        Ref: DataDiskPerformance
-      Size:
-        Ref: DataDiskSize
+      PerformanceLevel: PL0
+      Size: 100
     DependsOn:
       - EcsInstance
 Metadata:
@@ -521,23 +442,14 @@ Metadata:
     ParameterGroups:
       - Parameters:
           - ZoneId
-          - VpcCidrBlock
-          - VSwitchCidrBlock
           - EcsType
-          - EcsImageId
           - EcsPassword
           - SysDiskType
-          - SysDiskSize
-          - InternetChargeType
-          - InternetMaxBandwidthOut
           - DataDiskType
-          - DataDiskPerformance
-          - DataDiskSize
         Label:
           zh-cn: 基础配置
           en: Basic Configuration
       - Parameters:
-          - MySQLPort
           - MySQLPassword
         Label:
           zh-cn: 数据库配置
