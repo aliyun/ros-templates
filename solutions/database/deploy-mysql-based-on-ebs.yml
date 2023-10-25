@@ -1,0 +1,546 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 基于EBS ESSD部署高性能的MySQL服务
+  en: Deploy high-performance MySQL services based on EBS ESSD.
+Parameters:
+  SysDiskSize:
+    Default: 40
+    Type: Number
+    Label:
+      zh-cn: 系统盘大小
+      en: System Disk Size
+  SysDiskType:
+    Default: cloud_essd
+    Type: String
+    Label:
+      zh-cn: 系统盘磁盘类型
+      en: System Disk Category
+  DataDiskPerformance:
+    Default: PL0
+    AllowedValues:
+      - PL0
+      - PL1
+      - PL2
+      - PL3
+    Type: String
+    Label:
+      zh-cn: 数据盘性能等级
+      en: Data Disk Performance
+  EcsType:
+    Default: ecs.g6.large
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: '${ZoneId}'
+    Type: String
+    Label:
+      zh-cn: ECS 实例规格
+      en: InstanceType
+  EcsImageId:
+    Default: CentOS7_9
+    AllowedValues:
+      - CentOS7_9
+    Type: String
+    Label:
+      zh-cn: 镜像
+      en: ImageId
+  VpcCidrBlock:
+    Default: 192.168.0.0/16
+    AssociationProperty: 'ALIYUN::VPC::VPC::CidrBlock'
+    Type: String
+    Label:
+      zh-cn: 专有网络IPv4网段
+      en: VPC CIDR IPv4 Block
+  ZoneId:
+    Default: ''
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    Type: String
+    Label:
+      zh-cn: 可用区
+      en: Availability Zone
+  MySQLPassword:
+    Default: ''
+    NoEcho: true
+    Type: String
+    Label:
+      zh-cn: 数据库密码
+      en: Mysql Password
+  InternetMaxBandwidthOut:
+    Default: 100
+    Type: Number
+    Label:
+      zh-cn: 带宽值
+      en: Internet Max Bandwidth Out
+  MySQLPort:
+    Default: 3306
+    Type: Number
+    Label:
+      zh-cn: 数据库端口
+      en: Mysql Port
+  DataDiskType:
+    Default: cloud_essd
+    AllowedValues:
+      - cloud_essd
+    Type: String
+    Label:
+      zh-cn: 数据盘磁盘类型
+      en: Data Disk Category
+  VSwitchCidrBlock:
+    Default: 192.168.0.0/24
+    AssociationProperty: 'ALIYUN::VPC::VSwitch::CidrBlock'
+    Type: String
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    Label:
+      zh-cn: 交换机子网网段
+      en: VSwitch CIDR Block
+  DataDiskSize:
+    Default: 100
+    Type: Number
+    Label:
+      zh-cn: 数据盘大小
+      en: Data Disk Size
+  InternetChargeType:
+    Default: PayByTraffic
+    AllowedValues:
+      - PayByBandwidth
+      - PayByTraffic
+    Type: String
+    Label:
+      zh-cn: 带宽付费类型
+      en: InternetChargeType
+  EcsPassword:
+    Type: String
+    Description:
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+    Default: null
+    MinLength: 8
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+    MaxLength: 30
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    ConstraintDescription:
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+Outputs:
+  EcsLoginAddress:
+    Description:
+      zh-cn: Ecs登陆地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Ref: EcsInstance
+          Region:
+            Ref: 'ALIYUN::Region'
+  EcsInstanceId:
+    Description: ECS实例ID
+    Value:
+      'Fn::GetAtt':
+        - EcsInstance
+        - InstanceId
+  EcsInstanceUser:
+    Description: ECS实例初始用户
+    Value: root
+  EcsInstancePublicIp:
+    Description: ECS实例公网IP
+    Value:
+      'Fn::GetAtt':
+        - EcsInstance
+        - PublicIp
+  MysqlUser:
+    Description: MySQL初始用户
+    Value: root
+  DataDisk:
+    Description: 数据盘ID
+    Value:
+      'Fn::GetAtt':
+        - DataDisk
+        - DiskId
+Resources:
+  DataDiskAttachment:
+    Type: 'ALIYUN::ECS::DiskAttachment'
+    Properties:
+      InstanceId:
+        Ref: EcsInstance
+      DiskId:
+        Ref: DataDisk
+    DependsOn:
+      - EcsInstance
+      - DataDisk
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: '-1/-1'
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: all
+      VpcId:
+        Ref: VPC
+      SecurityGroupEgress:
+        - Priority: 1
+          PortRange: '-1/-1'
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+          IpProtocol: all
+  VPC:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      VpcName:
+        'Fn::Join':
+          - '-'
+          - - StackId
+            - Ref: 'ALIYUN::StackId'
+      CidrBlock:
+        Ref: VpcCidrBlock
+  WriteCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      Type: RunShellScript
+      CommandContent:
+        'Fn::Join':
+          - ''
+          - - >
+              echo '
+
+              # 1. Get data disk label
+
+              DEV_LABEL=vdb
+
+
+              # 2. Check if data disk exists
+
+              if [ ! -e /dev/${DEV_LABEL} ]; then
+                  echo "[ERROR] /dev/${DEV_LABEL} not exist. Please check if data disk label is vdb."
+                  exit
+              fi
+
+
+              # 3. Set MySQL home
+
+              MYSQL_HOME="/root/${DEV_LABEL}"
+
+              if [ ! -d ${MYSQL_HOME} ]; then
+                  if mkdir -p ${MYSQL_HOME}; then 
+                      echo "[INFO] Create directory ${MYSQL_HOME} successfully."
+                  else
+                      echo "[ERROR] Failed to create directory ${MYSQL_HOME}."
+                      exit 
+                  fi
+              fi
+
+              echo "[INFO] Using /dev/${DEV_LABEL} as the MySQL data home."
+
+
+              # 4. Prevent virtio io split
+
+              echo 256 >/sys/block/${DEV_LABEL}/queue/max_sectors_kb
+
+              echo "[INFO] Set max sectors kb successfully."
+
+
+              # 5. mkfs with bigalloc enabled
+
+              umount /dev/${DEV_LABEL}
+
+              echo y | mkfs.ext4 -O bigalloc -C 16k /dev/${DEV_LABEL}
+
+              echo "[INFO] mkfs with bigalloc enabled successfully."
+
+
+              # 6. Install MySQL
+
+              cd /tmp/
+
+              if wget -N
+              http://mirrors.cloud.aliyuncs.com/mysql/MySQL-8.0/mysql-8.0.27-1.el7.x86_64.rpm-bundle.tar
+              -O mysql.tar ; then
+                  echo "[INFO] Download mysql rpm bundle successfully."
+              else
+                  echo "[ERROR] Failed to download mysql rpm bundle."
+                  exit
+              fi
+
+              tar -xf mysql.tar
+
+              echo "[INFO] Extract mysql rpm bundle successfully."
+
+
+              if yum install -y
+              mysql-community-{server,client,common,libs,devel}-*; then
+                  echo "[INFO] Install mysql successfully."
+              else 
+                  echo "[ERROR] Failed to install mysql."
+                  exit
+              fi
+
+
+              # 7. Create MySQL directories
+
+              mount /dev/${DEV_LABEL} ${MYSQL_HOME}
+
+              mkdir -p ${MYSQL_HOME}/data/dbs
+
+              mkdir -p ${MYSQL_HOME}/data/mysql
+
+              mkdir -p ${MYSQL_HOME}/log/mysql
+
+              mkdir -p ${MYSQL_HOME}/log/redo
+
+              echo "[INFO] Create MySQL directories successfully."
+
+
+              # 8. Add mysql group and user
+
+              systemctl stop mysqld
+
+              groupadd mysql
+
+              useradd -g mysql mysql
+
+              chown -R mysql:mysql ${MYSQL_HOME}
+
+              echo "[INFO] Add mysql group and user successfully."
+
+
+              # 9. Turn off doublewrite
+
+              cat <<EOF | echo "[mysqld]
+
+              port = #{MYSQL_PORT}
+
+              back_log = 3000
+
+              datadir = ${MYSQL_HOME}/data/dbs
+
+              log-bin = ${MYSQL_HOME}/log/mysql/mysql-bin.log
+
+              log-error = ${MYSQL_HOME}/log/mysql/master-error.log
+
+              innodb_data_home_dir = ${MYSQL_HOME}/data/mysql/
+
+              innodb_log_group_home_dir = ${MYSQL_HOME}/log/redo/
+
+              innodb_doublewrite_dir = ${MYSQL_HOME}/doublewrite
+
+              character_set_server = utf8
+
+              sync_binlog = 1000
+
+              innodb_flush_log_at_trx_commit = 2
+
+              innodb_doublewrite = 0
+
+
+              default_authentication_plugin = mysql_native_password"
+              >/etc/my.cnf
+
+              EOF
+
+
+              # 10. Init MySQL SQL
+
+              cat <<EOF | echo "ALTER USER 'root'@'localhost' IDENTIFIED WITH
+              mysql_native_password BY '\'#{MYSQL_PASSWORD}\'';
+
+              create user root@'\'%\'' identified by '\'#{MYSQL_PASSWORD}\'';
+
+              grant all privileges on *.* to root@'\'%\'';
+
+              grant all privileges on *.* to root@'\'%\'' with grant option;
+
+              " >${MYSQL_HOME}/prepare.sql
+
+              EOF
+
+
+              # 11. Start MySQL
+
+              killall -9 mysqld
+
+              mysqld --defaults-file=/etc/my.cnf --initialize
+
+              mysqld --user=root --daemonize
+
+              mysql -uroot -p"$(cat ${MYSQL_HOME}/log/mysql/master-error.log |
+              grep root | grep "temporary password" | awk '\'{print \$13}\'' |
+              xargs -n 1 echo)" --connect-expired-password
+              <${MYSQL_HOME}/prepare.sql
+
+              echo '[INFO] Prepare MySQL successfully.'
+
+              ' > /tmp/prepare_mysql.sh 
+
+
+              echo '#!/bin/bash
+
+              # chkconfig: 345 20 80
+
+              # description: EBS MySQL 16K Auto Start Script
+
+              start() {
+                  DEV_LABEL=vdb
+                  MYSQL_HOME=/root/${DEV_LABEL}
+                  echo 256 >/sys/block/vdb/queue/max_sectors_kb
+                  umount /dev/${DEV_LABEL}
+                  mount /dev/${DEV_LABEL} ${MYSQL_HOME}
+                  mysqld --user=root --daemonize
+              }
+
+              stop() {
+                  pgrep mysqld | xargs kill
+                  echo "Stopping mysqld..."
+              }
+
+              restart() {
+                  stop
+                  sleep 2
+                  start
+              }
+
+              case "$1" in
+                  start)
+                      start
+                      ;;
+                  stop)
+                      stop
+                      ;;
+                  restart)
+                      restart
+                      ;;
+                  *)
+                      echo "Usage: $0 {start|stop|restart}"
+                      exit 1
+              esac
+
+              exit 0
+
+              ' > /etc/rc.d/init.d/ebs_mysql_16k_auto_start.sh
+
+              cd /etc/rc.d/init.d
+
+              chmod +x /etc/rc.d/init.d/ebs_mysql_16k_auto_start.sh
+
+              sudo chkconfig --add ebs_mysql_16k_auto_start.sh
+
+              sudo chkconfig ebs_mysql_16k_auto_start.sh on
+      Sync: true
+      InstanceIds:
+        - Ref: EcsInstance
+    DependsOn:
+      - DataDiskAttachment
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VSwitchName:
+        Ref: 'ALIYUN::StackName'
+      VpcId:
+        Ref: VPC
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      ZoneId:
+        Ref: ZoneId
+  RunCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      Type: RunShellScript
+      CommandContent:
+        'Fn::Sub':
+          - >
+            #!/bin/sh
+
+            sed -i "s/#{MYSQL_PASSWORD}/${MySQLPassword}/g;
+            s/#{MYSQL_PORT}/${MySQLPort}/g;" /tmp/prepare_mysql.sh
+
+            sh /tmp/prepare_mysql.sh | tee ~/prepare_mysql.log
+          - {}
+      Sync: true
+      InstanceIds:
+        - Ref: EcsInstance
+      Timeout: 600
+    DependsOn:
+      - WriteCommand
+  EcsInstance:
+    Type: 'ALIYUN::ECS::Instance'
+    Properties:
+      SystemDiskCategory:
+        Ref: SysDiskType
+      VpcId:
+        Ref: VPC
+      InternetMaxBandwidthOut:
+        Ref: InternetMaxBandwidthOut
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SystemDiskSize:
+        Ref: SysDiskSize
+      ImageId:
+        Ref: EcsImageId
+      AllocatePublicIP: true
+      VSwitchId:
+        Ref: VSwitch
+      InternetChargeType:
+        Ref: InternetChargeType
+      IoOptimized: optimized
+      Password:
+        Ref: EcsPassword
+      InstanceType:
+        Ref: EcsType
+      ZoneId:
+        Ref: ZoneId
+  DataDisk:
+    Type: 'ALIYUN::ECS::Disk'
+    Properties:
+      DiskCategory:
+        Ref: DataDiskType
+      ZoneId:
+        Ref: ZoneId
+      PerformanceLevel:
+        Ref: DataDiskPerformance
+      Size:
+        Ref: DataDiskSize
+    DependsOn:
+      - EcsInstance
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - VpcCidrBlock
+          - VSwitchCidrBlock
+          - EcsType
+          - EcsImageId
+          - EcsPassword
+          - SysDiskType
+          - SysDiskSize
+          - InternetChargeType
+          - InternetMaxBandwidthOut
+          - DataDiskType
+          - DataDiskPerformance
+          - DataDiskSize
+        Label:
+          zh-cn: 基础配置
+          en: Basic Configuration
+      - Parameters:
+          - MySQLPort
+          - MySQLPassword
+        Label:
+          zh-cn: 数据库配置
+          en: DataBase Configuration
+    TemplateTags:
+      - 'acs:solution:基于EBS部署高性能的MySQL服务'
