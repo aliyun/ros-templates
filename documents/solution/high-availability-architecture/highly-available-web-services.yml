@@ -21,6 +21,24 @@ Parameters:
       en: Availability zone 2 must be different from Availability zone 1.
       zh-cn: 可用区2要不同与可用区1。
     AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+  NasZone1:
+    Type: String
+    Label:
+      en: NAS Availability Zone1
+      zh-cn: NAS可用区1
+    Description:
+      en: Availability zone 1 must be different from Availability zone 2.
+      zh-cn: 可用区1要不同与可用区2。
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+  NasZone2:
+    Type: String
+    Label:
+      en: NAS Availability Zone2
+      zh-cn: NAS可用区2
+    Description:
+      en: Availability zone 2 must be different from Availability zone 1.
+      zh-cn: 可用区2要不同与可用区1。
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
   EcsInstanceType1:
     Type: String
     Label:
@@ -57,14 +75,6 @@ Parameters:
     MaxLength: 30
     NoEcho: true
     AssociationProperty: ALIYUN::ECS::Instance::Password
-  LoadBalancerSpec:
-    Type: String
-    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
-    Label:
-      en: LoadBalancer Specifications
-      zh-cn: 负载均衡实例规格
-    AssociationPropertyMetadata:
-      ZoneId: ${Zone1}
   CommonName:
     Type: String
     Default: high-availability
@@ -95,6 +105,26 @@ Resources:
       VSwitchName:
         Fn::Sub: '${CommonName}_vsw_002'
       CidrBlock: 192.168.2.0/24
+  EcsVSwitch3:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: NasZone1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: '${CommonName}_vsw_003'
+      CidrBlock: 192.168.3.0/24
+  EcsVSwitch4:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: NasZone2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: '${CommonName}_vsw_004'
+      CidrBlock: 192.168.4.0/24
   EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
@@ -139,6 +169,7 @@ Resources:
       IoOptimized: optimized
       SystemDiskCategory: cloud_essd
       SystemDiskSize: 40
+      SpotStrategy: SpotAsPriceGo
       MaxAmount: 1
       InstanceType:
         Ref: EcsInstanceType1
@@ -161,6 +192,7 @@ Resources:
       IoOptimized: optimized
       SystemDiskCategory: cloud_essd
       SystemDiskSize: 40
+      SpotStrategy: SpotAsPriceGo
       MaxAmount: 1
       InstanceType:
         Ref: EcsInstanceType2
@@ -174,7 +206,7 @@ Resources:
       StorageType: Capacity
       Description: MasterNAS
       ZoneId:
-        Ref: Zone1
+        Ref: NasZone1
       ProtocolType: NFS
       VpcId:
         Ref: EcsVpc
@@ -184,7 +216,7 @@ Resources:
       StorageType: Capacity
       Description: BackupNAS
       ZoneId:
-        Ref: Zone2
+        Ref: NasZone2
       ProtocolType: NFS
       VpcId:
         Ref: EcsVpc
@@ -194,7 +226,7 @@ Resources:
       VpcId:
         Ref: EcsVpc
       VSwitchId:
-        Ref: EcsVSwitch1
+        Ref: EcsVSwitch3
       AccessGroupName: DEFAULT_VPC_GROUP_NAME
       FileSystemId:
         Ref: MasterFileSystem
@@ -205,7 +237,7 @@ Resources:
       VpcId:
         Ref: EcsVpc
       VSwitchId:
-        Ref: EcsVSwitch2
+        Ref: EcsVSwitch4
       AccessGroupName: DEFAULT_VPC_GROUP_NAME
       FileSystemId:
         Ref: BackupFileSystem
@@ -366,8 +398,7 @@ Resources:
         Fn::Sub: '${CommonName}-slb'
       PayType: PayOnDemand
       AddressType: internet
-      LoadBalancerSpec:
-        Ref: LoadBalancerSpec
+      InstanceChargeType: PayByCLCU
   SlbBackendServerAttachment:
     Type: ALIYUN::SLB::BackendServerAttachment
     Properties:
@@ -405,7 +436,7 @@ Resources:
       BackendServerPort: 80
       Protocol: http
 Outputs:
-  Endpoint:
+  SlbIpAddress:
     Description:
       zh-cn: 对外暴露的公网IP地址
       en: Public IP Addresses
@@ -416,21 +447,87 @@ Outputs:
             Fn::GetAtt:
               - Slb
               - IpAddress
+  ECS1URL:
+    Description:
+      zh-cn: ECS 1 地址
+      en: ECS 1 URL
+    Value:
+      Fn::Sub:
+        - https://ecs.console.aliyun.com/#/server/region/${region}?instanceIds=${InstanceID}
+        - InstanceID:
+            Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                  - EcsInstanceGroup1
+                  - InstanceIds
+          region:
+            Ref: ALIYUN::Region
+  ECS2URL:
+    Description:
+      zh-cn: ECS 2 地址
+      en: ECS 2 URL
+    Value:
+      Fn::Sub:
+        - https://ecs.console.aliyun.com/#/server/region/${region}?instanceIds=${InstanceID}
+        - InstanceID:
+            Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                  - EcsInstanceGroup1
+                  - InstanceIds
+          region:
+            Ref: ALIYUN::Region
+  FileSystemId1:
+    Description:
+      zh-cn: 主NAS
+      en: Master NAS
+    Value:
+      Fn::Sub:
+        - https://nasnext.console.aliyun.com/${region}/filesystem/${InstanceID}
+        - InstanceID:
+            Fn::GetAtt:
+              - MasterFileSystem
+              - FileSystemId
+          region:
+            Ref: ALIYUN::Region
+  FileSystemId2:
+    Description:
+      zh-cn: 备NAS
+      en: Backup NAS
+    Value:
+      Fn::Sub:
+        - https://nasnext.console.aliyun.com/${region}/filesystem/${InstanceID}
+        - InstanceID:
+            Fn::GetAtt:
+              - BackupFileSystem
+              - FileSystemId
+          region:
+            Ref: ALIYUN::Region
 Rules:
-  DifferentZones:
+  DifferentZones1:
     Assertions:
       - Assert:
           Fn::Not:
             Fn::Equals:
               - Ref: Zone1
               - Ref: Zone2
-        AssertDescription: Zones must be different
+        AssertDescription: ECS Zones must be different
+  DifferentZones2:
+    Assertions:
+      - Assert:
+          Fn::Not:
+            Fn::Equals:
+              - Ref: NasZone1
+              - Ref: NasZone2
+        AssertDescription: NAS Zones must be different
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
       - Parameters:
           - Zone1
           - Zone2
+          - NasZone1
+          - NasZone2
         Label:
           default:
             en: Availability Zone
@@ -443,12 +540,6 @@ Metadata:
           default:
             en: Instance Configure
             zh-cn: ECS实例配置
-      - Parameters:
-          - LoadBalancerSpec
-        Label:
-          default:
-            en: CLB Configure
-            zh-cn: 负载均衡配置
     TemplateTags:
       - 'acs:technical-solution:high-availability-architecture:高可用及共享存储Web服务'
     Hidden:
