@@ -1,0 +1,286 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Ansible Semaphore Community Edition
+  zh-cn: Ansible Semaphore社区版
+Parameters:
+  AdminPassword:
+    Type: String
+    Label:
+      en: Admin Password
+      zh-cn: 管理员密码
+    Description:
+      en: 'Administrator (account name: admin) password.'
+      zh-cn: 管理员（账号为admin）密码。
+    NoEcho: true
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${InstanceType}
+      ZoneId: ${ZoneId}
+    Default: cloud_essd
+  SystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间 (GB)
+      en: System Disk Space (GB)
+    Default: 100
+  InternetMaxBandwidthOut:
+    Type: Number
+    Label:
+      zh-cn: 流量公网带宽
+      en: Internet Max Bandwidth Out
+    Default: 5
+    MinValue: 1
+    MaxValue: 100
+  DBUser:
+    Type: String
+    Label:
+      en: Database Username
+      zh-cn: 数据库账号
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: semaphore
+    MinLength: 2
+    MaxLength: 16
+  DBPassword:
+    Type: String
+    Label:
+      en: Database account password
+      zh-cn: 数据库账号密码
+    Description:
+      en: 'The password must be 8 to 32 characters in length and must contain at least
+        three of the following types: uppercase letters, lowercase letter, digits,
+        and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
+    AllowedPattern: 
+      ^(?=.*[a-zA-Z])(?=.*[a-z0-9])(?=.*[a-z!@#$%^&*()_+=-])(?=.*[A-Z0-9])(?=.*[A-Z!@#$%^&*()_+=-])(?=.*[0-9!@#$%^&*()_+=-])[a-zA-Z0-9!@#$%^&*()_+=-]{8,32}$
+    NoEcho: true
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+    Default: mysql.n2m.small.2c
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+Resources:
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      MaxAmount: 1
+      IoOptimized: optimized
+      AllocatePublicIP: true
+      InternetMaxBandwidthOut:
+        Ref: InternetMaxBandwidthOut
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage: 50
+      Engine: MySQL
+      EngineVersion: "8.0"
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUserType: Super
+      MasterUsername:
+        Ref: DBUser
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      SecurityIPList:
+        Fn::Join:
+        - ','
+        - Fn::GetAtt:
+          - EcsInstanceGroup
+          - PrivateIps
+  InstallAnsibleSemaphore:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Ref: EcsInstanceGroup
+      Type: RunShellScript
+      Sync: true
+      Timeout: 7200
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          echo "###############################"
+          echo "# Instance Ansible Semaphore"
+          echo "###############################"
+          wget '{{ computenest::file::ansibleSemaphore }}'
+          yum install -y semaphore_2.9.37_linux_amd64.rpm
+
+          echo "###############################"
+          echo "# Config Ansible Semaphore"
+          echo "###############################"
+          mkdir /etc/semaphore
+          cat > /etc/semaphore/config.json << \EOF
+          {
+            "mysql": {
+              "host": "${RdsDBInstance.InnerConnectionString}",
+              "user": "${DBUser}",
+              "pass": "${DBPassword}",
+              "name": "semaphore"
+            },
+            "dialect": "mysql",
+            "tmp_path": "/tmp/semaphore",
+            "port": "80"
+          }
+          EOF
+
+          semaphore migrate --config /etc/semaphore/config.json
+          semaphore user add --admin --login admin --name Admin --email admin@localhost \
+            --password ${AdminPassword} --config /etc/semaphore/config.json
+
+          cat > /etc/systemd/system/semaphore.service << \EOF
+          [Unit]
+          Description=Ansible Semaphore
+          Documentation=https://github.com/ansible-semaphore/semaphore
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=simple
+          ExecReload=/bin/kill -HUP $MAINPID
+          ExecStart=/usr/bin/semaphore service --config=/etc/semaphore/config.json
+          SyslogIdentifier=semaphore
+          Restart=always
+          RestartSec=10s
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+          echo "###############################"
+          echo "# Run Ansible Semaphore"
+          echo "###############################"
+          systemctl daemon-reload
+          systemctl enable semaphore
+          systemctl start semaphore
+          systemctl status semaphore
+    DependsOn:
+    - SecurityGroupIngress_80
+Outputs:
+  SemaphoreLoginURL:
+    Description:
+      zh-cn: Ansible Semaphore 登录地址
+      en: Ansible Semaphore Login URL
+    Value:
+      Fn::Sub:
+      - http://${ServerAddress}/auth/login
+      - ServerAddress:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - AdminPassword
+      Label:
+        default:
+          en: Ansible Semaphore Configuration
+          zh-cn: Ansible Semaphore配置
+    - Parameters:
+      - InstanceType
+      - SystemDiskCategory
+      - SystemDiskSize
+      - InternetMaxBandwidthOut
+      Label:
+        default:
+          en: Instance Configuration
+          zh-cn: ECS实例配置
+    - Parameters:
+      - DBUser
+      - DBPassword
+      - DBInstanceClass
+      Label:
+        default:
+          en: Instance Configuration
+          zh-cn: RDS实例配置
+    - Parameters:
+      - ZoneId
+      - VpcId
+      - VSwitchId
+      Label:
+        default:
+          zh-cn: 网络配置
+          en: Zone Configuration
+    TemplateTags:
+    - acs:integrate:computenest:ansible-semaphore
