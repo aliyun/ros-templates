@@ -1,0 +1,131 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 一键部署Zabbix。
+  en: Deploy Zabbix with one click.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      zh-cn: 可用区ID
+      en: Zone ID
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+  EcsInstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      ZoneId: ${ZondId}
+      InstanceChargeType: PostPaid
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+  SecurityGroupIngress_80:
+    Type: 'ALIYUN::ECS::SecurityGroupIngress'
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      IpProtocol: tcp
+      NicType: intranet
+      SourceCidrIp: 0.0.0.0/0
+      PortRange: 80/80
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+  InstanceGroup:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7
+      SystemDiskCategory: cloud_essd
+      IoOptimized: optimized
+      InstanceType:
+        Ref: EcsInstanceType
+      MaxAmount: 1
+  InstallZabbix:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        'Fn::GetAtt':
+        - InstanceGroup
+        - InstanceIds
+      Type: RunShellScript
+      CommandContent:
+        'Fn::Sub': |-
+          sudo rpm -Uvh https://repo.zabbix.com/zabbix/5.0/rhel/7/x86_64/zabbix-release-5.0-1.el7.noarch.rpm
+          sudo yum clean all
+          sudo yum makecache
+          sudo yum install zabbix-server-mysql zabbix-agent -y
+          sudo yum install centos-release-scl -y
+
+          sudo sed -i 's/^enabled=0/enabled=1/' /etc/yum.repos.d/zabbix.repo
+          sudo yum install zabbix-web-mysql-scl zabbix-apache-conf-scl -y
+
+          sudo yum install mariadb-server -y
+          sudo systemctl start mariadb
+          sudo systemctl enable mariadb
+          sudo mysql_secure_installation <<EOF
+
+          y
+          zabbix
+          zabbix
+          y
+          n
+          y
+          y
+          EOF
+          sudo mysql -uroot -pzabbix -e "CREATE DATABASE zabbix character set utf8 collate utf8_bin;"
+          sudo mysql -uroot -pzabbix -e "CREATE USER 'zabbix'@'localhost' IDENTIFIED BY 'zabbix';"
+          sudo mysql -uroot -pzabbix -e "GRANT ALL PRIVILEGES ON zabbix.* TO 'zabbix'@'localhost';"
+          sudo mysql -uroot -pzabbix -e "FLUSH PRIVILEGES;"
+          sudo zcat /usr/share/doc/zabbix-server-mysql*/create.sql.gz | mysql -uzabbix -pzabbix zabbix
+          sudo sed -i 's/^# DBPassword=/DBPassword=zabbix/' /etc/zabbix/zabbix_server.conf
+          sudo sed -i 's/^; php/php/' /etc/opt/rh/rh-php72/php-fpm.d/zabbix.conf
+          sudo sed -i 's/Europe\/Riga/Asia\/Shanghai/' /etc/opt/rh/rh-php72/php-fpm.d/zabbix.conf
+          sudo systemctl restart zabbix-server zabbix-agent httpd rh-php72-php-fpm  
+          sudo systemctl enable zabbix-server zabbix-agent httpd rh-php72-php-fpm
+      Sync: true
+      Timeout: 3600
+    DependsOn:
+    - SecurityGroupIngress_80
+Outputs:
+  ZabbixUrl:
+    Description:
+      zh-cn: Zabbix页面。
+      en: Zabbix Page.
+    Value:
+      'Fn::Sub':
+      - 'http://${IP}/zabbix'
+      - IP:
+          'Fn::Jq':
+          - First
+          - '.[0]'
+          - 'Fn::GetAtt':
+            - InstanceGroup
+            - PublicIps
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - EcsInstanceType
