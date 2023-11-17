@@ -14,7 +14,13 @@ Parameters:
         and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally
         unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
       zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
-    Default: vod-bucket-src
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: vod-bucket-src-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
   BucketNameTarget:
     Type: String
     Label:
@@ -26,7 +32,13 @@ Parameters:
         and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally
         unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
       zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
-    Default: vod-bucket-target
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: vod-bucket-target-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
   Zone1:
     Type: String
     Label:
@@ -71,6 +83,14 @@ Parameters:
     Type: String
     Default: video-website
 Resources:
+  AutoEnableOSS:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: OSS
+  AutoEnableMNS:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: MNS
   EcsVpc:
     Type: ALIYUN::ECS::VPC
     Properties:
@@ -273,6 +293,7 @@ Resources:
       ListenerProtocol: HTTP
   OssBucketScr:
     Type: ALIYUN::OSS::Bucket
+    DependsOn: AutoEnableOSS
     Properties:
       BucketName:
         Ref: BucketNameScr
@@ -280,6 +301,7 @@ Resources:
       DeletionForce: true
   OssBucketTarget:
     Type: ALIYUN::OSS::Bucket
+    DependsOn: AutoEnableOSS
     Properties:
       BucketName:
         Ref: BucketNameTarget
@@ -298,7 +320,7 @@ Resources:
         Fn::Sub: |
           #!/bin/bash
 
-          wget https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20230620/xpnk/server.zip
+          wget https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20230830/qhwb/server.zip
           yum install unzip -y
           unzip server.zip
           cd server
@@ -309,11 +331,13 @@ Resources:
           uwsgi uwsgi.ini
   Queue:
     Type: ALIYUN::MNS::Queue
+    DependsOn: AutoEnableMNS
     Properties:
       QueueName:
         Fn::Sub: ${CommonName}-mns-queue
   VodStorage:
     Type: ALIYUN::VOD::Storage
+    DependsOn: AliyunVODDefaultRole
     Properties:
       StorageType: user_oss_bucket
       StorageLocation:
@@ -429,6 +453,25 @@ Resources:
     - Application
     - MessageCallback
     - VodStorage
+  AliyunVODDefaultRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunVODDefaultRole
+      Description: VOD默认使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - vod.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+      DeletionForce: true
+      PolicyAttachments:
+        System:
+          - AliyunVODRolePolicy
 Outputs:
   VideoUrl:
     Description:

@@ -11,7 +11,13 @@ Parameters:
     AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
     AssociationPropertyMetadata:
       InstanceChargeType: PostPaid
-      SystemDiskCategory: cloud_essd
+      SpotStrategy: SpotAsPriceGo
+    Description:
+      en: >-
+        If no available specifications are displayed, please select Modify
+        Availability Zone and try again.
+      zh-cn: 如果没有可用规格显示，请选择修改可用区后重试。
+    Default: ecs.s6-c1m1.small
   Zone1:
     Type: String
     Label:
@@ -24,6 +30,9 @@ Parameters:
       en: VSwitch Availability Zone2
       zh-cn: 交换机可用区2
     AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    Description:
+      en: Please select an availability zone different from Availability Zone1.
+      zh-cn: 请选择与可用区1不同的可用区。
   InstancePassword:
     Type: String
     Label:
@@ -58,7 +67,7 @@ Parameters:
     Label:
       en: DBNodeClass
       zh-cn: PolarDB集群规格
-    Default: polar.mysql.x4.large
+    Default: polar.mysql.g2.medium
   PolarDBAccountName:
     Type: String
     Label:
@@ -86,22 +95,6 @@ Parameters:
     MinLength: 8
     MaxLength: 30
     NoEcho: true
-  BucketName:
-    Type: String
-    Label:
-      en: OSS Bucket Name
-      zh-cn: Oss存储空间名称
-    Description:
-      en: >-
-        The name must be 3 to 63 bytes in length, The name must start and end
-        with a lowercase letter or digit.The name can contain only lowercase
-        letters, digits, and hyphens (-).;<br><b>note：<font color='blue'>A
-        bucket name must be globally unique within OSS. Bucket names cannot be
-        changed after the bucket is created.</b></font>
-      zh-cn: >-
-        长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font
-        color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
-    Default: image-example-test
   CommonName:
     Type: String
     Default: high-availability
@@ -172,7 +165,7 @@ Resources:
           DestCidrIp: 0.0.0.0/0
           NicType: intranet
   EcsInstanceGroup1:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: 'ALIYUN::ECS::Instance'
     Properties:
       ZoneId:
         Ref: Zone1
@@ -184,17 +177,17 @@ Resources:
         Ref: EcsSecurityGroup
       ImageId: centos_7_6
       IoOptimized: optimized
-      SystemDiskCategory: cloud_essd
-      SystemDiskSize: 40
-      MaxAmount: 1
+      SystemDiskSize: 20
       InstanceType:
         Ref: EcsInstanceType
       Password:
         Ref: InstancePassword
       InstanceName:
         'Fn::Sub': '${CommonName}_ecs1'
+      SpotStrategy: SpotAsPriceGo
+      SystemDiskCategory: cloud_essd
   EcsInstanceGroup2:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: 'ALIYUN::ECS::Instance'
     Properties:
       ZoneId:
         Ref: Zone2
@@ -206,15 +199,15 @@ Resources:
         Ref: EcsSecurityGroup
       ImageId: centos_7_6
       IoOptimized: optimized
-      SystemDiskCategory: cloud_essd
-      SystemDiskSize: 40
-      MaxAmount: 1
+      SystemDiskSize: 20
       InstanceType:
         Ref: EcsInstanceType
       Password:
         Ref: InstancePassword
       InstanceName:
         'Fn::Sub': '${CommonName}_ecs2'
+      SpotStrategy: SpotAsPriceGo
+      SystemDiskCategory: cloud_essd
   InstanceRunCommand:
     Type: 'ALIYUN::ECS::RunCommand'
     Properties:
@@ -248,11 +241,11 @@ Resources:
     Type: 'ALIYUN::POLARDB::DBCluster'
     Properties:
       ZoneId:
-        Ref: Zone1
+        Ref: Zone2
       VpcId:
         Ref: EcsVpc
       VSwitchId:
-        Ref: EcsVSwitch1
+        Ref: EcsVSwitch2
       SecurityGroupIds:
         - Ref: EcsSecurityGroup
       DBType: MySQL
@@ -350,17 +343,6 @@ Resources:
       LoadBalancerId:
         Ref: AlbLoadBalancer
       ListenerProtocol: HTTP
-  OssBucket:
-    Type: 'ALIYUN::OSS::Bucket'
-    Properties:
-      BucketName:
-        Ref: BucketName
-      AccessControl: public-read
-      StorageClass: Standard
-  OpenCdnService:
-    Type: 'ALIYUN::ROS::AutoEnableService'
-    Properties:
-      ServiceName: DCDN
 Outputs:
   WordPressUrl:
     Description:
@@ -377,6 +359,13 @@ Metadata:
   'ALIYUN::ROS::Interface':
     ParameterGroups:
       - Parameters:
+          - Zone1
+          - Zone2
+        Label:
+          default:
+            en: Availability Zone
+            zh-cn: 可用区配置
+      - Parameters:
           - EcsInstanceType
           - InstancePassword
         Label:
@@ -392,19 +381,6 @@ Metadata:
           default:
             en: PolarDB Information
             zh-cn: PolarDB配置
-      - Parameters:
-          - BucketName
-        Label:
-          default:
-            en: OSS
-            zh-cn: OSS 配置
-      - Parameters:
-          - Zone1
-          - Zone2
-        Label:
-          default:
-            en: Availability Zone
-            zh-cn: 可用区配置
     TemplateTags:
       - 'acs:technical-solution:high-availability-architecture:云上高可用博客网站'
     Hidden:

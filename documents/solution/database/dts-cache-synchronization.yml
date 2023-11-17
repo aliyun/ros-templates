@@ -25,7 +25,6 @@ Parameters:
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
-    Default: ecs.c5.large
   SystemDiskCategory:
     Type: String
     Label:
@@ -39,7 +38,6 @@ Parameters:
       LocaleKey: DiskCategory
       InstanceType: ${InstanceType}
       ZoneId: ${ZoneId}
-    Default: cloud_efficiency
   InstancePassword:
     Type: String
     Label:
@@ -116,7 +114,6 @@ Parameters:
       Engine: MySQL
       Category: HighAvailability
       DBInstanceStorageType: cloud_essd
-    Default: 'rds.mysql.t1.small'
   RedisInstanceClass:
     Type: String
     Label:
@@ -170,6 +167,7 @@ Parameters:
 Resources:
   Vpc:
     Type: ALIYUN::ECS::VPC
+    DependsOn: AliyunDTSDefaultRole
     Properties:
       CidrBlock: 192.168.0.0/16
   VSwitch:
@@ -254,6 +252,8 @@ Resources:
       DBInstanceStorageType: cloud_essd
       SecurityIPList: 0.0.0.0/0
       AllocatePublicConnection: true
+      SlaveZoneIds:
+        - Ref: ZoneId
   RedisInstance:
     Type: ALIYUN::REDIS::Instance
     Properties:
@@ -352,6 +352,25 @@ Resources:
       - Whitelist
       - SecurityGroupIngress_22
       - SecurityGroupIngress_3306
+  AliyunDTSDefaultRole:
+    Type: 'ALIYUN::RAM::Role'
+    Properties:
+      RoleName: AliyunDTSDefaultRole
+      Description: DTS默认使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - dts.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+      DeletionForce: true
+      PolicyAttachments:
+        System:
+          - AliyunDTSRolePolicy
 Outputs:
   RdsInstanceInnerConnectionString:
     Description:
@@ -389,4 +408,4 @@ Metadata:
         Label:
           default: Dts
     TemplateTags:
-      - acs:technical-solution:database:通过DTS实现MySQL与Redis缓存同步一致性方案
+      - acs:technical-solution:database:实时同步RDS与Redis构建缓存一致性
