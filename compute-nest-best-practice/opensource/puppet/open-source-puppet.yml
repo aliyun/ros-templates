@@ -1,0 +1,401 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: Puppet 社区版
+  en: open source puppet
+Parameters:
+  ServerZoneId:
+    Type: String
+    Label:
+      zh-cn: Server 可用区
+      en: Server Availability Zone
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  ServerInstanceType:
+    Type: String
+    Label:
+      zh-cn: Server 实例类型
+      en: Server Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ServerZoneId}
+  AgentNumber:
+    Type: Number
+    Label:
+      zh-cn: 客户端实例数量
+      en: Agent Instance Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 10
+  AgentZoneId:
+    Type: String
+    Label:
+      zh-cn: Agent可用区
+      en: Agent Availability Zone
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  AgentInstanceType:
+    Type: String
+    Label:
+      zh-cn: Agent 实例类型
+      en: Agent Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${AgentZoneId}
+  InstancePassword:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    Default:
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: puppet
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      IpProtocol: tcp
+      NicType: intranet
+      SourceCidrIp: 0.0.0.0/0
+      PortRange: 22/22
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      IpProtocol: tcp
+      NicType: intranet
+      SourceCidrIp: 0.0.0.0/0
+      PortRange: 80/80
+  SecurityGroupIngress_8140:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      IpProtocol: tcp
+      NicType: intranet
+      SourceCidrIp: 0.0.0.0/0
+      PortRange: 8140/8140
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ServerZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName:
+        Fn::Sub: ${CommonName}-${ServerZoneId}-vsw
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: AgentZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.2.0/24
+      VSwitchName:
+        Fn::Sub: ${CommonName}-${AgentZoneId}-vsw
+  PuppetServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ServerZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch1
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      AllocatePublicIP: false
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: ServerInstanceType
+      MaxAmount: 1
+      HostName: puppet-server
+      InstanceName: puppet-server
+  NatEip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Name:
+        Fn::Sub: ${CommonName}-nat-eip
+      DeletionProtection: false
+      Isp: BGP
+      Bandwidth: 100
+      InternetChargeType: PayByTraffic
+  NatGateway:
+    Type: ALIYUN::VPC::NatGateway
+    Properties:
+      ZoneId:
+        Ref: ServerZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch1
+      NatGatewayName:
+        Fn::Sub: ${CommonName}-ngw
+      InternetChargeType: PayByLcu
+      EipBindMode: NAT
+  NatEipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: NatEip
+  SnatEntry:
+    Type: ALIYUN::VPC::SnatEntry
+    DependsOn: NatEipAssociation
+    Properties:
+      SnatEntryName: public-network-access-in-vpc
+      SnatTableId:
+        Fn::GetAtt:
+          - NatGateway
+          - SNatTableId
+      SnatIp:
+        Fn::GetAtt:
+          - NatEipAssociation
+          - EipAddress
+      SourceCIDR: 0.0.0.0/0
+  InstallPuppetServer:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Ref: PuppetServer
+      Type: RunShellScript
+      Sync: true
+      Timeout: 1800
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          echo "###############################"
+          echo "# SSH configuration "
+          echo "###############################"
+          cat >> /etc/ssh/${SshKeyPair.KeyPairName}.pem  << EOF
+          ${SshKeyPair.PrivateKeyBody}
+          EOF
+          chmod 400 /etc/ssh/${SshKeyPair.KeyPairName}.pem
+          echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config
+          echo "IdentityFile /etc/ssh/${SshKeyPair.KeyPairName}.pem" >> /etc/ssh/ssh_config
+          
+          echo "###############################"
+          echo "# Instance Puppet Server"
+          echo "###############################"
+          rpm -Uvh https://yum.puppet.com/puppet8-release-el-8.noarch.rpm
+          sed -i 's|yum.puppet.com|mirrors.cloud.aliyuncs.com/puppet/yum|g' /etc/yum.repos.d/puppet8-release.repo
+          yum install -y puppetserver
+
+          # modify /etc/puppetlabs/puppet/puppet.conf
+          /opt/puppetlabs/bin/puppet config set server puppet-server --section main
+          /opt/puppetlabs/bin/puppet config set certname puppet-server --section main
+          
+          cat /etc/puppetlabs/puppet/puppet.conf
+          
+          systemctl enable puppetserver
+          systemctl start puppetserver
+          exec bash
+          /opt/puppetlabs/bin/puppetserver -v
+    DependsOn:
+      - SnatEntry
+      - SecurityGroupIngress_22
+      - SecurityGroupIngress_80
+      - SecurityGroupIngress_8140
+  PuppetAgent:
+    Type: ALIYUN::ECS::InstanceGroup
+    Count:
+      Ref: AgentNumber
+    Properties:
+      ZoneId:
+        Ref: AgentZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch2
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      AllocatePublicIP: false
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: AgentInstanceType
+      MaxAmount: 1
+      HostName:
+        Fn::Sub: ${CommonName}-agent-${ALIYUN::Index}
+      InstanceName:
+        Fn::Sub: ${CommonName}-agent-${ALIYUN::Index}
+  InstallPuppetAgent:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Ref: PuppetAgent
+      Type: RunShellScript
+      Sync: true
+      Timeout: 1800
+      CommandContent:
+        Fn::Sub:
+          - |-
+            #!/bin/bash
+            echo "###############################"
+            echo "# SSH configuration "
+            echo "###############################"
+            
+            cat >> /etc/ssh/${SshKeyPair.KeyPairName}.pem  << EOF
+            ${SshKeyPair.PrivateKeyBody}
+            EOF
+            
+            chmod 400 /etc/ssh/${SshKeyPair.KeyPairName}.pem
+            echo "StrictHostKeyChecking=no" >> /etc/ssh/ssh_config
+            
+            echo "###############################"
+            echo "# Instance Puppet Agent"
+            echo "###############################"
+            rpm -Uvh https://yum.puppet.com/puppet8-release-el-8.noarch.rpm
+            sed -i 's|yum.puppet.com|mirrors.cloud.aliyuncs.com/puppet/yum|g' /etc/yum.repos.d/puppet8-release.repo
+            yum install -y puppet-agent
+            
+            cat >> /etc/hosts  << EOF
+            ${PrivateIp}    puppet-server
+            EOF
+            
+            echo "host done"
+            
+            source /etc/profile.d/puppet-agent.sh
+            # modify /etc/puppetlabs/puppet/puppet.conf
+            /opt/puppetlabs/bin/puppet config set server puppet-server --section main
+          - PrivateIp:
+              Fn::Select:
+                - 0
+                - Fn::GetAtt:
+                  - PuppetServer
+                  - PrivateIps
+  SignCa:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn:
+      - InstallPuppetAgent
+      - InstallPuppetServer
+    Properties:
+      InstanceIds:
+        - Ref: PuppetServer
+      Type: RunShellScript
+      Sync: true
+      Timeout: 1200
+      CommandContent:
+        Fn::Sub:
+          - |-
+            #!/bin/bash
+            echo "###############################"
+            echo "# Sign Ca for Agent"
+            echo "###############################"
+            
+            agent_ips="${AgentIps}"
+            for ip in $agent_ips
+            do
+                sleep 5
+                ssh -f -n $ip "/opt/puppetlabs/bin/puppet ssl bootstrap &"
+                sleep 10
+                host_name=`ssh $ip "hostname"`
+                echo "ip: $ip  hostname: $host_name"
+                echo $ip    $host_name >> /etc/hosts
+                /opt/puppetlabs/bin/puppetserver ca sign --certname $host_name 2>&1
+                sleep 5
+                ssh $ip "systemctl enable puppet"
+            done
+          - AgentIps:
+              Fn::Join:
+                - ' '
+                - Fn::Add:
+                    Fn::GetAtt:
+                      - PuppetAgent
+                      - PrivateIps
+  SshKeyPair:
+    Type: ALIYUN::ECS::SSHKeyPair
+    Properties:
+      KeyPairName:
+        Fn::Sub: ${CommonName}-ssh-key-pair
+  ServerKeyPairAttachment:
+    Type: ALIYUN::ECS::SSHKeyPairAttachment
+    Properties:
+      InstanceIds:
+        - Ref: PuppetServer
+      KeyPairName:
+        Ref: SshKeyPair
+      AutoReboot: true
+  AgentKeyPairAttachment:
+    Type: ALIYUN::ECS::SSHKeyPairAttachment
+    Properties:
+      InstanceIds:
+        Ref: PuppetAgent
+      KeyPairName:
+        Ref: SshKeyPair
+      AutoReboot: true
+Outputs:
+  ServerEcsLoginAddress:
+    Description:
+      zh-cn: Server Ecs登陆地址。
+      en: Server Ecs login address.
+    Value:
+      Fn::Sub:
+        https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${PuppetServer}
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ServerZoneId
+      - ServerInstanceType
+      Label:
+        default:
+          zh-cn: Puppet Server 实例配置
+          en: Puppet server configuration
+    - Parameters:
+      - AgentNumber
+      - AgentZoneId
+      - AgentInstanceType
+      Label:
+        default:
+          zh-cn: Puppet Agent 实例配置
+          en: Instance Configuration
+    - Parameters:
+      - InstancePassword
+      Label:
+        default:
+          zh-cn: 实例密码配置
+          en: Instance Password Configuration
+    Hidden:
+      - CommonName
+    TemplateTags:
+    - acs:integrate:computenest:open-source-puppet
