@@ -1,0 +1,325 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: ECS自建数据库迁移至RDS数据库
+  en: Data transmission from ECS self-built database to RDS database
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - InstancePassword
+        Label:
+          default: ECS
+      - Parameters:
+          - DBInstanceEngineAndVersion
+          - DBInstanceClass
+          - DBUserName
+          - DBPassword
+        Label:
+          default: RDS
+    TemplateTags:
+      - acs:technical-solution:database:网站数据库平滑迁移上云
+Parameters:
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    ConstraintDescription: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+  DBInstanceEngineAndVersion:
+    Type: String
+    Description:
+      zh-cn: 数据库引擎类型及版本，默认为MySQL 8.0
+      en: 'Database instance engine type and version, default: MySQL 8.0'
+    Label:
+      zh-cn: 引擎类型及版本
+      en: Engine And Version
+    Default: MySQL 8.0
+    AllowedValues:
+      - MySQL 5.7
+      - MySQL 8.0
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: RDS Instance Class
+      zh-cn: RDS实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: '8.0'
+      DBInstanceStorageType: cloud_essd
+      Engine: MySQL
+      Category: HighAvailability
+  DBUserName:
+    Type: String
+    Description:
+      en: Username of RDS database
+      zh-cn: RDS数据库账号
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin with a letter and be end with an alphanumeric character
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾
+    Label:
+      zh-cn: RDS数据库账号
+      en: RDS DB Username
+    Default: dbuser
+    MaxLength: 16
+    MinLength: 2
+  DBPassword:
+    Type: String
+    Description:
+      en: RDS database password, consisting of letters, numbers, and underline(_), is 8 to 32 characters long
+      zh-cn: RDS数据库密码，由字母、数字、下划线（_）组成，长度为8~32个字符
+    ConstraintDescription:
+      en: '[8, 32] characters consist of alphanumeric characters, hyphen and underline'
+      zh-cn: '[8, 32] 个字符由字母数字字符、连字符和下划线组成'
+    Label:
+      zh-cn: RDS数据库密码
+      en: RDS DB Password
+    MaxLength: 32
+    MinLength: 8
+    NoEcho: true
+Resources:
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 3600
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      CidrBlock: 192.168.0.0/24
+      ZoneId: cn-hangzhou-j
+      VpcId:
+        Fn::GetAtt:
+          - Vpc
+          - VpcId
+  VswitchSlave1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      CidrBlock: 192.168.1.0/24
+      ZoneId: cn-hangzhou-k
+      VpcId:
+        Fn::GetAtt:
+          - Vpc
+          - VpcId
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: wordpress_vpc
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName: SG-DTS-GROUP-20220101
+      VpcId:
+        Fn::GetAtt:
+          - Vpc
+          - VpcId
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      DBInstanceClass: mysql.n2m.small.2c
+      ZoneId: cn-hangzhou-k
+      SlaveZoneIds:
+        - cn-hangzhou-k
+      DBInstanceDescription: RDS-DB
+      DBInstanceStorage: 20
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      VSwitchId:
+        Ref: VSwitch
+      Engine:
+        Fn::Select:
+          - '0'
+          - Fn::Split:
+              - ' '
+              - Ref: DBInstanceEngineAndVersion
+      VpcId:
+        Ref: Vpc
+      EngineVersion:
+        Fn::Select:
+          - '1'
+          - Fn::Split:
+              - ' '
+              - Ref: DBInstanceEngineAndVersion
+      SecurityIPList:
+        Fn::Join:
+          - ','
+          - - Fn::GetAtt:
+                - WebServer
+                - PrivateIp
+            - Fn::GetAtt:
+                - EIP
+                - EipAddress
+      MasterUsername:
+        Ref: DBUserName
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUserType: Super
+  SecurityGroupIngress:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SourceCidrIp: 0.0.0.0/0
+      SecurityGroupId:
+        Ref: SecurityGroup
+      IpProtocol: all
+      PortRange: '-1/-1'
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      IoOptimized: optimized
+      ImageId: aliyun_3_x64_20G_alibase_20230629.vhd
+      SecurityGroupId:
+        Ref: SecurityGroup
+      Password:
+        Ref: InstancePassword
+      InternetMaxBandwidthOut: 80
+      UserData:
+        Fn::Replace:
+          - ros-notify:
+              Fn::GetAtt:
+                - RosWaitConditionHandle
+                - CurlCli
+          - Fn::Join:
+              - ''
+              - - '#!/bin/sh'
+                - |+
+
+                - |
+                  DatabaseUser='wordpressuser'
+                - |
+                  DatabasePwd='password'
+                - |
+                  DatabaseName='wordpressdb'
+                - |
+                  DatabaseHost='localhost'
+                - |
+                  yum update -y
+                - |
+                  yum install -y unzip zip
+                - |
+                  yum install -y mysql-server
+                - |
+                  systemctl start mysqld
+                - |
+                  systemctl enable mysqld
+                - |
+                  mysql -e "CREATE DATABASE wordpressdb;"
+                - |
+                  mysql -e "CREATE USER 'wordpressuser'@'localhost' IDENTIFIED BY 'password';"
+                - |
+                  mysql -e "GRANT ALL PRIVILEGES ON wordpressdb.* TO 'wordpressuser'@'localhost';"
+                - |
+                  mysql -e "FLUSH PRIVILEGES;"
+                - |
+                  mysql -e "CREATE USER dtssync1 IDENTIFIED BY 'P@ssw0rd';"
+                - |
+                  mysql -e "GRANT ALL ON *.* TO 'dtssync1'@'%';"
+                - |
+                  mysql -e "FLUSH PRIVILEGES;"
+                - |
+                  mysql -e "SET GLOBAL binlog_format = 'ROW';"
+                - |
+                  yum install -y nginx
+                - |
+                  systemctl start nginx
+                - |
+                  systemctl enable nginx
+                - |
+                  yum install -y php php-fpm php-mysqlnd
+                - |
+                  systemctl start php-fpm
+                - |
+                  systemctl enable php-fpm
+                - |
+                  cd /usr/share/nginx/html
+                - |
+                  wget http://wordpress.org/latest.tar.gz
+                - |
+                  tar xzvf latest.tar.gz
+                - |
+                  cp -R wordpress/* .
+                - |
+                  rm -R wordpress
+                - |
+                  rm -R wordpress
+                - |
+                  cp wp-config-sample.php wp-config.php
+                - |
+                  sed -i "s/database_name_here/$DatabaseName/" wp-config.php
+                - |
+                  sed -i "s/username_here/$DatabaseUser/" wp-config.php
+                - |
+                  sed -i "s/password_here/${DatabasePwd:-$DatabasePwdDef}/" wp-config.php
+                - |
+                  sed -i "s/localhost/$DatabaseHost/" wp-config.php
+                - |
+                  systemctl restart nginx
+                - |
+                  systemctl restart php-fpm
+                - |
+                  ros-notify
+      VSwitchId:
+        Ref: VSwitch
+      VpcId:
+        Ref: Vpc
+      InstanceType: ecs.g6.large
+      SystemDiskCategory: cloud_efficiency
+      AllocatePublicIP: false
+  EIP:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth: 50
+      InstanceChargeType: Postpaid
+      InternetChargeType: PayByTraffic
+  EIPAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: WebServer
+      AllocationId:
+        Ref: EIP
+    DependsOn:
+      - WebServer
+      - EIP
+Outputs:
+  ECSWordPressUrl:
+    Description: WordPress default address.
+    Value:
+      Fn::Join:
+        - ''
+        - - http://
+          - Fn::GetAtt:
+              - EIP
+              - EipAddress
+  ECSInstanceUser:
+    Description: Username and password for logging in to ECS instance
+    Value:
+      Fn::Join:
+        - ''
+        - - 'USERNAME: root ; PASSWORD: '
+          - Ref: InstancePassword
+  WPUserForSQL:
+    Description: ECS-hosted database username and password for executing SQL
+    Value: 'USERNAME: wordpressuser ; PASSWORD: password'
+  WPUserForDTS:
+    Description: ECS-hosted database username and password for connecting to DTS
+    Value: 'USERNAME: dtssync1 ; PASSWORD: P@ssw0rd'
+  RDSUserDTS:
+    Description: RDS username and password for connecting to DTS
+    Value:
+      Fn::Join:
+        - ''
+        - - 'USERNAME: '
+          - Ref: DBUserName
+          - ' '
+          - 'PASSWORD: '
+          - Ref: DBPassword
