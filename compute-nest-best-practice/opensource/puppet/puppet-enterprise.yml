@@ -1,0 +1,167 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: Puppet 企业版
+  en: Puppet Enterprise
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      zh-cn: 可用区
+      en: Availability Zone
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      zh-cn: Server 实例类型
+      en: Server Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+  PuppetPassword:
+    Type: String
+    Label:
+      zh-cn: Puppet 密码
+      en: Puppet Password
+    Description:
+      zh-cn: Puppet登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Puppet login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: puppet-enterprise
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: "-1/-1"
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: all
+      SecurityGroupEgress:
+        - Priority: 1
+          PortRange: "-1/-1"
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+          IpProtocol: all
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName:
+        Fn::Sub: ${CommonName}-${ZoneId}-vsw
+  PuppetServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7_9_x64_20G_alibase_
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 120
+      AllocatePublicIP: true
+      IoOptimized: optimized
+      Password:
+        Ref: PuppetPassword
+      InstanceType:
+        Ref: InstanceType
+      MaxAmount: 1
+      HostName: puppet-primary-server
+      InstanceName: puppet-primary-server
+  InstallPuppetServer:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Ref: PuppetServer
+      Type: RunShellScript
+      Sync: true
+      Timeout: 1800
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            
+            wget 'https://image-test3.oss-cn-shenzhen.aliyuncs.com/puppet-enterprise-2023.5.0-el-7-x86_64.tar.gz' >/dev/null 2>&1
+            echo "`date +'%Y-%m-%dT%H:%M:%S'`  download complete"
+            tar -xzf puppet-enterprise-2023.5.0-el-7-x86_64.tar.gz
+            echo "`date +'%Y-%m-%dT%H:%M:%S'`  tar complete"
+            
+            echo y | ./puppet-enterprise-2023.5.0-el-7-x86_64/puppet-enterprise-installer > /tmp/puppet-installer.log
+            echo "installer: $?" >> /tmp/puppet-installer.log
+            echo "`date +'%Y-%m-%dT%H:%M:%S'` puppet enterprise install complete" >> /tmp/puppet-installer.log
+            
+            puppet infrastructure console_password --password=${PuppetPassword}
+            echo "`date +'%Y-%m-%dT%H:%M:%S'` console password set complete" >> /tmp/puppet-installer.log
+            
+            sed -i '34i "puppet_enterprise::profile::console::proxy::http_redirect::server_name": "${ServerAddress}"' /etc/puppetlabs/enterprise/conf.d/pe.conf
+            puppet agent -t >> /tmp/puppet-installer.log
+            echo "agent1: $?" >> /tmp/puppet-installer.log
+            sleep 60
+            puppet agent -t >> /tmp/puppet-installer.log
+            echo "agent2: $?" >> /tmp/puppet-installer.log
+          - ServerAddress:
+              Fn::Select:
+                - 0
+                - Fn::GetAtt:
+                    - PuppetServer
+                    - PublicIps
+Outputs:
+  ServerEcsLoginAddress:
+    Description:
+      zh-cn: Server Ecs登陆地址。
+      en: Server Ecs login address.
+    Value:
+      Fn::Sub: https://ecs-workbench.aliyun.com/?instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${PuppetServer}
+  PuppetEnterpriseConsoleURL:
+    Description:
+      zh-cn: Puppet Enterprise 登录地址
+      en: Puppet Enterprise Login URL
+    Value:
+      Fn::Sub:
+        - https://${ServerAddress}/
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - PuppetServer
+                  - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - InstanceType
+      - PuppetPassword
+    Hidden:
+      - CommonName
+    TemplateTags:
+    - acs:integrate:computenest:puppet-enterprise

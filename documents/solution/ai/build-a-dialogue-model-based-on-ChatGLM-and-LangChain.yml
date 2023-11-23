@@ -55,9 +55,33 @@ Parameters:
     MinLength: 8
     MaxLength: 30
     NoEcho: true
+  PAIEASInstanceType:
+    Type: String
+    Label:
+      en: PAI-EAS instance type.
+      zh-cn: PAI-EAS实例规格
+    Description:
+      en: PAI-EAS instance type.
+      zh-cn: PAI-EAS 使用的实例规格。
+    Default: ml.gu7i.c16m60.1-gu30
 Resources:
+  RandomString:
+    Type: ALIYUN::RandomString
+    Properties:
+      length: 8
+      character_classes:
+        - class: lowercase
+          min: 1
+        - class: digits
+          min: 1
+  EnablePAI:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: PAI
   Vpc:
     Type: ALIYUN::ECS::VPC
+    DependsOn:
+    - EnablePAI
     Properties:
       CidrBlock: 192.168.0.0/16
   VSwitch:
@@ -126,41 +150,28 @@ Resources:
         Ref: VSwitch
   Workspace:
     Type: ALIYUN::PAI::Workspace
+    DependsOn:
+    - EnablePAI
     Properties:
       EnvTypes:
         - dev
         - prod
       Description: Build a dialogue model based on ChatGLM and LangChain.
       WorkspaceName:
-        Fn::Sub:
-          - 'chatglm_demo_${StackId}'
-          - StackId:
-              Fn::Jq:
-                - First
-                - .[0]
-                - Fn::Split:
-                    - '-'
-                    - Ref: ALIYUN::StackId
+        Fn::Sub: chatglm_demo_${RandomString.value}
   EAS:
     Type: ALIYUN::PAI::Service
     Properties:
       ServiceConfig:
         metadata:
           name:
-            Fn::Sub:
-              - 'chatglm_demo_${StackId}'
-              - StackId:
-                  Fn::Jq:
-                    - First
-                    - .[0]
-                    - Fn::Split:
-                        - '-'
-                        - Ref: ALIYUN::StackId
+            Fn::Sub: chatglm_demo_${RandomString.value}
           instance: 1
           enable_webservice: true
         cloud:
           computing:
-            instance_type: ml.gu7i.c16m60.1-gu30
+            instance_type:
+              Ref: PAIEASInstanceType
             instances: Null
           networking:
             vswitch_id:
@@ -200,5 +211,11 @@ Metadata:
           default:
             en: ECS
             zh-cn: 云服务器
+      - Parameters:
+          - PAIEASInstanceType
+        Label:
+          default:
+            en: PAI-EAS
+            zh-cn: PAI服务
     TemplateTags:
-      - acs:technical-solution:AI:基于ChatGLM和LangChain搭建对话模型
+      - acs:technical-solution:AI:ChatGLM和LangChain搭建对话模型

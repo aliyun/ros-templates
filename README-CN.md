@@ -454,19 +454,20 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - database
 
-| 模板                                                                                                         | 说明                                                                                           |
-|------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| 模板                                                                                                        | 说明                                                                                           |
+|-----------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | 数据库自动扩缩容和自动SQL优化。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/adsa_sql)               |
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress网站数据库上云。                                                                            |
 | [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml) | 通过DTS实现MySQL与Redis缓存同步一致性方案。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/rtsorarctebcc) |
-| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                    | 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。   ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/rds_polardb)  |
+| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                   | 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。   ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/rds_polardb)  |
 | [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | RDS+ClickHouse构建一站式HTAP。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/rdsclickhouse_htap) |
+| [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml) | 网站数据库平滑迁移上云。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/smowdttc) |
 
 - micro
 
 | 模板                                                                                                                 | 说明       |
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
-| [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-end-to-end-canary-release-for-ack-application.yml) | 基于MSE实现ACK应用的全链路灰度。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/iflgbomse) |
+| [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-realizes-full-link-grayscale.yml) | 基于MSE实现ACK应用的全链路灰度。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/iflgbomse) |
 
 - network
 
@@ -480,11 +481,12 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - storage
 
-| 模板                                                                                                                          | 说明                  |
-|-----------------------------------------------------------------------------------------------------------------------------|---------------------|
+| 模板                                                                                                                        | 说明                  |
+|---------------------------------------------------------------------------------------------------------------------------|---------------------|
 | [collect-logs-across-alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/cacac_logs) |
-| [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)         | 通过日志审计服务跨账号采集OSS日志。 |
-| [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml)         | 云原生可观测运维。 |
+| [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)       | 通过日志审计服务跨账号采集OSS日志。 |
+| [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml)       | 云原生可观测运维。 |
+| [snapshot-optimize.yml](documents/solution/storage/snapshot-optimize.yml)         | 基于EBS部署高性能的MySQL服务。 |
 
 
 - cdn-and-video-cloud

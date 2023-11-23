@@ -458,19 +458,20 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - database
 
-| Template                                                                                                         | Description                                                                                 |
-|------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| Template                                                                                                         | Description                                                                                |
+|------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
 | [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | Automatic database scaling and SQL optimization|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
 | [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml)                             | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
 | [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)           | Online one-click upgrade of RDS MySQL to PolarDB MySQL version without modifying any code and configuration of the application. |
 | [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml)                                     | Build a one-stop HTAP service based on RDS and ClickHouse. |
+| [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml)             | Data transmission from ECS self-built database to RDS database. |
 
 - micro
 
 | Template                                                                                                                 | Description       |
 |------------------------------------------------------------------------------------------------------------------------|-----------------|
-| [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-end-to-end-canary-release-for-ack-application.yml) | MSE end-to-end canary release for ACK application. |
+| [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-realizes-full-link-grayscale.yml) | MSE end-to-end canary release for ACK application. |
 
 - network
 
@@ -489,6 +490,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [collect-logs-across-alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-alibaba-cloud-accounts.yml) | Collect logs across Alibaba cloud accounts.                 |
 | [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)         | Collect logs of OSS across accounts with log audit service. |
 | [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml)         | Cloud-native observable operation and maintenance. |
+| [snapshot-optimize.yml](documents/solution/storage/snapshot-optimize.yml)         | Deploy high-performance MySQL services based on EBS ESSD. |
 
 
 - cdn-and-video-cloud

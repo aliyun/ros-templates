@@ -1,0 +1,305 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 无代理ECS备份高效环境搭建
+  en: Deploy high-performance MySQL services based on EBS ESSD.
+Parameters:
+  ecsType:
+    Default: ecs.g6.large
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: '${zoneId}'
+    Type: String
+    Label:
+      zh-cn: ECS 实例规格
+      en: InstanceType
+  ecsPassword:
+    Type: String
+    Description:
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+    Default: null
+    MinLength: 8
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+    MaxLength: 30
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    ConstraintDescription:
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+  zoneId:
+    Default: ''
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    Type: String
+    Label:
+      zh-cn: 可用区
+      en: Availability Zone
+Outputs:
+  EcsLoginAddress:
+    Description:
+      zh-cn: Ecs登陆地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Ref: EcsInstance
+          Region:
+            Ref: 'ALIYUN::Region'
+  EcsCloneLoginAddress:
+    Description:
+      zh-cn: Ecs(克隆)登陆地址。
+      en: Ecs clone login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Ref: EcsInstanceClone
+          Region:
+            Ref: 'ALIYUN::Region'
+  EcsInstanceId:
+    Description: ECS实例ID
+    Value:
+      'Fn::GetAtt':
+        - EcsInstance
+        - InstanceId
+  EcsInstanceUser:
+    Description: ECS实例初始用户
+    Value: root
+  EcsInstancePublicIp:
+    Description: ECS实例公网IP
+    Value:
+      'Fn::GetAtt':
+        - EcsInstance
+        - PublicIp
+  MysqlUser:
+    Description: MySQL初始用户
+    Value: root
+  MysqlPassword:
+    Description: MySQL初始密码
+    Value: 请登录ECS执行以下命令获取初始密码：sudo grep 'temporary password' /var/log/mysqld.log
+  SystemDiskId:
+    Description: 系统盘ID
+    Value:
+      'Fn::GetAtt':
+        - SysTemDisk
+        - DiskIds
+Resources:
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: '-1/-1'
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: all
+      VpcId:
+        Ref: VPC
+      SecurityGroupEgress:
+        - Priority: 1
+          PortRange: '-1/-1'
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+          IpProtocol: all
+  VPC:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      VpcName:
+        'Fn::Join':
+          - '-'
+          - - StackId
+            - Ref: 'ALIYUN::StackId'
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VSwitchName:
+        Ref: 'ALIYUN::StackName'
+      VpcId:
+        Ref: VPC
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: zoneId
+  EcsInstance:
+    Type: 'ALIYUN::ECS::Instance'
+    Properties:
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Ref: VPC
+      InternetMaxBandwidthOut: 100
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SystemDiskSize: 40
+      ImageId: centos_7_9_x64_20G_alibase_
+      AllocatePublicIP: true
+      IoOptimized: optimized
+      InternetChargeType: PayByTraffic
+      VSwitchId:
+        Ref: VSwitch
+      Password:
+        Ref: ecsPassword
+      InstanceType:
+        Ref: ecsType
+      ZoneId:
+        Ref: zoneId
+      InstanceName:
+        Fn::Sub: ECS_Instance-${ALIYUN::StackId}
+  RunCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      Type: RunShellScript
+      CommandContent:
+        'Fn::Sub':
+          - >
+            #!/bin/sh
+
+            cd /tmp/
+
+            if wget -N
+            http://mirrors.cloud.aliyuncs.com/mysql/MySQL-8.0/mysql-8.0.27-1.el7.x86_64.rpm-bundle.tar
+            -O mysql.tar ; then
+
+                echo "[INFO] Download mysql rpm bundle.tar successfully."
+
+                tar -xf mysql.tar
+
+                echo "[INFO] Extract mysql rpm bundle.tar successfully."
+
+                if yum install -y mysql-community-{server,client,common,libs,devel}-*; then
+
+                    echo "[INFO] Install mysql successfully."
+
+                else 
+
+                    echo "[ERROR] Failed to install mysql."
+
+                    exit
+
+                fi
+
+            else
+
+                echo "[ERROR] Failed to download mysql rpm bundle."
+
+                echo "[INFO] Install from [dev.mysql.com rpm repository]"
+
+                rpm -Uvh https://dev.mysql.com/get/mysql80-community-release-el7-7.noarch.rpm
+                  
+                if yum -y install mysql-community-server --enablerepo=mysql80-community --nogpgcheck; then
+
+                    echo "[INFO] Install mysql successfully."
+
+                else 
+
+                    echo "[ERROR] Failed to install mysql."
+
+                    exit
+
+                fi
+                  
+            fi
+
+            sudo systemctl start mysqld
+
+            sudo systemctl enable mysqld
+
+            sync
+          - {}
+      Sync: true
+      InstanceIds:
+        - Ref: EcsInstance
+      Timeout: 600
+    DependsOn:
+      - EcsInstance
+  SysTemDisk:
+    Type: 'DATASOURCE::ECS::Disks'
+    Properties:
+      InstanceId:
+        Ref: EcsInstance
+      DiskType: system
+    DependsOn:
+      - RunCommand
+  SnaptshotPolicy:
+    Type: 'ALIYUN::ECS::AutoSnapshotPolicy'
+    Properties:
+      TimePoints:
+        - 20
+        - 23
+      RetentionDays: 1
+      RepeatWeekdays:
+        - 1
+        - 2
+      DiskIds:
+        'Fn::GetAtt':
+          - SysTemDisk
+          - DiskIds
+      AutoSnapshotPolicyName:
+        Fn::Sub: AutoSnapshotPolicy-${ALIYUN::StackId}
+  MysqlImage:
+    Type: 'ALIYUN::ECS::CustomImage'
+    Properties:
+      Description: MySQL实例镜像
+      InstanceId:
+        Ref: EcsInstance
+      ImageName:
+        Fn::Sub: MySQLImage-${ALIYUN::StackId}
+      Platform: CentOS
+      Architecture: x86_64
+    DependsOn:
+      - SnaptshotPolicy
+      - RunCommand
+  EcsInstanceClone:
+    Type: 'ALIYUN::ECS::Instance'
+    Properties:
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Ref: VPC
+      InternetMaxBandwidthOut: 100
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SystemDiskSize: 40
+      ImageId:
+        'Fn::GetAtt':
+          - MysqlImage
+          - ImageId
+      AllocatePublicIP: true
+      IoOptimized: optimized
+      InternetChargeType: PayByTraffic
+      VSwitchId:
+        Ref: VSwitch
+      Password:
+        Ref: ecsPassword
+      InstanceType:
+        Ref: ecsType
+      ZoneId:
+        Ref: zoneId
+      InstanceName:
+        Fn::Sub: ECS_Instance_Clone-${ALIYUN::StackId}
+    DependsOn:
+      - MysqlImage
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - zoneId
+          - ecsType
+          - ecsPassword
+          - ecsImageId
+        Label:
+          zh-cn: 基础配置
+          en: Basic Configuration
+    TemplateTags:
+      - 'acs:technical-solution:ebs:基于EBS部署高性能的MySQL服务'
