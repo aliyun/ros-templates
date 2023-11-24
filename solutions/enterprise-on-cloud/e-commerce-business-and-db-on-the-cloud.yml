@@ -23,7 +23,6 @@ Metadata:
       - Parameters:
           - LoadBalancerSpec
           - SLB_ZoneId_1
-          - SLB_ZoneId_2
         Label:
           default: SLB
     TemplateTags:
@@ -79,8 +78,10 @@ Parameters:
       en: ECS Instance Type
       zh-cn: ECS实例规格
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AllowedPattern: 'ecs.u1.*'
   SystemDiskCategory:
     Type: String
+    Default: cloud_essd
     Label:
       en: System disk type
       zh-cn: 系统盘类型
@@ -119,8 +120,9 @@ Parameters:
       zh-cn: 数据库密码
     Description:
       en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols,
-        including: !@#$%^&*()_+-='
-      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+        including: !@#$%^&*()_+-= <br>It applies to both the password of the self-built database on ECS and
+        the password of RDS.'
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）<br>同时适用于ECS上自建数据库的密码与RDS的密码。
     ConstraintDescription:
       en: '8-32 characters, can contain size letters, Numbers and special symbols,
         including: !@#$%^&*()_+-='
@@ -134,6 +136,7 @@ Parameters:
       en: Load balancer instance specification
       zh-cn: 负载均衡实例规格
     Default: slb.s1.small
+    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
   SLB_ZoneId_1:
     Type: String
     AssociationProperty: ALIYUN::NLB::Zone::ZoneId
@@ -145,17 +148,6 @@ Parameters:
         region has at least two different availability zones to choose from</b>. If there are no two availability zones,
         please change other parameters or switch to another region and check again.
       zh-cn: 创建SLB实例的主可用区，<font color='red'><b>请确保当前地域有至少两个不同的可用区可供选择</b></font>。若无双可用区，请修改其他参数或切换至其他地域后重新查看。
-  SLB_ZoneId_2:
-    Type: String
-    AssociationProperty: ALIYUN::NLB::Zone::ZoneId
-    Label:
-      zh-cn: SLB备可用区
-      en: Slave availability zone
-    Description:
-      en: The slave availability zone to create for the SLB instance, <font color='red'><b>ensure that the current
-        region has at least two different availability zones to choose from</b>. If there are no two availability zones,
-        please change other parameters or switch to another region and check again.
-      zh-cn: 创建SLB实例的备可用区，<font color='red'><b>请确保当前地域有至少两个不同的可用区可供选择</b></font>。若无双可用区，请修改其他参数或切换至其他地域后重新查看。
 Resources:
   Vpc:
     Type: ALIYUN::ECS::VPC
@@ -279,7 +271,7 @@ Resources:
       InstanceChargeType: PostPaid
       InstanceType:
         Ref: InstanceType
-      ImageId: aliyun_3_x64_20G
+      ImageId: centos
       SystemDiskCategory:
         Ref: SystemDiskCategory
       SystemDiskSize: 40
@@ -301,7 +293,7 @@ Resources:
       InstanceChargeType: PostPaid
       InstanceType:
         Ref: InstanceType
-      ImageId: aliyun_3_x64_20G
+      ImageId: centos
       SystemDiskCategory:
         Ref: SystemDiskCategory
       SystemDiskSize: 40
@@ -320,8 +312,6 @@ Resources:
       LoadBalancerName: slb-ds-demo
       MasterZoneId:
         Ref: SLB_ZoneId_1
-      SlaveZoneId:
-        Ref: SLB_ZoneId_2
   SlbListener:
     Type: ALIYUN::SLB::Listener
     Properties:
@@ -357,15 +347,6 @@ Resources:
         - 100
       LoadBalancerId:
         Ref: Slb
-  RosWaitConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-  RosWaitCondition:
-    Type: ALIYUN::ROS::WaitCondition
-    Properties:
-      Count: 1
-      Handle:
-        Ref: RosWaitConditionHandle
-      Timeout: 600
   WordpressDemoEcs:
     Type: ALIYUN::ECS::Instance
     Properties:
@@ -419,6 +400,7 @@ Resources:
     DependsOn:
       - VpcEipAssociation_1
     Properties:
+      Sync: true
       Type: RunShellScript
       Timeout: 600
       InstanceIds:
@@ -477,12 +459,7 @@ Resources:
             echo '("0010","J","Male","20-30" ,"by");' >> setup_data.mysql
             chmod +x setup_data.mysql
             mysql -uroot -p${RootPwd} < setup_data.mysql
-            ${CurlCli} -d '{"Data" : "SUCCESS", "Status" : "SUCCESS"}'
-          - CurlCli:
-              Fn::GetAtt:
-                - RosWaitConditionHandle
-                - CurlCli
-            RootPwd:
+          - RootPwd:
               Ref: DBPassword
             DtsUserName: dts_user
             DtsUserPwd:
@@ -520,59 +497,82 @@ Resources:
       SecurityIPList: 192.168.0.0/16
       SecurityGroupId:
         Ref: ECommerceSg
-  DtsMigrationJob:
-    Type: ALIYUN::DTS::MigrationJob
+  DtsInstance:
+    Type: ALIYUN::DTS::Instance
     Properties:
-      MigrationJobClass: small
-#      SourceEndpoint:
-#        EngineName: MySQL
-#        IP:
-#          Fn::GetAtt:
-#            - Eip_1
-#            - EipAddress
-#        InstanceType: LocalInstance
-#        Password:
-#          Ref: DBPassword
-#        Port: '3306'
-#        Region:
-#          Ref: ALIYUN::Region
-#        UserName: dts_user
-#      DestinationEndpoint:
-#        EngineName: MySQL
-#        InstanceID:
-#          Ref: RdsDBInstance
-#        InstanceType: RDS
-#        Password:
-#          Ref: DBPassword
-#        Port: '3306'
-#        Region:
-#          Ref: ALIYUN::Region
-#        UserName: myuser
-#      MigrationMode:
-#        DataIntialization: true
-#        DataSynchronization: true
-#        StructureIntialization: true
-#      MigrationObject:
-#        - DBName: wordpress
-#          NewDBName: wordpress_new
-#          NewSchemaName: wordpress_new
-#          SchemaName: wordpress
+      JobId:
+        Fn::GetAtt:
+          - MigrationJob
+          - DtsJobId
+      InstanceClass: small
+      PayType: PostPaid
+      Type: MIGRATION
+      SourceRegion:
+        Ref: ALIYUN::Region
+      DestinationRegion:
+        Ref: ALIYUN::Region
+      SourceEndpointEngineName: MySQL
+      DestinationEndpointEngineName: MySQL
+  MigrationJob:
+    Type: ALIYUN::DTS::MigrationJob2
+    Properties:
+      DtsJobName: e-commerce_migration
+      SourceEndpoint:
+        InstanceType: ECS
+        InstanceID:
+          Ref: WordpressDemoEcs
+        EngineName: MYSQL
+        Port: '3306'
+        Region:
+          Ref: ALIYUN::Region
+        UserName: dts_user
+        Password:
+          Ref: DBPassword
+      DestinationEndpoint:
+        InstanceType: RDS
+        InstanceID:
+          Ref: RdsDBInstance
+        EngineName: MYSQL
+        Region:
+          Ref: ALIYUN::Region
+        UserName: myuser
+        Password:
+          Ref: DBPassword
+      StructureInitialization: true
+      DataInitialization: true
+      DataSynchronization: true
+      DbList:
+        wordpress:
+          name: wordpress_new
+          all: true
     DependsOn:
       - RdsDBInstance
-      - RosWaitCondition
+      - InstallMysqlRunCommand
 Outputs:
-  Eip:
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登陆地址。
+      en: Ecs login address.
     Value:
-      Fn::GetAtt:
-        - Eip_1
-        - EipAddress
-  DtsMigrationJob:
-    Value:
-      Fn::GetAtt:
-        - DtsMigrationJob
-        - MigrationJobId
+      Fn::Sub:
+        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Ref: WordpressDemoEcs
+          Region:
+            Ref: ALIYUN::Region
   DBInstanceId:
+    Description:
+      zh-cn: RDS实例ID。
+      en: RDS instance id.
     Value:
       Fn::GetAtt:
         - RdsDBInstance
         - DBInstanceId
+  DtsJobId:
+    Description:
+      zh-cn: DTS任务id。
+      en: DTS job id.
+    Value:
+      Fn::GetAtt:
+        - DtsInstance
+        - JobId
