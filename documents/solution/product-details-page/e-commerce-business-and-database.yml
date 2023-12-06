@@ -7,7 +7,6 @@ Metadata:
     ParameterGroups:
       - Parameters:
           - InstanceType
-          - SystemDiskCategory
           - ECS_ZoneId_1
           - ECS_ZoneId_2
           - Password
@@ -78,13 +77,10 @@ Parameters:
       en: ECS Instance Type
       zh-cn: ECS实例规格
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
-    AllowedPattern: 'ecs.u1.*'
-  SystemDiskCategory:
-    Type: String
-    Default: cloud_essd
-    Label:
-      en: System disk type
-      zh-cn: 系统盘类型
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      Constraints:
+        InstanceTypeFamily: 'ecs.u1'
   Password:
     Type: String
     Label:
@@ -225,7 +221,7 @@ Resources:
           SourceCidrIp: 0.0.0.0/0
           IpProtocol: icmp
           NicType: intranet
-  WordpressSg:
+  LocalWebSiteSg:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
@@ -256,7 +252,7 @@ Resources:
           SourceCidrIp: 0.0.0.0/0
           IpProtocol: icmp
           NicType: intranet
-  DsDemoEcs_0:
+  CloudWebSite_1:
     Type: ALIYUN::ECS::Instance
     Properties:
       VpcId:
@@ -265,20 +261,20 @@ Resources:
         Ref: ECommerceSg
       VSwitchId:
         Ref: ECS_Vsw_1
-      InstanceName: ecs-ds-demo-01
+      InstanceName: cloud-web-site-1
+      HostName: cloud-web-site-1
       ZoneId:
         Ref: ECS_ZoneId_1
       InstanceChargeType: PostPaid
       InstanceType:
         Ref: InstanceType
-      ImageId: centos
-      SystemDiskCategory:
-        Ref: SystemDiskCategory
+      ImageId: centos_7_9_x64_20G_alibase
+      SystemDiskCategory: cloud_essd
       SystemDiskSize: 40
       AllocatePublicIP: false
       Password:
         Ref: Password
-  DsDemoEcs_1:
+  CloudWebSite_2:
     Type: ALIYUN::ECS::Instance
     Properties:
       VpcId:
@@ -287,15 +283,15 @@ Resources:
         Ref: ECommerceSg
       VSwitchId:
         Ref: ECS_Vsw_2
-      InstanceName: ecs-ds-demo-02
+      InstanceName: cloud-web-site-2
+      HostName: cloud-web-site-1
       ZoneId:
         Ref: ECS_ZoneId_2
       InstanceChargeType: PostPaid
       InstanceType:
         Ref: InstanceType
-      ImageId: centos
-      SystemDiskCategory:
-        Ref: SystemDiskCategory
+      ImageId: centos_7_9_x64_20G_alibase
+      SystemDiskCategory: cloud_essd
       SystemDiskSize: 40
       AllocatePublicIP: false
       Password:
@@ -340,31 +336,31 @@ Resources:
     Type: ALIYUN::SLB::BackendServerAttachment
     Properties:
       BackendServerList:
-        - Ref: DsDemoEcs_0
-        - Ref: DsDemoEcs_1
+        - Ref: CloudWebSite_1
+        - Ref: CloudWebSite_2
       BackendServerWeightList:
         - 100
         - 100
       LoadBalancerId:
         Ref: Slb
-  WordpressDemoEcs:
+  LocalWebSite:
     Type: ALIYUN::ECS::Instance
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupId:
-        Ref: WordpressSg
+        Ref: LocalWebSiteSg
       VSwitchId:
         Ref: ECS_Vsw_2
-      InstanceName: ecs-demo-wordpress
+      InstanceName: local-web-site
+      HostName: local-web-site
       ZoneId:
         Ref: ECS_ZoneId_2
       InstanceChargeType: PostPaid
       InstanceType:
         Ref: InstanceType
-      ImageId: centos
-      SystemDiskCategory:
-        Ref: SystemDiskCategory
+      ImageId: centos_7_9_x64_20G_alibase
+      SystemDiskCategory: cloud_essd
       SystemDiskSize: 40
       AllocatePublicIP: false
       Password:
@@ -372,13 +368,13 @@ Resources:
   Eip_0:
     Type: ALIYUN::VPC::EIP
     Properties:
-      Bandwidth: 2
+      Bandwidth: 100
       InstanceChargeType: Postpaid
       InternetChargeType: PayByTraffic
   Eip_1:
     Type: ALIYUN::VPC::EIP
     Properties:
-      Bandwidth: 2
+      Bandwidth: 100
       InstanceChargeType: Postpaid
       InternetChargeType: PayByTraffic
   VpcEipAssociation_0:
@@ -392,80 +388,77 @@ Resources:
     Type: ALIYUN::VPC::EIPAssociation
     Properties:
       InstanceId:
-        Ref: WordpressDemoEcs
+        Ref: LocalWebSite
       AllocationId:
         Ref: Eip_1
-  InstallMysqlRunCommand:
+  PrepareLocalData:
     Type: ALIYUN::ECS::RunCommand
     DependsOn:
       - VpcEipAssociation_1
+      - InstallWebsite
     Properties:
       Sync: true
       Type: RunShellScript
-      Timeout: 600
+      Timeout: 3600
       InstanceIds:
-        - Ref: WordpressDemoEcs
+        - Ref: LocalWebSite
       CommandContent:
-        Fn::Sub:
-          - |-
-            #!/bin/bash
-            wget http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
-            rpm -ivh mysql-community-release-el7-5.noarch.rpm
-            yum install mysql-server -y
-            systemctl start mysqld
-            # 生成MySQL root用户，设置密码
-            MYSQL_PASSWD="${RootPwd}"
-            service mysqld start
-            yum install expect -y
-            echo '#!/usr/bin/expect' > dbroot.sh
-            echo set timeout 60 >> dbroot.sh
-            echo 'set password [lindex $argv 0]' >> dbroot.sh
-            echo spawn mysql_secure_installation >> dbroot.sh
-            echo expect { >> dbroot.sh
-            echo '"Press y|Y for Yes" { send "Y\r"; exp_continue}' >> dbroot.sh
-            echo '"password:" { send "${RootPwd}\r"; exp_continue}' >> dbroot.sh
-            echo '"Please enter 0 = LOW, 1 = MEDIUM and 2 = STRONG:" { send "0\r"; exp_continue}' >> dbroot.sh
-            echo '"Cleaning up" { send "\r"}' >> dbroot.sh
-            echo } >> dbroot.sh
-            echo interact >> dbroot.sh
-            chmod +x dbroot.sh
-            ./dbroot.sh
-            # 生成DTS用户
-            echo 'create database ${DtsDbName};' > setup.mysql
-            echo 'create user "${DtsUserName}" identified by "${DtsUserPwd}";' >> setup.mysql
-            echo 'GRANT ALL ON *.* TO "${DtsUserName}"@"%";' >> setup.mysql
-            echo 'flush privileges;' >> setup.mysql
-            chmod +x setup.mysql
-            mysql -uroot -p${RootPwd} < setup.mysql
-            # 添加测试数据
-            echo 'use ${DtsDbName}' > setup_data.mysql
-            echo 'CREATE TABLE ${DtsTableName} ( ' >> setup_data.mysql
-            echo 'buyer_id varchar(32) DEFAULT NULL, ' >> setup_data.mysql
-            echo 'buyer_prov varchar(32) DEFAULT NULL, ' >> setup_data.mysql
-            echo 'gender varchar(32) DEFAULT NULL, ' >> setup_data.mysql
-            echo 'age_range varchar(32) DEFAULT NULL, ' >> setup_data.mysql
-            echo 'zodiac varchar(32) DEFAULT NULL ' >> setup_data.mysql
-            echo ') ENGINE=InnoDB DEFAULT CHARSET=utf8;' >> setup_data.mysql
-            echo 'insert into ${DtsTableName} ( buyer_id, buyer_prov, gender, age_range, zodiac ) values' >> setup_data.mysql
-            echo '("0001","A","Male","20-30" ,"by"),' >> setup_data.mysql
-            echo '("0002","B","Male","20-30" ,"by"),' >> setup_data.mysql
-            echo '("0003","C","Female","30-40" ,"by"),' >> setup_data.mysql
-            echo '("0004","D","Male","20-30" ,"by"),' >> setup_data.mysql
-            echo '("0005","E","Male","20-30" ,"by"),' >> setup_data.mysql
-            echo '("0006","F","Female","20-30" ,"by"),' >> setup_data.mysql
-            echo '("0007","G","Female","10-20" ,"by"),' >> setup_data.mysql
-            echo '("0008","H","Female","20-30" ,"by"),' >> setup_data.mysql
-            echo '("0009","I","Male","20-30" ,"by"),' >> setup_data.mysql
-            echo '("0010","J","Male","20-30" ,"by");' >> setup_data.mysql
-            chmod +x setup_data.mysql
-            mysql -uroot -p${RootPwd} < setup_data.mysql
-          - RootPwd:
-              Ref: DBPassword
-            DtsUserName: dts_user
-            DtsUserPwd:
-              Ref: DBPassword
-            DtsDbName: wordpress
-            DtsTableName: demo_table
+        Fn::Sub: |-
+          #!/bin/bash
+          
+          cat > mysql-community.repo << \EOF
+          [mysql57-community]
+          name=MySQL 5.7 Community Server
+          baseurl=https://opentuna.cn/mysql/yum/mysql-5.7-community-el7-$basearch/
+          enabled=1
+          gpgcheck=0
+          gpgkey=https://repo.mysql.com/RPM-GPG-KEY-mysql
+          
+          [mysql-connectors-community]
+          name=MySQL Connectors Community
+          baseurl=https://opentuna.cn/mysql/yum/mysql-connectors-community-el7-$basearch/
+          enabled=1
+          gpgcheck=0
+          gpgkey=https://repo.mysql.com/RPM-GPG-KEY-mysql
+          
+          [mysql-tools-community]
+          name=MySQL Tools Community
+          baseurl=https://opentuna.cn/mysql/yum/mysql-tools-community-el7-$basearch/
+          enabled=1
+          gpgcheck=1
+          gpgkey=https://repo.mysql.com/RPM-GPG-KEY-mysql
+          EOF
+        
+          mv mysql-community.repo /etc/yum.repos.d/
+          yum -y install mysql-community-server
+          echo log_bin=ON >> /etc/my.cnf
+          echo server-id=1 >> /etc/my.cnf
+          systemctl start mysqld
+          systemctl enable mysqld
+          TmpPassword=`grep 'A temporary password is generated' /var/log/mysqld.log | awk '{print $NF}'`
+          mysql -u root -p$TmpPassword --connect-expired-password -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '${DBPassword}'; FLUSH PRIVILEGES;"
+          
+          cat > setup_mysql.sql << \EOF
+          CREATE DATABASE `e_commerce_website`;
+          CREATE USER `e_commerce_user` IDENTIFIED BY "${DBPassword}";
+          GRANT ALL ON *.* TO "e_commerce_user"@"%";
+          FLUSH PRIVILEGES;
+          USE `e_commerce_website`;
+          CREATE TABLE `products` (
+            `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            `name` varchar(36) NOT NULL,
+            `price` varchar(36) NOT NULL,
+            PRIMARY KEY (`id`)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+          INSERT INTO  products (`name`, `price`) values 
+          ("ProductName1","100"),
+          ("ProductName2","150"),
+          ("ProductName3","200"); 
+          EOF
+          
+          chmod +x setup_mysql.sql
+          mysql -uroot -p${DBPassword} < setup_mysql.sql
+          sed -i 's/${RdsDBInstance.InnerConnectionString}/127.0.0.1/g' /var/www/html/mysql_demo.php
   RdsDBInstance:
     Type: ALIYUN::RDS::DBInstance
     Properties:
@@ -487,18 +480,19 @@ Resources:
       DBInstanceStorage: 100
       DBMappings:
         - CharacterSetName: utf8
-          DBName: wordpress_new
+          DBName: e_commerce_website
       Engine: MySQL
       EngineVersion: '5.6'
       MasterUserPassword:
         Ref: DBPassword
       MasterUserType: Super
-      MasterUsername: myuser
+      MasterUsername: e_commerce_user
       SecurityIPList: 192.168.0.0/16
       SecurityGroupId:
         Ref: ECommerceSg
   DtsInstance:
     Type: ALIYUN::DTS::Instance
+    DependsOn: PrepareLocalData
     Properties:
       JobId:
         Fn::GetAtt:
@@ -516,16 +510,16 @@ Resources:
   MigrationJob:
     Type: ALIYUN::DTS::MigrationJob2
     Properties:
-      DtsJobName: e-commerce_migration
+      DtsJobName: e-commerce-migration
       SourceEndpoint:
         InstanceType: ECS
         InstanceID:
-          Ref: WordpressDemoEcs
+          Ref: LocalWebSite
         EngineName: MYSQL
         Port: '3306'
         Region:
           Ref: ALIYUN::Region
-        UserName: dts_user
+        UserName: e_commerce_user
         Password:
           Ref: DBPassword
       DestinationEndpoint:
@@ -535,31 +529,300 @@ Resources:
         EngineName: MYSQL
         Region:
           Ref: ALIYUN::Region
-        UserName: myuser
+        UserName: e_commerce_user
         Password:
           Ref: DBPassword
       StructureInitialization: true
       DataInitialization: true
       DataSynchronization: true
       DbList:
-        wordpress:
-          name: wordpress_new
+        e_commerce_website:
+          name: e_commerce_website
           all: true
     DependsOn:
       - RdsDBInstance
-      - InstallMysqlRunCommand
+      - InstallWebsite
+      - PrepareLocalData
+  InstallWebsite:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      Sync: true
+      Type: RunShellScript
+      Timeout: 3600
+      InstanceIds:
+        - Ref: CloudWebSite_1
+        - Ref: CloudWebSite_2
+        - Ref: LocalWebSite
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          set -e
+          yum -y install nginx php php-mysql php-fpm
+          cat > /etc/nginx/conf.d/e-commerce-website.conf << \EOF
+          server {
+              listen       80;
+              listen       [::]:80;
+              server_name  _;
+              root         /var/www/html;
+      
+              # Load configuration files for the default server block.
+              include /etc/nginx/default.d/*.conf;
+      
+              error_page 404 /404.html;
+              location = /404.html {
+              }
+      
+              error_page 500 502 503 504 /50x.html;
+              location = /50x.html {
+              }
+      
+              location ~ \.php$ {
+              root /var/www/html; 
+              fastcgi_pass 127.0.0.1:9000;
+              fastcgi_index index.php;
+              fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+              include fastcgi_params;
+              }
+          }
+          EOF
+          
+          cd /var/www/html
+          cat > index.html << \EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>电商网站首页</title>
+              <meta http-equiv="Conten-Type" content="text/html"; charset="utf-8">
+              <style>
+                  /* 顶部导航栏 */
+                  header {
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                      padding: 10px;
+                      background-color: #ff4400;
+                      color: #fff;
+                  }
+          
+                  .logo h1 {
+                      margin: 0;
+                      font-size: 24px;
+                  }
+          
+                  .logo p {
+                      margin: 0;
+                      font-size: 14px;
+                  }
+          
+                  nav ul {
+                      list-style: none;
+                      display: flex;
+                  }
+          
+                  nav ul li {
+                      margin-right: 20px;
+                  }
+          
+                  nav ul li a {
+                      color: #fff;
+                      text-decoration: none;
+                      font-size: 16px;
+                  }
+          
+                  /* 主要内容 */
+                  main {
+                      padding: 20px;
+                  }
+          
+                  .search-bar {
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      padding: 10px;
+                      background-color: #fff;
+                      margin-bottom: 20px;
+                  }
+          
+                  .search-bar input[type="text"] {
+                      padding: 5px;
+                      width: 400px;
+                      border: none;
+                      border-radius: 20px;
+                      box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+                  }
+          
+                  .search-bar button {
+                      padding: 8px 15px;
+                      background-color: #ff4400;
+                      border: none;
+                      color: #fff;
+                      border-radius: 20px;
+                      cursor: pointer;
+                  }
+          
+                  /* 其他内容样式补充... */
+                  .iframe-wrapper {
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      overflow: hidden;
+                  }
+          
+                  .iframe-wrapper iframe {
+                      border: none;
+                      width: 100%;
+                      height: 100%;
+                  }
+          
+                  /* 底部 */
+                  footer {
+                      background-color: #333333;
+                      color: #fff;
+                      padding: 20px;
+                  }
+          
+                  footer ul {
+                      list-style: none;
+                      display: flex;
+                      justify-content: center;
+                      margin: 0;
+                      padding: 0;
+                  }
+          
+                  footer ul li {
+                      margin-right: 20px;
+                  }
+          
+                  footer ul li a {
+                      color: #fff;
+                      text-decoration: none;
+                      font-size: 14px;
+                  }
+              </style>
+          </head>
+          <body>
+              <!-- 顶部导航栏 -->
+              <header>
+                  <div class="logo">
+                      <h1>网站Logo</h1>
+                      <p>公司口号</p>
+                  </div>
+                  <nav>
+                      <ul>
+                          <li><a href="#">首页</a></li>
+                          <li><a href="#">产品分类</a></li>
+                          <li><a href="#">特惠促销</a></li>
+                          <li><a href="#">关于我们</a></li>
+                          <li><a href="#">联系我们</a></li>
+                      </ul>
+                  </nav>
+              </header>
+          
+              <!-- 主要内容 -->
+              <main>
+                  <div class="featured-products">
+                      <h2>特别推荐</h2>
+                      <div class="iframe-wrapper">
+                          <iframe src="mysql_demo.php"></iframe>
+                      </div>
+                  </div>
+              </main>
+          
+              <!-- 底部 -->
+              <footer>
+                  <ul>
+                      <li><a href="#">关于我们</a></li>
+                      <li><a href="#">联系我们</a></li>
+                      <li><a href="#">帮助中心</a></li>
+                      <li><a href="#">隐私政策</a></li>
+                  </ul>
+              </footer>
+          </body>
+          </html>
+          
+          EOF
+          
+          cat > mysql_demo.php << \EOF
+          <?php
+          // 连接数据库
+          $host = "${RdsDBInstance.InnerConnectionString}";
+          $username = "e_commerce_user";
+          $password = "${DBPassword}";
+          $database = "e_commerce_website";
+          $conn = new mysqli($host, $username, $password, $database);
+          if ($conn->connect_error) {
+              die("数据库连接失败：" . $conn->connect_error);
+          }
+
+          // 查询商品数据
+          $query = "SELECT * FROM products";
+          $result = $conn->query($query);
+
+          // 构建商品信息的HTML
+          $productHTML = "";
+          if ($result->num_rows > 0) {
+              while ($row = $result->fetch_assoc()) {
+                  $productHTML .= '
+                      <div>
+                          <h3>商品名称：' . $row["name"] . '</h3>
+                          <p>商品价格：' . $row["price"] . '元</p>
+                      </div>
+                  ';
+              }
+          } else {
+              $productHTML = "没有找到任何商品。";
+          }
+
+          // 关闭数据库连接
+          $conn->close();
+          ?>
+
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>商品列表</title>
+              <style>
+                  /* 商品列表样式 */
+                  .product-list {
+                      display: grid;
+                      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                      grid-gap: 20px;
+                      overflow: hidden;
+                  }
+
+                  .product {
+                      border: 1px solid #ccc;
+                      padding: 10px;
+                      text-align: center;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="product-list">
+                  <?php echo $productHTML; ?>
+              </div>
+          </body>
+          </html>
+
+          EOF
+          
+          systemctl start php-fpm
+          systemctl enable php-fpm
+          systemctl start nginx
+          systemctl enable nginx
 Outputs:
-  EcsLoginAddress:
+  LocalAddress:
     Description:
-      zh-cn: ECS登陆地址。
-      en: Ecs login address.
+      zh-cn: 本地网站访问地址。
+      en: Local website access address.
     Value:
-      Fn::Sub:
-        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
-        - InstanceId:
-            Ref: WordpressDemoEcs
-          Region:
-            Ref: ALIYUN::Region
+      Fn::Sub: http://${Eip_1.EipAddress}
+  CloudWebsiteAddress:
+    Description:
+      zh-cn: 云网站访问地址。
+      en: Cloud website access address.
+    Value:
+      Fn::Sub: http://${Eip_0.EipAddress}
   DBInstanceId:
     Description:
       zh-cn: RDS实例ID。
@@ -570,9 +833,7 @@ Outputs:
         - DBInstanceId
   DtsJobId:
     Description:
-      zh-cn: DTS任务id。
-      en: DTS job id.
+      zh-cn: DTS任务名称。
+      en: DTS job name.
     Value:
-      Fn::GetAtt:
-        - DtsInstance
-        - JobId
+      Fn::Sub: '<a href="https://dtsnew.console.aliyun.com/migrate/${ALIYUN::Region}" target="_blank">e-commerce-migration</a>'
