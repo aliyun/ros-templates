@@ -529,6 +529,13 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [spark-cluster-on-yitian.yml](documents/solution/product-details-page/spark-cluster-on-yitian.yml) | Spark Cluster on Yitian. |
 
 
+- resource-directory
+
+| Template                                                                                                                                     | Description                                               |
+|----------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
+| [multiple-accounts-support-configuration-auditing.yml](documents/solution/resource-directory/multiple-accounts-support-configuration-auditing.yml) | Configure unified compliance audit for multiple accounts. |
+
+
 - internet-application-development
 
 | Template                                                                                                                           | Description                    |

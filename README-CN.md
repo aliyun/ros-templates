@@ -516,6 +516,12 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [deploy-nginx-services-through-ingress.yml](documents/solution/ops-on-cloud/deploy-nginx-services-through-ingress.yml) | 部署Nginx并通过Ingress暴露和监控服务。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/nginx_ingress) |
 
 
+- resource-directory
+
+| Template                                                                                                                                     | 说明                              |
+|----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
+| [multiple-accounts-support-configuration-auditing.yml](documents/solution/resource-directory/multiple-accounts-support-configuration-auditing.yml) | 多账号配置统一合规审计。 |
+
 - product-details-page
 
 | Template                                                                                                                                     | Description                              |
