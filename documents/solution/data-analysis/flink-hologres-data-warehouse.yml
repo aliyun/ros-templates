@@ -3,7 +3,7 @@ Description:
   zh: 基于Flink+Hologres搭建实时数仓。
   en: Build real-time warehouse based on Flink+Hologres.
 Parameters:
-  ZoneId:
+  FlinkZoneId:
     Type: String
     Label:
       en: Available Zone ID
@@ -12,6 +12,16 @@ Parameters:
       en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
         VSwitch and used for Flink instance.</font></b>
       zh-cn: 可用区ID。<br><b>注：用于创建VSwitch，并给Flink实例使用。
+    AssociationProperty: ZoneId
+  HologresZoneId:
+    Type: String
+    Label:
+      en: Available Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
+        VSwitch and used for Hologres instance.</font></b>
+      zh-cn: 可用区ID。<br><b>注：用于创建VSwitch，并给Hologres实例使用。
     AssociationProperty: ZoneId
   BucketName:
     Type: String
@@ -24,7 +34,13 @@ Parameters:
         and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally
         unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
       zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
-    Default: bucket-create-by-ros
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 10
+      Prefix: bucket-create-by-ros-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
   FlinkInstanceName:
     Type: String
     Label:
@@ -37,7 +53,13 @@ Parameters:
         unique within Flink. The name cannot be changed after the flink instance is
         created.</b></font>
       zh-cn: 长度为1~60个字符，必须以小写字母开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
-    Default: instance-create-by-ros
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 10
+      Prefix: instance-create-by-ros-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
   HologresInstanceName:
     Type: String
     Label:
@@ -46,7 +68,13 @@ Parameters:
     Description:
       en: The name must be 2 to 64 bytes in length.
       zh-cn: 长度为2~64个字符。
-    Default: instance-create-by-ros
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 10
+      Prefix: instance-create-by-ros-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
   DBInstanceNetType:
     Type: String
     Label:
@@ -92,7 +120,7 @@ Parameters:
       zh-cn: 实例规格
     AssociationProperty: ALIYUN::RDS::Instance::InstanceType
     AssociationPropertyMetadata:
-      ZoneId: ${VSwitchZoneId}
+      ZoneId: ${FlinkZoneId}
       EngineVersion: ${EngineVersion}
       DBInstanceStorageType: ${DBInstanceStorageType}
       Engine: MySQL
@@ -156,20 +184,29 @@ Parameters:
       NoEcho: true
 
 Resources:
-  ECSVPC:
+  VPC:
     Type: ALIYUN::ECS::VPC
     Properties:
       VpcName: vpc-create-by-ros
       CidrBlock: 192.168.0.0/16
-  ECSVSwitch:
+  FlinkVSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
       ZoneId:
-        Ref: ZoneId
+        Ref: FlinkZoneId
       VpcId:
-        Ref: ECSVPC
+        Ref: VPC
       VSwitchName: vsw-create-by-ros
-      CidrBlock: 192.168.0.0/20
+      CidrBlock: 192.168.0.0/24
+  HologresVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: HologresZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchName: vsw-create-by-ros
+      CidrBlock: 192.168.255.0/24
   OSSBucket:
     Type: ALIYUN::OSS::Bucket
     Properties:
@@ -179,11 +216,11 @@ Resources:
     Type: ALIYUN::Flink::Instance
     Properties:
       ZoneId:
-        Ref: ZoneId
+        Ref: FlinkZoneId
       VpcId:
-        Ref: ECSVPC
+        Ref: VPC
       VSwitchIds:
-      - Ref: ECSVSwitch
+      - Ref: FlinkVSwitch
       InstanceName:
         Ref: FlinkInstanceName
       ChargeType: Postpaid
@@ -193,13 +230,13 @@ Resources:
     Type: ALIYUN::Hologram::Instance
     Properties:
       ZoneId:
-        Ref: ZoneId
+        Ref: HologresZoneId
       ProductCode: hologram_postpay_public_cn
       Endpoints:
         - VpcId:
-            Ref: ECSVPC
+            Ref: VPC
           VSwitchId:
-            Ref: ECSVSwitch
+            Ref: HologresVSwitch
           Type: VPCSingleTunnel
       InstanceType: Standard
       PaymentType: PostPaid
@@ -225,9 +262,9 @@ Resources:
         Ref: DBInstanceStorage
       Engine: MySQL
       VpcId:
-        Ref: ECSVPC
+        Ref: VPC
       VSwitchId:
-        Ref: ECSVSwitch
+        Ref: FlinkVSwitch
       AllocatePublicConnection: true
       DBMappings:
         - CharacterSetName: utf8
@@ -257,7 +294,8 @@ Metadata:
   'ALIYUN::ROS::Interface':
     ParameterGroups:
     - Parameters:
-      - ZoneId
+      - FlinkZoneId
+      - HologresZoneId
       Label:
         default:
           en: Availability Zone
