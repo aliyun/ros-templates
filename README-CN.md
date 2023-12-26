@@ -349,7 +349,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [internet-network/landing-zone-cen-tr.yml](./solutions/internet-network/landing-zone-cen-tr.yml)                                                                     | 在账号1及账号2内使用CEN及TR进行跨地域网络互通，账号2数据互通VPC加入两个账号CEN实现双网络互通。 |
 | [internet-network/multi-avaiable-areas-building-services.yml](./solutions/internet-network/multi-avaiable-areas-building-services.yml)                               | 适用于有本地IDC，需要搭建具有高稳定性业务架构的多地域多可用区混合云的用户。物理专线是打通IDC到云上内网通道的最高效稳定的方式。此模板完成多可用区单地域搭建服务。 |
 | [internet-network/multi-region-multi-area-network-interworking.yml](./solutions/internet-network/multi-region-multi-area-network-interworking.yml)                   | 适用于有本地IDC，需要搭建具有高稳定性业务架构的多地域多可用区混合云的用户。物理专线是打通IDC到云上内网通道的最高效稳定的方式。此模板可配合多可用区单地域搭建服务完成组建多可用区多地域的混合云。 |
-| [iot-cloud/iot-platform-device-data-on-the-cloud.yaml](./solutions/iot-cloud/iot-platform-device-data-on-the-cloud.yaml)                                             | 本文以温湿度传感器设备为例，介绍了如何将该设备接入物联网平台，将设备所上报的数据转发至函数计算FC，并最终推送数据到钉钉群中。|
+| [iot-cloud/iot-platform-device-data-on-the-cloud.yaml](./solutions/iot-cloud/iot-platform-device-data-on-the-cloud.yml)                                             | 本文以温湿度传感器设备为例，介绍了如何将该设备接入物联网平台，将设备所上报的数据转发至函数计算FC，并最终推送数据到钉钉群中。|
 | [machine-learning-ai/hybrid-cloud-uses-ali-ai-acceleration-tools.yml](./solutions/machine-learning-ai/hybrid-cloud-uses-ali-ai-acceleration-tools.yml)               | 本文介绍了混合云场景中，自建Kubernetes服务，线下集群+云上弹性扩展阿里云GPU服务实例+飞天AI加速工具，并采用阿里云CPFS存储，运行AI训练+AI推理作业的操作步骤。 |
 | [media-service/fpga-cloud-servers.yml](./solutions/media-service/fpga-cloud-servers.yml)                                                                             | 解决提供高画质低码率的实施转码技术方案、提高图片和视频转码效率及降低传输带宽、转码和存储成本。 |
 | [middleware/existing-vpc-cluster-kafka.yml](./solutions/middleware/existing-vpc-cluster-kafka.yml)                                                                   | 在现有的VPC、VSwitch和安全组下,创建多台ECS（Kafka Middleware），其中一台绑定弹性IP作为管理节点，其他节点使用弹性伸缩进行管理，其中Java jdk版本采用1.8.0，Scala版本采用2.12，Kafka版本采用0.10.2.2；应用数据存放至挂载的数据盘（数据盘挂载目录：/home/software，Kafka bin目录：/home/software/kafka/bin）；如需访问Kafka Manager管理界面，在已有的安全组下添加访问规则入方向TCP 9000端口。 |
@@ -447,7 +447,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | 模板                                                                                                                    | 说明                                 |
 |-----------------------------------------------------------------------------------------------------------------------|------------------------------------|
-| [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | 基于Flink+Hologres搭建实时数仓。            |
+| [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | 基于Flink+Hologres搭建实时数仓。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/flink_hologres)  |
 | [flink-maxcompute-data-warehouse.yml](./documents/solution/data-analysis/flink-maxcompute-data-warehouse.yml)         | 搭建实时数仓并实现查询加速。                     |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
 | [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml)                     | 基于AnalyticDB MySQL湖仓版的用户运营分析实践。    |
@@ -463,6 +463,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                   | 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。   ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/rds_polardb)  |
 | [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | RDS+ClickHouse构建一站式HTAP。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/rdsclickhouse_htap) |
 | [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml) | 网站数据库平滑迁移上云。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/smowdttc) |
+
+- iot
+
+| Template                                                                                                   | Description      |
+|------------------------------------------------------------------------------------------------------------|----------------|
+| [iot-platform-device-data-on-the-cloud.yml](./documents/solution/iot/iot-platform-device-data-on-the-cloud.yml) | 物联网平台设备数据上云。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/iot_cloud) |
+
 
 - micro
 
@@ -520,7 +527,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | Template                                                                                                                                     | 说明                              |
 |----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
-| [multiple-accounts-support-configuration-auditing.yml](documents/solution/resource-directory/multiple-accounts-support-configuration-auditing.yml) | 多账号配置统一合规审计。 |
+| [multiple-accounts-support-configuration-auditing.yml](documents/solution/resource-directory/multiple-accounts-support-configuration-auditing.yml) | 多账号配置统一合规审计。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ucafmac)|
 
 - product-details-page
 
