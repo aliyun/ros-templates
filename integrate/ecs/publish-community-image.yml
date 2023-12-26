@@ -1,0 +1,91 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 多地域发布社区镜像
+  en: Publishing community mirrors in multiple regions
+Parameters:
+  ImageId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Image::ImageId'
+    AssociationPropertyMetadata:
+      SupportedImageOwnerAlias:
+        - self
+    Description:
+      zh-cn: 仅通过认证的企业客户可以通过提交工单申请使用社区镜像发布功能。
+      en: >-
+        Only certified enterprise customers can use the community image
+        publishing function by submitting a work order application.
+    Label:
+      zh-cn: 待发布为社区镜像的镜像ID
+      en: Image ID to be published as a community image
+  DestinationRegionIds:
+    Type: CommaDelimitedList
+    AssociationProperty: 'ALIYUN::ECS::RegionId'
+    Label:
+      zh-cn: 社区镜像的目标地域
+      en: Target region for community mirroring
+    Description:
+      zh-cn: 社区镜像的目标地域。
+      en: Target region for community mirroring.
+Resources:
+  ImageData:
+    Type: 'DATASOURCE::ECS::Images'
+    Properties:
+      ImageId:
+        Ref: ImageId
+  CopyImage:
+    Type: 'ALIYUN::ECS::CopyImage'
+    DeletionPolicy: Retain
+    Count:
+      'Fn::Length':
+        Ref: DestinationRegionIds
+    Properties:
+      ImageId:
+        Ref: ImageId
+      DestinationRegionId:
+        'Fn::Select':
+          - Ref: 'ALIYUN::Index'
+          - Ref: DestinationRegionIds
+      AllowCopyInSameRegion: true
+      DestinationDescription:
+        'Fn::Jq':
+          - First
+          - '.[0].Description'
+          - 'Fn::GetAtt':
+              - ImageData
+              - Images
+      DestinationImageName:
+        'Fn::Jq':
+          - First
+          - '.[0].ImageName'
+          - 'Fn::GetAtt':
+              - ImageData
+              - Images
+  PublishCommunityImage:
+    Type: 'ALIYUN::ECS::ImageSharePermission'
+    Count:
+      'Fn::Length':
+        Ref: DestinationRegionIds
+    Properties:
+      RegionId:
+        'Fn::Select':
+          - Ref: 'ALIYUN::Index'
+          - Ref: DestinationRegionIds
+      KeepPermission: true
+      IsPublic: true
+      ImageId:
+        'Fn::Select':
+          - Ref: 'ALIYUN::Index'
+          - 'Fn::GetAtt':
+              - CopyImage
+              - ImageId
+Outputs:
+  CopyImageIds:
+    Value:
+      'Fn::GetAtt':
+        - CopyImage
+        - ImageId
+    Description: The destination image ids.
+Metadata:
+  'ALIYUN::ROS::Interface':
+    TemplateTags:
+      - 'acs:integrate:ecs:publish-community-image'
