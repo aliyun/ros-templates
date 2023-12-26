@@ -512,7 +512,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |----------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | [alb-cross-region-load-balance.yml](documents/solution/high-availability-architecture/alb-cross-region-load-balance.yml)           | ALB实现跨地域负载均衡。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/alb_acrlb) |
 | [elastic-highly-available-service.yml](documents/solution/high-availability-architecture/elastic-highly-available-service.yml) | 基于CLB、ESS构建弹性高可用服务。     |
-| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/highly-available-blog-site-on-the-cloud.yml) | 云上高可用博客网站。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/habwoc)    |
+| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/classic-architecture-on-the-cloud.yml) | 云上高可用博客网站。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/habwoc)    |
 | [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | 高可用及共享存储Web服务。                                                           |
 
 
