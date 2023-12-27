@@ -518,9 +518,11 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - ops-on-cloud
 
-| 模板                                                                                                                     | 说明                                                            |
-|------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| 模板                                                                                                                     | 说明                                                                                     |
+|------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
 | [deploy-nginx-services-through-ingress.yml](documents/solution/ops-on-cloud/deploy-nginx-services-through-ingress.yml) | 部署Nginx并通过Ingress暴露和监控服务。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/nginx_ingress) |
+| [global-view-and-search-of-cross-account-resources.yml](documents/solution/ops-on-cloud/global-view-and-search-of-cross-account-resources.yml) | Global view and search of cross-account resources. ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/cars) |
+
 
 
 - resource-directory
