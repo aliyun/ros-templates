@@ -522,9 +522,11 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - ops-on-cloud
 
-| Template                                                                                                                                     | Description                              |
-|----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
+| Template                                                                                                                                | Description                              |
+|-----------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
 | [deploy-nginx-services-through-ingress.yml](documents/solution/ops-on-cloud/deploy-nginx-services-through-ingress.yml) | Deploy Nginx and expose and monitor services through Ingress. |
+| [global-view-and-search-of-cross-account-resources.yml](documents/solution/ops-on-cloud/global-view-and-search-of-cross-account-resources.yml) | Global view and search of cross-account resources. |
+
 
 
 - product-details-page
