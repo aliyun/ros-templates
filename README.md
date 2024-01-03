@@ -167,6 +167,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | Template | Description |
 | -- | ---- |
 | [application/ecs-clone-join-sls.yml](./examples/application/ecs-clone-join-sls.yml) | Clone the ECS instance, direct the IP to the new machine group created in the Log Service, and apply the specified rules. |
+| [application/ecs-group-join-cms.yml](./examples/application/ecs-group-join-cms.yml) | Manually deploy the LNMP environment (CentOS 7) and configure CMS alarm items and alarm contacts.    |
 | [application/ecs-group-join-sls.yml](./examples/application/ecs-group-join-sls.yml) | Create a set of ECS instance, and consider it as the machine group of the related project logtail in Log Service. |
 | [application/ecs-instance-group-join-sls.yml](./examples/application/ecs-instance-group-join-sls.yml) | Create a group of ECS and use it as the logtail machine group of the related project in the specified SLS. |
 | [csapps/existing-vpc-docker-cluster-etcd.yml](./examples/csapps/existing-vpc-docker-cluster-etcd.yml) | Installing the deployment cluster version of the Etcd service (static discovery from node mode) under centos7, Etcd is a key-value storage component for service registration and discovery, which internally uses the raft protocol as a consistency algorithm to ensure data consistency, Once the cluster is installed, use the etcdctl command line to operate the management cluster in the cloud server. |

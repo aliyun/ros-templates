@@ -167,6 +167,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | 模板 | 说明 |
 | ---- | ---- |
 | [application/ecs-clone-join-sls.yml](./examples/application/ecs-clone-join-sls.yml) | 克隆ECS实例，将IP指向日志服务中新建的机器组，应用指定的规则。 |
+| [application/ecs-group-join-cms.yml](./examples/application/ecs-group-join-cms.yml) | 手动部署LNMP环境（CentOS 7）及配置CMS报警项和报警联系人。  |
 | [application/ecs-group-join-sls.yml](./examples/application/ecs-group-join-sls.yml) | 创建一组ECS实例，将其作为日志服务中相关项目logtail的机器组。 |
 | [application/ecs-instance-group-join-sls.yml](./examples/application/ecs-instance-group-join-sls.yml) | 创建一组ECS并将其作为指定的SLS中相关project的logtail的机器组。 |
 | [csapps/existing-vpc-docker-cluster-etcd.yml](./examples/csapps/existing-vpc-docker-cluster-etcd.yml) | 在Centos7下安装部署集群版Etcd服务（静态发现从节点模式），Etcd是一个用于服务注册与发现的键值存储组件, 其内部采用raft协议作为一致性算法保证数据统一性，集群安装完成后请使用etcdctl命令在云服务器中操作管理集群。 |
