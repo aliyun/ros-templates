@@ -511,6 +511,13 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [dcdn-speeds-up-data-storage-on-oss.yml](documents/solution/cdn-and-video-cloud/dcdn-speeds-up-data-storage-on-oss.yml)         | Use a CDN to speed up the  Multimedia data storage and distribution on  OSS.    |
 
 
+- cloud-migration
+
+| 模板                                                                                                                                   | 说明                     |
+|--------------------------------------------------------------------------------------------------------------------------------------|------------------------|
+| [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml) | Manually build a WordPress website on a CentOS 7 ECS instance.  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
+
+
 - high-availability-architecture
 
 | Template                                                                                                                                     | Description                                                        |
@@ -539,13 +546,6 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [spark-cluster-on-yitian.yml](documents/solution/product-details-page/spark-cluster-on-yitian.yml) | Spark Cluster on Yitian. |
 
 
-- resource-directory
-
-| Template                                                                                                                                     | Description                                               |
-|----------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
-| [multiple-accounts-support-configuration-auditing.yml](documents/solution/resource-directory/multiple-accounts-support-configuration-auditing.yml) | Configure unified compliance audit for multiple accounts. |
-
-
 - internet-application-development
 
 | Template                                                                                                                           | Description                    |
@@ -556,9 +556,11 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - security-and-compliance
 
-| Template                                                                                                                                                                        | Description                                                   |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| Template                                                                                                                                                             | Description                                                  |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
 | [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | Efficiently build a new account with security and compliance. |
+| [multiple-accounts-support-configuration-auditing.yml](documents/solution/security-and-compliance/multiple-accounts-support-configuration-auditing.yml) | Configure unified compliance audit for multiple accounts. |
+| [cloud-firewall-in-multiple-accounts.yml](documents/solution/security-and-compliance/cloud-firewall-in-multiple-accounts.yml) | Create a VPC type ECS and bind EIP. |
 
   </details>
 

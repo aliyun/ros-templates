@@ -507,6 +507,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [dcdn-speeds-up-data-storage-on-oss.yml](documents/solution/cdn-and-video-cloud/dcdn-speeds-up-data-storage-on-oss.yml)                                                 | 多媒体数据存储与分发。            |
 
 
+- cloud-migration
+
+| 模板                                                                                                                                   | 说明                     |
+|--------------------------------------------------------------------------------------------------------------------------------------|------------------------|
+| [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml) | 在ECS实例（CentOS 7）上搭建WordPress。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
+
+
 - high-availability-architecture
 
 | 模板                                                                                                                                           | 说明                                                                       |
@@ -524,13 +531,6 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [deploy-nginx-services-through-ingress.yml](documents/solution/ops-on-cloud/deploy-nginx-services-through-ingress.yml) | 部署Nginx并通过Ingress暴露和监控服务。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/nginx_ingress) |
 | [global-view-and-search-of-cross-account-resources.yml](documents/solution/ops-on-cloud/global-view-and-search-of-cross-account-resources.yml) | Global view and search of cross-account resources. ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/cars) |
 
-
-
-- resource-directory
-
-| Template                                                                                                                                     | 说明                              |
-|----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
-| [multiple-accounts-support-configuration-auditing.yml](documents/solution/resource-directory/multiple-accounts-support-configuration-auditing.yml) | 多账号配置统一合规审计。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ucafmac)|
 
 - product-details-page
 
@@ -550,9 +550,11 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - security-and-compliance
 
-| 模板                                                                                                                                                                              | 说明            |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
-| [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | 高效构建安全合规的新账号。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ecosacna) |
+| 模板                                                                                                                                                                              | 说明                                                                                  |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | 高效构建安全合规的新账号。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ecosacna)       |
+| [multiple-accounts-support-configuration-auditing.yml](documents/solution/security-and-compliance/multiple-accounts-support-configuration-auditing.yml) | 企业多账号配置统一合规审计。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ucafmac)       |
+| [cloud-firewall-in-multiple-accounts.yml](documents/solution/security-and-compliance/cloud-firewall-in-multiple-accounts.yml) | 创建VPC类型ECS，并绑定EIP。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/umomaicf) |
 
   </details>
 
