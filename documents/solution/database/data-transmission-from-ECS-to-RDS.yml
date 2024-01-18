@@ -6,10 +6,12 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
       - Parameters:
+          - EcsInstanceType
           - InstancePassword
         Label:
           default: ECS
       - Parameters:
+          - DBSlaveZone
           - DBInstanceEngineAndVersion
           - DBInstanceClass
           - DBUserName
@@ -19,6 +21,29 @@ Metadata:
     TemplateTags:
       - acs:technical-solution:database:网站数据库平滑迁移上云-tech_solu_04
 Parameters:
+  Zone:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+    Description:
+      zh-cn: 用于创建ECS和RDS的可用区。
+      en: Availability zone.
+    Label:
+      zh-cn: 可用区
+      en: Availability Zone.
+  EcsInstanceType:
+    Type: String
+    Description:
+      zh-cn: 运行Wordpress及自建数据库的ECS实例类型。
+      en: ECS instance which runs WordPress and on-premises database.
+    Label:
+      zh-cn: ECS实例类型
+      en: ECS instance type.
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: ${Zone}
+    Default: ecs.e-c1m1.large
   InstancePassword:
     NoEcho: true
     Type: String
@@ -30,6 +55,14 @@ Parameters:
       en: Instance Password
     ConstraintDescription: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
     AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+  DBSlaveZone:
+    Type: String
+    Label:
+      zh-cn: 数据库备可用区
+      en: Slave Zone
+    AllowedValues:
+      - 自动选择
+    Default: 自动选择
   DBInstanceEngineAndVersion:
     Type: String
     Description:
@@ -40,20 +73,22 @@ Parameters:
       en: Engine And Version
     Default: MySQL 8.0
     AllowedValues:
-      - MySQL 5.7
       - MySQL 8.0
   DBInstanceClass:
     Type: String
+    Description: '在模拟数据迁移体验中，您可以选择最小规格的数据库实例作为迁移目标实例，以减少成本。在生产环境中选择迁移目标实例，需要确保其规格满足您的业务需求。关于RDS实例规格详情，请参考：<a href="https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/specifications-2" target="blank">云数据库RDS MySQL产品规格。</a>'
     Label:
-      en: RDS Instance Class
-      zh-cn: RDS实例规格
+      en: Target RDS Instance Class
+      zh-cn: 迁移目标RDS实例规格
     AssociationProperty: ALIYUN::RDS::Instance::InstanceType
     AssociationPropertyMetadata:
-      ZoneId: ${ZoneId}
+      ZoneId:
+        Ref: Zone
       EngineVersion: '8.0'
       DBInstanceStorageType: cloud_essd
       Engine: MySQL
       Category: HighAvailability
+    Default: mysql.n2m.small.2c
   DBUserName:
     Type: String
     Description:
@@ -96,16 +131,8 @@ Resources:
     Type: ALIYUN::ECS::VSwitch
     Properties:
       CidrBlock: 192.168.0.0/24
-      ZoneId: cn-hangzhou-j
-      VpcId:
-        Fn::GetAtt:
-          - Vpc
-          - VpcId
-  VswitchSlave1:
-    Type: ALIYUN::ECS::VSwitch
-    Properties:
-      CidrBlock: 192.168.1.0/24
-      ZoneId: cn-hangzhou-k
+      ZoneId:
+        Ref: Zone
       VpcId:
         Fn::GetAtt:
           - Vpc
@@ -114,7 +141,7 @@ Resources:
     Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
-      VpcName: wordpress_vpc
+      VpcName: database-migration-test
   SecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
@@ -126,30 +153,22 @@ Resources:
   Database:
     Type: ALIYUN::RDS::DBInstance
     Properties:
-      DBInstanceClass: mysql.n2m.small.2c
-      ZoneId: cn-hangzhou-k
-      SlaveZoneIds:
-        - cn-hangzhou-k
-      DBInstanceDescription: RDS-DB
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      ZoneId:
+        Ref: Zone
+      DBInstanceDescription: Test for database migration
       DBInstanceStorage: 20
       Category: HighAvailability
       DBInstanceStorageType: cloud_essd
       VSwitchId:
         Ref: VSwitch
-      Engine:
-        Fn::Select:
-          - '0'
-          - Fn::Split:
-              - ' '
-              - Ref: DBInstanceEngineAndVersion
+      Engine: MySQL
       VpcId:
         Ref: Vpc
-      EngineVersion:
-        Fn::Select:
-          - '1'
-          - Fn::Split:
-              - ' '
-              - Ref: DBInstanceEngineAndVersion
+      SlaveZoneIds:
+        - Auto
+      EngineVersion: '8.0'
       SecurityIPList:
         Fn::Join:
           - ','
@@ -274,6 +293,8 @@ Resources:
       InstanceType: ecs.g6.large
       SystemDiskCategory: cloud_efficiency
       AllocatePublicIP: false
+      ZoneId:
+        Ref: Zone
   EIP:
     Type: ALIYUN::VPC::EIP
     Properties:
