@@ -430,6 +430,12 @@ ROS 模板的示例和最佳实践。模板分类如下：
    <details>
     <summary>solution</summary>
 
+- account
+
+| 模板                                                                                                          | 说明             |
+|-------------------------------------------------------------------------------------------------------------------|----------------|
+|[enterprise-multi-account-identity-authority-centralized-management.yml](documents/solution/account/enterprise-multi-account-identity-authority-centralized-management.yml) | 企业多账号身份权限集中管理。 |
+
 - ai
 
 | 模板                                                                                                                                                               | 说明                                                                                |
