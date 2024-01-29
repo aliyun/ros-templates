@@ -432,6 +432,12 @@ Examples and best practices of ROS templates. The templates are categorized as f
    <details>
     <summary>solution</summary>
 
+- account
+
+| Template                                                                                                          | Description                                                                   |
+|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+|[enterprise-multi-account-identity-authority-centralized-management.yml](documents/solution/account/enterprise-multi-account-identity-authority-centralized-management.yml) | Enterprise multi-account identity authority centralized management. |
+
 - ai
 
 | Template                                                                                                                             | Description                                                                                  |
