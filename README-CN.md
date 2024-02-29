@@ -561,6 +561,8 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | 高效构建安全合规的新账号。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ecosacna)       |
 | [multiple-accounts-support-configuration-auditing.yml](documents/solution/security-and-compliance/multiple-accounts-support-configuration-auditing.yml) | 企业多账号配置统一合规审计。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ucafmac)       |
 | [cloud-firewall-in-multiple-accounts.yml](documents/solution/security-and-compliance/cloud-firewall-in-multiple-accounts.yml) | 创建VPC类型ECS，并绑定EIP。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/umomaicf) |
+| [enterprise-multi-account-identity-permissions.yml](documents/solution/security-and-compliance/enterprise-multi-account-identity-permissions.yml) | Centralized management of enterprise multi-account identity permissions. |
+
 
   </details>
 

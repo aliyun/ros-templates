@@ -1,55 +1,143 @@
 ROSTemplateFormatVersion: '2015-09-01'
-Description:
-  en: Global view and search of cross-account resources.
-  zh-cn: 跨账号资源全局视图及搜索。
 Parameters:
-  CommonName:
-    Type: String
-    Default: for-search
   ZoneId:
     Type: String
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     Label:
-      en: VSwitch Availability Zone
-      zh-cn: 交换机可用区
+      en: VSwitch Available Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+  FolderName:
+    Type: String
+    Label:
+      zh-cn: 资源目录名称
+      en: Resource directory folder name
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: ros-folder-
+      CharacterClasses:
+        - Class: lowercase
+  AccountDisplayName:
+    Type: String
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: account-for-search-
+      CharacterClasses:
+        - Class: lowercase
 Resources:
-  EcsVpc:
-    Type: 'ALIYUN::ECS::VPC'
+  RDFolder:
+    Type: ALIYUN::ResourceManager::Folder
     Properties:
-      VpcName:
-        'Fn::Sub': 'vpc-${CommonName}-${ALIYUN::TenantId}'
-      CidrBlock: 192.168.0.0/16
-  EcsVSwitch:
-    Type: 'ALIYUN::ECS::VSwitch'
+      FolderName:
+        Ref: FolderName
+  RDAccount1:
+    Type: ALIYUN::ResourceManager::Account
     Properties:
-      ZoneId:
-        Ref: ZoneId
-      VpcId:
-        Ref: EcsVpc
-      VSwitchName:
-        'Fn::Sub': 'vsw-${CommonName}-${ALIYUN::TenantId}'
-      CidrBlock: 192.168.0.0/24
-  EcsSecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+      DeleteAccount: true
+      DisplayName:
+        'Fn::Sub': '${AccountDisplayName}-1'
+      FolderId:
+        Fn::GetAtt:
+          - RDFolder
+          - FolderId
+  RDAccount2:
+    Type: ALIYUN::ResourceManager::Account
     Properties:
-      VpcId:
-        Ref: EcsVpc
-      SecurityGroupName:
-        'Fn::Sub': 'sg-${CommonName}-${ALIYUN::TenantId}'
-      SecurityGroupIngress:
-        - PortRange: 22/22
-          Priority: 1
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-          NicType: internet
-        - PortRange: 80/80
-          Priority: 1
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-          NicType: internet
+      DeleteAccount: true
+      DisplayName:
+        'Fn::Sub': '${AccountDisplayName}-2'
+      FolderId:
+        Fn::GetAtt:
+          - RDFolder
+          - FolderId
+  AutoEnableTrustedRos:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: 'TrustedService/ROS'
+  StackGroup:
+    Type: ALIYUN::ROS::StackGroup
+    DependsOn: AutoEnableTrustedRos
+    Properties:
+      StackGroupName: ros-test-stack-group
+      PermissionModel: SERVICE_MANAGED
+      AutoDeployment:
+        Enabled: false
+      Parameters:
+        ZoneId:
+          Ref: ZoneId
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Parameters:
+          CommonName:
+            Type: String
+            Default: for-search
+          ZoneId:
+            Type: String
+        Resources:
+          EcsVpc:
+            Type: 'ALIYUN::ECS::VPC'
+            Properties:
+              VpcName:
+                'Fn::Sub': 'vpc-${CommonName}-${ALIYUN::TenantId}'
+              CidrBlock: 192.168.0.0/16
+          EcsVSwitch:
+            Type: 'ALIYUN::ECS::VSwitch'
+            Properties:
+              ZoneId:
+                Ref: ZoneId
+              VpcId:
+                Ref: EcsVpc
+              VSwitchName:
+                'Fn::Sub': 'vsw-${CommonName}-${ALIYUN::TenantId}'
+              CidrBlock: 192.168.0.0/24
+          EcsSecurityGroup:
+            Type: 'ALIYUN::ECS::SecurityGroup'
+            Properties:
+              VpcId:
+                Ref: EcsVpc
+              SecurityGroupName:
+                'Fn::Sub': 'sg-${CommonName}-${ALIYUN::TenantId}'
+              SecurityGroupIngress:
+                - PortRange: 22/22
+                  Priority: 1
+                  SourceCidrIp: 0.0.0.0/0
+                  IpProtocol: tcp
+                  NicType: internet
+                - PortRange: 80/80
+                  Priority: 1
+                  SourceCidrIp: 0.0.0.0/0
+                  IpProtocol: tcp
+                  NicType: internet
+  StackGroupInstances:
+    Type: ALIYUN::ROS::StackInstances
+    DependsOn:
+      - RDAccount1
+      - RDAccount2
+    Properties:
+      StackGroupName:
+        Ref: StackGroup
+      RegionIds:
+        - Ref: ALIYUN::Region
+      DeploymentTargets:
+        RdFolderIds:
+          - Ref: RDFolder
+      ParameterOverrides:
+        ZoneId:
+          Ref: ZoneId
+      RetainStacks: false
+      OperationPreferences:
+        MaxConcurrentCount: 2
 Metadata:
-  ALIYUN::ROS::Interface:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - FolderName
+          - AccountDisplayName
+          - ZoneId
     TemplateTags:
-    - acs:technical-solution:ops-on-cloud:跨账号资源全局视图及搜索-tech_solu_70
+      - 'acs:technical-solution:ops-on-cloud:跨账号资源全局视图及搜索-tech_solu_70'
     Hidden:
-    - CommonName
+      - CommonName
