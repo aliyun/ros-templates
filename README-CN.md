@@ -448,6 +448,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml)                                              | PAI灵骏智算资源（Serverless版）大模型最佳实践。                                                    |
 | [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml)                                                                   | 向量数据库构建企业智能知识库。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/baeeikb)       |
 | [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                     | 基于ChatGLM和LangChain搭建对话模型。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/calbadm)     |
+| [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                     | 基于通义千问和LangChain搭建对话模型。｜
 | [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)                                                                                           | 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。                                                  |
 
 - data-analysis

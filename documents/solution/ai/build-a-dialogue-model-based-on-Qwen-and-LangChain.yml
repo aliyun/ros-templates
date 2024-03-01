@@ -1,0 +1,236 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Build a dialogue model based on Qwen and LangChain.
+  zh-cn: 基于通义千问和LangChain搭建对话模型。
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 可用区
+    Description:
+      en: Availability Zone ID
+      zh-cn: 可用区ID。
+    AssociationProperty: ZoneId
+  PAIEASInstanceType:
+    Type: String
+    Label:
+      en: PAI-EAS instance type.
+      zh-cn: PAI-EAS实例规格
+    Description:
+      en: PAI-EAS instance type.
+      zh-cn: PAI-EAS 使用的实例规格。
+    AllowedPattern: '(^ecs.*gn.*)|(^ml.*)'
+Resources:
+  RandomString:
+    Type: ALIYUN::RandomString
+    Properties:
+      length: 8
+      character_classes:
+        - class: lowercase
+          min: 1
+        - class: digits
+          min: 1
+  EnablePAI:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: PAI
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    DependsOn:
+    - EnablePAI
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+        - PortRange: 80/80
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+        - PortRange: 443/443
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+        - PortRange: 3389/3389
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+  NasFileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      ProtocolType: NFS
+      FileSystemType: standard
+      StorageType: Performance
+      DeletionForce: true
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+  AliyunFCServerlessDevsRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunFCServerlessDevsRole
+      Description: 应用中心需要您的角色中包含应用所需策略，推荐创建并使用系统默认角色 AliyunFCServerlessDevsRole。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - fc.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+      DeletionForce: true
+      PolicyAttachments:
+        System:
+        - AliyunNASFullAccess
+        - AliyunFCFullAccess
+        - AliyunFCServerlessDevsRolePolicy
+        - AliyunOSSReadOnlyAccess
+        - AliyunECSReadOnlyAccess
+        - AliyunVPCReadOnlyAccess
+        - AliyunLogReadOnlyAccess
+  NasAccessGroup:
+    Type: ALIYUN::NAS::AccessGroup
+    Properties:
+      AccessGroupType: Vpc
+      AccessGroupName: 
+        Fn::Sub: nas-access-group-${ALIYUN::StackId}
+  NasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    DependsOn:
+    - NasAccessRule
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      NetworkType: Vpc
+      AccessGroupName:
+        Ref: NasAccessGroup
+      FileSystemId:
+        Ref: NasFileSystem
+  NasAccessRule:
+    Type: ALIYUN::NAS::AccessRule
+    Properties:
+      SourceCidrIp: 0.0.0.0/0
+      AccessGroupName:
+        Ref: NasAccessGroup
+  FCApplication:
+    Type: ALIYUN::FC::Application
+    Properties:
+      Name:
+        Fn::Sub: start-nas-ui-${ALIYUN::StackId}
+      RoleARN:
+        Fn::GetAtt:
+        - AliyunFCServerlessDevsRole
+        - Arn
+      Parameters:
+        serviceName:
+          Fn::Sub: nas-filemgr-${ALIYUN::StackId}
+        functionName: kodbox
+        region:
+          Ref: ALIYUN::Region
+        vpcId:
+          Ref: Vpc
+        vswitchId:
+          Ref: VSwitch
+        securityGroupId:
+          Ref: SecurityGroup
+        mountPointsServerAddr:
+          Fn::GetAtt:
+          - NasMountTarget
+          - MountTargetDomain
+      Template: start-nas-ui
+      AutoDeploy: true
+  Workspace:
+    Type: ALIYUN::PAI::Workspace
+    DependsOn:
+    - EnablePAI
+    Properties:
+      EnvTypes:
+        - dev
+        - prod
+      Description: Build a dialogue model based on Qwen and LangChain.
+      WorkspaceName:
+        Fn::Sub: qwen_demo_${RandomString.value}
+  EAS:
+    Type: ALIYUN::PAI::Service
+    Properties:
+      ServiceConfig:
+        metadata:
+          name:
+            Fn::Sub: qwen_demo_${RandomString.value}
+          instance: 1
+          enable_webservice: true
+        cloud:
+          computing:
+            instance_type:
+              Ref: PAIEASInstanceType
+            instances: Null
+          networking:
+            vswitch_id:
+              Ref: VSwitch
+            security_group_id:
+              Ref: SecurityGroup
+            vpc_id:
+              Ref: Vpc
+        containers:
+          - image:
+              Fn::Sub:
+                - 'eas-registry-vpc.${Region}.cr.aliyuncs.com/pai-eas/chat-llm-webui:2.0'
+                - Region:
+                    Ref: ALIYUN::Region
+            script: 'python webui/webui_server.py --port=8000 --model-path=Qwen/Qwen-7B-Chat'
+            port: 8000
+    DependsOn:
+      - Workspace
+Outputs:
+  Namespace:
+    Description:
+      zh-cn: 服务所在的命名空间。
+      en: The namespace where the service resides.
+    Value:
+      Fn::GetAtt:
+        - EAS
+        - Namespace
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            en: Zone
+            zh-cn: 可用区
+      - Parameters:
+          - PAIEASInstanceType
+        Label:
+          default:
+            en: PAI-EAS
+            zh-cn: PAI服务
+    TemplateTags:
+      - acs:technical-solution:AI:通义千问和LangChain搭建对话模型
