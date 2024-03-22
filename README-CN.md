@@ -372,15 +372,17 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - ecs
 
-| 模板                                                                   | 说明                                                                  |
-|----------------------------------------------------------------------|---------------------------------------------------------------------|
+| 模板                                                                   | 说明                                                               |
+|----------------------------------------------------------------------|------------------------------------------------------------------|
 | [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)            | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
-| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)              | 使用Centos7系统创建ECS实例安装部署FTP服务。                                        |
-| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)        | 在ECS实例（CentOS 7）上部署Node.js环境。                                       |
-| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml)  | 在ECS实例（CentOS 7）上搭建WordPress。                                       |
-| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | 在ECS实例（CentOS 8）上部署MySQL服务。                                                 |
-| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml) | 将弹性公网IP与辅助弹性网卡以普通模式绑定，实现单个ECS实例(CentOS 7)绑定多个EIP。 |
-| [docker-alibaba-cloud-linux-2.yml](./documents/help/ecs/docker-alibaba-cloud-linux-2.yml) | 部署并使用Docker（Alibaba Cloud Linux 2）。 |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)              | 使用Centos7系统创建ECS实例安装部署FTP服务。                                     |
+| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)        | 在ECS实例（CentOS 7）上部署Node.js环境。                                    |
+| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml)  | 在ECS实例（CentOS 7）上搭建WordPress。                                    |
+| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | 在ECS实例（CentOS 8）上部署MySQL服务。                                      |
+| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml) | 将弹性公网IP与辅助弹性网卡以普通模式绑定，实现单个ECS实例(CentOS 7)绑定多个EIP。                |
+| [docker-alibaba-cloud-linux-2.yml](./documents/help/ecs/docker-alibaba-cloud-linux-2.yml) | 部署并使用Docker（Alibaba Cloud Linux 2）。                              |
+| [configure-IPv6-address-for-ecs.yml](./documents/help/ecs/configure-IPv6-address-for-ecs.yml)        | 配置ECS实例的IPv6地址。|
+
  
 
 - ack
