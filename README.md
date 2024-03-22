@@ -372,15 +372,17 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - ecs
 
-| Template                                                            | Description                                                                                                                |
-|---------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
-| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)           | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
-| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)             | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                              |
-| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)       | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                              |
-| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml) | Manually build a WordPress website on a CentOS 7 ECS instance                                                              |
-| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | Deploy the MySQL service on an ECS instance (CentOS 8).                                                                            |
-| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml) | Bind an EIP to a secondary ENI in normal mode to bind multiple EIPs to a single ECS instance (CentOS 7).   |
-| [docker-alibaba-cloud-linux-2.yml](./documents/help/ecs/docker-alibaba-cloud-linux-2.yml)        | Deploy and use Docker on the ECS instance of Alibaba Cloud Linux 2.1903 LTS 64-bit operating system. |
+| Template                                                          | Description                                                                                                               |
+|-------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)         | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)           | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                             |
+| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)     | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                             |
+| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml) | Manually build a WordPress website on a CentOS 7 ECS instance                                                             |
+| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | Deploy the MySQL service on an ECS instance (CentOS 8).                                                                           |
+| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml) | Bind an EIP to a secondary ENI in normal mode to bind multiple EIPs to a single ECS instance (CentOS 7).  |
+| [docker-alibaba-cloud-linux-2.yml](./documents/help/ecs/docker-alibaba-cloud-linux-2.yml)      | Deploy and use Docker on the ECS instance of Alibaba Cloud Linux 2.1903 LTS 64-bit operating system. |
+| [configure-IPv6-address-for-ecs.yml](./documents/help/ecs/configure-IPv6-address-for-ecs.yml)        | Configure the IPv6 address of the ECS instance. |
+
 
 - ack
   
