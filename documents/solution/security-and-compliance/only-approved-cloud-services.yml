@@ -1,0 +1,86 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 限制企业仅使用已批准的云服务
+  en: Restrict enterprises to only approved cloud services.
+Parameters:
+  ControlPolicyName:
+    Type: String
+    Label:
+      en: ControlPolicy name
+      zh-cn: 管控策略名称
+    Description:
+      en: No more than 128 characters, including English letters, numbers, and dashes -.
+      zh-cn: 不多于 128 字符，可包含英文字母、数字和短划线 -。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: control-policy-
+      CharacterClasses:
+        - Class: lowercase
+          min: 6
+  Accounts:
+    Type: Json
+    Label:
+      en: Accounts bound to management and control policies.
+      zh-cn: 绑定管控策略的账号。
+    AssociationProperty: ALIYUN::ResourceManager::Account
+    MinLength: 1
+    MaxLength: 3
+Resources:
+  AutoEnableControlPolicy:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: ControlPolicy
+  ControlPolicy:
+    Type: ALIYUN::ResourceManager::ControlPolicy
+    Properties:
+      ControlPolicyName:
+        Ref: ControlPolicyName
+      Description: 仅允许对华北2（北京）和华东2（上海）地域的 ECS 和 RDS 进行操作.
+      EffectScope: RAM
+      PolicyDocument: |-
+        {
+          "Statement":[
+            {
+              "Effect": "Allow",
+              "Action":[
+                        "ecs:*",
+                        "rds:*"
+              ],
+              "Resource": [
+                        "acs:*:*cn-beijing*:*:*",
+                        "acs:*:*cn-shanghai*:*:*"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action":[
+                        "sts:AssumeRole"
+              ],
+              "Resource": "*"
+            }
+          ],
+          "Version": "1"
+        }
+
+
+  ControlPolicyAttachment:
+    Type: ALIYUN::ResourceManager::ControlPolicyAttachment
+    Count:
+      Fn::Length:
+        Ref: Accounts
+    Properties:
+      PolicyId:
+        Ref: ControlPolicy
+      TargetId:
+        Fn::Select:
+          - Ref: ALIYUN::Index
+          - Ref: Accounts
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - ControlPolicyName
+        - Accounts
+    TemplateTags:
+      - acs:technical-solution:security-and-compliance:限制企业仅使用已批准的云服务-tech_solu_76
