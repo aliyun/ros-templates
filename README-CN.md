@@ -436,22 +436,22 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | 模板                                                                                                          | 说明             |
 |-------------------------------------------------------------------------------------------------------------------|----------------|
-|[enterprise-multi-account-identity-authority-centralized-management.yml](documents/solution/account/enterprise-multi-account-identity-authority-centralized-management.yml) | 企业多账号身份权限集中管理。 |
+|[enterprise-multi-account-identity-authority-centralized-management.yml](documents/solution/account/enterprise-multi-account-identity-authority-centralized-management.yml) | 企业多账号身份权限集中管理。 [解决方案](https://www.aliyun.com/solution/tech-solution/cmomaip) |
 
 - ai
 
-| 模板                                                                                                                                                               | 说明                                                                                |
-|------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
-| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。                                           |
-| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml)                                                   | AIGC文本生成3D模型。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/tg3dm)           |
-| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml)                           | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。                                               |
-| [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml)                                                                     | LLAMA-2全托管灵骏最佳实践。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/pai_lingjun) |
-| [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                     | PAI AI绘画解决方案。                                                                     |
-| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml)                                              | PAI灵骏智算资源（Serverless版）大模型最佳实践。                                                    |
-| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml)                                                                   | 向量数据库构建企业智能知识库。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/baeeikb)       |
-| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                     | 基于ChatGLM和LangChain搭建对话模型。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/calbadm)     |
-| [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                     | 基于通义千问和LangChain搭建对话模型。｜
-| [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)                                                                                           | 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。                                                  |
+| 模板                                                                                                                                                             | 说明                                                                                        |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。                                                   |
+| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml)                                                 | AIGC文本生成3D模型。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/tg3dm)                   |
+| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml)                         | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。                                                       |
+| [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml)                                                                   | LLAMA-2全托管灵骏最佳实践。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/pai_lingjun)         |
+| [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                    | PAI AI绘画解决方案。  ｜  [解决方案](https://www.aliyun.com/solution/tech-solution/pai_eas)           |
+| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml)                                            | PAI灵骏智算资源（Serverless版）大模型最佳实践。                                                            |
+| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml)                                                                 | 向量数据库构建企业智能知识库。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/baeeikb)               |
+| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                   | 基于ChatGLM和LangChain搭建对话模型。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/calbadm) |
+| [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                   | 基于通义千问和LangChain搭建对话模型。                                                                   |
+| [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)      | 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/one_gpu)                                  |
 
 - data-analysis
 
@@ -460,8 +460,8 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [flink-hologres-data-warehouse.yml](./documents/solution/data-analysis/flink-hologres-data-warehouse.yml)             | 基于Flink+Hologres搭建实时数仓。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/flink_hologres)  |
 | [flink-maxcompute-data-warehouse.yml](./documents/solution/data-analysis/flink-maxcompute-data-warehouse.yml)         | 搭建实时数仓并实现查询加速。                     |
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
-| [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml)                     | 基于AnalyticDB MySQL湖仓版的用户运营分析实践。    |
-| [cloud-native-enterprise-data-lake.yml](./documents/solution/data-analysis/cloud-native-enterprise-data-lake.yml)     | 云原生企业级数据湖。                         |
+| [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml)                     | 基于AnalyticDB MySQL湖仓版的用户运营分析实践。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/adbmysql_uoap)   |
+| [cloud-native-enterprise-data-lake.yml](./documents/solution/data-analysis/cloud-native-enterprise-data-lake.yml)     | 云原生企业级数据湖。   ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/datalake)      |
 
 - database
 
@@ -499,12 +499,12 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - storage
 
-| 模板                                                                                                                        | 说明                  |
-|---------------------------------------------------------------------------------------------------------------------------|---------------------|
+| 模板                                                                                                                        | 说明                                                                         |
+|---------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
 | [collect-logs-across-alibaba-cloud-accounts.yml](documents/solution/storage/collect-logs-across-alibaba-cloud-accounts.yml) | 跨阿里云账号采集日志。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/cacac_logs) |
-| [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)       | 通过日志审计服务跨账号采集OSS日志。 |
-| [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml)       | 云原生可观测运维。 |
-| [snapshot-optimize.yml](documents/solution/storage/snapshot-optimize.yml)         | 基于EBS部署高性能的MySQL服务。 |
+| [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)       | 通过日志审计服务跨账号采集OSS日志。                                                        |
+| [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml)       | 云原生可观测运维。                                                                  |
+| [snapshot-optimize.yml](documents/solution/storage/snapshot-optimize.yml)         | 基于EBS部署高性能的MySQL服务。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ebs_mysql)                                                        |
 
 
 - cdn-and-video-cloud
@@ -513,7 +513,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |---------------------------------------------------------------------------------------------------------------------------------------|------------------------|
 | [cdn-speeds-up-distribution-of-file-on-oss.yml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yml) | 使用CDN加速OSS上存储的文件资源分发。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/fdaaco) |
 | [dcdn-acceleration.yml](documents/solution/cdn-and-video-cloud/dcdn-acceleration.yml)                                                 | 加速资源请求场景实践。            |
-| [dcdn-speeds-up-data-storage-on-oss.yml](documents/solution/cdn-and-video-cloud/dcdn-speeds-up-data-storage-on-oss.yml)                                                 | 多媒体数据存储与分发。            |
+| [dcdn-speeds-up-data-storage-on-oss.yml](documents/solution/cdn-and-video-cloud/dcdn-speeds-up-data-storage-on-oss.yml)                                                 | 多媒体数据存储与分发。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/mdsad)          |
 
 
 - cloud-migration
@@ -530,7 +530,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [alb-cross-region-load-balance.yml](documents/solution/high-availability-architecture/alb-cross-region-load-balance.yml)           | ALB实现跨地域负载均衡。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/alb_acrlb) |
 | [elastic-highly-available-service.yml](documents/solution/high-availability-architecture/elastic-highly-available-service.yml) | 基于CLB、ESS构建弹性高可用服务。     |
 | [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/classic-architecture-on-the-cloud.yml) | 云上高可用博客网站。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/habwoc)    |
-| [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | 高可用及共享存储Web服务。                                                           |
+| [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | 高可用及共享存储Web服务。    [解决方案](https://www.aliyun.com/solution/tech-solution/ha_web) |
 
 
 - ops-on-cloud
@@ -559,12 +559,13 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - security-and-compliance
 
-| 模板                                                                                                                                                                              | 说明                                                                                  |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| 模板                                                                                                                                                                             | 说明                                                                                  |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
 | [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | 高效构建安全合规的新账号。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ecosacna)       |
 | [multiple-accounts-support-configuration-auditing.yml](documents/solution/security-and-compliance/multiple-accounts-support-configuration-auditing.yml) | 企业多账号配置统一合规审计。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ucafmac)       |
 | [cloud-firewall-in-multiple-accounts.yml](documents/solution/security-and-compliance/cloud-firewall-in-multiple-accounts.yml) | 创建VPC类型ECS，并绑定EIP。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/umomaicf) |
-| [enterprise-multi-account-identity-permissions.yml](documents/solution/security-and-compliance/enterprise-multi-account-identity-permissions.yml) | Centralized management of enterprise multi-account identity permissions. |
+| [enterprise-multi-account-identity-permissions.yml](documents/solution/security-and-compliance/enterprise-multi-account-identity-permissions.yml) | 企业多账号身份权限集中管理。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/cmomaip)      |
+| [only-approved-cloud-services.yml](documents/solution/security-and-compliance/only-approved-cloud-services.yml) | 限制企业仅使用已批准的云服务。                                                                     |
 
 
   </details>
