@@ -36,6 +36,16 @@ Resources:
             - Fn::GetAtt:
                 - DsEcs
                 - Instances
+  DsVsw:
+    Type: DATASOURCE::VPC::VSwitch
+    Properties:
+      VSwitchId:
+        Fn::Jq:
+          - First
+          - .[0].VswitchId
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
   SecurityGroupIngress:
     Type: ALIYUN::ECS::SecurityGroupIngress
     Properties:
@@ -178,6 +188,10 @@ Resources:
             - Fn::GetAtt:
                 - DsIpv6Gateway
                 - Output
+        VswIpv6Address:
+          Fn::GetAtt:
+            - DsVsw
+            - Ipv6CidrBlock
       TemplateBody:
         ROSTemplateFormatVersion: '2015-09-01'
         Parameters:
@@ -190,11 +204,17 @@ Resources:
             Type: String
           NetworkInterfaceId:
             Type: String
+          VswIpv6Address:
+            Type: String
         Conditions:
           EnableIpv6ForVpc:
             Fn::Equals:
               - null
               - Ref: Ipv6GatewayId
+          EnableIpv6ForVsw:
+            Fn::Equals:
+              - null
+              - Ref: VswIpv6Address
         Resources:
           OpenIPv6ForVpc:
             Condition: EnableIpv6ForVpc
@@ -218,7 +238,7 @@ Resources:
                 Ref: VpcId
           OpenIPv6ForVsw:
             Type: MODULE::ACS::OOS::ExecuteAPI
-            Condition: EnableIpv6ForVpc
+            Condition: EnableIpv6ForVsw
             DependsOn: Ipv6Gateway
             Version: default
             Properties:
