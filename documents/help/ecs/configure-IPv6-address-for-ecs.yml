@@ -36,6 +36,16 @@ Resources:
             - Fn::GetAtt:
                 - DsEcs
                 - Instances
+  DsVsw:
+    Type: DATASOURCE::VPC::VSwitch
+    Properties:
+      VSwitchId:
+        Fn::Jq:
+          - First
+          - .[0].VswitchId
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
   SecurityGroupIngress:
     Type: ALIYUN::ECS::SecurityGroupIngress
     Properties:
@@ -84,7 +94,7 @@ Resources:
           
           function log_fatal() {
               printf "\n========================================================================\n"
-              printf "$(date '+%Y-%m-%d %H:%M:%S') [FATAL] $2. Please retry."
+              printf "$(date '+%Y-%m-%d %H:%M:%S') [FATAL] $2."
               printf "\n========================================================================\n"
               exit $1
           }
@@ -111,7 +121,7 @@ Resources:
               debug_exec chmod +x ./ecs-utils-ipv6
               
               if ! debug_exec ./ecs-utils-ipv6; then
-                  log_fatal 3 "Failed to run ecs-utils-ipv6 tool."
+                  log_fatal 3 "Failed to run ecs-utils-ipv6 tool"
               fi
           }
           
@@ -138,7 +148,7 @@ Resources:
           
           linux=$(lsb_release -a | grep "Distributor ID:" | cut -d':' -f2 | cut -d '(' -f1 | xargs echo -n)
           case $linux in
-              CentOS|RedHat|Fedora|Aliyun|AlibabaCloud|Fedora) wget --timeout=10 -q -O ecs-utils-ipv6 $RHEL ;;
+              CentOS|RedHat|Fedora|Aliyun|AlibabaCloud|Fedora|AnolisOS) wget --timeout=10 -q -O ecs-utils-ipv6 $RHEL ;;
               Debian|Ubuntu) wget --timeout=10 -q -O ecs-utils-ipv6 $Debian ;; 
               SUSE|OpenSUSE) wget --timeout=10 -q -O ecs-utils-ipv6 $SLES ;;
               FreeBSD) wget --timeout=10 -q  -O ecs-utils-ipv6 $FreeBSD ;;
@@ -178,6 +188,10 @@ Resources:
             - Fn::GetAtt:
                 - DsIpv6Gateway
                 - Output
+        VswIpv6Address:
+          Fn::GetAtt:
+            - DsVsw
+            - Ipv6CidrBlock
       TemplateBody:
         ROSTemplateFormatVersion: '2015-09-01'
         Parameters:
@@ -190,11 +204,17 @@ Resources:
             Type: String
           NetworkInterfaceId:
             Type: String
+          VswIpv6Address:
+            Type: String
         Conditions:
           EnableIpv6ForVpc:
             Fn::Equals:
               - null
               - Ref: Ipv6GatewayId
+          EnableIpv6ForVsw:
+            Fn::Equals:
+              - null
+              - Ref: VswIpv6Address
         Resources:
           OpenIPv6ForVpc:
             Condition: EnableIpv6ForVpc
@@ -218,7 +238,7 @@ Resources:
                 Ref: VpcId
           OpenIPv6ForVsw:
             Type: MODULE::ACS::OOS::ExecuteAPI
-            Condition: EnableIpv6ForVpc
+            Condition: EnableIpv6ForVsw
             DependsOn: Ipv6Gateway
             Version: default
             Properties:
@@ -233,6 +253,7 @@ Resources:
                 EnableIPv6: true
           Ipv6InternetBandwidth:
             Type: ALIYUN::VPC::Ipv6InternetBandwidth
+            DependsOn: Sleep
             Properties:
               Bandwidth: 1
               Ipv6AddressId:
@@ -247,6 +268,11 @@ Resources:
                   - Ref: Ipv6Gateway
                   - Ref: Ipv6GatewayId
               InternetChargeType: PayByTraffic
+          Sleep:
+            Type: ALIYUN::ROS::Sleep
+            DependsOn: IpV6Address
+            Properties:
+              CreateDuration: 60
           IpV6Address:
             Type: ALIYUN::ECS::AssignIpv6Addresses
             DependsOn: OpenIPv6ForVsw
