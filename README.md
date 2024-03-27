@@ -513,11 +513,12 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - cdn-and-video-cloud
 
-| Template                                                                                                                                | Description                                                             |
-|-----------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| [cdn-speeds-up-distribution-of-file-on-oss.yml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yml)   | Use a CDN to speed up the distribution of file resources stored on OSS. |
-| [dcdn-acceleration.yml](documents/solution/cdn-and-video-cloud/dcdn-acceleration.yml)                                                   | Accelerate resource request scenario practices.                         |
-| [dcdn-speeds-up-data-storage-on-oss.yml](documents/solution/cdn-and-video-cloud/dcdn-speeds-up-data-storage-on-oss.yml)         | Use a CDN to speed up the  Multimedia data storage and distribution on  OSS.    |
+| Template                                                                                                                              | Description                                                             |
+|---------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| [cdn-speeds-up-distribution-of-file-on-oss.yml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yml) | Use a CDN to speed up the distribution of file resources stored on OSS. |
+| [dcdn-acceleration.yml](documents/solution/cdn-and-video-cloud/dcdn-acceleration.yml)                                                 | Accelerate resource request scenario practices.                         |
+| [dcdn-speeds-up-data-storage-on-oss.yml](documents/solution/cdn-and-video-cloud/dcdn-speeds-up-data-storage-on-oss.yml)       | Use a CDN to speed up the  Multimedia data storage and distribution on  OSS.    |
+| [accelerate-static-website.yml](documents/solution/cdn-and-video-cloud/accelerate-static-website.yml)         | Accelerate cross-regional access to website static resources.    |
 
 
 - cloud-migration
@@ -565,13 +566,14 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - security-and-compliance
 
-| Template                                                                                                                                                          | Description                                                  |
-|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| Template                                                                                                                                                         | Description                                                  |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
 | [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | Efficiently build a new account with security and compliance. |
 | [multiple-accounts-support-configuration-auditing.yml](documents/solution/security-and-compliance/multiple-accounts-support-configuration-auditing.yml) | Configure unified compliance audit for multiple accounts. |
 | [cloud-firewall-in-multiple-accounts.yml](documents/solution/security-and-compliance/cloud-firewall-in-multiple-accounts.yml) | Create a VPC type ECS and bind EIP. |
 | [enterprise-multi-account-identity-permissions.yml](documents/solution/security-and-compliance/enterprise-multi-account-identity-permissions.yml) | Centralized management of enterprise multi-account identity permissions. |
 | [only-approved-cloud-services.yml](documents/solution/security-and-compliance/only-approved-cloud-services.yml) | Restrict enterprises to only approved cloud services. |
+| [protect-web-applications-with-WAF.yml](documents/solution/security-and-compliance/protect-web-applications-with-WAF.yml) | Protect web applications with WAF. |
 
   </details>
 

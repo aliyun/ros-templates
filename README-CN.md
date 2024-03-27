@@ -514,6 +514,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [cdn-speeds-up-distribution-of-file-on-oss.yml](documents/solution/cdn-and-video-cloud/cdn-speeds-up-distribution-of-file-on-oss.yml) | 使用CDN加速OSS上存储的文件资源分发。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/fdaaco) |
 | [dcdn-acceleration.yml](documents/solution/cdn-and-video-cloud/dcdn-acceleration.yml)                                                 | 加速资源请求场景实践。            |
 | [dcdn-speeds-up-data-storage-on-oss.yml](documents/solution/cdn-and-video-cloud/dcdn-speeds-up-data-storage-on-oss.yml)                                                 | 多媒体数据存储与分发。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/mdsad)          |
+| [accelerate-static-website.yml](documents/solution/cdn-and-video-cloud/accelerate-static-website.yml)         | 网站静态资源跨地域访问加速。    |
 
 
 - cloud-migration
@@ -566,6 +567,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [cloud-firewall-in-multiple-accounts.yml](documents/solution/security-and-compliance/cloud-firewall-in-multiple-accounts.yml) | 创建VPC类型ECS，并绑定EIP。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/umomaicf) |
 | [enterprise-multi-account-identity-permissions.yml](documents/solution/security-and-compliance/enterprise-multi-account-identity-permissions.yml) | 企业多账号身份权限集中管理。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/cmomaip)      |
 | [only-approved-cloud-services.yml](documents/solution/security-and-compliance/only-approved-cloud-services.yml) | 限制企业仅使用已批准的云服务。                                                                     |
+| [protect-web-applications-with-WAF.yml](documents/solution/security-and-compliance/protect-web-applications-with-WAF.yml) | 通过 WAF 防护 Web 应用。                                                                   |
 
 
   </details>
