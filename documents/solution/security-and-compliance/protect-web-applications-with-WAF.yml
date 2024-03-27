@@ -1,0 +1,137 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Protect web applications with WAF
+  zh-cn: 通过 WAF 防护 Web 应用
+Parameters:
+  CommonName:
+    Type: String
+    Default: waf-solution
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: Availability zone
+      zh-cn: 可用区
+    Description:
+      en: Available area id, <a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b><font color='blue'>View region and zone info</font></b></a>.
+      zh-cn: 可用区ID，</font><a href='https://help.aliyun.com/document_detail/123712.html'
+        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>。
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance type
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+    Default: ecs.g6.large
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: vpc_${CommonName}
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      VSwitchName:
+        Fn::Sub: vsw_${CommonName}
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          IpProtocol: tcp
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+        - PortRange: 22/22
+          IpProtocol: tcp
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+        - PortRange: 3306/3306
+          IpProtocol: tcp
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+      SecurityGroupName:
+        Fn::Sub: sg_${CommonName}
+      SecurityGroupType: normal
+  EcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      InstanceName:
+        Fn::Sub: ecs_${CommonName}
+      InstanceChargeType: PostPaid
+      InstanceType:
+        Ref: EcsInstanceType
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      AllocatePublicIP: true
+      InternetChargeType: PayByTraffic
+      InternetMaxBandwidthOut: 10
+      ZoneId:
+        Ref: VSwitchZoneId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SpotStrategy: SpotAsPriceGo
+      MaxAmount: 1
+  InstallWeb:
+    Type: ALIYUN::OOS::Execution
+    Properties:
+      TemplateName: ACS-ECS-BulkyConfigureOOSPackageWithTemporaryURL
+      SafetyCheck: Skip
+      Parameters:
+        regionId:
+          Ref: ALIYUN::Region
+        targets:
+          ResourceIds:
+            Fn::GetAtt:
+              - EcsInstance
+              - InstanceIds
+          RegionId:
+            Ref: ALIYUN::Region
+          Type: ResourceIds
+        action: install
+        packageName: ACS-Extension-LNMP-One-Click-1853370294850618
+  Waf3:
+    Type: ALIYUN::WAF3::Instance
+    Properties:
+      PayType: PayAsYouGo
+      Region: ChineseMainland
+      TrafficBillingProtectionThreshold: 100000
+      IgnoreExisting: true
+Outputs:
+  EipAddress:
+    Description: Web Address.
+    Value:
+      Fn::Sub:
+        - http://${IP}
+        - IP:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - EcsInstance
+                - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - VSwitchZoneId
+        - EcsInstanceType
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:technical-solution:security-and-compliance:通过WAF防护Web应用-tech_solu_106
