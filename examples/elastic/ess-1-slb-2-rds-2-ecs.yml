@@ -4,6 +4,18 @@ Description:
     and ESS to the SLB.
   zh-cn: 创建1个SLB、1个ESS和1个RDS，通过ESS创建2个ECS实例。将ECS实例和ESS绑定到SLB上。
 Parameters:
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources,which is recommended to be different from other VSwitch Availability
+        Zone</font></b>
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
   EcsImageId:
     Type: String
     Label:
@@ -15,7 +27,14 @@ Parameters:
         image resources</b></font color='blue'></a>
       zh-cn: 镜像ID，ECS实例的镜像资源，详见：<font><a href='https://help.aliyun.com/document_detail/112977.html'
         target='_blank'><b>查看镜像资源</b></font color='blue'></a>
-    AssociationProperty: ALIYUN::ECS::Instance:ImageId
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: ${EcsInstanceType}
+      SupportedImageOwnerAlias:
+        - system
+        - self
+        - others
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
   EcsInstanceType:
     Type: String
     Label:
@@ -28,6 +47,8 @@ Parameters:
       zh-cn: ECS实例类型，进入产品控制台确保当前实例可用, 详见：<a href='https://help.aliyun.com/document_detail/25378.html'
         target='_blank'><b>查看实例类型</b></a>
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
   EcsInternetChargeType:
     Type: String
     Label:
@@ -36,6 +57,8 @@ Parameters:
     Description:
       en: The charge type of public internet instance
       zh-cn: 实例的收费类型，paybytraffic：按流量付费，paybybandwidth：按带宽付费
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
     Default: paybytraffic
     AllowedValues:
     - paybytraffic
@@ -55,13 +78,33 @@ Parameters:
         color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
         <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
         <font color=''green''>本地SSD盘</font>]'
-    Default: cloud_ssd
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${EcsInstanceType}
+  Category:
+    AssociationPropertyMetadata:
+      LocaleKey: RDSCategory
+    Default: Null
+    Required: false
     AllowedValues:
-    - cloud_efficiency
-    - cloud_ssd
-    - cloud
-    - cloud_essd
-    - ephemeral_ssd
+      - Basic
+      - HighAvailability
+      - cluster
+    Label:
+      zh-cn: 实例系列
+      en: Category
+    Type: String
+  EngineVersion:
+    AssociationPropertyMetadata:
+      Engine: MySQL
+    Default: '8.0'
+    Required: true
+    Label:
+      zh-cn: 数据库版本号
+      en: EngineVersion
+    AssociationProperty: ALIYUN::RDS::Engine::EngineVersion
+    Type: String
   RdsDBInstanceClass:
     Type: String
     Label:
@@ -73,6 +116,12 @@ Parameters:
         target='_blank'><b>Instance specification sheet</b></a>
       zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>详见：<a href='https://help.aliyun.com/document_detail/26312.html'
         target='_blank'><b>实例规格表</b></a>
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      Engine: MySQL
+      Category: ${Category}
+      EngineVersion: ${EngineVersion}
+      ZoneId: ${VSwitchZoneId}
     Default: rds.mysql.s1.small
   RdsDBInstanceNetType:
     Type: String
@@ -83,6 +132,8 @@ Parameters:
       en: Database instance net type, Internet for public access, Intranet for private
         access.
       zh-cn: 数据库实例网络类型，Internet用于公共访问，Intranet用于私网访问。
+    AssociationPropertyMetadata:
+      LocaleKey: NetType
     AllowedValues:
     - Internet
     - Intranet
@@ -97,24 +148,9 @@ Parameters:
     ConstraintDescription:
       en: 'Incrementing in every 5G, unit: GB'
       zh-cn: 每5G递增，单位：GB。
-    Default: 5
+    Default: 500
     MinValue: 5
     MaxValue: 2000
-  DBInstanceEngineAndVersion:
-    Type: String
-    Label:
-      en: Engine And Version
-      zh-cn: 引擎类型及版本
-    Description:
-      en: Database instance engine type, default is 'Mysql'.Support MySQL/SQLServer/PostgreSQL/PPAS/MariaDB
-        now.
-      zh-cn: 数据库实例引擎类型，默认为Mysql，现在支持Mysql/SQLServer/PostgreSQL/PPAS/MariaDB。
-    Default: MySQL-5.6
-    AllowedValues:
-    - MySQL-5.6
-    - SQLServer-2008r2
-    - PostgreSQL-9.4
-    - PPAS-9.3
   RdsSecurityIPList:
     Type: String
     Label:
@@ -199,16 +235,15 @@ Resources:
     Type: ALIYUN::ECS::VSwitch
     Properties:
       ZoneId:
-        Fn::Select:
-        - '0'
-        - Fn::GetAZs:
-            Ref: ALIYUN::Region
+        Ref: VSwitchZoneId
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.0.0/16
   Database:
     Type: ALIYUN::RDS::DBInstance
     Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
       VpcId:
         Ref: Vpc
       VSwitchId:
@@ -219,18 +254,9 @@ Resources:
         Ref: RdsDBInstanceNetType
       DBInstanceStorage:
         Ref: RdsDBInstanceStorage
-      Engine:
-        Fn::Select:
-        - '0'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
+      Engine: MySQL
       EngineVersion:
-        Fn::Select:
-        - '1'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
+        Ref: EngineVersion
       SecurityIPList:
         Ref: RdsSecurityIPList
   SG:
@@ -323,6 +349,7 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
     - Parameters:
+      - VSwitchZoneId
       - EcsImageId
       - EcsInstanceType
       - EcsInternetChargeType
@@ -330,10 +357,11 @@ Metadata:
       Label:
         default: ECS
     - Parameters:
+      - Category
+      - EngineVersion
       - RdsDBInstanceClass
       - RdsDBInstanceNetType
       - RdsDBInstanceStorage
-      - DBInstanceEngineAndVersion
       - RdsSecurityIPList
       Label:
         default: RDS

@@ -63,7 +63,14 @@ Parameters:
         image resources</b></font color='blue'></a>
       zh-cn: 镜像ID，ECS实例的镜像资源, <font><a href='https://help.aliyun.com/document_detail/112977.html'
         target='_blank'><b>查看镜像资源</b></font color='blue'></a>
-    Default: centos_7
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      SupportedImageOwnerAlias:
+        - system
+        - self
+        - others
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
   InstanceType:
     Type: String
     Label:
@@ -112,23 +119,10 @@ Parameters:
     Label:
       en: System Disk Category
       zh-cn: 系统磁盘类别
-    Description:
-      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
-        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
-        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
-        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
-        SSD Cloud Disk</font>]'
-      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
-        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
-        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
-        <font color=''green''>本地SSD盘</font>]'
-    Default: cloud_ssd
-    AllowedValues:
-    - cloud_efficiency
-    - cloud_ssd
-    - cloud
-    - cloud_essd
-    - ephemeral_ssd
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: InstanceType
+      ZoneId: ZoneId
   Password:
     Type: String
     Label:
@@ -146,6 +140,29 @@ Parameters:
     MinLength: 8
     MaxLength: 30
     NoEcho: true
+  Category:
+    AssociationPropertyMetadata:
+      LocaleKey: RDSCategory
+    Default: Null
+    Required: false
+    AllowedValues:
+      - Basic
+      - HighAvailability
+      - cluster
+    Label:
+      zh-cn: 实例系列
+      en: Category
+    Type: String
+  EngineVersion:
+    Type: String
+    Label:
+      zh-cn: 数据库版本号
+      en: EngineVersion
+    AssociationProperty: ALIYUN::RDS::Engine::EngineVersion
+    AssociationPropertyMetadata:
+      Engine: MySQL
+    Default: '8.0'
+    Required: true
   DBInstanceClass:
     Type: String
     Label:
@@ -154,50 +171,13 @@ Parameters:
     Description:
       en: The RDS instance class.
       zh-cn: 数据库实例类型
-    Default: rds.mysql.t1.small
-    AllowedValues:
-    - rds.mysql.t1.small
-    - rds.mys2.small
-    - rds.mys2.mid
-    - rds.mys2.standard
-    - rds.mys2.large
-    - rds.mys2.xlarge
-    - rds.mys2.2xlarge
-    - rds.mys2.4xlarge
-    - rds.mys2.8xlarge
-    - rds.mss1.small
-    - rds.mss1.mid
-    - rds.mss1.standard
-    - rds.mss1.large
-    - rds.mss1.xlarge
-    - rds.mss1.2xlarge
-    - rds.mss1.4xlarge
-    - rds.mss1.8xlarge
-    - rds.pg.t1.small
-    - rds.pg.s1.small
-    - rds.pg.s2.large
-    - rds.pg.s3.large
-    - rds.pg.c1.large
-    - rds.pg.c1.xlarge
-    - rds.ppas.s3.large
-    - rds.ppas.m1.medium
-    - rds.ppas.c1.xlarge
-    - rds.ppas.c2.xlarge
-  DBInstanceEngineAndVersion:
-    Type: String
-    Label:
-      en: Type And Version
-      zh-cn: 类型与版本号
-    Description:
-      en: Database instance engine type, default is 'Mysql'.Support MySQL/SQLServer/PostgreSQL/PPAS/MariaDB
-        now.
-      zh-cn: 数据库实例引擎类型，默认为Mysql，现在支持Mysql/SQLServer/PostgreSQL/PPAS/MariaDB。
-    Default: MySQL-5.6
-    AllowedValues:
-    - MySQL-5.6
-    - SQLServer-2008r2
-    - PostgreSQL-9.4
-    - PPAS-9.3
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      Engine: MySQL
+      Category: ${Category}
+      EngineVersion: ${EngineVersion}
+      ZoneId: ${VSwitchZoneId}
+    Default: rds.mysql.s1.small
   DBInstanceStorage:
     Type: Number
     Label:
@@ -209,7 +189,7 @@ Parameters:
     ConstraintDescription:
       en: '[5, 2000] Incrementing in every 5G, unit: GB'
       zh-cn: '[5, 2000] 每 5G 递增，单位：GB'
-    Default: 5
+    Default: 50
     MinValue: 5
     MaxValue: 2000
   DBInstanceNetType:
@@ -220,6 +200,8 @@ Parameters:
     Description:
       en: Instance Net Type
       zh-cn: 实例网络类型
+    AssociationPropertyMetadata:
+      LocaleKey: NetType
     Default: Intranet
     AllowedValues:
     - Intranet
@@ -301,18 +283,11 @@ Resources:
         Ref: DBInstanceNetType
       DBInstanceStorage:
         Ref: DBInstanceStorage
-      Engine:
-        Fn::Select:
-        - '0'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
+      Engine: MySQL
+      Category:
+        Ref: Category
       EngineVersion:
-        Fn::Select:
-        - '1'
-        - Fn::Split:
-          - '-'
-          - Ref: DBInstanceEngineAndVersion
+        Ref: EngineVersion
       SecurityIPList:
         Fn::GetAtt:
         - WebServer
@@ -375,8 +350,9 @@ Metadata:
           en: ECS
           zh-cn: 云服务器
     - Parameters:
+      - Category
+      - EngineVersion
       - DBInstanceClass
-      - DBInstanceEngineAndVersion
       - DBInstanceStorage
       - DBInstanceNetType
       Label:
