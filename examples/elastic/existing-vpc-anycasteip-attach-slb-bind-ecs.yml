@@ -24,6 +24,9 @@ Parameters:
         must be under VPC. ECS will be created under this VSwitch</font>
       zh-cn: 现有交换机ID,控制台-VPC-交换机下查询，<font color='red'>交换机必须在VPC下。ECS将创建在此交换机下</font>
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VPC}
+      ZoneId: ${VSwitchZoneId}
   SecurityGroup:
     Type: String
     Label:
@@ -34,6 +37,8 @@ Parameters:
         & Security
       zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询。<br><font color='red'>安全组必须归属在VPC下。</font>
     AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VPC}
   VSwitchZoneId:
     Type: String
     Label:
@@ -55,8 +60,14 @@ Parameters:
         target='_blank'><font color='blue'>Find the mirror</font></a></b>
       zh-cn: 镜像ID, 请使用Centos7, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
         target='_blank'><font color='blue'>查找镜像</font></a></b>
-    AssociationProperty: ALIYUN::ECS::Instance::ImageId
-    Default: ubuntu_14
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: ${ECSInstanceType}
+      SupportedImageOwnerAlias:
+        - system
+        - self
+        - others
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
   ECSInstanceType:
     Type: String
     Label:
@@ -84,34 +95,17 @@ Parameters:
     Label:
       en: System Disk Type
       zh-cn: 系统盘类型
-    Description:
-      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
-        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
-        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
-        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
-        SSD Cloud Disk</font>]'
-      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
-        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
-        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
-        <font color=''green''>本地SSD盘</font>]'
-    Default: cloud_efficiency
-    AllowedValues:
-    - cloud_efficiency
-    - cloud_ssd
-    - cloud
-    - cloud_essd
-    - ephemeral_ssd
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${ECSInstanceType}
   InstanceChargeType:
     Type: String
     Label:
       en: Instance Charge Type
       zh-cn: 实例的付费方式
-    Description:
-      en: '<font color=''blue''><b>Optional values:</b></font><br>[PostPaid: <font
-        color=''green''>Pay as you go.</font>]<br> [PrePaid: <font color=''green''>Prepaid,
-        monthly subscription.</font>]'
-      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[PostPaid: <font color=''green''>按量付费。</font>]<br>[PrePaid:
-        <font color=''green''>预付费，包年包月。</font>]'
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
     Default: PostPaid
     AllowedValues:
     - PostPaid
@@ -171,6 +165,7 @@ Parameters:
         the key pair name does not need to be filled in</font>
       zh-cn: 如果是Windows ECS实例，则忽略该参数。默认为空。<br>如果已填写<font color='green'>密钥对名称</font>，<font
         color='green'>实例密码</font>的内容仍会被设置到实例中，但是Linux系统中的密码登录方式会被禁止。<br><font color='red'>请输入已有密钥对的名称。如使用实例密码登录，密钥对名称不需要填写</font>
+    AssociationProperty: ALIYUN::ECS::KeyPair::KeyPairName
     Default: null
   LoadBalancerAddressType:
     Type: String
@@ -233,16 +228,6 @@ Parameters:
       zh-cn: 任播弹性公网名称,以大小字母或中文开头，可包含数字，下划线（_）或短划线（-）
     Default: auto_name
     AllowedPattern: '[0-9A-Za-z\_\-]+$'
-  SecurityGroupName:
-    Type: String
-    Label:
-      en: Security Group Name
-      zh-cn: 安全组名称
-    Description:
-      en: The security group name, consists of 2~128 letters, Chinese characters,
-        Numbers, dots (.), underscores (_) and hyphens (-).
-      zh-cn: 安全组名称，由2~128个字母、汉字、数字、点（.）、下划线（_）和连字符（-）组成。
-    Default: ROS_SG
 Resources:
   AnycastEip:
     Type: ALIYUN::VPC::AnycastEIP
@@ -374,16 +359,16 @@ Metadata:
     ParameterGroups:
     - Parameters:
       - VPC
+      - VSwitchZoneId
       - VSwitch
       - SecurityGroup
-      - VSwitchZoneId
       Label:
         default:
           en: SecurityGroup
           zh-cn: 网络
     - Parameters:
-      - ECSImageId
       - ECSInstanceType
+      - ECSImageId
       - ECSDiskCategory
       - InstanceChargeType
       - ECSSysDiskSize

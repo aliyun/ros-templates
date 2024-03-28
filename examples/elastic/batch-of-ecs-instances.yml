@@ -5,36 +5,17 @@ Description:
     or new VPC, VSW, SG.
   zh-cn: 此模板支持批量创建按量付费或包年包月的ECS实例，并且支持选择已有VPC，VSW，SG或新建VPC，VSW，SG的场景。
 Conditions:
-  CreatePrepay:
+  CreateVpcConditions:
     Fn::Equals:
-    - null
-    - Ref: ECSPeriod
-  CreateSg:
-    Fn::Not:
-      Fn::Equals:
-      - null
-      - Ref: SecurityGroupName
-  CreateVpc:
-    Fn::Not:
-      Fn::Equals:
-      - null
-      - Ref: VpcCidrBlock
-  CreateVsw:
-    Fn::Not:
-      Fn::Equals:
-      - null
-      - Ref: VSwitchCidrBlock
+      - true
+      - Ref: WhetherCreateVpc
 Parameters:
-  VpcId:
-    Type: String
+  WhetherCreateVpc:
+    Type: Boolean
     Label:
-      en: Existing VPC ID
-      zh-cn: 现有VPC的实例ID
-    Description:
-      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
-      zh-cn: 控制台-VPC-专有网络下查询
-    AssociationProperty: ALIYUN::ECS::VPC::VPCId
-    Default: null
+      en: WhetherCreateVpc
+      zh-cn: 是否新建VPC
+    Default: false
   VSwitchZoneId:
     Type: String
     Label:
@@ -44,20 +25,67 @@ Parameters:
       en: Availability ID for existing switches
       zh-cn: 现有交换机的可用区ID
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR IPv4 Block
+      zh-cn: 专有网络IPv4网段
+    Description:
+      zh-cn: VPC的IP地址段范围，<br>您可以使用以下的IP地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The IP address range of the VPC in the CidrBlock form; <br>You can use the following IP address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateVpc}
+            - true
+    Default: 192.168.0.0/16
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: ECS VSwitch CIDR Block
+      zh-cn: ECS交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: VpcCidrBlock
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateVpc}
+            - true
+    Default: 192.168.1.0/24
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateVpc}
+            - false
+    Default: ''
   VSwitchId:
     Type: String
     Label:
       en: VSwitch ID
-      zh-cn: 网络交换机ID
-    Description:
-      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
-        Private Cloud-VSwitches
-      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+      zh-cn: 交换机实例ID
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
     AssociationPropertyMetadata:
       VpcId: ${VpcId}
       ZoneId: ${VSwitchZoneId}
-    Default: null
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateVpc}
+            - false
+    Default: ''
   SecurityGroupId:
     Type: String
     Label:
@@ -70,39 +98,11 @@ Parameters:
     AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
     AssociationPropertyMetadata:
       VpcId: ${VpcId}
-    Default: null
-  VpcCidrBlock:
-    Type: String
-    Label:
-      en: VPC CIDR Block
-      zh-cn: 专有网络网段
-    Description:
-      en: New proprietary network IP address segment range, recommended use of the
-        following IP address segments<br><font color='green'>[10.0.0.0/8]</font><br><font
-        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
-      zh-cn: 新建专有网络IP地址段范围，推荐使用以下的IP地址段<br><font color='green'>[10.0.0.0/8]</font><br><font
-        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
-    Default: null
-  VSwitchCidrBlock:
-    Type: String
-    Label:
-      en: VSwitch CIDR Block
-      zh-cn: 交换机网段
-    Description:
-      en: Must be a sub-network segment of the proprietary network and is not occupied
-        by other VSwitches.
-      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
-    Default: null
-  SecurityGroupName:
-    Type: String
-    Label:
-      en: Security Group Name
-      zh-cn: 安全组名称
-    Description:
-      en: 2 to 128 English or Chinese characters in length.Must start with size letters
-        or Chinese, not http:// and https://, can contain Numbers, dots (.), underscores
-        (_) and hyphens (-).
-      zh-cn: 长度为2~128个英文或中文字符。必须以大小字母或中文开头，不能以http://和https://开头,可包含数字、点（.）、下划线（_）和连字符（-）。
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateVpc}
+            - false
     Default: null
   Count:
     Type: Number
@@ -113,31 +113,59 @@ Parameters:
       en: Number of ECS hosts
       zh-cn: ECS主机数量
     Default: 2
-  ECSPeriodUnit:
+  PayType:
     Type: String
     Label:
-      en: ECS Purchase duration of prepaid resources.
-      zh-cn: 云服务器预付费资源的购买周期
-    Description:
-      en: 'ECS Purchase time and period of prepaid resource, value: [Week, Month].'
-      zh-cn: 云服务器预付费资源的购买时长周期，取值：[Week（周）, Month（月）]
-    Default: null
+      en: ECS Instance Charge Type
+      zh-cn: ECS付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
     AllowedValues:
-    - Week
-    - Month
-  ECSPeriod:
+      - PostPaid
+      - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+  PayPeriod:
     Type: Number
     Label:
-      en: ECS Purchase time of prepaid resources.
-      zh-cn: 云服务器预付费资源的购买时长
-    Description:
-      en: 'When the purchase cycle of prepaid resource is week, the value range is:
-        [1,2,3,4]; when the purchase cycle of prepaid resource is month, the value
-        is: [1,2,3,4,5,6,7,8,9,12,24,36,48,60].'
-      zh-cn: 云服务器预付费资源的购买时长，当预付费资源的购买周期为Week时，取值范围：[1，2，3，4]; 当预付费资源的购买周期为Month时，取值：[1，2，3，4，5，6，7，8，9，12，24，36，48，60]。
-    Default: null
-    MinValue: 1
-    MaxValue: 60
+      en: Period
+      zh-cn: 购买资源时长
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
   InstanceType:
     Type: String
     Label:
@@ -162,8 +190,14 @@ Parameters:
         target='_blank'><font color='blue'>Find the mirror</font></a></b>
       zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
         target='_blank'><font color='blue'>查找镜像</font></a></b>
-    AssociationProperty: ALIYUN::ECS::Instance::ImageId
-    Default: centos_7
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      SupportedImageOwnerAlias:
+        - system
+        - self
+        - others
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
   InstanceName:
     Type: String
     Label:
@@ -313,17 +347,17 @@ Resources:
     Properties:
       VpcId:
         Fn::If:
-        - CreateVpc
+        - CreateVpcConditions
         - Ref: Vpc
         - Ref: VpcId
       VSwitchId:
         Fn::If:
-        - CreateVsw
+        - CreateVpcConditions
         - Ref: VSwitch
         - Ref: VSwitchId
       SecurityGroupId:
         Fn::If:
-        - CreateSg
+        - CreateVpcConditions
         - Ref: SecurityGroup
         - Ref: SecurityGroupId
       ImageId:
@@ -337,10 +371,7 @@ Resources:
       HostName:
         Ref: HostName
       InstanceChargeType:
-        Fn::If:
-        - CreatePrepay
-        - PostPaid
-        - PrePaid
+        Ref: PayType
       InstanceName:
         Ref: InstanceName
       InstanceType:
@@ -350,9 +381,9 @@ Resources:
       Password:
         Ref: Password
       Period:
-        Ref: ECSPeriod
+        Ref: PayPeriod
       PeriodUnit:
-        Ref: ECSPeriodUnit
+        Ref: PayPeriodUnit
       SystemDiskAutoSnapshotPolicyId:
         Ref: AutoSnapshotPolicy
       SystemDiskCategory:
@@ -364,11 +395,11 @@ Resources:
         id: 3d97f557-f6c2-475f-bdca-942c45e583b5
   SecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
-    Condition: CreateSg
+    Condition: CreateVpcConditions
     Properties:
       VpcId:
         Fn::If:
-        - CreateVpc
+        - CreateVpcConditions
         - Ref: Vpc
         - Ref: VpcId
       SecurityGroupEgress:
@@ -393,20 +424,18 @@ Resources:
         PortRange: -1/-1
         Priority: 1
         SourceCidrIp: 0.0.0.0/0
-      SecurityGroupName:
-        Ref: SecurityGroupName
     Metadata:
       ALIYUN::ROS::Designer:
         id: de0e55c1-4cf9-4647-bbdd-6e1c8deba4cd
   VSwitch:
     Type: ALIYUN::ECS::VSwitch
-    Condition: CreateVsw
+    Condition: CreateVpcConditions
     Properties:
       ZoneId:
         Ref: VSwitchZoneId
       VpcId:
         Fn::If:
-        - CreateVpc
+        - CreateVpcConditions
         - Ref: Vpc
         - Ref: VpcId
       CidrBlock:
@@ -416,7 +445,7 @@ Resources:
         id: cc854ba9-a556-4503-8c21-e52165d2ecde
   Vpc:
     Type: ALIYUN::ECS::VPC
-    Condition: CreateVpc
+    Condition: CreateVpcConditions
     Properties:
       CidrBlock:
         Ref: VpcCidrBlock
@@ -433,21 +462,22 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
     - Parameters:
+      - WhetherCreateVpc
       - VpcId
       - VSwitchZoneId
       - VSwitchId
       - SecurityGroupId
       - VpcCidrBlock
       - VSwitchCidrBlock
-      - SecurityGroupName
       Label:
         default:
           en: Infrastructure Configuration
           zh-cn: 基础资源配置（必填）
     - Parameters:
       - Count
-      - ECSPeriodUnit
-      - ECSPeriod
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
       - InstanceType
       - EcsImageId
       - InstanceName
