@@ -4,6 +4,16 @@ Description:
     instances, finally attach the 2 instances to the SLB.'
   zh-cn: 阿里云资源编排示例模板：首先创建一个SLB，然后创建2个ECS实例，最后将2个实例附加到SLB。
 Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
+        or not.
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
   ECS_InternetChargeType:
     Type: String
     Label:
@@ -12,6 +22,8 @@ Parameters:
     Description:
       en: The charge type of public internet ECS instance.
       zh-cn: 访问公网计费方式。
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
     Default: PayByTraffic
     AllowedValues:
     - PayByBandwidth
@@ -32,40 +44,31 @@ Parameters:
         color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.n1.large <font color='green'>2vCPU
         4GiB</font>]<br></b>[ecs.n1.xlarge <font color='green'>8vCPU 16GiB</font>]<br></b>[ecs.n1.3xlarge
         <font color='green'>16vCPU 32GiB</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
   ImageId:
     Type: String
     Label:
       en: Image ID
       zh-cn: 镜像ID
-    Description:
-      en: 'Instance Image ID. see detail: <b><a href=''https://www.alibabacloud.com/help/doc-detail/112977.html''
-        target=''_blank''><font color=''blue''>Find the mirror</font></a></b>'
-      zh-cn: 实例镜像，详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
-        target='_blank'><font color='blue'>查找镜像</font></a></b>
-    Default: centos_7
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      SupportedImageOwnerAlias:
+        - system
+        - self
+        - others
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
   SystemDiskCategory:
     Type: String
     Label:
       en: System Disk Category
       zh-cn: 系统盘类型
-    Description:
-      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
-        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
-        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
-        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
-        SSD Cloud Disk</font>]'
-      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
-        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
-        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
-        <font color=''green''>本地SSD盘</font>]'
-    Default: cloud_ssd
-    AllowedValues:
-    - cloud_auto
-    - cloud_efficiency
-    - cloud_ssd
-    - cloud
-    - cloud_essd
-    - ephemeral_ssd
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: InstanceType
+      ZoneId: ZoneId
   Password:
     Type: String
     Label:
@@ -115,6 +118,8 @@ Parameters:
     Description:
       en: The charge type of public internet SLB instance.
       zh-cn: 公网类型实例的付费方式。
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
     Default: paybytraffic
     AllowedValues:
     - paybybandwidth
@@ -179,9 +184,23 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 51d1f6b6-f23d-4ac5-9911-16ea7161fe20
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
   securityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
+      VpcId:
+        Ref: Vpc
       SecurityGroupName:
         Ref: SecurityGroupName
     Metadata:
@@ -190,6 +209,12 @@ Resources:
   EcsInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
+      VpcId:
+        Fn::GetAtt:
+          - Vpc
+          - VpcId
+      VSwitchId:
+        Ref: VSwitch
       SecurityGroupId:
         Fn::GetAtt:
         - securityGroup
@@ -246,6 +271,7 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
     - Parameters:
+      - ZoneId
       - ECS_InternetChargeType
       - InstanceType
       - ImageId
