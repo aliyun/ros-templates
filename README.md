@@ -469,14 +469,15 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - database
 
-| Template                                                                                                         | Description                                                                                |
-|------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| Template                                                                                                      | Description                                                                                |
+|---------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
 | [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | Automatic database scaling and SQL optimization|
 | [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml) | WordPress website database on the cloud. |
-| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml)                             | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
-| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)           | Online one-click upgrade of RDS MySQL to PolarDB MySQL version without modifying any code and configuration of the application. |
-| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml)                                     | Build a one-stop HTAP service based on RDS and ClickHouse. |
-| [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml)             | Data transmission from ECS self-built database to RDS database. |
+| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml)                          | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS . |
+| [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)        | Online one-click upgrade of RDS MySQL to PolarDB MySQL version without modifying any code and configuration of the application. |
+| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml)                                  | Build a one-stop HTAP service based on RDS and ClickHouse. |
+| [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml)          | Data transmission from ECS self-built database to RDS database. |
+| [migrate-database-to-cloud.yml](documents/solution/database/migrate-database-to-cloud.yml)             | Migrate self-built database to cloud database. |
 
 - iot
 
