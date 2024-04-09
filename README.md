@@ -446,14 +446,15 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |--------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models is supported. |
 | [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml) | LingJun LLAMA-2 Best Practice.                                                               |
-| [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                     | PAI AI painting solution |
+| [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                   | PAI AI painting solution |
 | [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/pai-lingjun-serverless-LLM-best-practice.yml) | PAI LingJun Serverless LLM Best Practice.                                                    |
 | [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml) | AIGC Text Generation 3D Model.                                                               |
 | [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | How to quickly start Stable Diffusion on Alibaba Cloud and easily play with AI painting.     |
 | [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml) | Large model combines the AnalyticDB to build Chatbot.                                        |
-| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                     | Build a dialogue model based on ChatGLM and LangChain.                                       |
-| [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                     | Build a dialogue model based on Qwen and LangChain.                                       |
-| [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)                                                                                           | Use the cloud-native AI suite to submit model fine-tuning training tasks and deploy GPU shared inference services.     |
+| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                   | Build a dialogue model based on ChatGLM and LangChain.                                       |
+| [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                   | Build a dialogue model based on Qwen and LangChain.                                       |
+| [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)  | Use the cloud-native AI suite to submit model fine-tuning training tasks and deploy GPU shared inference services.     |
+| [exclusive-qa-service.yml](exclusive-qa-service.yml)     | DashVector and Tongyi QianWen build exclusive Q&A service.     |
 
 
 

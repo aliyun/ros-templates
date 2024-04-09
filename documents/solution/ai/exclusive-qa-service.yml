@@ -1,0 +1,584 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: DashVector and Tongyi QianWen build exclusive Q&A service.
+  zh-cn: 向量检索与通义千问搭建专属问答服务。
+Parameters:
+  DashScopeApiKey:
+    Type: String
+    NoEcho: true
+    AssociationProperty: 'ALIYUN::DashScope::ApiKey::ApiKey'
+    Label:
+      en: DashScope API-KEY
+      zh-cn: DashScope API-KEY
+    Description:
+      zh-cn: >-
+        开通灵积模型服务，并获得 API-KEY。请参考：
+        <a href="https://help.aliyun.com/zh/dashscope/developer-reference/activate-dashscope-and-create-an-api-key" 
+        target="_blank">开通DashScope并创建API-KEY</a>。
+      en: >-
+        Activate DashScope and obtain the API-KEY. Please refer to: 
+        <a href="https://help.aliyun.com/zh/dashscope/developer-reference/activate-dashscope-and-create-an-api-key" 
+        target="_blank">Activate DashScope and create API-KEY</a>.
+  DashVectorApiKey:
+    Type: String
+    NoEcho: true
+    AssociationProperty: 'ALIYUN::DashVector::ApiKey::ApiKey'
+    Label:
+      en: DashVector API-KEY
+      zh-cn: DashVector API-KEY
+    Description:
+      zh-cn: >-
+        开通DashVector向量检索服务，并获得 API-KEY。请参考：
+        <a href="https://help.aliyun.com/document_detail/2510230.html" 
+        target="_blank">开通DashScope并创建API-KEY</a>。
+      en: >-
+        Activate DashVector and obtain the API-KEY. Please refer to: 
+        <a href="https://help.aliyun.com/document_detail/2510230.html" 
+        target="_blank">Activate DashVector and create API-KEY</a>.
+  ClusterName:
+    Type: String
+    Label:
+      en: Name of DashVector Cluster
+      zh-cn: DashVector集群名称
+    AllowedPattern: '[-a-z0-9_]{3,32}'
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: exclusive-qa-server-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    ConstraintDescription:
+      zh-cn: 由大小写字母、数字、下划线(_)、中划线(-)组成，长度[3, 32]。
+      en: It consists of uppercase and lowercase letters, numbers, underline (_), and dash (-). The length is [3, 32]
+    Description:
+      zh-cn: 本方案会创建一个 S.small 规格集群。
+      en: This solution will create a S.small cluster.
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 本方案会创建一个抢占式实例，并且自动部署专属问答服务。
+      en: >-
+        This solution will create a spot instance and automatically deploy a 
+        exclusive question and answer service.
+    Default: ecs.c7.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 5000/5000
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName: dashVector
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  DashVectorCluster:
+    Type: 'ALIYUN::DashVector::Cluster'
+    Properties:
+      IgnoreExisting: true
+      ReplicaCount: 1
+      ClusterName:
+        Ref: ClusterName
+      ClusterType: S.small
+  RunCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          
+          # script exit code:
+          # 0 - success
+          # 1 - unsupported system
+          # 2 - network not available
+          # 3 - failed to git clone
+          # 4 - failed to init python environment
+          # 5 - failed to embedding data
+          # 6 - failed to init git
+          # 7 - failed to run flask app
+          
+          # 环境变量配置
+          export PATH=/usr/local/bin:$PATH
+          export DASHSCOPE_API_KEY=${DashScopeApiKey}
+          export DASHVECTOR_API_KEY=${DashVectorApiKey}
+          export DASHVECTOR_CLUSTER_ENDPOINT=${DashVectorCluster.Endpoint}
+          
+          # GitHub 仓库 URL
+          REPO_URL="https://github.com/shijiebei2009/CEC-Corpus.git"
+          # GitRepoName
+          REPO_NAME="CEC-Corpus"
+          # 最大尝试次数
+          MAX_RETRIES=10
+          # 当前尝试次数
+          ATTEMPT_NUM=1
+          # 等待时间 (秒) 在重试之前
+          SLEEP_SECONDS=10
+          # CollectionName
+          COLLECTION_NAME="news_embeddings"
+          
+          function unsupported_system() {
+              log_fatal 1 "Unsupported System: $1"
+          }
+          
+          function log_info() {
+              printf "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $1\n"
+          }
+          
+          function log_error() {
+              printf "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $1\n"
+          }
+          
+          function log_fatal() {
+              printf "\n========================================================================\n"
+              printf "$(date '+%Y-%m-%d %H:%M:%S') [FATAL] $2."
+              printf "\n========================================================================\n"
+              exit $1
+          }
+          
+          function debug_exec(){
+              local cmd="$@"
+              log_info "$cmd"
+              eval "$cmd"
+              ret=$?
+              echo ""
+              log_info "$cmd, exit code: $ret"
+              return $ret
+          }
+          
+          function check_network_available() {
+              log_info "ping github.com ..."
+              if ! debug_exec ping -c 4 github.com; then
+                  log_fatal 2 "Could not connect to https://github.com"
+              fi
+          }
+          
+          function clone_repo() {
+              log_info "init git"
+              if ! debug_exec yum install -y git && git init; then
+                  log_fatal 6 "failed to init git"
+              fi
+          
+              rm -rf $REPO_NAME
+              until debug_exec git clone $REPO_URL; do
+                  if [ "$ATTEMPT_NUM" -ge "$MAX_RETRIES" ]; then
+                      log_fatal 3 "Reached maximum number of retries, aborting."
+                  fi
+                  log_error "Attempt $ATTEMPT_NUM failed! Trying again in $SLEEP_SECONDS seconds..."
+                  sleep "$SLEEP_SECONDS"
+                  ATTEMPT_NUM=$((ATTEMPT_NUM+1))
+              done
+          }
+          
+          function init_env() {
+              log_info "init python environment"
+              yum install -y python3.8
+              ln -sf /usr/bin/python3.8 /usr/bin/python
+              python -m ensurepip
+              python -m pip install --upgrade pip
+              python -m pip install -r requirements.txt
+          }
+          
+          function embedding() {
+              log_info "embedding data"
+              if ! debug_exec python embedding.py; then
+                  log_fatal 5 "failed to embedding data."
+              fi
+          }
+          
+          log_info "System Information:"
+          if ! lsb_release -a; then
+              unsupported_system
+          fi;
+          echo ""
+          
+          check_network_available
+          
+          cat << 'EOF' > requirements.txt
+          flask==3.0.2
+          PySocks==1.7.1
+          dashscope==1.17.0
+          dashvector==1.0.14
+          
+          EOF
+          
+          if ! debug_exec init_env; then
+              log_fatal 4 "failed to init python environment"
+          fi
+          
+          cat << EOF > embedding.py
+          # -*- coding: utf-8 -*-
+          
+          import os
+          import dashscope
+          from dashscope import TextEmbedding
+          from dashvector import Client, Doc
+          
+          
+          def prepare_data(path, batch_size=25):
+              batch_docs = []
+              for file in os.listdir(path):
+                  with open(path + '/' + file, 'r', encoding='utf-8') as f:
+                      batch_docs.append(f.read())
+                      if len(batch_docs) == batch_size:
+                          yield batch_docs
+                          batch_docs = []
+          
+              if batch_docs:
+                  yield batch_docs
+          
+          
+          def generate_embeddings(news):
+              rsp = TextEmbedding.call(
+                  model=TextEmbedding.Models.text_embedding_v1,
+                  input=news
+              )
+              embeddings = [record['embedding'] for record in rsp.output['embeddings']]
+              return embeddings if isinstance(news, list) else embeddings[0]
+          
+          
+          if __name__ == '__main__':
+              dashscope.api_key = os.environ.get('DASHSCOPE_API_KEY')
+              collection_name = '$COLLECTION_NAME'
+              # 初始化 dashvector client
+              client = Client(
+                  api_key=os.environ.get('DASHVECTOR_API_KEY'),
+                  endpoint=os.environ.get('DASHVECTOR_CLUSTER_ENDPOINT')
+              )
+          
+              try:
+                  del_rsp = client.delete(collection_name)
+                  assert del_rsp, del_rsp
+              except AssertionError as e:
+                  if e.args[0].code != -2021:
+                      raise
+          
+              # 创建集合：指定集合名称和向量维度, text_embedding_v1 模型产生的向量统一为 1536 维
+              rsp = client.create(collection_name, 1536)
+              assert rsp, rsp
+          
+              # 加载语料
+              id = 0
+              collection = client.get(collection_name)
+              for news in list(prepare_data('CEC-Corpus/raw corpus/allSourceText')):
+                  ids = [id + i for i, _ in enumerate(news)]
+                  id += len(news)
+          
+                  vectors = generate_embeddings(news)
+                  # 写入 dashvector 构建索引
+                  rsp = collection.upsert(
+                      [
+                          Doc(id=str(id), vector=vector, fields={"raw": doc})
+                          for id, vector, doc in zip(ids, vectors, news)
+                      ]
+                  )
+                  assert rsp, rsp
+          
+          EOF
+          
+          
+          cat << EOF > run.py
+          # -*- coding: utf-8 -*-
+          
+          import os
+          import uuid
+          from flask import Flask, request, render_template_string, redirect, url_for, session
+          import dashscope
+          from dashscope import TextEmbedding, Generation
+          from dashvector import Client
+          
+          app = Flask(__name__)
+          app.secret_key = uuid.uuid4().hex
+          
+          # HTML 模板
+          HTML_TEMPLATE = '''
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <title>DashVector</title>
+              <style>
+                body {
+                  font-family: Arial, sans-serif;
+                  margin: 0;
+                  padding: 0;
+                  background: #f7f7f7;
+                }
+                .container {
+                  margin: auto;
+                  padding: 20px;
+                  max-width: 600px;
+                  background: white;
+                  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                }
+                h1 {
+                  color: #333;
+                }
+                input[type="text"], textarea {
+                  width: 100%;
+                  padding: 10px;
+                  margin: 10px 0;
+                  border: 1px solid #ddd;
+                  border-radius: 5px;
+                  box-sizing: border-box; /* 加上这个属性，防止 padding 喧嚣计算宽度 */
+                }
+                input[type="submit"] {
+                  background: #5cb85c;
+                  color: white;
+                  padding: 10px 20px;
+                  margin: 10px 0;
+                  border: none;
+                  border-radius: 5px;
+                  cursor: pointer;
+                }
+                input[type="submit"]:hover {
+                  background: #4cae4c;
+                }
+                .loader {
+                  border: 5px solid #f3f3f3; /* Light grey */
+                  border-top: 5px solid #3498db; /* Blue */
+                  border-radius: 50%;
+                  width: 50px;
+                  height: 50px;
+                  animation: spin 2s linear infinite;
+                  margin: auto;
+                  display: none;
+                }
+          
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h1>基于专属知识的问答服务</h1>
+                <form method="post" id="textForm">
+                  <label for="inputText">请输入问题：</label>
+                  <input type="text" id="inputText" name="inputText" placeholder="Enter..." value="{{ input }}">
+                  <input type="submit" value="Submit">
+                  <!-- 加载动画 -->
+                  <div class="loader" id="loader"></div>
+                </form>
+                {% if output %}
+                <h2>回答：</h2>
+                <textarea id="outputText" name="outputText" rows="4" disabled>{{ output }}</textarea>
+                {% endif %}
+              </div>
+          
+              <script>
+                // 使用 JavaScript 在提交表单时显示加载动画
+                document.getElementById('textForm').onsubmit = function() {
+                  document.getElementById('loader').style.display = 'block';
+                };
+              </script>
+            </body>
+          </html>
+          '''
+          
+          
+          @app.route('/', methods=['GET', 'POST'])
+          def home():
+              output_text = None
+              input_text = "海南安定追尾事故，发生在哪里？原因是什么？人员伤亡情况如何"
+              if 'output' in session:
+                  output_text = session.pop('output', None)
+                  input_text = session.get('input', None)
+          
+              if request.method == 'POST':
+                  input_text = request.form.get('inputText')
+                  output_text = get_answers(input_text)
+                  session['output'] = output_text
+                  session['input'] = input_text
+                  return redirect(url_for('home'))
+          
+              return render_template_string(HTML_TEMPLATE, output=output_text, input=input_text)
+          
+          
+          def get_answers(input_text):
+              dashscope.api_key = os.environ.get('DASHSCOPE_API_KEY')
+              # question = '海南安定追尾事故，发生在哪里？原因是什么？人员伤亡情况如何？'
+              context = search_relevant_news(input_text)
+              return answer_question(input_text, context)
+          
+          
+          def search_relevant_news(question):
+              # 初始化 dashvector client
+              client = Client(
+                api_key=os.environ.get('DASHVECTOR_API_KEY'),
+                endpoint=os.environ.get('DASHVECTOR_CLUSTER_ENDPOINT')
+              )
+          
+              # 获取刚刚存入的集合
+              collection = client.get('$COLLECTION_NAME')
+              assert collection, collection
+          
+              # 向量检索：指定 topk = 1
+              rsp = collection.query(generate_embeddings(question), output_fields=['raw'], topk=1)
+              assert rsp, rsp
+              return rsp.output[0].fields['raw']
+          
+          
+          def generate_embeddings(news):
+              rsp = TextEmbedding.call(
+                  model=TextEmbedding.Models.text_embedding_v1,
+                  input=news
+              )
+              embeddings = [record['embedding'] for record in rsp.output['embeddings']]
+              return embeddings if isinstance(news, list) else embeddings[0]
+          
+          
+          def answer_question(question, context):
+              prompt = f'''请基于\`\`\`内的内容回答问题。"
+              \`\`\`
+              {context}
+              \`\`\`
+              我的问题是：{question}。
+              '''
+          
+              rsp = Generation.call(model='qwen-turbo', prompt=prompt)
+              return rsp.output.text
+          
+          
+          if __name__ == '__main__':
+              app.run(host='0.0.0.0', debug=True)
+          
+          EOF
+          
+          clone_repo
+          embedding
+          
+          if ! debug_exec "nohup python run.py > output.log 2>&1 &"; then
+              log_fatal  "failed to run flask app"
+          fi
+Outputs:
+  WebUrl:
+    Description:
+      zh-cn: Web 访问地址。
+      en: The Addresses of Web.
+    Value:
+      'Fn::Sub':
+        - 'http://${ServerAddress}:5000'
+        - ServerAddress:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - PublicIps
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登陆地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - InstanceIds
+          Region:
+            Ref: 'ALIYUN::Region'
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - DashScopeApiKey
+          - DashVectorApiKey
+          - ClusterName
+        Label:
+          default:
+            en: ApiKey
+            zh-cn: ApiKey配置
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: Ecs Instance
+            zh-cn: ECS实例配置
+    TemplateTags:
+      - acs:technical-solution:ai:向量检索与通义千问搭建专属问答服务-tech_solu_109
