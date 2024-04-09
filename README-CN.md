@@ -440,18 +440,19 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - ai
 
-| 模板                                                                                                                                                             | 说明                                                                                        |
-|----------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
-| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。                                                   |
-| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml)                                                 | AIGC文本生成3D模型。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/tg3dm)                   |
-| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml)                         | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。                                                       |
-| [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml)                                                                   | LLAMA-2全托管灵骏最佳实践。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/pai_lingjun)         |
-| [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                    | PAI AI绘画解决方案。  ｜  [解决方案](https://www.aliyun.com/solution/tech-solution/pai_eas)           |
-| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml)                                            | PAI灵骏智算资源（Serverless版）大模型最佳实践。                                                            |
-| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml)                                                                 | 向量数据库构建企业智能知识库。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/baeeikb)               |
-| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                   | 基于ChatGLM和LangChain搭建对话模型。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/calbadm) |
-| [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                   | 基于通义千问和LangChain搭建对话模型。                                                                   |
-| [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)      | 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/one_gpu)                                  |
+| 模板                                                                                                                                                             | 说明                                                                                                |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
+| [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | 使用函数计算部署Stable Diffusion进行AI绘画。支持自定义模型。                                                           |
+| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml)                                                 | AIGC文本生成3D模型。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/tg3dm)                           |
+| [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml)                         | 如何在阿里云快速启动Stable Diffusion轻松玩转AI绘画。                                                               |
+| [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml)                                                                   | LLAMA-2全托管灵骏最佳实践。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/pai_lingjun)                 |
+| [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                    | PAI AI绘画解决方案。  ｜  [解决方案](https://www.aliyun.com/solution/tech-solution/pai_eas)                   |
+| [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/upai-lingjun-serverless-LLM-best-practice.yml)                                            | PAI灵骏智算资源（Serverless版）大模型最佳实践。                                                                    |
+| [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml)                                                                 | 向量数据库构建企业智能知识库。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/baeeikb)                       |
+| [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                   | 基于ChatGLM和LangChain搭建对话模型。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/calbadm)         |
+| [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                   | 基于通义千问和LangChain搭建对话模型。                                                                           |
+| [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)      | 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/one_gpu) |
+| [exclusive-qa-service.yml](exclusive-qa-service.yml)     | 向量检索与通义千问搭建专属问答服务。  |
 
 - data-analysis
 
