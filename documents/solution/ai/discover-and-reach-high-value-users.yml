@@ -1,0 +1,92 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  TrainingDataPath:
+    Type: String
+    Label:
+      zh-cn: 训练输入数据OSS路径
+      en: Training Job Data OSS Path
+    Description:
+      zh-cn: 选择之前步骤中上传至OSS的训练数据数据目录。
+      en: Select the data directory uploaded to OSS in the previous step.
+  InferenceDataPath:
+    Type: String
+    Label:
+      zh-cn: 推理输入数据OSS路径
+      en: Inference Job Data OSS Path
+    Description:
+      zh-cn: 选择之前步骤中上传至OSS的人群圈选任务的输入数据路径
+      en: Select the input data path of the crowd selection task uploaded to OSS in the previous step.
+  TargetOutputPath:
+    Type: String
+    Label:
+      zh-cn: 人群圈选任务输出数据路径
+      en: Outputs Data Path
+    Description:
+      zh-cn: 输出数据所在的地域和OSS目录。输出数据路径需要为空目录，否则可能会导致输出目录中存在多个任务的人群文件。
+      en: OSS directory where the output data is located. The output data path needs to be an empty directory, otherwise crowd files for multiple tasks may exist in the output directory.
+Resources:
+  Campaign:
+    Type: ALIYUN::PAIPlugin::Campaign
+    Properties:
+      Name: 
+        Fn::Sub: tech_solu_campaign_name-${ALIYUN::StackId}
+  TrainingJob:
+    Type: ALIYUN::PAIPlugin::TrainingJob
+    Properties:
+      Algorithm: sms_recall
+      CampaignId:
+        Ref: Campaign
+      DataPath: 
+        Ref: TrainingDataPath
+      UserConfig:
+        end_date: "20220208"
+        op_target: sms
+        start_date: "20220101"
+      WaitForTrainingFinish: true
+      Name:
+        Fn::Sub: tech_solu_training_job_name-${ALIYUN::StackId}
+  InferenceJob:
+    Type: ALIYUN::PAIPlugin::InferenceJob
+    Properties:
+      Algorithm: sms_recall
+      CampaignId:
+        Ref: Campaign
+      DataPath:
+        Ref: InferenceDataPath
+      UserConfig:
+        percentage_threshold: 0.5
+        exe_date: "20220201"
+      WaitForInferenceFinish: true
+      TrainingJobId:
+        Ref: TrainingJob
+      TargetPath:
+        Ref: TargetOutputPath
+      Name:
+        Fn::Sub: tech_solu_inference_job_name-${ALIYUN::StackId}
+Outputs:
+  GroupId:
+    Description:
+      zh-cn: 圈选出的人群ID
+      en: Circled crowd ID
+    Value:
+      Fn::GetAtt:
+      - InferenceJob
+      - GroupId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - TrainingDataPath
+        Label:
+          default:
+            en: Training Job
+            zh-cn: 策略训练任务
+      - Parameters:
+        - InferenceDataPath
+        - TargetOutputPath
+        Label:
+          default:
+            en: Inference Job
+            zh-cn: 人群圈选任务
+    TemplateTags:
+      - acs:technical-solution:ai:高价值用户挖掘及触达-tech_solu_17

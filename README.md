@@ -454,7 +454,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                   | Build a dialogue model based on ChatGLM and LangChain.                                       |
 | [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                   | Build a dialogue model based on Qwen and LangChain.                                       |
 | [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)  | Use the cloud-native AI suite to submit model fine-tuning training tasks and deploy GPU shared inference services.     |
-| [exclusive-qa-service.yml](exclusive-qa-service.yml)     | DashVector and Tongyi QianWen build exclusive Q&A service.     |
+| [exclusive-qa-service.yml](documents/solution/ai/exclusive-qa-service.yml)     | DashVector and Tongyi QianWen build exclusive Q&A service.     |
+| [discover-and-reach-high-value-users.yml](documents/solution/ai/discover-and-reach-high-value-users.yml)     | Discover and reach high value users.  |
 
 
 
