@@ -68,7 +68,14 @@ Parameters:
         target=''_blank''><font color=''blue''>Find the mirror</font></a></b>'
       zh-cn: 实例镜像，详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
         target='_blank'><font color='blue'>查找镜像</font></a></b>
-    Default: centos_7
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      SupportedImageOwnerAlias:
+        - system
+        - self
+        - others
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
   InstancePassword:
     Type: String
     Label:
@@ -97,6 +104,19 @@ Parameters:
     Default: 3
     MinValue: 1
     MaxValue: 100
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${InstanceType}
+      ZoneId: ZoneId
   LoadBalancerSpec:
     Type: String
     Label:
@@ -108,6 +128,19 @@ Parameters:
       zh-cn: 实例规格，</br>详见：</b><a href='https://help.aliyun.com/document_detail/85939.html'
         target='_blank'><b><font color='blue'>性能保障型</b></font></a>
     Default: slb.s1.small
+  Category:
+    AssociationPropertyMetadata:
+      LocaleKey: RDSCategory
+    Default: Null
+    Required: false
+    AllowedValues:
+      - Basic
+      - HighAvailability
+      - cluster
+    Label:
+      zh-cn: 实例系列
+      en: Category
+    Type: String
   DBInstanceClass:
     Type: String
     Label:
@@ -118,18 +151,13 @@ Parameters:
         target='_blank'>View RDS resources type</a>
       zh-cn: '数据库实例类型, <br>详见: <a href=''https://help.aliyun.com/document_detail/26312.html''
         target=''_blank''><b><font color=''blue''>实例规格表</font></b></a>.'
-    Default: rds.mysql.t1.small
-    AllowedValues:
-    - rds.mysql.t1.small
-    - rds.mysql.s1.small
-    - rds.mysql.s2.large
-    - rds.mysql.s2.xlarge
-    - rds.mysql.s3.large
-    - rds.mysql.m1.medium
-    - rds.mysql.c1.large
-    - rds.mysql.c1.xlarge
-    - rds.mysql.c2.xlarge
-    - rds.mysql.c2.xlp2
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      Engine: MySQL
+      Category: ${Category}
+      EngineVersion: ${EngineVersion}
+      ZoneId: ${ZoneId}
+    Default: rds.mysql.s1.small
   EngineVersion:
     Type: String
     Label:
@@ -138,12 +166,10 @@ Parameters:
     Description:
       en: RDS MySQL Engine Version
       zh-cn: RDS MySQL 数据库版本号
-    Default: '5.6'
-    AllowedValues:
-    - '5.5'
-    - '5.6'
-    - '5.7'
-    - '5.8'
+    AssociationProperty: ALIYUN::RDS::Engine::EngineVersion
+    AssociationPropertyMetadata:
+      Engine: MySQL
+    Default: '8.0'
   DBInstanceStorage:
     Type: Number
     Label:
@@ -155,7 +181,7 @@ Parameters:
     ConstraintDescription:
       en: 'Incrementing in every 5G, unit: GB'
       zh-cn: 每5GB进行递增。
-    Default: 5
+    Default: 50
     MinValue: 5
     MaxValue: 2000
   DBName:
@@ -203,29 +229,6 @@ Parameters:
     MinLength: 8
     MaxLength: 32
     NoEcho: true
-  Engine:
-    Type: String
-    Label:
-      en: Engine Type
-      zh-cn: 数据库引擎类型
-    Description:
-      en: Database instance engine type.
-      zh-cn: 数据库类型
-    Default: MySQL
-    AllowedValues:
-    - MySQL
-  SLBInternetChargeType:
-    Type: String
-    Label:
-      en: Internet ChargeType
-      zh-cn: 公网付费方式
-    Description:
-      en: The charge type of public internet SLB instance.
-      zh-cn: 公网类型实例的付费方式。
-    Default: paybytraffic
-    AllowedValues:
-    - paybybandwidth
-    - paybytraffic
 Resources:
   LoadBalancer:
     Type: ALIYUN::SLB::LoadBalancer
@@ -435,8 +438,9 @@ Resources:
       - CharacterSetName: utf8
         DBName:
           Ref: DBName
-      Engine:
-        Ref: Engine
+      Engine: MySQL
+      Category:
+        Ref: Category
       EngineVersion:
         Ref: EngineVersion
       MasterUserPassword:
@@ -486,7 +490,8 @@ Resources:
         Ref: NumberOfNode
       Password:
         Ref: InstancePassword
-      SystemDiskCategory: cloud_ssd
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
       UserData:
         Fn::Replace:
         - ros-notify:
@@ -656,8 +661,9 @@ Metadata:
     - Parameters:
       - InstanceType
       - ImageId
-      - InstancePassword
+      - SystemDiskCategory
       - NumberOfNode
+      - InstancePassword
       Label:
         default:
           en: ECS
@@ -669,8 +675,9 @@ Metadata:
           en: SLB
           zh-cn: 负载均衡
     - Parameters:
-      - DBInstanceClass
+      - Category
       - EngineVersion
+      - DBInstanceClass
       - DBInstanceStorage
       - DBName
       - DBUser

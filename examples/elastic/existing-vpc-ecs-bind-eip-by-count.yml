@@ -23,6 +23,9 @@ Parameters:
         must be under VPC. ECS will be created under this VSwitch</font>
       zh-cn: 现有交换机ID,控制台-VPC-交换机下查询，<font color='red'>交换机必须在VPC下。ECS将创建在此交换机下</font>
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VPC}
+      ZoneId: ${ECSZoneId}
   SecurityGroup:
     Type: String
     Label:
@@ -33,6 +36,8 @@ Parameters:
         & Security
       zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询。<br><font color='red'>安全组必须归属在VPC下。</font>
     AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VPC}
   EIPBandwidth:
     Type: Number
     Label:
@@ -49,9 +54,8 @@ Parameters:
     Label:
       en: EIP Charge Type
       zh-cn: 弹性公网地址的收费类型
-    Description:
-      en: The charge type of EIP, PayByBandwidth；PayByTraffic.
-      zh-cn: 弹性公网地址的收费类型，PayByBandwidth：按带宽付费，PayByTraffic：按流量付费
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
     Default: PayByTraffic
     AllowedValues:
     - PayByBandwidth
@@ -92,8 +96,14 @@ Parameters:
         target='_blank'><font color='blue'>Find the mirror</font></a></b>
       zh-cn: 镜像ID, 请使用Centos7, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
         target='_blank'><font color='blue'>查找镜像</font></a></b>
-    AssociationProperty: ALIYUN::ECS::Instance::ImageId
-    Default: ubuntu_14
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: ${ECSInstanceType}
+      SupportedImageOwnerAlias:
+        - system
+        - self
+        - others
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
   ECSInstanceType:
     Type: String
     Label:
@@ -131,13 +141,10 @@ Parameters:
         color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
         <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
         <font color=''green''>本地SSD盘</font>]'
-    Default: cloud_efficiency
-    AllowedValues:
-    - cloud_efficiency
-    - cloud_ssd
-    - cloud
-    - cloud_essd
-    - ephemeral_ssd
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${ECSInstanceType}
   ECSSysDiskSize:
     Type: Number
     Label:
@@ -149,21 +156,6 @@ Parameters:
     Default: 40
     MinValue: 40
     MaxValue: 500
-  InstanceChargeType:
-    Type: String
-    Label:
-      en: Instance Charge Type
-      zh-cn: 实例的付费方式
-    Description:
-      en: '<font color=''blue''><b>Optional values:</b></font><br>[PostPaid: <font
-        color=''green''>Pay as you go.</font>]<br> [PrePaid: <font color=''green''>Prepaid,
-        monthly subscription.</font>]'
-      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[PostPaid: <font color=''green''>按量付费。</font>]<br>[PrePaid:
-        <font color=''green''>预付费，包年包月。</font>]'
-    Default: PostPaid
-    AllowedValues:
-    - PostPaid
-    - PrePaid
   ECSPassword:
     Type: String
     Label:
@@ -197,7 +189,61 @@ Parameters:
         Login, the key pair name does not need to be filled in</font>
       zh-cn: 如果是Windows ECS实例，则忽略该参数。默认为空。<br>如果已填写<font color='green'>密钥对名称</font>，<font
         color='green'>实例密码</font>的内容仍会被设置到实例中，但是Linux系统中的密码登录方式会被禁止。<br><font color='red'>请输入已有密钥对的名称。如使用实例密码登录，密钥对名称不需要填写</font>
+    AssociationProperty: ALIYUN::ECS::KeyPair::KeyPairName
     Default: null
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: ECS付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
 Resources:
   ECSInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
@@ -214,7 +260,11 @@ Resources:
         Ref: ECSImageId
       AllocatePublicIP: 'false'
       InstanceChargeType:
-        Ref: InstanceChargeType
+        Ref: PayType
+      Period:
+        Ref: PayPeriod
+      PeriodUnit:
+        Ref: PayPeriodUnit
       InstanceType:
         Ref: ECSInstanceType
       IoOptimized: optimized
@@ -276,6 +326,7 @@ Metadata:
     ParameterGroups:
     - Parameters:
       - VPC
+      - ECSZoneId
       - VSwitch
       - SecurityGroup
       Label:
@@ -286,13 +337,19 @@ Metadata:
       Label:
         default: EIP
     - Parameters:
-      - Count
-      - ECSZoneId
-      - ECSImageId
+        - PayType
+        - PayPeriodUnit
+        - PayPeriod
+      Label:
+        default:
+          en: ECS PayType Configuration
+          zh-cn: ECS付费类型配置
+    - Parameters:
       - ECSInstanceType
+      - ECSImageId
       - ECSDiskCategory
       - ECSSysDiskSize
-      - InstanceChargeType
+      - Count
       - ECSPassword
       - KeyPairName
       Label:
