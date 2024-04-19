@@ -1,0 +1,451 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Making websites more secure from HTTP to HTTPS.
+  zh-cn: 从 HTTP 到 HTTPS 让网站更安全。
+Parameters:
+  SolutionName:
+    Type: String
+    Default: 从 HTTP 到 HTTPS 让网站更安全
+  CommonName:
+    Type: String
+    Default: http-to-https
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 本方案会创建一个抢占式实例，并且自动部署nginx服务。
+      en: >-
+        This solution will create a spot instance and automatically deploy a 
+        nginx service.
+    Default: ecs.c7.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+  DomainName:
+    Type: String
+    Label:
+      en: Website domain name.
+      zh-cn: 网站域名。
+    Description:
+      en: >-
+        Please enter the subdomain name under the current account, such as example.aliyun.com.
+        If it is a domestic region, you need to fill in the registered 
+        domain name, otherwise the website will not be able to plan.
+      zh-cn: >-
+        请输入当前账号下的子域名，例如example.aliyun.com。如果是境内地域则需要填写已完成备案的域名，否则会导致网站无法方案。
+    Default: null
+  SSLCert:
+    Type: String
+    Default: null
+    AssociationProperty: 'ALIYUN::OOS::File::FileUrl'
+    Label:
+      en: SSL certificate file.
+      zh-cn: SSL 证书文件。
+    Description:
+      en: >-
+        Please upload the certificate file downloaded in the Certificate Management Service console.
+      zh-cn: >-
+        请上传在<a href="https://yundunnext.console.aliyun.com/?p=cas#/certExtend/free/
+        cn-hangzhou" target="_blank">数字证书管理服务控制台</a>下载的证书文件。
+Rules:
+  CheckCert:
+    RuleCondition:
+      Fn::Not:
+        Fn::Equals:
+          - Ref: SSLCert
+          - null
+    Assertions:
+      - Assert:
+          Fn::Not:
+            Fn::Equals:
+              - Ref: DomainName
+              - null
+        AssertDescription: When a certificate is uploaded, the domain name is required.
+Conditions:
+  DnsRecord:
+    Fn::Not:
+      Fn::Equals:
+        - Ref: DomainName
+        - null
+  ConfigSSL:
+    Fn::And:
+      - DnsRecord
+      - Fn::Not:
+          Fn::Equals:
+            - Ref: SSLCert
+            - null
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 443/443
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  InstallNginx:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          
+          # script exit code:
+          # 0 - success
+          # 1 - unsupported system
+          # 2 - network not available
+          # 3 - failed install nginx
+          
+          # 环境变量配置
+          export PATH=/usr/local/bin:$PATH
+          
+          # 网络检查地址
+          NETWORK_CHECk_ADDR="help-static-aliyun-doc.aliyuncs.com"
+          
+          function unsupported_system() {
+              log_fatal 1 "Unsupported System: $1"
+          }
+          
+          function log_info() {
+              printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_error() {
+              printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_fatal() {
+              printf "\n========================================================================\n"
+              printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
+              printf "\n========================================================================\n"
+              exit $1
+          }
+          
+          function debug_exec(){
+              local cmd="$@"
+              log_info "$cmd"
+              eval "$cmd"
+              ret=$?
+              echo ""
+              log_info "$cmd, exit code: $ret"
+              return $ret
+          }
+          
+          function check_network_available() {
+              log_info "ping $NETWORK_CHECk_ADDR ..."
+              if ! debug_exec ping -c 4 $NETWORK_CHECk_ADDR; then
+                  log_fatal 2 "Could not connect to https://$NETWORK_CHECk_ADDR"
+              fi
+          }
+          
+          function set_ros_flag() {
+              log_info "set ros flag to .ros.provision"
+              echo "$(date '+%Y-%m-%d %H:%M:%S') [${ALIYUN::StackId}] [${SolutionName}]" >> .ros.provision
+          }
+          
+          log_info "System Information:"
+          if ! lsb_release -a; then
+              unsupported_system
+          fi;
+          echo ""
+          
+          check_network_available
+          log_info "install nginx 1.20.1"
+          if ! debug_exec yum -y install nginx-1.20.1; then
+              log_fatal 3 "install nginx failed"
+          fi
+          
+          log_info "download example"
+          wget -O /usr/share/nginx/html/index.html https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20231013/jhgg/index.html
+          wget -O /usr/share/nginx/html/lipstick.png https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20230925/zevs/lipstick.png
+          
+          log_info "start and enable nginx"
+          systemctl start nginx 
+          systemctl enable nginx
+          set_ros_flag
+  DomainRecord:
+    Type: 'ALIYUN::DNS::DomainRecord'
+    Condition: DnsRecord
+    Properties:
+      Type: A
+      RR:
+        Fn::Select:
+          - 0
+          - Fn::Split:
+              - .
+              - Ref: DomainName
+      DomainName:
+        Fn::Join:
+          - .
+          - Fn::Select:
+              - '1:'
+              - Fn::Split:
+                  - .
+                  - Ref: DomainName
+      Value:
+        Fn::Select:
+          - 0
+          - Fn::GetAtt:
+              - EcsInstance
+              - PublicIps
+  SSLConfig:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Condition: ConfigSSL
+    DependsOn: InstallNginx
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          function log_info() {
+              printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_error() {
+              printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_fatal() {
+              printf "\n========================================================================\n"
+              printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
+              printf "\n========================================================================\n"
+              exit $1
+          }
+          
+          function debug_exec(){
+              local cmd="$@"
+              log_info "$cmd"
+              eval "$cmd"
+              ret=$?
+              echo ""
+              log_info "$cmd, exit code: $ret"
+              return $ret
+          }
+          
+          function check_ros_flag() {
+              log_info "check ros flag in .ros.provision."
+              if [ ! -f .ros.provision ]; then
+                  log_fatal 1 ".ros.provision file is not exist, instance not deployed nginx by ROS"
+              else
+                  name=`tail -n 1 .ros.provision | grep -oP '\[.*?\]\s*\K\[.*?\]' | tr -d '[]'`
+                  if [ "$name" != "${SolutionName}" ]; then
+                      log_fatal 2 "solution name $name in .ros.provision is not ${SolutionName}."
+                  fi
+              fi
+          }
+          
+          function download_and_check_cert_file() {
+              log_info "down load and check zip file."
+              yum install -y unzip
+              mkdir /etc/nginx/cert && cd /etc/nginx/cert
+              if ! debug_exec "wget -O cert.zip '${SSLCert}'"; then
+                  log_fatal 3 "cannot download cert form ${SSLCert}"
+              fi
+              
+              if ! debug_exec unzip cert.zip ; then
+                  log_fatal 4 "the uploaded file is not in zip format."
+              fi
+              PEM_FILE=`ls *.pem`
+              KEY_FILE=`ls *.key`
+          
+              if [ -z "$PEM_FILE" ]; then
+                  log_fatal 5 "there are no files ending in .pem in the uploaded zip file." 
+              fi
+
+              if [ -z "$KEY_FILE" ]; then
+                  log_fatal 5 "there are no files ending in .key in the uploaded zip file." 
+              fi              
+          }
+          
+          check_ros_flag
+          download_and_check_cert_file
+          
+          cat << EOF > /etc/nginx/conf.d/ssl_demo.conf
+          server {
+              #HTTPS的默认访问端口443
+              #如果未在此处配置HTTPS的默认访问端口，可能会造成Nginx无法启动。
+              listen 443 ssl;
+              #填写证书绑定的域名
+              server_name ${DomainName};    
+              
+              #填写证书文件绝对路径
+              ssl_certificate      "/etc/nginx/cert/$PEM_FILE";
+              #填写证书私钥文件绝对路径 
+              ssl_certificate_key  "/etc/nginx/cert/$KEY_FILE";
+       
+              ssl_session_cache    shared:SSL:1m;
+              ssl_session_timeout  5m;
+          
+              #默认加密套件
+              ssl_ciphers  HIGH:!aNULL:!MD5;
+          
+              #自定义设置使用的TLS协议的类型以及加密套件（以下为配置示例，请您自行评估是否需要配置）
+              #TLS协议版本越高，HTTPS通信的安全性越高，但是相较于低版本TLS协议，高版本TLS协议对浏览器的兼容性较差。
+              #ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
+              #ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
+          
+              #表示优先使用服务端加密套件。默认开启
+              ssl_prefer_server_ciphers  on;
+       
+              location / {
+                  root   html;
+                  index  index.html index.htm;
+              }
+          }
+          EOF
+          
+          if ! debug_exec nginx -s reload ; then
+              log_fatal 6 "reload nginx failed."
+          fi
+Outputs:
+  WebUrl:
+    Description:
+      zh-cn: Web 访问地址(Ip)。
+      en: The Addresses of Web(Ip).
+    Value:
+      'Fn::Sub':
+        - 'http://${ServerAddress}'
+        - ServerAddress:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - PublicIps
+  WebDomain:
+    Condition: DnsRecord
+    Description:
+      zh-cn: Web 访问地址(域名)。
+      en: The Addresses of Web(Domain).
+    Value:
+      Fn::Sub: 'http://${DomainName}'
+  WebDomainForHttps:
+    Condition: ConfigSSL
+    Description:
+      zh-cn: 安全的 Web 访问地址。
+      en: Secure web access address.
+    Value:
+      Fn::Sub: 'https://${DomainName}'
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - InstanceIds
+          Region:
+            Ref: 'ALIYUN::Region'
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+          - DomainName
+          - SSLCert
+    TemplateTags:
+      - acs:technical-solution:ai:从 HTTP 到 HTTPS 让网站更安全-tech_solu_113
+    Hidden:
+      - CommonName
+      - SolutionName
