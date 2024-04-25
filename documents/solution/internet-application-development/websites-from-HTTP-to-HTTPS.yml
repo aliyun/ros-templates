@@ -60,6 +60,7 @@ Parameters:
     Label:
       en: Website domain name.
       zh-cn: 网站域名。
+    AssociationProperty: 'ALIYUN::Domain::DomainName'
     Description:
       en: >-
         Please enter the subdomain name under the current account, such as example.aliyun.com.
@@ -80,7 +81,7 @@ Parameters:
         Please upload the certificate file downloaded in the Certificate Management Service console.
       zh-cn: >-
         请上传在<a href="https://yundunnext.console.aliyun.com/?p=cas#/certExtend/free/
-        cn-hangzhou" target="_blank">数字证书管理服务控制台</a>下载的证书文件。
+        cn-hangzhou" target="_blank">数字证书管理服务控制台</a>下载的上述域名对应的 Nginx 证书文件。
 Rules:
   CheckCert:
     RuleCondition:
@@ -108,6 +109,14 @@ Conditions:
           Fn::Equals:
             - Ref: SSLCert
             - null
+  DomainPrefixIsNull:
+    Fn::And:
+      - DnsRecord
+      - Fn::Equals:
+          - null
+          - Fn::GetJsonValue:
+              - DomainPrefix
+              - Ref: DomainName
 Resources:
   Vpc:
     Type: 'ALIYUN::ECS::VPC'
@@ -257,19 +266,16 @@ Resources:
     Properties:
       Type: A
       RR:
-        Fn::Select:
-          - 0
-          - Fn::Split:
-              - .
+        Fn::If:
+          - DomainPrefixIsNull
+          - '@'
+          - Fn::GetJsonValue:
+              - DomainPrefix
               - Ref: DomainName
       DomainName:
-        Fn::Join:
-          - .
-          - Fn::Select:
-              - '1:'
-              - Fn::Split:
-                  - .
-                  - Ref: DomainName
+        Fn::GetJsonValue:
+          - DomainName
+          - Ref: DomainName
       Value:
         Fn::Select:
           - 0
@@ -289,108 +295,123 @@ Resources:
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |-
-          #!/bin/bash
-          function log_info() {
-              printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
-          }
-          
-          function log_error() {
-              printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
-          }
-          
-          function log_fatal() {
-              printf "\n========================================================================\n"
-              printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
-              printf "\n========================================================================\n"
-              exit $1
-          }
-          
-          function debug_exec(){
-              local cmd="$@"
-              log_info "$cmd"
-              eval "$cmd"
-              ret=$?
-              echo ""
-              log_info "$cmd, exit code: $ret"
-              return $ret
-          }
-          
-          function check_ros_flag() {
-              log_info "check ros flag in .ros.provision."
-              if [ ! -f .ros.provision ]; then
-                  log_fatal 1 ".ros.provision file is not exist, instance not deployed nginx by ROS"
-              else
-                  name=`tail -n 1 .ros.provision | grep -oP '\[.*?\]\s*\K\[.*?\]' | tr -d '[]'`
-                  if [ "$name" != "${SolutionName}" ]; then
-                      log_fatal 2 "solution name $name in .ros.provision is not ${SolutionName}."
-                  fi
-              fi
-          }
-          
-          function download_and_check_cert_file() {
-              log_info "down load and check zip file."
-              yum install -y unzip
-              mkdir /etc/nginx/cert && cd /etc/nginx/cert
-              if ! debug_exec "wget -O cert.zip '${SSLCert}'"; then
-                  log_fatal 3 "cannot download cert form ${SSLCert}"
-              fi
-              
-              if ! debug_exec unzip cert.zip ; then
-                  log_fatal 4 "the uploaded file is not in zip format."
-              fi
-              PEM_FILE=`ls *.pem`
-              KEY_FILE=`ls *.key`
-          
-              if [ -z "$PEM_FILE" ]; then
-                  log_fatal 5 "there are no files ending in .pem in the uploaded zip file." 
-              fi
-
-              if [ -z "$KEY_FILE" ]; then
-                  log_fatal 5 "there are no files ending in .key in the uploaded zip file." 
-              fi              
-          }
-          
-          check_ros_flag
-          download_and_check_cert_file
-          
-          cat << EOF > /etc/nginx/conf.d/ssl_demo.conf
-          server {
-              #HTTPS的默认访问端口443
-              #如果未在此处配置HTTPS的默认访问端口，可能会造成Nginx无法启动。
-              listen 443 ssl;
-              #填写证书绑定的域名
-              server_name ${DomainName};    
-              
-              #填写证书文件绝对路径
-              ssl_certificate      "/etc/nginx/cert/$PEM_FILE";
-              #填写证书私钥文件绝对路径 
-              ssl_certificate_key  "/etc/nginx/cert/$KEY_FILE";
-       
-              ssl_session_cache    shared:SSL:1m;
-              ssl_session_timeout  5m;
-          
-              #默认加密套件
-              ssl_ciphers  HIGH:!aNULL:!MD5;
-          
-              #自定义设置使用的TLS协议的类型以及加密套件（以下为配置示例，请您自行评估是否需要配置）
-              #TLS协议版本越高，HTTPS通信的安全性越高，但是相较于低版本TLS协议，高版本TLS协议对浏览器的兼容性较差。
-              #ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
-              #ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
-          
-              #表示优先使用服务端加密套件。默认开启
-              ssl_prefer_server_ciphers  on;
-       
-              location / {
-                  root   html;
-                  index  index.html index.htm;
-              }
-          }
-          EOF
-          
-          if ! debug_exec nginx -s reload ; then
-              log_fatal 6 "reload nginx failed."
-          fi
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            function log_info() {
+                printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+            }
+            
+            function log_error() {
+                printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+            }
+            
+            function log_fatal() {
+                printf "\n========================================================================\n"
+                printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
+                printf "\n========================================================================\n"
+                exit $1
+            }
+            
+            function debug_exec(){
+                local cmd="$@"
+                log_info "$cmd"
+                eval "$cmd"
+                ret=$?
+                echo ""
+                log_info "$cmd, exit code: $ret"
+                return $ret
+            }
+            
+            function check_ros_flag() {
+                log_info "check ros flag in .ros.provision."
+                if [ ! -f .ros.provision ]; then
+                    log_fatal 1 ".ros.provision file is not exist, instance not deployed nginx by ROS"
+                else
+                    name=`tail -n 1 .ros.provision | grep -oP '\[.*?\]\s*\K\[.*?\]' | tr -d '[]'`
+                    if [ "$name" != "${SolutionName}" ]; then
+                        log_fatal 2 "solution name $name in .ros.provision is not ${SolutionName}."
+                    fi
+                fi
+            }
+            
+            function download_and_check_cert_file() {
+                log_info "down load and check zip file."
+                yum install -y unzip
+                mkdir /etc/nginx/cert && cd /etc/nginx/cert
+                if ! debug_exec "wget -O cert.zip '${SSLCert}'"; then
+                    log_fatal 3 "cannot download cert form ${SSLCert}"
+                fi
+                
+                if ! debug_exec unzip cert.zip ; then
+                    log_fatal 4 "the uploaded file is not in zip format."
+                fi
+                PEM_FILE=`ls *.pem`
+                KEY_FILE=`ls *.key`
+            
+                if [ -z "$PEM_FILE" ]; then
+                    log_fatal 5 "there are no files ending in .pem in the uploaded zip file." 
+                fi
+  
+                if [ -z "$KEY_FILE" ]; then
+                    log_fatal 5 "there are no files ending in .key in the uploaded zip file." 
+                fi              
+            }
+            
+            check_ros_flag
+            download_and_check_cert_file
+            
+            cat << EOF > /etc/nginx/conf.d/ssl_demo.conf
+            server {
+                #HTTPS的默认访问端口443
+                #如果未在此处配置HTTPS的默认访问端口，可能会造成Nginx无法启动。
+                listen 443 ssl;
+                #填写证书绑定的域名
+                server_name ${DomainName};    
+                
+                #填写证书文件绝对路径
+                ssl_certificate      "/etc/nginx/cert/$PEM_FILE";
+                #填写证书私钥文件绝对路径 
+                ssl_certificate_key  "/etc/nginx/cert/$KEY_FILE";
+         
+                ssl_session_cache    shared:SSL:1m;
+                ssl_session_timeout  5m;
+            
+                #默认加密套件
+                ssl_ciphers  HIGH:!aNULL:!MD5;
+            
+                #自定义设置使用的TLS协议的类型以及加密套件（以下为配置示例，请您自行评估是否需要配置）
+                #TLS协议版本越高，HTTPS通信的安全性越高，但是相较于低版本TLS协议，高版本TLS协议对浏览器的兼容性较差。
+                #ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
+                #ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
+            
+                #表示优先使用服务端加密套件。默认开启
+                ssl_prefer_server_ciphers  on;
+         
+                location / {
+                    root   html;
+                    index  index.html index.htm;
+                }
+            }
+            EOF
+            
+            if ! debug_exec nginx -s reload ; then
+                log_fatal 6 "reload nginx failed."
+            fi
+          - DomainName:
+              Fn::If:
+                - DomainPrefixIsNull
+                - Fn::GetJsonValue:
+                    - DomainName
+                    - Ref: DomainName
+                - Fn::Join:
+                    - '.'
+                    - - Fn::GetJsonValue:
+                          - DomainPrefix
+                          - Ref: DomainName
+                      - Fn::GetJsonValue:
+                          - DomainName
+                          - Ref: DomainName
 Outputs:
   WebUrl:
     Description:
@@ -411,14 +432,44 @@ Outputs:
       zh-cn: Web 访问地址(域名)。
       en: The Addresses of Web(Domain).
     Value:
-      Fn::Sub: 'http://${DomainName}'
+      Fn::Sub:
+        - 'http://${DomainName}'
+        - DomainName:
+            Fn::If:
+              - DomainPrefixIsNull
+              - Fn::GetJsonValue:
+                  - DomainName
+                  - Ref: DomainName
+              - Fn::Join:
+                  - '.'
+                  - - Fn::GetJsonValue:
+                        - DomainPrefix
+                        - Ref: DomainName
+                    - Fn::GetJsonValue:
+                        - DomainName
+                        - Ref: DomainName
   WebDomainForHttps:
     Condition: ConfigSSL
     Description:
       zh-cn: 安全的 Web 访问地址。
       en: Secure web access address.
     Value:
-      Fn::Sub: 'https://${DomainName}'
+      Fn::Sub:
+        - 'https://${DomainName}'
+        - DomainName:
+            Fn::If:
+              - DomainPrefixIsNull
+              - Fn::GetJsonValue:
+                  - DomainName
+                  - Ref: DomainName
+              - Fn::Join:
+                  - '.'
+                  - - Fn::GetJsonValue:
+                        - DomainPrefix
+                        - Ref: DomainName
+                    - Fn::GetJsonValue:
+                        - DomainName
+                        - Ref: DomainName
   EcsLoginAddress:
     Description:
       zh-cn: ECS登录地址。
