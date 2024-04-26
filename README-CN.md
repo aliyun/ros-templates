@@ -452,7 +452,8 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                   | 基于ChatGLM和LangChain搭建对话模型。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/calbadm)         |
 | [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                   | 基于通义千问和LangChain搭建对话模型。                                                                           |
 | [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)      | 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/one_gpu) |
-| [exclusive-qa-service.yml](exclusive-qa-service.yml)     | 向量检索与通义千问搭建专属问答服务。  |
+| [exclusive-qa-service.yml](documents/solution/ai/exclusive-qa-service.yml)     | 向量检索与通义千问搭建专属问答服务。  |
+| [discover-and-reach-high-value-users.yml](documents/solution/ai/discover-and-reach-high-value-users.yml)     | 高价值用户挖掘及触达  |
 
 - data-analysis
 
