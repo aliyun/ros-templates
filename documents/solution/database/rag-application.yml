@@ -1,0 +1,403 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Quickly build RAG applications using AnalyticDB and Streamlit.
+  zh-cn: AnalyticDB和Streamlit快速构建RAG应用。
+Parameters:
+  DashScopeApiKey:
+    Type: String
+    AssociationProperty: 'ALIYUN::DashScope::ApiKey'
+    Label:
+      en: DashScope API-KEY
+      zh-cn: DashScope API-KEY
+    Description:
+      zh-cn: >-
+        开通灵积模型服务，并获得 API-KEY。请参考：
+        <a href="https://help.aliyun.com/zh/dashscope/developer-reference/activate-dashscope-and-create-an-api-key" 
+        target="_blank">开通DashScope并创建API-KEY</a>。
+      en: >-
+        Activate DashScope and obtain the API-KEY. Please refer to: 
+        <a href="https://help.aliyun.com/zh/dashscope/developer-reference/activate-dashscope-and-create-an-api-key" 
+        target="_blank">Activate DashScope and create API-KEY</a>.
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 本方案会创建一个抢占式实例，并且自动部署 Streamlit 服务。
+      en: >-
+        This solution will create a spot instance and automatically deploy a 
+        Streamlit service.
+    Default: ecs.c7.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+  AdbAccountName:
+    Type: String
+    Default: rag
+    AllowedPattern: '^(?!root$)(?!gp)[a-z][a-z0-9_]{0,14}[a-z0-9]$'
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in
+      zh-cn: >-
+        账号名称不能以 gp或pg开头，并且由小写字母、数字、下划线组成，字母开头，字母或数字结尾，字符长度为2-16。
+    Label:
+      en: AnalyticDB Account Name
+      zh-cn: AnalyticDB账号名称
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+  AdbAccountPassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        账号密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: AnalyticDB Account Password
+      zh-cn: AnalyticDB账号密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  CommonName:
+    Type: String
+    Default: RAG
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 8501/8501
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: ubuntu_22_04_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-Streamlit-Server
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  AnalyticDB:
+    Type: ALIYUN::GPDB::DBInstance
+    Properties:
+      EngineVersion: '6.0'
+      InstanceSpec: 4C16G
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SegNodeNum: 4
+      SegStorageType: cloud_essd
+      SegDiskPerformanceLevel: pl1
+      StorageSize: 200
+      VPCId:
+        Ref: Vpc
+      SecurityIPList: 192.168.0.0/24
+      DBInstanceDescription:
+        Fn::Sub: ${CommonName}-adb
+      PayType: Postpaid
+      DBInstanceCategory: Basic
+      DBInstanceMode: StorageElastic
+      VectorConfigurationStatus: true
+  AnalyticDBAccount:
+    Type: ALIYUN::GPDB::Account
+    Properties:
+      AccountDescription:
+        Fn::Sub: ${CommonName}-account
+      DBInstanceId:
+        Ref: AnalyticDB
+      AccountPassword:
+        Ref: AdbAccountPassword
+      AccountName:
+        Ref: AdbAccountName
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: create_by_solution-${ALIYUN::StackId}
+      PolicyAttachments:
+        System:
+          - AliyunECSFullAccess
+          - AliyunGPDBFullAccess
+          - AliyunDashscopeFullAccess
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Ref: User
+  RunCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          
+          # script exit code:
+          # 0 - success
+          # 1 - unsupported system
+          # 2 - network not available
+          # 3 - failed to git clone
+          # 4 - failed to postgresql-client python3.10-venv unzip
+          # 5 - failed to create database
+          # 6 - failed to unzip adbpg-chat-demo.zip file
+          # 7 - failed to install requirements.txt
+          # 8 - failed to run streamlit
+          
+          # 环境变量配置
+          export PATH=/usr/local/bin:$PATH
+          export DASHSCOPE_API_KEY=${DashScopeApiKey}
+          export ADB_CONNECTION_STRING=${AnalyticDB.ConnectionString}
+          export PGPASSWORD=${AdbAccountPassword}
+          export ALI_CLOUD_ACCESS_KEY_ID=${AccessKey.AccessKeyId}      
+          export ALI_CLOUD_ACCESS_KEY_SECRET=${AccessKey.AccessKeySecret}
+          export ADBPG_INSTANCE_REGION=${ALIYUN::Region}
+          export ADBPG_INSTANCE_ID=${AnalyticDB}  
+          
+          echo $ADB_CONNECTION_STRING
+          
+          function unsupported_system() {
+              log_fatal 1 "Unsupported System: $1"
+          }
+          
+          function log_info() {
+              printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_error() {
+              printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_fatal() {
+              printf "\n========================================================================\n"
+              printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
+              printf "\n========================================================================\n"
+              exit $1
+          }
+          
+          function debug_exec(){
+              local cmd="$@"
+              log_info "$cmd"
+              eval "$cmd"
+              ret=$?
+              echo ""
+              log_info "$cmd, exit code: $ret"
+              return $ret
+          }
+          
+          function check_network_available() {
+              log_info "ping github.com ..."
+              if ! debug_exec ping -c 4 github.com; then
+                  log_fatal 2 "Could not connect to https://github.com"
+              fi
+          }
+          
+          function clone_repo() {
+              log_info "git clone"
+              REPO_URL="https://github.com/aliyun/adbpg-chat-demo.git"
+              ATTEMPT_NUM=1
+              MAX_RETRIES=10
+              SLEEP_SECONDS=10
+              until debug_exec git clone $REPO_URL; do
+                  if [ "$ATTEMPT_NUM" -ge "$MAX_RETRIES" ]; then
+                      log_fatal 3 "Reached maximum number of retries, aborting."
+                  fi
+                  log_error "Attempt $ATTEMPT_NUM failed! Trying again in $SLEEP_SECONDS seconds..."
+                  sleep "$SLEEP_SECONDS"
+                  ATTEMPT_NUM=$((ATTEMPT_NUM+1))
+              done
+          }
+          
+          
+          function create_database() {
+              log_info "create database"
+              psql -h ${AnalyticDB.ConnectionString}  -U rag -c "CREATE DATABASE rag_demo;"
+          }
+          
+          function run_streamlit() {
+              log_info "install postgresql-client python3.10-venv unzip"
+              sudo apt update
+              if ! debug_exec sudo apt install postgresql-client unzip python3.10-venv -y; then
+                  log_fatal 4 "failed to postgresql-client python3.10-venv unzip."
+              fi
+
+              log_info "create database"
+              DATABASE_RET=`debug_exec create_database`
+              echo $DATABASE_RET
+              if [ $DATABASE_RET -ne 0 ] && [ $DATABASE_RET -ne 1 ]; then
+                  log_fatal 5 "failed to create database in AnalyticDB ${AnalyticDB}"
+              fi
+              clone_repo
+              
+              # log_info "unzip code"
+              # if ! debug_exec unzip adbpg-chat-demo.zip; then
+              #     log_fatal 6 "failed to unzip adbpg-chat-demo.zip file."
+              # fi
+
+              cd adbpg-chat-demo
+              log_info "pip install requirements.txt"
+              if ! debug_exec pip install -r requirements.txt; then
+                  log_fatal 7 "failed to install requirements.txt."
+              fi
+              
+              log_info "run streamlit"
+              if ! debug_exec "nohup streamlit run Home.py --server.maxUploadSize 300 > output.log 2>&1 &"; then
+                  log_fatal 8 "failed to run streamlit"
+              fi
+          }
+          
+          log_info "System Information:"
+          if ! lsb_release -a; then
+              unsupported_system
+          fi;
+          echo ""
+          run_streamlit
+Outputs:
+  WebUrl:
+    Description:
+      zh-cn: Web 访问地址。
+      en: The Addresses of Web.
+    Value:
+      'Fn::Sub':
+        - 'http://${ServerAddress}:8501'
+        - ServerAddress:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - PublicIps
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - InstanceIds
+          Region:
+            Ref: 'ALIYUN::Region'
+  AccountName:
+    Description:
+      zh-cn: 管理账户。
+      en: The account.
+    Value:
+      Fn::GetAtt:
+        - AnalyticDBAccount
+        - AccountName
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - DashScopeApiKey
+          - AdbAccountName
+          - AdbAccountPassword
+        Label:
+          default:
+            en: Account Configuration
+            zh-cn: 账号配置
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: Ecs Configuration
+            zh-cn: ECS 实例配置
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:technical-solution:ai:AnalyticDB和Streamlit快速构建RAG应用-tech_solu_111
