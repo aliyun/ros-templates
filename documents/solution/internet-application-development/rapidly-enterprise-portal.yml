@@ -1,0 +1,310 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Rapidly set up a enterprise portal.
+  zh-cn: 快速搭建企业门户网站。
+Parameters:
+  CommonName:
+    Type: String
+    Default: portal
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 本方案会创建一个抢占式实例，并且自动部署node.js服务。
+      en: >-
+        This solution will create a spot instance and automatically deploy a
+        node.js service.
+    Default: ecs.c7.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+  DomainName:
+    Type: String
+    Label:
+      en: Website domain name.
+      zh-cn: 网站域名。
+    AssociationProperty: 'ALIYUN::Domain::DomainName'
+    Description:
+      en: >-
+        Please enter the subdomain name under the current account, such as example.aliyun.com.
+        If it is a domestic region, you need to fill in the registered
+        domain name, otherwise the website will not be able to plan.
+      zh-cn: >-
+        请输入当前账号下的子域名，例如example.aliyun.com。如果是境内地域则需要填写已完成备案的域名，否则会导致网站无法方案。
+    Default: null
+Conditions:
+  DnsRecord:
+    Fn::Not:
+      Fn::Equals:
+        - Ref: DomainName
+        - null
+  DomainPrefixIsNull:
+    Fn::And:
+      - DnsRecord
+      - Fn::Equals:
+          - null
+          - Fn::GetJsonValue:
+              - DomainPrefix
+              - Ref: DomainName
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 443/443
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 3306/3306
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  InstallNodeJs:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+
+          # script exit code:
+          # 0 - success
+          # 1 - unsupported system
+          # 2 - network not available
+          # 3 - failed install nodejs
+
+          # 环境变量配置
+          export PATH=/usr/local/bin:$PATH
+
+          # 网络检查地址
+          NETWORK_CHECk_ADDR="raw.githubusercontent.com"
+
+          function unsupported_system() {
+              log_fatal 1 "Unsupported System: $1"
+          }
+
+          function log_info() {
+              printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+
+          function log_error() {
+              printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+
+          function log_fatal() {
+              printf "\n========================================================================\n"
+              printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
+              printf "\n========================================================================\n"
+              exit $1
+          }
+
+          function debug_exec(){
+              local cmd="$@"
+              log_info "$cmd"
+              eval "$cmd"
+              ret=$?
+              echo ""
+              log_info "$cmd, exit code: $ret"
+              return $ret
+          }
+
+          function check_network_available() {
+              log_info "ping $NETWORK_CHECk_ADDR ..."
+              if ! debug_exec ping -c 4 $NETWORK_CHECk_ADDR; then
+                  log_fatal 2 "Could not connect to https://$NETWORK_CHECk_ADDR"
+              fi
+          }
+
+          function install_nodejs() {
+              log_info "install nodejs"
+              curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+              echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bash_profile
+              echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm' >> ~/.bash_profile
+              echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion' >> ~/.bash_profile
+              source ~/.bash_profile
+              nvm install 20
+              node -v && npm -v
+          }
+
+          log_info "System Information:"
+          if ! lsb_release -a; then
+              unsupported_system
+          fi;
+          echo ""
+
+          check_network_available
+          if ! debug_exec install_nodejs; then
+              log_fatal 3 "install nodejs failed"
+          fi
+
+  DomainRecord:
+    Type: 'ALIYUN::DNS::DomainRecord'
+    Condition: DnsRecord
+    Properties:
+      Type: A
+      RR:
+        Fn::If:
+          - DomainPrefixIsNull
+          - '@'
+          - Fn::GetJsonValue:
+              - DomainPrefix
+              - Ref: DomainName
+      DomainName:
+        Fn::GetJsonValue:
+          - DomainName
+          - Ref: DomainName
+      Value:
+        Fn::Select:
+          - 0
+          - Fn::GetAtt:
+              - EcsInstance
+              - PublicIps
+Outputs:
+  WebUrl:
+    Description:
+      zh-cn: Web 访问地址(Ip)。
+      en: The Addresses of Web(Ip).
+    Value:
+      'Fn::Sub':
+        - 'http://${ServerAddress}'
+        - ServerAddress:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - PublicIps
+  WebDomain:
+    Condition: DnsRecord
+    Description:
+      zh-cn: Web 访问地址(域名)。
+      en: The Addresses of Web(Domain).
+    Value:
+      Fn::Sub:
+        - 'http://${DomainName}'
+        - DomainName:
+            Fn::If:
+              - DomainPrefixIsNull
+              - Fn::GetJsonValue:
+                  - DomainName
+                  - Ref: DomainName
+              - Fn::Join:
+                  - '.'
+                  - - Fn::GetJsonValue:
+                        - DomainPrefix
+                        - Ref: DomainName
+                    - Fn::GetJsonValue:
+                        - DomainName
+                        - Ref: DomainName
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - InstanceIds
+          Region:
+            Ref: 'ALIYUN::Region'
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - InstanceType
+          - InstancePassword
+          - DomainName
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:快速搭建企业门户网站-tech_solu_102
+    Hidden:
+      - CommonName
