@@ -10,6 +10,7 @@
 
 ROS 模板的示例和最佳实践。模板分类如下：
 
+
 - `resources`：资源级模板示例，提供单服务或单资源的模板。
 - `examples`：综合模板示例，提供面向简单场景的模板。模板内容同 ROS 控制台[模板示例](https://ros.console.aliyun.com/cn-beijing/samples)。
 - `solutions`：解决方案，提供面向复杂场景的模板最佳实践。模板同 ROS 控制台[解决方案中心](https://ros.console.aliyun.com/cn-beijing/solutions)。
