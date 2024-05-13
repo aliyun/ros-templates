@@ -200,12 +200,6 @@ Resources:
         Fn::Sub: |-
           #!/bin/bash
           
-          # script exit code:
-          # 0 - success
-          # 1 - unsupported system
-          # 2 - network not available
-          # 3 - failed install uwsgi
-          
           # 环境变量配置
           export PATH=/usr/local/bin:$PATH
           
@@ -246,7 +240,7 @@ Resources:
               log_info "$cmd, exit code: $ret"
               return $ret
           }
-          
+
           function check_network_available() {
               log_info "ping $NETWORK_CHECk_ADDR ..."
               if ! debug_exec ping -c 4 $NETWORK_CHECk_ADDR; then
@@ -254,10 +248,9 @@ Resources:
               fi
           }
           
-          function install_uwsgi() {
-              log_info "install uwsgi"
-              mkdir /data && cd /data
-              pip3 install uwsgi
+          function install_java() {
+              log_info "install java"
+              yum upgrade & yum install java-1.8.0-openjdk-devel -y
           }
           
           function init_database() {
@@ -273,39 +266,8 @@ Resources:
           echo ""
           
           check_network_available
-          if ! debug_exec install_uwsgi; then
-              log_fatal 3 "install uwsgi failed"
-          fi
           
-          cat << EOF > /data/uwsgi.ini
-          [uwsgi]
-          # uwsgi启动时所使用的地址和端口
-          http=0.0.0.0:80
-          # 指向网站目录
-          chdir=/data
-          
-          # python启动程序文件
-          wsgi-file=/data/main.py
-          # python程序内用以启动的application变量名
-          callable=app
-          
-          # 处理器数
-          processes=1
-          
-          # 线程数
-          threads=2
-          
-          # 状态检测地址
-          stats=127.0.0.1:9191
-          
-          # 保存启动之后主进程的pid
-          pidfile=/data/uwsgi.pid
-          
-          # 设置uwsgi后台运行，uwsgi.log保存日志信息 自动生成
-          daemonize=/data/uwsgi.log
-          
-          EOF
-          
+          mkdir /data
           cat << "EOF" > /data/script.sql
           -- script.sql
           USE applets;
@@ -327,6 +289,10 @@ Resources:
           value(1,  "创建一个小程序", "使用阿里云解决方案快速搭建一个小程序应用", "进行中", "高", "2024-04-01 00:00:00")
           
           EOF
+          
+          if ! debug_exec install_java; then
+              log_fatal 3 "install java failed"
+          fi
           
           if ! debug_exec init_database; then
               log_fatal 4 "init database failed"
