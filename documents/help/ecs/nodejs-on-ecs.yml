@@ -1,7 +1,7 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 在ECS实例上搭建WordPress博客平台。
-  en: Build a WordPress blog platform.
+  zh-cn: 部署Node.js环境。
+  en: Deploy the Node.js environment.
 Parameters:
   InstanceSource:
     Type: String
@@ -114,7 +114,7 @@ Parameters:
             - UseExisted
   CommonName:
     Type: String
-    Default: wordpress
+    Default: nodejs
 Conditions:
   CreateInstance:
     Fn::Equals:
@@ -188,7 +188,7 @@ Resources:
       SpotStrategy: SpotAsPriceGo
       Password:
         Ref: InstancePassword
-  ModuleInstallWordpress:
+  ModuleInstallNodeJs:
     Version: default
     Type: 'MODULE::ACS::OOS::Extension'
     Properties:
@@ -197,7 +197,38 @@ Resources:
             - UseExistedInstance
             - Ref: EcsInstanceId
             - Ref: EcsInstance
-      PackageName: ACS-Extension-WordPress-One-Click-1853370294850618
+      PackageName: ACS-Extension-node-1853370294850618
+  NodeTest:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn: ModuleInstallNodeJs
+    Properties:
+      InstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          cat << "EOF" > example.js
+          const http = require('http');
+          const hostname = '0.0.0.0';
+          const port = 3000;
+          const server = http.createServer((req, res) => { 
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'text/plain');
+              res.end('Hello World\n');
+          }); 
+          
+          server.listen(port, hostname, () => { 
+              console.log(`Server running at http://${!hostname}:${!port}/`);
+          });
+          
+          EOF
+          nohup node ~/example.js > output.log 2>&1 &
   DsEcs:
     Type: 'DATASOURCE::ECS::Instances'
     Properties:
@@ -206,6 +237,20 @@ Resources:
             - UseExistedInstance
             - Ref: EcsInstanceId
             - Ref: EcsInstance
+  SecurityGroupIngress_3000:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3000/3000
 Outputs:
   EcsLoginAddress:
     Description:
@@ -225,7 +270,7 @@ Outputs:
       zh-cn: 测试访问地址。
     Value:
       Fn::Sub:
-        - http://${PublicIp}
+        - http://${PublicIp}:3000
         - PublicIp:
             Fn::Jq:
               - First
@@ -245,6 +290,5 @@ Metadata:
           - EcsInstanceId
     Hidden:
       - CommonName
-      - Ipv6CidrBlockNumber
     TemplateTags:
-      - acs:document-help:ecs:在ECS实例上搭建WordPress博客平台
+      - acs:document-help:ecs:部署Node.js环境
