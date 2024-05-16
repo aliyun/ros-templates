@@ -42,7 +42,7 @@ Parameters:
       en: >-
         This solution will create a spot instance and automatically deploy a 
         nginx service.
-    Default: ecs.c7.large
+    Default: ecs.e-c1m1.large
   InstanceType2:
     Type: String
     AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
@@ -59,7 +59,7 @@ Parameters:
       en: >-
         This solution will create a spot instance and automatically deploy a 
         nginx service.
-    Default: ecs.c6.large
+    Default: ecs.e-c1m1.large
   InstancePassword:
     NoEcho: true
     Type: String
@@ -94,6 +94,17 @@ Parameters:
       en: >-
         It is estimated that it will take 3-5 minutes to complete the creation of this solution. 
         It is recommended to choose a time after 5 minutes to observe the expansion effect.
+  ScalingTime2:
+    Type: String
+    Label:
+      en: Automatic scaling execution time
+      zh-cn: 自动缩容执行时间
+    AssociationProperty: DateTime
+    AssociationPropertyMetadata:
+      Format: 'YYYY-MM-DDThh:mmZ'
+    Description:
+      zh-cn: 建议选择扩容时间之后的 5-10 分钟观察缩容效果。
+      en: It is recommended to observe the shrinkage effect 5-10 minutes after the expansion time.
 Resources:
   Vpc:
     Type: 'ALIYUN::ECS::VPC'
@@ -331,22 +342,43 @@ Resources:
     Type: 'ALIYUN::ESS::ScalingRule'
     Properties:
       ScalingRuleName:
-        Fn::Sub: ${CommonName}-asr-scaleout
+        Fn::Sub: ${CommonName}-asr-rule
       ScalingGroupId:
         Ref: EssScalingGroup
       ScalingRuleType: SimpleScalingRule
       AdjustmentType: QuantityChangeInCapacity
       AdjustmentValue: 1
       Cooldown: 60
+  EssScalingRule2:
+    Type: 'ALIYUN::ESS::ScalingRule'
+    Properties:
+      ScalingRuleName:
+        Fn::Sub: ${CommonName}-asr-rule2
+      ScalingGroupId:
+        Ref: EssScalingGroup
+      ScalingRuleType: SimpleScalingRule
+      AdjustmentType: QuantityChangeInCapacity
+      AdjustmentValue: -1
+      Cooldown: 60
   EssScheduledTask:
     Type: 'ALIYUN::ESS::ScheduledTask'
     Properties:
       ScheduledTaskName:
-        Fn::Sub: ${CommonName}-scaleout
+        Fn::Sub: ${CommonName}-task1
       LaunchTime:
         Ref: ScalingTime
       ScheduledAction:
         Fn::Sub: '${EssScalingRule.ScalingRuleAri}'
+      LaunchExpirationTime: 10
+  EssScheduledTask2:
+    Type: 'ALIYUN::ESS::ScheduledTask'
+    Properties:
+      ScheduledTaskName:
+        Fn::Sub: ${CommonName}-task2
+      LaunchTime:
+        Ref: ScalingTime2
+      ScheduledAction:
+        Fn::Sub: '${EssScalingRule2.ScalingRuleAri}'
       LaunchExpirationTime: 10
 Outputs:
   WebUrl:
@@ -365,6 +397,7 @@ Metadata:
           - ZoneId2
           - InstancePassword
           - ScalingTime
+          - ScalingTime2
     TemplateTags:
       - acs:technical-solution:high-availability-architecture:通过ALB+ESS提升应用的可用性-tech_solu_117
     Hidden:
