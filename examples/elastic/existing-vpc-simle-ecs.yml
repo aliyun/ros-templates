@@ -1,0 +1,125 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 基于已有网络创建一个 ECS 实例。
+  en: Create an ECS instance based on an existing VPC.
+Parameters:
+  Vpc:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
+      zh-cn: 现有虚拟专有网络的实例ID，控制台-VPC-专有网络下查询
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Default: null
+  Vsw:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: >- 
+        Existing VSwitch ID, query under console-VPC-VSwitch, <font color='red'>VSwitch
+        must be under VPC, ECS will be created under this VSwitch.</font>
+      zh-cn: 现有交换机ID，控制台-VPC-交换机下查询，<font color='red'>交换机必须在VPC下，ECS将创建在此交换机下。</font>
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: Vpc
+  InstanceType:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+  InstancePassword:
+    Type: String
+    NoEcho: true
+    Default: null
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  CommonName:
+    Type: String
+    Default: simple
+Resources:
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 3389/3389
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: '-1/-1'
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: icmp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: Vsw
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub: https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - Vpc
+          - Vsw
+          - InstanceType
+          - InstancePassword
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:example:弹性计算:基于已有网络创建一个 ECS 实例
