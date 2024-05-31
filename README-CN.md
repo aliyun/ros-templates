@@ -166,6 +166,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | 模板 | 说明 |
 | ---- | ---- |
+| [ai/ecs-instance-dify.yml](./examples/ai/ecs-instance-dify.yml) | 在ECS实例（CentOS 7）上搭建大语言模型(LLM) 应用开发平台Dify。 |
 | [application/ecs-clone-join-sls.yml](./examples/application/ecs-clone-join-sls.yml) | 克隆ECS实例，将IP指向日志服务中新建的机器组，应用指定的规则。 |
 | [application/ecs-group-join-cms.yml](./examples/application/ecs-group-join-cms.yml) | 手动部署LNMP环境（CentOS 7）及配置CMS报警项和报警联系人。  |
 | [application/ecs-group-join-sls.yml](./examples/application/ecs-group-join-sls.yml) | 创建一组ECS实例，将其作为日志服务中相关项目logtail的机器组。 |
