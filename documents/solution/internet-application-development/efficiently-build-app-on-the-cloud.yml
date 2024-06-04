@@ -1,0 +1,411 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Efficiently build APP on the cloud.
+  zh-cn: 移动开发秘籍：云上高效构建APP。
+Parameters:
+  CommonName:
+    Type: String
+    Default: app
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+  DomainName:
+    Type: String
+    Label:
+      en: Website domain name
+      zh-cn: 网站域名
+    AssociationProperty: 'ALIYUN::DomainName'
+    Description:
+      en: >-
+        Please enter the subdomain name under the current account, such as example.aliyun.com.
+        If it is a domestic region, you need to fill in the registered 
+        domain name, otherwise the website will not be able to plan.
+      zh-cn: >-
+        请输入当前账号下的域名，例如example.aliyun.com。如果是境内地域则需要填写已完成备案的域名，否则会导致网站无法访问。
+    Default: null
+  DBUserName:
+    Type: String
+    ConstraintDescription:
+      en: >- 
+        Consist of 2 to 32 characters of lowercase letters, underline. 
+        Must begin with a letter and be end with an alphanumeric character
+      zh-cn: >-
+          由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头。
+    Label:
+      zh-cn: RDS数据库账号
+      en: RDS DB Username
+    Default: app
+    AllowedPattern: '^[a-z][a-z0-9_]{0,31}$'
+  DBPassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        RDS user password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        数据库账号密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: RDS Instance Password
+      zh-cn: RDS数据库密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: RDS Instance Class
+      zh-cn: RDS实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId:
+        Ref: ZoneId
+      EngineVersion: '8.0'
+      DBInstanceStorageType: cloud_essd
+      Engine: MySQL
+      Category: Basic
+    Default: mysql.n2e.medium.1
+Conditions:
+  DnsRecord:
+    Fn::Not:
+      Fn::Equals:
+        - Ref: DomainName
+        - null
+  DomainPrefixIsNull:
+    Fn::And:
+      - DnsRecord
+      - Fn::Equals:
+          - null
+          - Fn::GetJsonValue:
+              - DomainPrefix
+              - Ref: DomainName
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 443/443
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 3306/3306
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      Password:
+        Ref: InstancePassword
+  InstallJava:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          
+          # 环境变量配置
+          export PATH=/usr/local/bin:$PATH
+          
+          echo "export APPLETS_RDS_ENDPOINT=${RdsInstance.InnerConnectionString}" >> ~/.bashrc
+          echo "export APPLETS_RDS_USER=${DBUserName}" >> ~/.bashrc
+          echo "export APPLETS_RDS_PASSWORD=${DBPassword}" >> ~/.bashrc
+          echo "export APPLETS_RDS_DB_NAME=app" >> ~/.bashrc
+          source ~/.bashrc
+          
+          # 网络检查地址
+          NETWORK_CHECk_ADDR="help-static-aliyun-doc.aliyuncs.com"
+          
+          function unsupported_system() {
+              log_fatal 1 "Unsupported System: $1"
+          }
+          
+          function log_info() {
+              printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_error() {
+              printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_fatal() {
+              printf "\n========================================================================\n"
+              printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
+              printf "\n========================================================================\n"
+              exit $1
+          }
+          
+          function debug_exec(){
+              local cmd="$@"
+              log_info "$cmd"
+              eval "$cmd"
+              ret=$?
+              echo ""
+              log_info "$cmd, exit code: $ret"
+              return $ret
+          }
+
+          function check_network_available() {
+              log_info "ping $NETWORK_CHECk_ADDR ..."
+              if ! debug_exec ping -c 4 $NETWORK_CHECk_ADDR; then
+                  log_fatal 2 "Could not connect to https://$NETWORK_CHECk_ADDR"
+              fi
+          }
+          
+          function install_java() {
+              log_info "install java"
+              yum upgrade & yum install java-1.8.0-openjdk-devel -y
+          }
+          
+          function init_database() {
+              log_info "install mysql 1.20.1"
+              yum install -y mysql
+              mysql -h $APPLETS_RDS_ENDPOINT -u $APPLETS_RDS_USER -p$APPLETS_RDS_PASSWORD < /data/script.sql
+          }
+          
+          log_info "System Information:"
+          if ! lsb_release -a; then
+              unsupported_system
+          fi;
+          echo ""
+          
+          check_network_available
+          
+          mkdir /data
+          cat << "EOF" > /data/script.sql
+          -- script.sql
+          USE app;
+          CREATE TABLE `todo_list` (
+            `id` bigint NOT NULL COMMENT 'id',
+            `title` varchar(128) NOT NULL COMMENT 'title',
+            `desc` text NOT NULL COMMENT 'description',
+            `status` varchar(128) NOT NULL COMMENT 'status 未开始、进行中、已完成、已取消',
+            `priority` varchar(128) NOT NULL COMMENT 'priority 高、中、低',
+            `expect_time` datetime COMMENT 'expect time',
+            `actual_completion_time` datetime COMMENT 'actual completion time',
+            `gmt_created` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'create time',
+            `gmt_modified` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'modified time',
+            PRIMARY KEY (`id`)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+          ;
+          INSERT INTO todo_list 
+          (id, title, `desc`, `status`, priority, expect_time)
+          value(1,  "创建一个小程序", "使用阿里云解决方案快速搭建一个App应用", "进行中", "高", "2024-04-01 00:00:00")
+          
+          EOF
+          
+          if ! debug_exec install_java; then
+              log_fatal 3 "install java failed"
+          fi
+          
+          if ! debug_exec init_database; then
+              log_fatal 4 "init database failed"
+          fi
+  DomainRecord:
+    Type: 'ALIYUN::DNS::DomainRecord'
+    Condition: DnsRecord
+    Properties:
+      Type: A
+      RR:
+        Fn::If:
+          - DomainPrefixIsNull
+          - '@'
+          - Fn::GetJsonValue:
+              - DomainPrefix
+              - Ref: DomainName
+      DomainName:
+        Fn::GetJsonValue:
+          - DomainName
+          - Ref: DomainName
+      Value:
+        Fn::Select:
+          - 0
+          - Fn::GetAtt:
+              - EcsInstance
+              - PublicIps
+  RdsInstance:
+    Type: 'ALIYUN::RDS::DBInstance'
+    Properties:
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      ZoneId:
+        Ref: ZoneId
+      DBInstanceDescription: Test for app
+      DBInstanceStorage: 40
+      Category: Basic
+      DBInstanceStorageType: cloud_essd
+      VSwitchId:
+        Ref: VSwitch
+      Engine: MySQL
+      VpcId:
+        Ref: Vpc
+      SlaveZoneIds:
+        - Auto
+      EngineVersion: '8.0'
+      SecurityIPList: '192.168.0.0/24'
+      MasterUsername:
+        Ref: DBUserName
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUserType: Super
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      CharacterSetName: utf8mb4
+      DBInstanceId:
+        Ref: RdsInstance
+      DBName: app
+Outputs:
+  DatabaseName:
+    Description:
+      zh-cn: 数据库名称。
+      en: The name of database.
+    Value:
+      Ref: RdsDatabase
+  DatabaseUserName:
+    Description:
+      zh-cn: 数据库用户名。
+      en: The name of database user.
+    Value:
+      Ref: DBUserName
+  DatabaseEndpoint:
+    Description:
+      zh-cn: 数据库链接地址。
+      en: The connection address of database.
+    Value:
+      Fn::GetAtt:
+        - RdsInstance
+        - InnerConnectionString
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - InstanceIds
+          Region:
+            Ref: 'ALIYUN::Region'
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            zh-cn: ECS 配置
+            en: ECS Configuration
+      - Parameters:
+          - DBUserName
+          - DBPassword
+          - DBInstanceClass
+        Label:
+          default:
+            zh-cn: RDS 数据库配置
+            en: RDS Configuration
+      - Parameters:
+          - DomainName
+        Label:
+          default:
+            zh-cn: 其他配置
+            en: Other Configuration
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:移动开发秘籍：云上高效构建APP-tech_solu_104
+    Hidden:
+      - CommonName
