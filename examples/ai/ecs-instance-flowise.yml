@@ -1,0 +1,170 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Build the LLM orchestration flow & AI agents service Flowise on the ECS instance (Ubuntu 22.04).
+  zh-cn: 在ECS实例（Ubuntu 22.04）上搭建LLM流程编排和AI代理服务Flowise。
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      DefaultValueStrategy: recent
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      ZoneId: ${ZoneId}
+      InstanceType: ${InstanceType}
+      AutoSelectFirst: true
+      AutoChangeType: false
+    Default: cloud_essd
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${SelectInstance}
+          - false
+    Default:
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+  SecurityGroupIngress_3000:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3000/3000
+  InstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: ubuntu_22_04
+      InstanceName: Flowise
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Password:
+        Ref: InstancePassword
+      IoOptimized: optimized
+      MaxAmount: 1
+  DS_Instances:
+    Type: DATASOURCE::ECS::Instances
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - InstanceGroup
+        - InstanceIds
+  InstallFlowise:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - InstanceGroup
+        - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 1800
+      CommandContent: |
+        #!/bin/bash
+        echo "#########################"
+        echo "# Install NodeJS"
+        echo "#########################"
+        git clone https://github.com/nvm-sh/nvm.git /opt/nvm && cd /opt/nvm
+        ret_code=$?
+        if [ $ret_code -ne 0 ]; then
+          echo "Git clone https://github.com/nvm-sh/nvm.git failed. Exiting."
+          exit $ret_code
+        fi
+        ./install.sh
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+        nvm install 22
+        npm config set registry https://registry.npmmirror.com
+        npm i -g pnpm
+        
+        echo "#########################"
+        echo "# Install Flowise"
+        echo "#########################"
+        git clone --depth 1 https://github.com/FlowiseAI/Flowise.git /opt/Flowise && cd /opt/Flowise
+        ret_code=$?
+        if [ $ret_code -ne 0 ]; then
+          echo "Git clone https://github.com/FlowiseAI/Flowise.git failed. Exiting."
+          exit $ret_code
+        fi
+        pnpm install
+        pnpm build
+        nohup pnpm start > flowise.log 2>&1 &
+Outputs:
+  FlowiseUrl:
+    Description: Flowise default address.
+    Value:
+      Fn::Sub:
+      - http://${IP}:3000
+      - IP:
+          Fn::Jq:
+          - First
+          - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+            end
+          - Fn::GetAtt:
+            - DS_Instances
+            - Instances
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+    - acs:example:AI:在ECS实例（Ubuntu 22.04）上搭建LLM流程编排和AI代理服务Flowise
