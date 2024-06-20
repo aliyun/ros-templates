@@ -1,0 +1,553 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Implementing horizontal elastic scaling of container applications through HPA.
+  zh-cn: 通过HPA实现容器应用的水平弹性伸缩。
+Parameters:
+  CommonName:
+    Type: String
+    Default:  k8s-hpa-cluster
+  SlsProjectName:
+    Type: String
+    Label:
+      en: Name of sls project
+      zh-cn: 日志项目的名称
+    Description:
+      en: The name contains 3 to 36 characters. It must start and end with a lowercase letter or number. The value can contain lowercase letters, digits, and hyphens (-).
+      zh-cn: 长度为3~36个字符。必须以小写英文字母或数字开头和结尾。可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: k8s-hpa-sls-project-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+  ManagedKubernetesClusterName:
+    Type: String
+    Label:
+      en: Managed Kubernetes Cluster Name
+      zh-cn: ACK托管版集群名称
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: k8s-hpa-cluster-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+  ZoneId1:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId2
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区1
+  ZoneId2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId1
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区2
+  InstanceType:
+    Type: CommaDelimitedList
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      CreateACKClusterParams:
+        NetworkPlugin: terway-eniip
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/8
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch1:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 10.0.0.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  VSwitch2:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 10.0.1.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 443/443
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  SlsProject:
+    Type: 'ALIYUN::SLS::Project'
+    Properties:
+      Name:
+        Ref: SlsProjectName
+  AckCluster:
+    Type: 'ALIYUN::CS::ManagedKubernetesCluster'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchIds:
+        - Ref: VSwitch1
+        - Ref: VSwitch2
+      PodVswitchIds:
+        - Ref: VSwitch1
+        - Ref: VSwitch1
+      Name:
+        Ref: ManagedKubernetesClusterName
+      KubernetesVersion: 1.28.9-aliyun.1
+      ServiceCidr: 192.168.0.0/16
+      ClusterSpec: ack.pro.small
+      LoadBalancerSpec: slb.s2.small
+      IsEnterpriseSecurityGroup: true
+      SnatEntry: true
+      NumOfNodes: 0
+      EndpointPublicAccess: true
+      Platform: AliyunLinux
+      Addons:
+        - Name: ack-node-local-dns
+        - Name: terway-eniip
+          Config: '{"IPVlan":"false","NetworkPolicy":"false","ENITrunking":"false"}'
+        - Name: csi-plugin
+        - Name: csi-provisioner
+        - Name: storage-operator
+          Config: '{"CnfsOssEnable":"false","CnfsNasEnable":"false"}'
+        - Name: nginx-ingress-controller
+          Disabled: true
+        - Name: logtail-ds
+          Config: '{"IngressDashboardEnabled":"true"}'
+        - Name: alb-ingress-controller
+          Version: ""
+          Config:
+            Fn::Sub: >-
+              {"albIngress":{"AddressType":"Internet","ZoneMappings":{"${ZoneId1}":["${VSwitch1}"],
+              "${ZoneId2}":["${VSwitch2}"]},"CreateDefaultALBConfig":true}}
+        - Name: ack-helm-manager
+        - Name: arms-prometheus
+      ProxyMode: ipvs
+      DeleteOptions:
+        - ResourceType: ALB
+          DeleteMode: delete
+        - ResourceType: SLB
+          DeleteMode: delete
+        - ResourceType: SLS_Data
+          DeleteMode: delete
+        - ResourceType: SLS_ControlPlane
+          DeleteMode: delete
+        - ResourceType: PrivateZone
+          DeleteMode: delete
+  NodePools:
+    Type: 'ALIYUN::CS::ClusterNodePool'
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      NodePoolInfo:
+          Name: default-nodepool
+      ScalingGroup:
+        VSwitchIds:
+          - Ref: VSwitch1
+          - Ref: VSwitch2
+        ZoneIds:
+          - Ref: ZoneId1
+          - Ref: ZoneId2
+        SystemDiskCategory: cloud_essd
+        SystemDiskPerformanceLevel: PL0
+        SystemDiskSize: 40
+        InstanceTypes:
+          Ref: InstanceType
+        LoginPassword:
+          Ref: InstancePassword
+        Platform: AliyunLinux
+        ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      KubernetesConfig:
+        Runtime: containerd
+        RuntimeVersion: 1.6.28
+      AutoScaling:
+        Enable: true
+        MinInstances: 2
+        MaxInstances: 10
+  Sleep:
+    Type: 'ALIYUN::ROS::Sleep'
+    DependsOn: NodePools
+    Properties:
+      CreateDuration: 180
+  AckMetricsAdapter:
+    Type: 'ALIYUN::CS::ClusterHelmApplication'
+    DependsOn: Sleep
+    Properties:
+      Namespace: kube-system
+      ChartUrl: 'https://aliacs-app-catalog.oss-cn-hangzhou.aliyuncs.com/charts-incubator/ack-alibaba-cloud-metrics-adapter-1.3.3.tgz'
+      ClusterId:
+        Ref: AckCluster
+      Name: ack-alibaba-cloud-metrics-adapter
+      ChartValues:
+        AlibabaCloudMetricsAdapter:
+          commonLabels: ''
+          replicas: 1
+          resources:
+            metricsAdapterDeployment:
+              resources:
+                limits:
+                  cpu: 0.5
+                  memory: 1Gi
+                requests:
+                  cpu: 100m
+                  memory: 200Mi
+            configReloader:
+              resources:
+                limits:
+                  cpu: 20m
+                  memory: 30Mi
+                requests:
+                  cpu: 20m
+                  memory: 30Mi
+          listenPort: 443
+          costWeights:
+            cpu: '1.0'
+            memory: '0.0'
+          image:
+            repository: registry-cn-hangzhou-vpc.ack.aliyuncs.com/acs/alibaba-cloud-metrics-adapter-amd64
+            tag: v0.2.7-f1ee5c3-aliyun
+            pullPolicy: Always
+          nameOverride: ''
+          fullnameOverride: ''
+          service:
+            type: ClusterIP
+          serviceAccountName: ack-alibaba-cloud-metrics-adapter
+          annotations: { }
+          nodeSelector: { }
+          tolerations: [ ]
+          env:
+            - AccessKeyId: ''
+            - AccessKeySecret: ''
+            - Region: ''
+          affinity: { }
+          prometheus:
+            enabled: true
+            url: { }
+            metricsRelistInterval: 1m
+            logLevel: 5
+            adapter:
+              rules:
+                default: false
+                custom:
+                  - seriesQuery: container_memory_working_set_bytes{namespace!="",pod!=""}
+                    resources:
+                      overrides:
+                        namespace:
+                          resource: namespace
+                        pod:
+                          resource: pod
+                    name:
+                      matches: ^(.*)_bytes
+                      as: ${1}_bytes_per_second
+                    metricsQuery: sum(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)
+                  - seriesQuery: container_cpu_usage_seconds_total{namespace!="",pod!=""}
+                    resources:
+                      overrides:
+                        namespace:
+                          resource: namespace
+                        pod:
+                          resource: pod
+                    name:
+                      matches: ^(.*)_seconds_total
+                      as: ${1}_core_per_second
+                    metricsQuery: sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)
+        ConfigReloader:
+          image:
+            repository: registry-vpc.cn-hangzhou.aliyuncs.com/acs/configmap-reload
+            tag: v0.0.1
+  InstallBackendApp:
+    Type: 'ALIYUN::CS::ClusterApplication'
+    DependsOn: AckMetricsAdapter
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      YamlContent:
+        Fn::Sub: |-
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: coffee
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: coffee
+            template:
+              metadata:
+                labels:
+                  app: coffee
+              spec:
+                containers:
+                - name: coffee
+                  image: registry.${ALIYUN::Region}.aliyuncs.com/acs-sample/nginxdemos:latest
+                  ports:
+                  - containerPort: 80
+                  resources:
+                    limits:
+                      cpu: 500m
+                      memory: 1Gi
+                    requests:
+                      cpu: 500m
+                      memory: 512Mi
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: coffee-svc
+          spec:
+            ports:
+            - port: 80
+              targetPort: 80
+              protocol: TCP
+            selector:
+              app: coffee
+            type: NodePort
+          ---
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: tea
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: tea
+            template:
+              metadata:
+                labels:
+                  app: tea
+              spec:
+                containers:
+                - name: tea
+                  image: registry.${ALIYUN::Region}.aliyuncs.com/acs-sample/nginxdemos:latest
+                  ports:
+                  - containerPort: 80
+                  resources:
+                    limits:
+                      cpu: 500m
+                      memory: 1Gi
+                    requests:
+                      cpu: 500m
+                      memory: 512Mi
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: tea-svc
+          spec:
+            ports:
+            - port: 80
+              targetPort: 80
+              protocol: TCP
+            selector:
+              app: tea
+            type: NodePort
+
+  AlbConfig:
+    Type: 'ALIYUN::CS::ClusterApplication'
+    DependsOn: InstallBackendApp
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      YamlContent:
+        Fn::Sub: |-
+          apiVersion: alibabacloud.com/v1
+          kind: AlbConfig
+          metadata:
+            name: k8s-hpa-alb-config
+          spec:
+            config:
+              name: k8s-hpa-alb
+              addressType: Internet
+              zoneMappings:
+              - vSwitchId: ${VSwitch1}
+              - vSwitchId: ${VSwitch2}
+              accessLogConfig:
+                logProject: ${SlsProject}
+                logStore: "alb_k8s_hpa_sls_logstore"
+            listeners:
+              - port: 80
+                protocol: HTTP
+  IngressClass:
+    Type: 'ALIYUN::CS::ClusterApplication'
+    DependsOn: AlbConfig
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      YamlContent:
+        Fn::Sub: |-
+          apiVersion: networking.k8s.io/v1
+          kind: IngressClass
+          metadata:
+            name: k8s-hpa-alb-ingress-class
+          spec:
+            controller: ingress.k8s.alibabacloud/alb
+            parameters:
+              apiGroup: alibabacloud.com
+              kind: AlbConfig
+              name: k8s-hpa-alb-config
+  Ingress:
+    Type: 'ALIYUN::CS::ClusterApplication'
+    DependsOn: IngressClass
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      YamlContent:
+        Fn::Sub: |-
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: k8s-hpa-alb-ingress
+          spec:
+            ingressClassName: k8s-hpa-alb-ingress-class
+            rules:
+             - http:
+                paths:
+                - path: /tea
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: tea-svc
+                      port:
+                        number: 80
+                - path: /coffee
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: coffee-svc
+                      port: 
+                        number: 80
+  
+  Hpa:
+    Type: 'ALIYUN::CS::ClusterApplication'
+    DependsOn: Ingress
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      YamlContent:
+        Fn::Sub: |-
+          apiVersion: autoscaling/v2
+          kind: HorizontalPodAutoscaler
+          metadata:
+            name: k8s-alb-tea-hpa
+          spec:
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: tea
+            minReplicas: 2
+            maxReplicas: 10
+            metrics:
+              - type: External
+                external:
+                  metric:
+                    name: sls_alb_ingress_qps
+                    selector:
+                      matchLabels:
+                        sls.project: ${SlsProject}
+                        sls.logstore: "alb_k8s_hpa_sls_logstore" 
+                        sls.ingress.route: "default-tea-svc-80"
+                  target:
+                    type: AverageValue
+                    averageValue: 2
+              - resource:
+                  name: cpu
+                  target:
+                    averageUtilization: 80
+                    type: Utilization
+                type: Resource
+              - resource:
+                  name: memory
+                  target:
+                    averageUtilization: 80
+                    type: Utilization
+                type: Resource
+  IngressInfo:
+    Type: 'DATASOURCE::CS::ClusterApplicationResources'
+    DependsOn: Ingress
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      Kind: Ingress
+      Namespace: default
+      JsonPath: $.items.[0].status.loadBalancer.ingress.[0].hostname
+      FirstMatch: true
+Outputs:
+  TeaUrl:
+    Description:
+      zh-cn: tea服务访问地址。
+      en: The addresses of tea service.
+    Value:
+      'Fn::Sub': http://${IngressInfo}/tea
+  CoffeeUrl:
+    Description:
+      zh-cn: tea服务访问地址。
+      en: The addresses of tea service.
+    Value:
+      'Fn::Sub': http://${IngressInfo}/coffee
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - SlsProjectName
+          - ManagedKubernetesClusterName
+          - ZoneId1
+          - ZoneId2
+          - InstanceType
+          - InstancePassword
+    TemplateTags:
+      - acs:technical-solution:high-availability-architecture:通过HPA实现容器应用的水平弹性伸缩-tech_solu_125
+    Hidden:
+      - CommonName
