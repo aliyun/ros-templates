@@ -183,6 +183,26 @@ Resources:
       PolicyAttachments:
         System:
         - AliyunSTSAssumeRoleAccess
+  VodUploadRoleTestRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ${CommonName}-${ALIYUN::StackId}-VodUploadRole
+      Description: VodUploadRoleTest
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              RAM:
+                - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+        Version: '1'
+      MaxSessionDuration: 3600
+      DeletionForce: true
+      PolicyAttachments:
+        System:
+          - AliyunSTSAssumeRoleAccess
+          - AliyunVODUploadAuth
   EcsInstanceGroup1:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
@@ -194,7 +214,7 @@ Resources:
         Ref: EcsVSwitch1
       SecurityGroupId:
         Ref: EcsSecurityGroup
-      ImageId: centos_7
+      ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
       IoOptimized: optimized
       SystemDiskCategory: cloud_essd
       InternetMaxBandwidthOut: 5
@@ -219,7 +239,7 @@ Resources:
         Ref: EcsVSwitch2
       SecurityGroupId:
         Ref: EcsSecurityGroup
-      ImageId: centos_7
+      ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
       IoOptimized: optimized
       SystemDiskCategory: cloud_essd
       InternetMaxBandwidthOut: 5
@@ -328,7 +348,7 @@ Resources:
         Fn::Sub: |
           #!/bin/bash
 
-          wget https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20230830/qhwb/server.zip
+          wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20230830/qhwb/server.zip
           yum install unzip -y
           unzip server.zip
           cd server
@@ -336,7 +356,9 @@ Resources:
           pip3 install -r requirements.txt
           pip3 install uwsgi==2.0.22
           sed -i "s/socket=127.0.0.1:5000/http=0.0.0.0:8000/g" uwsgi.ini
-          uwsgi uwsgi.ini
+          export ECS_RAM_ROLE=${RoleForEcs}
+          export ROLE_ARN=${VodUploadRoleTestRole.Arn}
+          nohup uwsgi uwsgi.ini > output.log 2>&1 &
   Queue:
     Type: ALIYUN::MNS::Queue
     DependsOn: AutoEnableMNS

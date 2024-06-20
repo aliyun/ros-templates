@@ -1,7 +1,7 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Improve application availability through ALB+ESS.
-  zh-cn: 通过ALB+ESS提升应用的可用性。
+  en: Build a highly available nginx website.
+  zh-cn: 搭建高可用的 nginx 网站。
 Parameters:
   CommonName:
     Type: String
@@ -10,6 +10,7 @@ Parameters:
     Type: String
     AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
     AssociationPropertyMetadata:
+      AutoSelectFirst: true
       ExclusiveTo:
         - ZoneId2
     Label:
@@ -19,6 +20,7 @@ Parameters:
     Type: String
     AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
     AssociationPropertyMetadata:
+      AutoSelectFirst: true
       ExclusiveTo:
         - ZoneId1
     Label:
@@ -28,22 +30,36 @@ Parameters:
     Type: String
     AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
     AssociationPropertyMetadata:
+      SpotStrategy: SpotAsPriceGo
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
       ZoneId: ${ZoneId}
     Label:
       en: Instance Type
       zh-cn: 实例规格1
+    Description:
+      zh-cn: 本方案会创建一个抢占式实例，并且自动部署nginx服务。
+      en: >-
+        This solution will create a spot instance and automatically deploy a 
+        nginx service.
+    Default: null
   InstanceType2:
     Type: String
     AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
     AssociationPropertyMetadata:
+      SpotStrategy: SpotAsPriceGo
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
       ZoneId: ${ZoneId}
     Label:
       en: Instance Type
       zh-cn: 实例规格2
+    Description:
+      zh-cn: 本方案会创建一个抢占式实例，并且自动部署nginx服务。
+      en: >-
+        This solution will create a spot instance and automatically deploy a 
+        nginx service.
+    Default: null
   InstancePassword:
     NoEcho: true
     Type: String
@@ -65,30 +81,6 @@ Parameters:
       zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
     AssociationProperty: 'ALIYUN::ECS::Instance::Password'
     Default: null
-  ScalingTime:
-    Type: String
-    Label:
-      en: Automatic expansion execution time
-      zh-cn: 自动扩容执行时间
-    AssociationProperty: DateTime
-    AssociationPropertyMetadata:
-      Format: 'YYYY-MM-DDThh:mmZ'
-    Description:
-      zh-cn: 本方案创建完成预计需要 3-5 分钟，建议选择 5 分钟之后的时间观察扩容效果。
-      en: >-
-        It is estimated that it will take 3-5 minutes to complete the creation of this solution. 
-        It is recommended to choose a time after 5 minutes to observe the expansion effect.
-  ScalingTime2:
-    Type: String
-    Label:
-      en: Automatic scaling execution time
-      zh-cn: 自动缩容执行时间
-    AssociationProperty: DateTime
-    AssociationPropertyMetadata:
-      Format: 'YYYY-MM-DDThh:mmZ'
-    Description:
-      zh-cn: 建议选择扩容时间之后的 5-10 分钟观察缩容效果。
-      en: It is recommended to observe the shrinkage effect 5-10 minutes after the expansion time.
 Resources:
   Vpc:
     Type: 'ALIYUN::ECS::VPC'
@@ -144,7 +136,7 @@ Resources:
         Ref: VSwitch1
       SecurityGroupId:
         Ref: SecurityGroup
-      ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      ImageId: aliyun_3_9_x64_20G_alibase_
       InstanceName:
         Fn::Sub: ${CommonName}-ecs-1
       InstanceType:
@@ -152,6 +144,7 @@ Resources:
       SystemDiskCategory: cloud_essd
       MaxAmount: 1
       InternetMaxBandwidthOut: 0
+      SpotStrategy: SpotAsPriceGo
       Password:
         Ref: InstancePassword
       UserData:
@@ -159,7 +152,7 @@ Resources:
           #!/bin/bash
           yum -y install nginx-1.20.1
           instanceId=`curl http://100.100.100.200/latest/meta-data/instance-id`
-          echo "This is instance1, the instance id is $instanceId" > /usr/share/nginx/html/index.html 
+          echo "Welcome to Nginx. Current instance is $instanceId" > /usr/share/nginx/html/index.html 
           systemctl start nginx 
           systemctl enable nginx
   EcsInstance2:
@@ -173,7 +166,7 @@ Resources:
         Ref: VSwitch2
       SecurityGroupId:
         Ref: SecurityGroup
-      ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      ImageId: aliyun_3_9_x64_20G_alibase_
       InstanceName:
         Fn::Sub: ${CommonName}-ecs-2
       InstanceType:
@@ -181,6 +174,7 @@ Resources:
       SystemDiskCategory: cloud_essd
       MaxAmount: 1
       InternetMaxBandwidthOut: 0
+      SpotStrategy: SpotAsPriceGo
       Password:
         Ref: InstancePassword
       UserData:
@@ -188,7 +182,7 @@ Resources:
           #!/bin/bash
           yum -y install nginx-1.20.1
           instanceId=`curl http://100.100.100.200/latest/meta-data/instance-id`
-          echo "This is instance2, the instance id is $instanceId" > /usr/share/nginx/html/index.html 
+          echo "Welcome to Nginx. Current instance is $instanceId" > /usr/share/nginx/html/index.html 
           systemctl start nginx 
           systemctl enable nginx
   Alb:
@@ -256,111 +250,6 @@ Resources:
       LoadBalancerId:
         Ref: Alb
       ListenerProtocol: HTTP
-  EssScalingGroup:
-    Type: 'ALIYUN::ESS::ScalingGroup'
-    Properties:
-      VSwitchIds:
-        - Ref: VSwitch1
-        - Ref: VSwitch2
-      ScalingGroupName:
-        Fn::Sub: ${CommonName}-${ALIYUN::StackId}
-      RemovalPolicys:
-        - NewestInstance
-      MinSize: 0
-      MaxSize: 4
-      DefaultCooldown: 300
-      MultiAZPolicy: COMPOSABLE
-      AzBalance: true
-    DependsOn: SecurityGroup
-  EssServerGroupAttachment:
-    Type: 'ALIYUN::ESS::ServerGroupAttachment'
-    DependsOn: EssScalingGroupEnable
-    Properties:
-      ScalingGroupId:
-        Ref: EssScalingGroup
-      ForceAttach: true
-      ServerGroups:
-        - Type: ALB
-          Port: 80
-          ServerGroupId:
-            Ref: AlbServerGroup
-          Weight: 100
-  EssScalingConfiguration:
-    Type: 'ALIYUN::ESS::ScalingConfiguration'
-    Properties:
-      SecurityGroupId:
-        Ref: SecurityGroup
-      ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
-      ScalingConfigurationName:
-        Fn::Sub: ${CommonName}-asc
-      ScalingGroupId:
-        Ref: EssScalingGroup
-      InstanceTypes:
-        - Ref: InstanceType1
-        - Ref: InstanceType2
-      SystemDiskCategory: cloud_essd
-      SystemDiskSize: 40
-      Password:
-        Ref: InstancePassword
-      InstanceName:
-        Fn::Sub: ${CommonName}-ess
-      UserData:
-        Fn::Sub: |-
-          #!/bin/bash
-          yum -y install nginx-1.20.1
-          instanceId=`curl http://100.100.100.200/latest/meta-data/instance-id`
-          echo "This instance from ess, the instance id is $instanceId" > /usr/share/nginx/html/index.html 
-          systemctl start nginx 
-          systemctl enable nginx
-  EssScalingGroupEnable:
-    Type: 'ALIYUN::ESS::ScalingGroupEnable'
-    Properties:
-      ScalingGroupId:
-        Ref: EssScalingGroup
-      ScalingConfigurationId:
-        Ref: EssScalingConfiguration
-  EssScalingRule:
-    Type: 'ALIYUN::ESS::ScalingRule'
-    Properties:
-      ScalingRuleName:
-        Fn::Sub: ${CommonName}-asr-rule
-      ScalingGroupId:
-        Ref: EssScalingGroup
-      ScalingRuleType: SimpleScalingRule
-      AdjustmentType: QuantityChangeInCapacity
-      AdjustmentValue: 1
-      Cooldown: 60
-  EssScalingRule2:
-    Type: 'ALIYUN::ESS::ScalingRule'
-    Properties:
-      ScalingRuleName:
-        Fn::Sub: ${CommonName}-asr-rule2
-      ScalingGroupId:
-        Ref: EssScalingGroup
-      ScalingRuleType: SimpleScalingRule
-      AdjustmentType: QuantityChangeInCapacity
-      AdjustmentValue: -1
-      Cooldown: 60
-  EssScheduledTask:
-    Type: 'ALIYUN::ESS::ScheduledTask'
-    Properties:
-      ScheduledTaskName:
-        Fn::Sub: ${CommonName}-task1-${ALIYUN::StackId}
-      LaunchTime:
-        Ref: ScalingTime
-      ScheduledAction:
-        Fn::Sub: '${EssScalingRule.ScalingRuleAri}'
-      LaunchExpirationTime: 10
-  EssScheduledTask2:
-    Type: 'ALIYUN::ESS::ScheduledTask'
-    Properties:
-      ScheduledTaskName:
-        Fn::Sub: ${CommonName}-task2-${ALIYUN::StackId}
-      LaunchTime:
-        Ref: ScalingTime2
-      ScheduledAction:
-        Fn::Sub: '${EssScalingRule2.ScalingRuleAri}'
-      LaunchExpirationTime: 10
 Outputs:
   WebUrl:
     Description:
@@ -373,13 +262,11 @@ Metadata:
     ParameterGroups:
       - Parameters:
           - ZoneId1
-          - ZoneId2
           - InstanceType1
+          - ZoneId2
           - InstanceType2
           - InstancePassword
-          - ScalingTime
-          - ScalingTime2
     TemplateTags:
-      - acs:technical-solution:high-availability-architecture:通过ALB+ESS提升应用的可用性-tech_solu_117
+      - acs:example:弹性计算:搭建高可用的 nginx 网站
     Hidden:
       - CommonName
