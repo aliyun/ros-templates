@@ -22,10 +22,17 @@ Parameters:
     Label:
       en: Zone ID
       zh-cn: 可用区ID
+    Default: Null
     Description:
       en: The available zone ID, you should confirm the zone support SLB or not.
       zh-cn: 可用区ID，需确认所选可用区下是否支持SLB等资源。
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          'Fn::Equals':
+            - '${LoadBalancerAddressType}'
+            - intranet
   VSwitchCidrBlock:
     Type: String
     Label:
@@ -36,6 +43,12 @@ Parameters:
         by other VSwitches.
       zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
     Default: 192.168.0.0/24
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          'Fn::Equals':
+            - '${LoadBalancerAddressType}'
+            - intranet
   LoadBalancerSpec:
     Type: String
     Label:
@@ -56,6 +69,14 @@ Parameters:
       en: The address type of the load balancer. "intranet" or "internet".
       zh-cn: '负载均衡器的地址类型。intranet: 内网， internet: 外网。'
     Default: intranet
+    AllowedValues:
+      - internet
+      - intranet
+Conditions:
+  CreateVsw:
+    'Fn::Equals':
+      - Ref: LoadBalancerAddressType
+      - intranet
 Resources:
   EcsVpc:
     Type: ALIYUN::ECS::VPC
@@ -72,6 +93,7 @@ Resources:
         id: 47344e64-a958-4b6b-8d48-f78de66b984c
   EcsVSwitch:
     Type: ALIYUN::ECS::VSwitch
+    Condition: CreateVsw
     Properties:
       ZoneId:
         Ref: VSwitchZoneId
@@ -93,7 +115,10 @@ Resources:
       VpcId:
         Ref: EcsVpc
       VSwitchId:
-        Ref: EcsVSwitch
+        'Fn::If':
+          - CreateVsw
+          - Ref: EcsVSwitch
+          - ''
       AddressType:
         Ref: LoadBalancerAddressType
       LoadBalancerName:

@@ -166,6 +166,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 | Template | Description |
 | -- | ---- |
+| [ai/ecs-instance-chat-tts.yml](./examples/ai/ecs-instance-chat-tts.yml) | Build text-to-speech system ChatTTS on the ECS instance (Ubuntu 22.04). |
+| [ai/ecs-instance-dify.yml](./examples/ai/ecs-instance-dify.yml) | Build the large language model (LLM) application development platform Dify on the ECS instance (CentOS 7). |
 | [application/ecs-clone-join-sls.yml](./examples/application/ecs-clone-join-sls.yml) | Clone the ECS instance, direct the IP to the new machine group created in the Log Service, and apply the specified rules. |
 | [application/ecs-group-join-cms.yml](./examples/application/ecs-group-join-cms.yml) | Manually deploy the LNMP environment (CentOS 7) and configure CMS alarm items and alarm contacts.    |
 | [application/ecs-group-join-sls.yml](./examples/application/ecs-group-join-sls.yml) | Create a set of ECS instance, and consider it as the machine group of the related project logtail in Log Service. |

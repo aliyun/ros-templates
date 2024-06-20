@@ -112,6 +112,31 @@ Parameters:
           Fn::Equals:
             - ${InstanceSource}
             - UseExisted
+  PublicIpv6Address:
+    Type: String
+    Label:
+      zh-cn: 配置IPv6公网带宽
+      en: Configure IPv6 Internet Bandwidth
+    AllowedValues:
+      - Enable
+      - Disable
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        Enable:
+          zh-cn: 开通IPv6公网带宽
+          en: Enable IPv6 Internet Bandwidth
+        Disable:
+          zh-cn: 不开通IPv6公网带宽
+          en: Disable IPv6 Internet Bandwidth
+    Description:
+      en: >-
+        By default, the IPv6 address assigned to the ECS instance can be used only for 
+        communications over private networks. To allow communications over the Internet, 
+        you must enable IPv6 Internet bandwidth. Select your configuration 
+        from the preceding options.
+      zh-cn: >-
+        默认情况下，为ECS实例分配的IPv6地址仅具有私网通信能力，若您希望IPv6地址具有公网通信能力，
+        则需开通IPv6公网带宽。请从以上选项中选择您的配置。
   CommonName:
     Type: String
     Default: config-ipv6
@@ -132,6 +157,12 @@ Conditions:
     Fn::Equals:
       - Ref: InstanceSource
       - UseExisted
+  CreateAndEnableIpv6:
+    Fn::And:
+      - CreateInstance
+      - Fn::Equals:
+          - Ref: PublicIpv6Address
+          - Enable
 Resources:
   Vpc:
     Type: 'ALIYUN::ECS::VPC'
@@ -208,7 +239,7 @@ Resources:
       Ipv6AddressCount: 1
   Ipv6InternetBandwidth:
     Type: 'ALIYUN::VPC::Ipv6InternetBandwidth'
-    Condition: CreateInstance
+    Condition: CreateAndEnableIpv6
     Properties:
       Bandwidth: 1
       Ipv6AddressId:
@@ -534,6 +565,8 @@ Resources:
             - Ipv6CidrBlock
         Ipv6CidrBlockNumber:
           Ref: Ipv6CidrBlockNumber
+        PublicIpv6Address:
+          Ref: PublicIpv6Address
       TemplateBody:
         ROSTemplateFormatVersion: '2015-09-01'
         Parameters:
@@ -556,6 +589,9 @@ Resources:
             Default: null
           Ipv6CidrBlockNumber:
             Type: Number
+          PublicIpv6Address:
+            Type: String
+            Default: Disable
         Conditions:
           EnableIpv6ForVpc:
             Fn::Equals:
@@ -573,12 +609,16 @@ Resources:
               - null
               - Ref: Ipv6AddressId
           Ipv6InternetBandwidth:
-            Fn::Equals:
-              - Fn::If:
-                  - AssignIpv6Addresses
-                  - null
-                  - ""
-              - Ref: Ipv6InternetBandwidthId
+            Fn::And:
+              - Fn::Equals:
+                  - Fn::If:
+                      - AssignIpv6Addresses
+                      - null
+                      - ""
+                  - Ref: Ipv6InternetBandwidthId
+              - Fn::Equals:
+                  - Ref: PublicIpv6Address
+                  - Enable
         Resources:
           OpenIPv6ForVpc:
             Condition: EnableIpv6ForVpc
@@ -674,6 +714,7 @@ Metadata:
           - InstanceType
           - InstancePassword
           - EcsInstanceId
+          - PublicIpv6Address
     Hidden:
       - CommonName
       - Ipv6CidrBlockNumber
