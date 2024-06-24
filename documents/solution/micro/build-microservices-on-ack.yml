@@ -1,0 +1,424 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Quickly use ACK to build microservices.
+  zh-cn: 快速使用ACK搭建微服务。
+Parameters:
+  CommonName:
+    Type: String
+    Default: microservices-on-ack
+  ManagedKubernetesClusterName:
+    Type: String
+    Label:
+      en: Managed Kubernetes Cluster Name
+      zh-cn: ACK托管版集群名称
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: k8s-hpa-cluster-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+  ZoneId1:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId2
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区1
+  ZoneId2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId1
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区2
+  InstanceType:
+    Type: CommaDelimitedList
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      CreateACKClusterParams:
+        NetworkPlugin: terway-eniip
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/8
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch1:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 10.0.0.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  VSwitch2:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 10.0.1.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 8080/8080
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  AckCluster:
+    Type: 'ALIYUN::CS::ManagedKubernetesCluster'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchIds:
+        - Ref: VSwitch1
+        - Ref: VSwitch2
+      PodVswitchIds:
+        - Ref: VSwitch1
+        - Ref: VSwitch1
+      Name:
+        Ref: ManagedKubernetesClusterName
+      KubernetesVersion: 1.28.9-aliyun.1
+      ServiceCidr: 192.168.0.0/16
+      ClusterSpec: ack.pro.small
+      LoadBalancerSpec: slb.s2.small
+      IsEnterpriseSecurityGroup: true
+      SnatEntry: true
+      NumOfNodes: 0
+      EndpointPublicAccess: true
+      Platform: AliyunLinux
+      Addons:
+        - Name: terway-eniip
+          Config: '{"IPVlan":"false","NetworkPolicy":"false","ENITrunking":"false"}'
+        - Name: csi-plugin
+        - Name: csi-provisioner
+        - Name: storage-operator
+          Config: '{"CnfsOssEnable":"false","CnfsNasEnable":"false"}'
+        - Name: logtail-ds
+          Config: '{"IngressDashboardEnabled":"true"}'
+        - Name: nginx-ingress-controller
+          Disabled: true
+        - Name: alb-ingress-controller
+          Version: ""
+          Config:
+            Fn::Sub: >-
+              {"albIngress":{"AddressType":"Internet","ZoneMappings":{"${ZoneId1}":["${VSwitch1}"],
+              "${ZoneId2}":["${VSwitch2}"]},"CreateDefaultALBConfig":true}}
+        - Name: ack-node-local-dns
+      ProxyMode: ipvs
+      DeleteOptions:
+        - ResourceType: ALB
+          DeleteMode: delete
+        - ResourceType: SLB
+          DeleteMode: delete
+        - ResourceType: SLS_Data
+          DeleteMode: delete
+        - ResourceType: SLS_ControlPlane
+          DeleteMode: delete
+        - ResourceType: PrivateZone
+          DeleteMode: delete
+  NodePools:
+    Type: 'ALIYUN::CS::ClusterNodePool'
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      NodePoolInfo:
+          Name: default-nodepool
+      ScalingGroup:
+        VSwitchIds:
+          - Ref: VSwitch1
+          - Ref: VSwitch2
+        ZoneIds:
+          - Ref: ZoneId1
+          - Ref: ZoneId2
+        SystemDiskCategory: cloud_essd
+        SystemDiskPerformanceLevel: PL0
+        SystemDiskSize: 120
+        InstanceTypes:
+          Ref: InstanceType
+        LoginPassword:
+          Ref: InstancePassword
+        Platform: AliyunLinux
+        ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      KubernetesConfig:
+        Runtime: containerd
+        RuntimeVersion: 1.6.28
+      Count: 3
+  InstallBackendApp:
+    Type: 'ALIYUN::CS::ClusterApplication'
+    DependsOn: NodePools
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      YamlContent:
+        Fn::Sub: |-
+          apiVersion: apps/v1 # for versions before 1.8.0 use apps/v1beta1
+          kind: Deployment
+          metadata:
+            name: ecs-ack-test-service-a
+            labels:
+              app: ecs-ack-test-service-a
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: ecs-ack-test-service-a
+            template:
+              metadata:
+                labels:
+                  app: ecs-ack-test-service-a
+              spec:
+                initContainers:
+                  - name: download-jar
+                    image: dragonwell-registry.cn-hangzhou.cr.aliyuncs.com/dragonwell/dragonwell:8-alinux
+                    command:
+                      - "/bin/sh"
+                      - "-c"
+                      - "curl -o /app/app.jar https://help-static-aliyun-doc.aliyuncs.com/demos/MicroServiceOnAckDemoApp.jar && echo 'Download jar OK!'"
+                    volumeMounts:
+                      - name: app-jar
+                        mountPath: /app
+                containers:
+                  - args:
+                      - '-DbHost=http://ecs-ack-test-service-b:8080'
+                      - '-jar'
+                      - '/app/app.jar'
+                    command:
+                      - java
+                    name: ecs-ack-test-service-a
+                    image: dragonwell-registry.cn-hangzhou.cr.aliyuncs.com/dragonwell/dragonwell:8-alinux
+                    ports:
+                      - containerPort: 8080
+                    resources:
+                      limits:
+                        cpu: '2'
+                        ephemeral-storage: 40Gi
+                        memory: 2Gi
+                      requests:
+                        cpu: '1'
+                        ephemeral-storage: 20Gi
+                        memory: 1Gi
+                    volumeMounts:
+                      - name: app-jar
+                        mountPath: /app
+                volumes:
+                  - name: app-jar
+                    emptyDir: {}
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ecs-ack-test-service-a
+          spec:
+            selector:
+              app: ecs-ack-test-service-a
+            ports:
+              - protocol: TCP
+                port: 8080
+                targetPort: 8080
+          ---
+          apiVersion: apps/v1 # for versions before 1.8.0 use apps/v1beta1
+          kind: Deployment
+          metadata:
+            name: ecs-ack-test-service-b
+            labels:
+              app: ecs-ack-test-service-b
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: ecs-ack-test-service-b
+            template:
+              metadata:
+                labels:
+                  app: ecs-ack-test-service-b
+              spec:
+                initContainers:
+                  - name: download-jar
+                    image: dragonwell-registry.cn-hangzhou.cr.aliyuncs.com/dragonwell/dragonwell:8-alinux
+                    command:
+                      - "/bin/sh"
+                      - "-c"
+                      - "curl -o /app/app.jar https://help-static-aliyun-doc.aliyuncs.com/demos/MicroServiceOnAckDemoApp.jar && echo 'Download jar OK!'"
+                    volumeMounts:
+                      - name: app-jar
+                        mountPath: /app
+                containers:
+                  - args:
+                      - '-DbHost=http://ecs-ack-test-service-b:8080'
+                      - '-jar'
+                      - '/app/app.jar'
+                    command:
+                      - java
+                    name: ecs-ack-test-service-b
+                    image: dragonwell-registry.cn-hangzhou.cr.aliyuncs.com/dragonwell/dragonwell:8-alinux
+                    ports:
+                      - containerPort: 8080
+                    resources:
+                      limits:
+                        cpu: '2'
+                        ephemeral-storage: 40Gi
+                        memory: 2Gi
+                      requests:
+                        cpu: '1'
+                        ephemeral-storage: 20Gi
+                        memory: 1Gi
+                    volumeMounts:
+                      - name: app-jar
+                        mountPath: /app
+                volumes:
+                  - name: app-jar
+                    emptyDir: {}
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ecs-ack-test-service-b
+          spec:
+            selector:
+              app: ecs-ack-test-service-b
+            ports:
+              - protocol: TCP
+                port: 8080
+                targetPort: 8080
+  AlbConfig:
+    Type: 'ALIYUN::CS::ClusterApplication'
+    DependsOn: InstallBackendApp
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      YamlContent:
+        Fn::Sub: |-
+          apiVersion: alibabacloud.com/v1
+          kind: AlbConfig
+          metadata:
+            name: ecs-ack-test-alb-config
+          spec:
+            config:
+              name: ecs-ack-test-alb
+              addressType: Internet
+              zoneMappings:
+              - vSwitchId: ${VSwitch1}
+              - vSwitchId: ${VSwitch2}
+            listeners:
+              - port: 80
+                protocol: HTTP
+          ---
+          apiVersion: networking.k8s.io/v1
+          kind: IngressClass
+          metadata:
+            name: ecs-ack-test-alb
+          spec:
+            controller: ingress.k8s.alibabacloud/alb
+            parameters:
+              apiGroup: alibabacloud.com
+              kind: AlbConfig
+              name: ecs-ack-test-alb-config
+          ---
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: ecs-ack-test-alb-ingress
+          spec:
+            ingressClassName:  ecs-ack-test-alb 
+            rules:
+             - http:
+                paths:
+                - path: /a
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: ecs-ack-test-service-a
+                      port:
+                        number: 8080
+                - path: /b
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: ecs-ack-test-service-b
+                      port: 
+                        number: 8080
+  IngressInfo:
+    Type: 'DATASOURCE::CS::ClusterApplicationResources'
+    DependsOn: Ingress
+    Properties:
+      ClusterId:
+        Ref: AckCluster
+      Kind: Ingress
+      Namespace: default
+      JsonPath: $.items.[0].status.loadBalancer.ingress.[0].hostname
+      FirstMatch: true
+Outputs:
+  TeaUrl:
+    Description:
+      zh-cn: a服务访问地址。
+      en: The addresses of a service.
+    Value:
+      'Fn::Sub': http://${IngressInfo}/a
+  CoffeeUrl:
+    Description:
+      zh-cn: b服务访问地址。
+      en: The addresses of b service.
+    Value:
+      'Fn::Sub': http://${IngressInfo}/b
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - SlsProjectName
+          - ManagedKubernetesClusterName
+          - ZoneId1
+          - ZoneId2
+          - InstanceType
+          - InstancePassword
+    TemplateTags:
+      - acs:technical-solution:micro:如何快速使用ACK搭建微服务-tech_solu_124
+    Hidden:
+      - CommonName
