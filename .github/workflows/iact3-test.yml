@@ -11,19 +11,6 @@ jobs:
     if: github.actor == github.event.pull_request.user.login
 
     steps:
-    - name:  White list
-      id: white-list
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: | 
-        white_list=($(curl -sSL -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/${{ github.repository }}/collaborators" | jq -r '.[].login'))
-        echo $white_list
-        if [[ " ${white_list[@]} " =~ " ${{ github.actor }} " ]]; then
-          echo "type=test" >> $GITHUB_OUTPUT
-        else
-          echo "type=validate" >> $GITHUB_OUTPUT
-        fi
-
     - uses: actions/checkout@v3
       id: checkout
       with:
@@ -37,17 +24,6 @@ jobs:
         echo "changed_files=$(git --no-pager diff --name-only FETCH_HEAD $(git merge-base FETCH_HEAD master)  | xargs)" >> $GITHUB_OUTPUT
         echo $(git --no-pager diff --name-only FETCH_HEAD $(git merge-base FETCH_HEAD master)  | xargs)
 
-
-    - name: Test templates
-      uses: aliyun/alibabacloud-ros-tool-iact3@master
-      with:
-        templates: ${{ steps.changed-templates.outputs.changed_files }}
-        access_key_id: ${{ secrets.TEST_ACCOUNT_KEY }}
-        access_key_secret: ${{ secrets.TEST_ACCOUNT_SECRET }}
-        type: ${{ steps.white-list.outputs.type }}
-      id: test-templates
-      if: ${{ steps.white-list.outputs.type == 'test' }}
-
     - name: Validate templates
       uses: aliyun/alibabacloud-ros-tool-iact3@master
       with:
@@ -56,7 +32,7 @@ jobs:
         access_key_secret: ${{ secrets.VALIDATE_ACCOUNT_SECRET }}
         type: ${{ steps.white-list.outputs.type }}
       id: validate-templates
-      if: ${{ steps.white-list.outputs.type == 'validate' }}
+      if: always()
 
     - name: DingTalk Robot
       env:
@@ -64,16 +40,8 @@ jobs:
       if: always()
       continue-on-error: true
       run: |
-        if [[ "${{ steps.white-list.outputs.type  }}" != "test" ]]; then
-          if [[ "${{ steps.validate-templates.outputs.status }}" = "success" ]]; then
-            curl -H 'Content-Type: application/json;charset=utf-8' -d '{"msgtype": "text","text": {"content": "Iact3-validate CI pass. ${{ github.event.pull_request.user.login }} PR#${{ github.event.pull_request.number }}:${TITLE} ${{ github.event.pull_request.html_url }} "}}' ${{ secrets.DINGDING_WEBHOOK }}
-          else
-            curl -H 'Content-Type: application/json;charset=utf-8' -d '{"msgtype": "text","text": {"content": "Iact3-validate CI failed. ${{ github.event.pull_request.user.login }} PR#${{ github.event.pull_request.number }}:${TITLE} ${{ github.event.pull_request.html_url }} "}}' ${{ secrets.DINGDING_WEBHOOK }}
-          fi
+        if [[ "${{ steps.validate-templates.outputs.status }}" = "success" ]]; then
+          curl -H 'Content-Type: application/json;charset=utf-8' -d '{"msgtype": "text","text": {"content": "Iact3-validate CI pass. ${{ github.event.pull_request.user.login }} PR#${{ github.event.pull_request.number }}:${TITLE} ${{ github.event.pull_request.html_url }} "}}' ${{ secrets.DINGDING_WEBHOOK }}
         else
-          if [[ "${{ steps.test-templates.outputs.status }}" = "success" ]]; then
-            curl -H 'Content-Type: application/json;charset=utf-8' -d '{"msgtype": "text","text": {"content": "Iact3-test CI pass. ${{ github.event.pull_request.user.login }} PR#${{ github.event.pull_request.number }}:${TITLE} ${{ github.event.pull_request.html_url }} "}}' ${{ secrets.DINGDING_WEBHOOK }}
-          else
-            curl -H 'Content-Type: application/json;charset=utf-8' -d '{"msgtype": "text","text": {"content": "Iact3-test CI failed. ${{ github.event.pull_request.user.login }} PR#${{ github.event.pull_request.number }}:${TITLE} ${{ github.event.pull_request.html_url }} "}}' ${{ secrets.DINGDING_WEBHOOK }}
-          fi
+          curl -H 'Content-Type: application/json;charset=utf-8' -d '{"msgtype": "text","text": {"content": "Iact3-validate CI failed. ${{ github.event.pull_request.user.login }} PR#${{ github.event.pull_request.number }}:${TITLE} ${{ github.event.pull_request.html_url }} "}}' ${{ secrets.DINGDING_WEBHOOK }}
         fi
