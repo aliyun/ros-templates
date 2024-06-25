@@ -418,7 +418,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |------------------------------------------------------------------------------------------------------------------------------------------------------------------| --------------- |
 | [add-signatures-on-server-configure-upload-callback.yml](./documents/help/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | 在服务端通过Java代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。 |
 | [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/help/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | 基于POST Policy的使用规则在客户端通过JavaScript代码完成签名，然后通过表单直传数据到OSS。 |
-| [obtain-signature-information-from-the-server-and-upload-data-to-oss.yml](documents/help/oss/obtain-signature-information-from-the-server-and-upload-data-to-oss.yml) | 从服务器获取签名信息并上传数据到OSS。|
+| [upload-to-oss-with-server-signature.yml](documents/help/oss/upload-to-oss-with-server-signature.yml) | 从服务器获取签名信息并上传数据到OSS。|
 | [mobile-application-direct-transmission-service.yml](./documents/help/oss/mobile-application-direct-transmission-service.yml)                                       | 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。|
 | [cdn-speeds-up-oss-access.yml](./documents/help/oss/cdn-speeds-up-oss-access.yml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 |
 | [use-function-compute-to-download-multiple-objects-as-a-package.yml](./documents/help/oss/use-function-compute-to-download-multiple-objects-as-a-package.yml)       | 使用函数计算将对象存储OSS上多个文件（Object）打包下载到本地。 |
