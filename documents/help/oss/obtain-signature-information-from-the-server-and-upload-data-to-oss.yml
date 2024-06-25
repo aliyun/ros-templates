@@ -13,6 +13,13 @@ Parameters:
         is 3~63 characters. Must start and end with a lowercase English letter or
         number, and can contain lowercase English letters, numbers, and dashes (-).
       zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: testbucketname-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
     AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
   ZoneId:
     Type: String
@@ -52,7 +59,7 @@ Parameters:
         It must consist three of the the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
         Special characters include <span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>.<br>
       zh-cn: 长度为8-30位，需包含大写字母、小写字母、特殊符号和数字中的三个，允许的特殊字符包括<span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>。
-    Default: null
+    Default: Null
     AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
     MinLength: 8
     MaxLength: 30
@@ -83,12 +90,12 @@ Resources:
       DeletionForce: true
       CORSConfiguration:
         CORSRule:
-        - AllowedHeader:
-          - '*'
-          AllowedMethod:
-          - POST
-          AllowedOrigin:
-          - '*'
+          - AllowedHeader:
+              - '*'
+            AllowedMethod:
+              - POST
+            AllowedOrigin:
+              - '*'
   InstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
@@ -119,14 +126,14 @@ Resources:
     Properties:
       InstanceId:
         Fn::Select:
-        - 0
-        - Fn::GetAtt:
-          - InstanceGroup
-          - InstanceIds
+          - 0
+          - Fn::GetAtt:
+              - InstanceGroup
+              - InstanceIds
       AllocationId:
         Fn::GetAtt:
-        - Eip
-        - AllocationId
+          - Eip
+          - AllocationId
   SecurityGroupIngress_22:
     Type: ALIYUN::ECS::SecurityGroupIngress
     Properties:
@@ -136,7 +143,7 @@ Resources:
       IpProtocol: tcp
       NicType: intranet
       PortRange: 22/22
-  SecurityGroupIngress_80:
+  SecurityGroupIngress_3001:
     Type: ALIYUN::ECS::SecurityGroupIngress
     Properties:
       SecurityGroupId:
@@ -144,144 +151,90 @@ Resources:
       SourceCidrIp: 0.0.0.0/0
       IpProtocol: tcp
       NicType: intranet
-      PortRange: 80/80
-  SecurityGroupIngress_443:
-    Type: ALIYUN::ECS::SecurityGroupIngress
-    Properties:
-      SecurityGroupId:
-        Ref: SecurityGroup
-      SourceCidrIp: 0.0.0.0/0
-      IpProtocol: tcp
-      NicType: intranet
-      PortRange: 443/443
-  SecurityGroupIngress_8080:
-    Type: ALIYUN::ECS::SecurityGroupIngress
-    Properties:
-      SecurityGroupId:
-        Ref: SecurityGroup
-      SourceCidrIp: 0.0.0.0/0
-      IpProtocol: tcp
-      NicType: intranet
-      PortRange: 8080/8080
+      PortRange: 3001/3001
   ServerCommand:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
         Fn::GetAtt:
-        - InstanceGroup
-        - InstanceIds
+          - InstanceGroup
+          - InstanceIds
       Type: RunShellScript
       Sync: true
       Timeout: 3600
       CommandContent:
         Fn::Sub: |-
           #!/bin/bash
-          yum -y install unzip python3 nginx
-          wget -O aliyun-oss-appserver-python-master.zip 'https://docs-aliyun.cn-hangzhou.oss.aliyun-inc.com/assets/attach/97721/cn_zh/1545016122500/aliyun-oss-appserver-python-master.zip?file=aliyun-oss-appserver-python-master.zip'
-          unzip -o aliyun-oss-appserver-python-master.zip && mv aliyun-oss-appserver-python-preview_1.0.1-2f62c60e04b4ff204320adf47ded9d83fd79e826/* .
-          rm -rf aliyun-oss-appserver-python-preview_1.0.1-2f62c60e04b4ff204320adf47ded9d83fd79e826
-          sed -i 's/<yourAccessKeyId>/${AccessKey.AccessKeyId}/g' appserver.py
-          sed -i 's/<yourAccessKeySecret>/${AccessKey.AccessKeySecret}/g' appserver.py
-          sed -i 's/bucket-name.oss-cn-hangzhou.aliyuncs.com/${BucketName}.oss-${ALIYUN::Region}.aliyuncs.com/g' appserver.py
-          sed -i 's/expire_syncpoint = 1612345678/# expire_syncpoint = 1612345678/g' appserver.py
-          touch runserver.sh && cat > runserver.sh << EOF
-          pip3 uninstall crypto
-          pip3 uninstall pycrypto
-          pip3 install pycryptodome
-          nohup python3 appserver.py &
+          yum -y install unzip
+          
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+          source /root/.bashrc
+          nvm install 16
+          
+          wget -O server-signed-direct-upload.zip 'https://peiyu-demo-bucket.oss-cn-beijing.aliyuncs.com/server-signed-direct-upload.zip'
+          unzip -o server-signed-direct-upload.zip
+          rm -rf server-signed-direct-upload.zip
+          cat > /root/server-signed-direct-upload/node-html-post-object/server/config.js << EOF
+          module.exports = {
+            accessKeyId: "${AccessKey.AccessKeyId}",
+            accessKeySecret: "${AccessKey.AccessKeySecret}",
+            region: "oss-${ALIYUN::Region}",
+            bucket: "${Bucket.Name}",
+            roleArn: "${Role.Arn}",
+          };
           EOF
-          bash runserver.sh
-
-          mkdir -p /var/www/html && cd /var/www/html
-          wget -O aliyun-oss-appserver-js-master.zip 'https://docs-aliyun.cn-hangzhou.oss.aliyun-inc.com/assets/attach/86983/APP_zh/1537971352825/aliyun-oss-appserver-js-master.zip?file=aliyun-oss-appserver-js-master.zip'
-          unzip aliyun-oss-appserver-js-master.zip
-          cd aliyun-oss-appserver-js-master/
-          sed -i 's|88.88.88.88:8888|${Eip.EipAddress}:8080|g' upload.js
-          sed -i "s|'callback' : callbackbody|//'callback' : callbackbody|g" upload.js
-
-          touch /etc/nginx/conf.d/oss-client.conf
-          cat > /etc/nginx/conf.d/oss-client.conf << EOF
-          server {
-              listen 80 default_server;
-              server_name _;
-              location / {
-                  root /var/www/html/aliyun-oss-appserver-js-master;
-                  index index.html;
-              }
-          }
-          EOF
-          systemctl start nginx
+          sed -i 's/127.0.0.1/${Eip.EipAddress}/g' /root/server-signed-direct-upload/node-html-post-object/index.html
+          cd /root/server-signed-direct-upload/node-html-post-object/
+          source /root/.bashrc
+          nohup npm start > output.log 2>&1 &
     DependsOn:
-    - SecurityGroupIngress_22
-    - SecurityGroupIngress_443
-    - SecurityGroupIngress_80
-    - SecurityGroupIngress_8080
+      - SecurityGroupIngress_3001
+      - SecurityGroupIngress_22
+      - EipAssociation
   User:
     Type: ALIYUN::RAM::User
     Properties:
       UserName:
-        Fn::Sub: create_by_document-${ALIYUN::StackId}
+        Fn::Sub: user-create-by-${ALIYUN::StackId}
       PolicyAttachments:
         System:
-        - AliyunOSSFullAccess
+          - AliyunSTSAssumeRoleAccess
   AccessKey:
     Type: ALIYUN::RAM::AccessKey
     Properties:
       UserName:
         Ref: User
+  Role:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ram-oss-test-create-by-${ALIYUN::StackId}
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              RAM:
+                - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+        Version: '1'
+      Policies:
+        - PolicyName:
+            Fn::Sub: policy-create-by-${ALIYUN::StackId}
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - oss:PutObject
+                Resource:
+                  - Fn::Sub: acs:oss:*:*:${Bucket.Name}/*
 Outputs:
   OssClientAddress:
     Description:
       en: Client address, use this address to directly experience file upload.
       zh-cn: 客户端地址，使用此地址可直接体验文件上传。
     Value:
-      Fn::Sub: http://${Eip.EipAddress}
-  ApplicationServerAddress:
-    Description:
-      en: Application server address, configure this address in the local client source
-        code to experience file upload locally.
-      zh-cn: 应用服务端地址，在本地客户端源码中配置此地址可在本地体验文件上传。
-    Value:
-      Fn::Sub: ${Eip.EipAddress}:8080
-  EcsInstanceId:
-    Description:
-      en: Ecs instance id.
-      zh-cn: ECS实例id。
-    Value:
-      Fn::Select:
-      - 0
-      - Fn::GetAtt:
-        - InstanceGroup
-        - InstanceIds
-  EipAllocationId:
-    Description:
-      en: Eip allocation id.
-      zh-cn: EIP实例id。
-    Value:
-      Fn::GetAtt:
-      - Eip
-      - AllocationId
-  OssBucketName:
-    Description:
-      en: Oss bucket name.
-      zh-cn: 存储空间名称。
-    Value:
-      Ref: Bucket
-  EcsLoginAddress:
-    Description:
-      en: Ecs login address.
-      zh-cn: ECS登录地址。
-    Value:
-      Fn::Sub:
-      - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
-      - Region:
-          Ref: ALIYUN::Region
-        InstanceId:
-          Fn::Select:
-          - 0
-          - Fn::GetAtt:
-            - InstanceGroup
-            - InstanceIds
+      Fn::Sub: http://${Eip.EipAddress}:3001/index.html
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
