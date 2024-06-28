@@ -73,7 +73,7 @@ Resources:
       ZoneId:
         Ref: ZoneId1
       VSwitchName:
-        Fn::Sub: ${CommonName}-vsw
+        Fn::Sub: ${CommonName}-web-01
   VSwitch2:
     Type: 'ALIYUN::ECS::VSwitch'
     Properties:
@@ -83,7 +83,37 @@ Resources:
       ZoneId:
         Ref: ZoneId2
       VSwitchName:
-        Fn::Sub: ${CommonName}-vsw
+        Fn::Sub: ${CommonName}-web-02
+  VSwitch3:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.3.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: ${CommonName}-db-01
+  VSwitch4:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.4.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: ${CommonName}-pub-01
+  VSwitch5:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.5.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName:
+        Fn::Sub: ${CommonName}-pub-02
   SecurityGroup:
     Type: 'ALIYUN::ECS::SecurityGroup'
     Properties:
@@ -116,7 +146,7 @@ Resources:
       DBMinorVersion: '8.0.2'
       DBNodeClass: polar.mysql.sl.small
       VSwitchId:
-        Ref: VSwitch1
+        Ref: VSwitch3
       CreationCategory: Normal
       ScaleRoNumMin: 1
       ScaleRoNumMax: 4
@@ -200,7 +230,7 @@ Resources:
       SecurityGroupId:
         Ref: SecurityGroup
       VSwitchId:
-        Fn::Sub: '${VSwitch1},${VSwitch2}'
+        Fn::Sub: '${VSwitch4},${VSwitch5}'
       Replicas: 2
       NamespaceId:
         Ref: SaeNamespace
@@ -212,12 +242,23 @@ Resources:
       PackageUrl: https://help-static-aliyun-doc.aliyuncs.com/demos/sae-demo-0.0.1-SNAPSHOT.jar
       Timezone: Asia/Shanghai
       JarStartArgs: '$JAVA_HOME/bin/java $Options -jar $CATALINA_OPTS "$package_path" $args'
+      JarStartOptions: >-
+        -XX:+UseContainerSupport 
+        -XX:InitialRAMPercentage=70.0 
+        -XX:MaxRAMPercentage=70.0 
+        -XX:+PrintGCDetails 
+        -XX:+PrintGCDateStamps 
+        -Xloggc:/home/admin/nas/gc-${POD_IP}-$(date '+%s').log 
+        -XX:+HeapDumpOnOutOfMemoryError 
+        -XX:HeapDumpPath=/home/admin/nas/dump-${POD_IP}-$(date '+%s').hprof
       Envs:
         Fn::Sub: >-
           [{"name":"APPLETS_RDS_ENDPOINT","value":"${PolarDBCluster.PrimaryConnectionString}"},
           {"name":"APPLETS_RDS_USER","value":"${PolarDBAccount}"},
           {"name":"APPLETS_RDS_PASSWORD","value":"${DBPassword}"},
           {"name":"APPLETS_RDS_DB_NAME","value":"applets"}]
+      Readiness: '{"exec":{"command":["sleep","6s"]},"initialDelaySeconds":15,"timeoutSeconds":12}'
+      Liveness: '{"httpGet":{"path":"/","port":80,"scheme":"HTTP"},"initialDelaySeconds":10,"timeoutSeconds":10,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}'
   WaitApp:
     Type: 'ALIYUN::ROS::Sleep'
     DependsOn: SaeApp
