@@ -1,0 +1,113 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Cloud Message Queue RabbitMQ version Serverless series advantages and practices.
+  zh-cn: 云消息队列 RabbitMQ 版 Serverless 系列优势和实践。
+Parameters:
+  CommonName:
+    Type: String
+    Default: yunQi
+    Label:
+      en: CommonName
+      zh-cn: 名称前缀
+    Description:
+      en: The prefix of the name of the resource to be created.
+      zh-cn: 创建的资源的名称前缀，RabbitMQ 的实例、Vhost、Exchange、Queue、Binding等资源的名称前缀。
+    ReadOnly: true
+  PayType:
+    Type: String
+    Default: Serverless
+    Label:
+      en: RabbitMQ Instance PayType
+      zh-cn: RabbitMQ实例付费类型
+    Description:
+      en: The billing method of the RabbitMQ instance.
+      zh-cn: RabbitMQ 实例的计费方式。
+    ReadOnly: true
+Resources:
+  RabbitMQInstance:
+    Type: 'ALIYUN::AMQP::Instance'
+    Properties:
+      PayType: PayAsYouGo
+      SupportEip: true
+      SupportTracing: true
+      InstanceName:
+        Fn::Sub: ${CommonName}-instance
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: ${CommonName}-${ALIYUN::StackId}
+      PolicyAttachments:
+        System:
+          - AliyunAMQPFullAccess
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Ref: User
+  Vhost:
+    Type: 'ALIYUN::AMQP::VirtualHost'
+    Properties:
+      InstanceId:
+        Ref: RabbitMQInstance
+      VirtualHost:
+        Fn::Sub: ${CommonName}-vhost
+  Exchange:
+    Type: 'ALIYUN::AMQP::Exchange'
+    Properties:
+      InstanceId:
+        Ref: RabbitMQInstance
+      ExchangeName:
+        Fn::Sub: ${CommonName}-exchange
+      AutoDeleteState: true
+      ExchangeType: DIRECT
+      Internal: false
+      VirtualHost:
+        Ref: Vhost
+  Queue:
+    Type: 'ALIYUN::AMQP::Queue'
+    Properties:
+      InstanceId:
+        Ref: RabbitMQInstance
+      QueueName:
+        Fn::Sub: ${CommonName}-queue
+      VirtualHost:
+        Ref: Vhost
+      AutoDeleteState: true
+  Binding:
+    Type: 'ALIYUN::AMQP::Binding'
+    Properties:
+      InstanceId:
+        Ref: RabbitMQInstance
+      BindingKey:
+        Fn::Sub: ${CommonName}-routing-key
+      Argument: 'x-match:all'
+      BindingType: '0'
+      DestinationName:
+        Ref: Queue
+      SourceExchange:
+        Ref: Exchange
+      VirtualHost:
+        Ref: Vhost
+Outputs:
+  AccessKeyId:
+    Description:
+      zh-cn: AccessKey ID。
+      en: AccessKey ID.
+    Value:
+      Fn::Sub: ${AccessKey.AccessKeyId}
+  AccessKeySecret:
+    Description:
+      zh-cn: AccessKey Secret。
+      en: AccessKey Secret.
+    Value:
+      Fn::Sub: ${AccessKey.AccessKeySecret}
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - CommonName
+          - PayType
+    TemplateTags:
+      - acs:technical-solution:cloud-migration:云消息队列RabbitMQ版Serverless系列优势和实践-tech_solu_122
+
