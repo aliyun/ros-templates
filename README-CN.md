@@ -527,6 +527,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | 模板                                                                                                                                   | 说明                     |
 |--------------------------------------------------------------------------------------------------------------------------------------|------------------------|
 | [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml) | 在ECS实例（CentOS 7）上搭建WordPress。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
+| [migrate-prometheus-to-cloud.yml](documents/solution/cloud-migration/migrate-prometheus-to-cloud.yml) | 自建Prometheus迁移云上Prometheus托管服务 ｜ |
 
 
 - high-availability-architecture

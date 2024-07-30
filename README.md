@@ -531,6 +531,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | 模板                                                                                                                                   | 说明                     |
 |--------------------------------------------------------------------------------------------------------------------------------------|------------------------|
 | [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml) | Manually build a WordPress website on a CentOS 7 ECS instance.  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
+| [migrate-prometheus-to-cloud.yml](documents/solution/cloud-migration/migrate-prometheus-to-cloud.yml) | Migrate self-built Prometheus to cloud-managed Prometheus service. ｜ |
 
 
 - high-availability-architecture
