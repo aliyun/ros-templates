@@ -1,8 +1,8 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Deploy Docker on the Alibaba Cloud ECS based on the CentOS 7.9 operating system
+  en: Deploy Docker on the Alibaba Cloud ECS
     and make a Docker image.
-  zh-cn: 在阿里云云服务器ECS上基于CentOS 7.9操作系统部署Docker，并制作Docker镜像。
+  zh-cn: 在阿里云云服务器ECS上Docker，并制作Docker镜像。
 Parameters:
   InstanceId:
     Type: String
@@ -13,6 +13,8 @@ Parameters:
       en: Please select a test ECS instance whose operating system is CentOS 7.9.
       zh-cn: 请选择操作系统为CentOS 7.9的测试ECS实例。
     AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Status: Running
 Resources:
   DS_Instances:
     Type: DATASOURCE::ECS::Instances
@@ -61,30 +63,35 @@ Resources:
       IpProtocol: tcp
       NicType: intranet
       PortRange: 8080/8080
-  InstallDocker:
+  InstallNginx:
     Type: ALIYUN::ECS::RunCommand
+    DependsOn: ModuleInstallDocker
     Properties:
       InstanceIds:
-      - Ref: InstanceId
+        - Ref: InstanceId
       Type: RunShellScript
       Sync: true
       Timeout: 3600
       CommandContent:
         Fn::Sub: |-
           #!/bin/bash
-          wget -O /etc/yum.repos.d/docker-ce.repo https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
-          yum -y install docker-ce
-          systemctl start docker
-          systemctl enable docker
-          docker pull nginx:1.23.4
+          docker pull registry-vpc.${ALIYUN::Region}.aliyuncs.com/eci_open/nginx:1.15.10
+          docker tag registry.${ALIYUN::Region}.aliyuncs.com/eci_open/nginx:1.15.10 nginx:1.15.10
           touch Dockerfile
           cat > Dockerfile  << EOF
-          FROM nginx:1.23.4
+          FROM nginx:1.15.10
           RUN echo '<h1>Welcome, Docker!</h1>' > /usr/share/nginx/html/index.html
           EOF
           docker build -t image001:v1 .
           docker rm -f nginx-test
           docker run --name nginx-test -p 8080:80 -d image001:v1
+  ModuleInstallDocker:
+    Version: default
+    Type: 'MODULE::ACS::OOS::Extension'
+    Properties:
+      EcsInstanceIds:
+        - Ref: InstanceId
+      PackageName: ACS-Extension-DockerCE-1853370294850618
     DependsOn:
     - SecurityGroupIngress_22
     - SecurityGroupIngress_80
