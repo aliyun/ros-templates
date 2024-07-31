@@ -1,9 +1,21 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
   zh-cn: 使用CDN添加域名并解析域名，实现加速OSS的访问。
-  en: Use CDN to add domain names and resolve domain names to accelerate access to
-    OSS.
+  en: Use CDN to add domain names and resolve domain names to accelerate access to OSS.
 Parameters:
+  Scope:
+    Type: String
+    Label:
+      zh-cn: 加速区域
+      en: Region
+    Description:
+      zh-cn: 加速区域含中国内地时（domestic或global），加速域名必须备案，且账号必须实名认证。
+      en: When the acceleration region includes mainland China（domestic or global）, the accelerated domain must be registered (ICP license), and the account must be verified (real-name authentication).
+    Default: domestic
+    AllowedValues:
+      - domestic
+      - overseas
+      - global
   DomainName:
     Type: String
     Label:
@@ -11,8 +23,7 @@ Parameters:
       en: Accelerated domain name
     Description:
       zh-cn: 加速域名是指接入CDN，用于加速源站的域名。该示例为oss.example.com。
-      en: Accelerated domain name refers to the domain name of the access CDN used
-        to accelerate the source site. The example is oss.example.com.
+      en: Accelerated domain name refers to the domain name of the access CDN used to accelerate the source site. The example is oss.example.com.
     Default: oss.example.com
   OssDomain:
     Type: String
@@ -20,22 +31,24 @@ Parameters:
       zh-cn: 源站信息
       en: Source station information
     Description:
-      zh-cn: 需要加速的OSS域名（即之前创建的OSS Bucket对应的域名）。
-      en: The OSS domain name that needs to be accelerated (the domain name corresponding
-        to the previously created OSS Bucket).
+      zh-cn: 需要加速的OSS Bucket域名（结构为BucketName.Endpoint）。
+      en: The OSS Bucket domain name that needs acceleration (structured as BucketName.Endpoint).
+    Default: examplebucket.oss-cn-hangzhou.aliyuncs.com
 Resources:
   OpenCdnService:
     Type: ALIYUN::ROS::AutoEnableService
     Properties:
-      ServiceName: DCDN
+      ServiceName: CDN
   Domain:
     Type: ALIYUN::CDN::Domain
     Properties:
       Sources:
         Fn::Sub:
-        - '[{"content":"${content}", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
-        - content:
-            Ref: OssDomain
+          - '[{"content":"${content}", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
+          - content:
+              Ref: OssDomain
+      Scope:
+        Ref: Scope
       CdnType: web
       DomainName:
         Ref: DomainName
@@ -44,25 +57,42 @@ Resources:
     Type: ALIYUN::DNS::DomainRecord
     Properties:
       Type: CNAME
-      RR: oss
+      RR:
+        Fn::Select:
+          - '0'
+          - Fn::Split:
+              - .
+              - Ref: DomainName
       Value:
         Fn::GetAtt:
-        - Domain
-        - Cname
+          - Domain
+          - Cname
       DomainName:
-        Ref: DomainName
+        Fn::Join:
+          - .
+          - - Fn::Select:
+                - '1'
+                - Fn::Split:
+                    - .
+                    - Ref: DomainName
+            - Fn::Select:
+                - '2'
+                - Fn::Split:
+                    - .
+                    - Ref: DomainName
+    DependsOn: Domain
 Outputs:
   Cname:
     Description: CNAME
     Value:
       Fn::GetAtt:
-      - Domain
-      - Cname
+        - Domain
+        - Cname
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-    - Parameters:
-      - DomainName
-      - OssDomain
+      - Parameters:
+          - DomainName
+          - OssDomain
     TemplateTags:
-    - acs:document-help:oss:使用CDN加速OSS访问
+      - acs:document-help:oss:使用CDN加速OSS访问
