@@ -458,6 +458,9 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)  | Use the cloud-native AI suite to submit model fine-tuning training tasks and deploy GPU shared inference services.     |
 | [exclusive-qa-service.yml](documents/solution/ai/exclusive-qa-service.yml)     | DashVector and Tongyi QianWen build exclusive Q&A service.     |
 | [discover-and-reach-high-value-users.yml](documents/solution/ai/discover-and-reach-high-value-users.yml)     | Discover and reach high value users.  |
+| [ComfyUI-by-fc.yml](documents/solution/ai/ComfyUI-by-fc.yml)     | Deploy ComfyUI through Function Computing to implement an AIGC image generation system.  |
+| [drawing_with_tongyi_wanxiang.yml](documents/solution/ai/drawing_with_tongyi_wanxiang.yml)     | Tongyi Wanxiang’s journey of text drawing and portrait beautification. |
+| [drawing_with_tongyi_wanxiang_new.yml](documents/solution/ai/drawing_with_tongyi_wanxiang_new.yml)     | Tongyi Wanxiang’s journey of text drawing and portrait beautification. |
 
 
 
@@ -470,6 +473,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | Use the Centos7 system to create an ECS instance and install and deploy the Gamer Points Leaderboard application. |
 | [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml)                     | User operation analysis practice based on AnalyticDB MySQL Lakehouse Edition.                                     |
 | [cloud-native-enterprise-data-lake.yml](./documents/solution/data-analysis/cloud-native-enterprise-data-lake.yml)     | Cloud-native enterprise data lake.                                                                                |
+| [OLAP-analysis-based-on-Hologres.yml](./documents/solution/data-analysis/OLAP-analysis-based-on-Hologres.yml)     | Lightweight and high-performance OLAP analysis based on Hologres.                                                                                |
 
 - database
 
@@ -482,6 +486,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml)                                  | Build a one-stop HTAP service based on RDS and ClickHouse. |
 | [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml)          | Data transmission from ECS self-built database to RDS database. |
 | [migrate-database-to-cloud.yml](documents/solution/database/migrate-database-to-cloud.yml)             | Migrate self-built database to cloud database. |
+| [rag-application.yml](documents/solution/database/rag-application.yml)             | Quickly build RAG applications using AnalyticDB and Streamlit. |
 
 - iot
 
@@ -495,6 +500,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | Template                                                                                                                 | Description       |
 |------------------------------------------------------------------------------------------------------------------------|-----------------|
 | [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-realizes-full-link-grayscale.yml) | MSE end-to-end canary release for ACK application. |
+| [build-microservices-on-ack.yml](./documents/solution/micro/build-microservices-on-ack.yml) | Quickly use ACK to build microservices. |
+| [elastic-scaling-container-through-hpa.yml](./documents/solution/micro/elastic-scaling-container-through-hpa.yml) | Implementing horizontal elastic scaling of container applications through HPA. |
 
 - network
 
@@ -505,6 +512,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                             | Internet application is accelerating globally.                           |
 | [enterprise-cloud-network-architecture-planning.yml](./documents/solution/network/enterprise-cloud-network-architecture-planning.yml) | Enterprise cloud network architecture planning.                          |
 | [two-region-three-center-high-availability.yml](./documents/solution/network/two-region-three-center-high-availability.yml)           | Two regions and three centers high availability.                         |
+| [unified-internet-egress-with-nat-gateway.yml](./documents/solution/network/unified-internet-egress-with-nat-gateway.yml)           | Uniformly manage public IP addresses of ECS instances in a VPC.                        |
 
 - storage
 
@@ -514,6 +522,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)         | Collect logs of OSS across accounts with log audit service. |
 | [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml)         | Cloud-native observable operation and maintenance. |
 | [snapshot-optimize.yml](documents/solution/storage/snapshot-optimize.yml)         | Deploy high-performance MySQL services based on EBS ESSD. |
+| [collect-application-log.yml](documents/solution/storage/collect-application-log.yml)         | Application business log monitoring and alarming. |
 
 
 - cdn-and-video-cloud
@@ -528,9 +537,12 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - cloud-migration
 
-| 模板                                                                                                                                   | 说明                     |
-|--------------------------------------------------------------------------------------------------------------------------------------|------------------------|
-| [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml) | Manually build a WordPress website on a CentOS 7 ECS instance.  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
+| 模板                                                                                                                                   | 说明                                                                                                                                        |
+|--------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml) | Manually build a WordPress website on a CentOS 7 ECS instance.  ｜ [Solution](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
+| [migrate-kafka-to-cloud.yml](documents/solution/cloud-migration/migrate-kafka-to-cloud.yml) | Migrate Kafka to Cloud.                                                                                                                   |
+| [migrate-rabbitmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rabbitmq-to-cloud.yml) | Migrate RabbitMq to Cloud.                                                                                                                |
+| [migrate-rocketmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rocketmq-to-cloud.yml) | Migrate RocketMQ to Cloud.                                                                                                                |
 
 
 - high-availability-architecture
@@ -539,8 +551,11 @@ Examples and best practices of ROS templates. The templates are categorized as f
 |----------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------|
 | [alb-cross-region-load-balance.yml](documents/solution/high-availability-architecture/alb-cross-region-load-balance.yml)                     | Cross-regional load balancing based on ALB.                        |
 | [elastic-highly-available-service.yml](documents/solution/high-availability-architecture/elastic-highly-available-service.yml)               | Build elastic and highly available services based on CLB and ESS.  |
-| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/classic-architecture-on-the-cloud.yml) | Highly available blog site on the cloud.                           |
 | [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | Highly available web services.                                     |
+| [basic-highly-available-architecture.yml](documents/solution/high-availability-architecture/basic-highly-available-architecture.yml)                     | High-availability architecture on the cloud-Basic version.                                    |
+| [classic-architecture-on-the-cloud.yml](documents/solution/high-availability-architecture/classic-architecture-on-the-cloud.yml)                     | Classic architecture on the cloud.                                  |
+| [elastic-application-with-ess.yml](documents/solution/high-availability-architecture/elastic-application-with-ess.yml)                     | Improve application availability through ALB+ESS.                              |
+| [serverless-high-availability-architecture.yml](documents/solution/high-availability-architecture/serverless-high-availability-architecture.yml)                     | Serverless high availability architecture.                              |
 
 
 - ops-on-cloud
@@ -563,10 +578,19 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - internet-application-development
 
-| Template                                                                                                                           | Description                    |
-|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
-| [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml) | Nginx access log data archive. |
-| [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | Storage and Media Processing Solution for Video Website. |
+| Template                                                                                                                                                                                                                                                                                                             | Description                                                         |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml)                                                                                                                                                                                           | Nginx access log data archive.                                      |
+| [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml)                                                                                                                                                                                                         | Storage and Media Processing Solution for Video Website.            |
+| [log-security-audit-and-compliance-assessment.yaml](documents/solution/internet-application-development/log-security-audit-and-compliance-assessment.yaml)| Log security audit and compliance assessment.                       |
+| [distributed-task-scheduling.yaml](documents/solution/internet-application-development/distributed-task-scheduling.yaml)                                                                   | Distributed task scheduling through SchedulerX.                     |
+| [efficiently-build-app-on-the-cloud.yaml](documents/solution/internet-application-development/efficiently-build-app-on-the-cloud.yaml)                                       | Efficiently build APP on the cloud.                                 |
+| [file-processing-on-fc.yaml](documents/solution/internet-application-development/file-processing-on-fc.yaml)                                                                                            | Using function computing to implement file processing on websites.  |
+| [process-data-with-lindorm.yaml](documents/solution/internet-application-development/process-data-with-lindorm.yaml)                                                                            | Lindorm one-stop processing of pan-time series data. |
+| [rapidly-deployment-applets.yaml](documents/solution/internet-application-development/rapidly-deployment-applets.yaml)                                                                       | Rapidly develop multi-platform applets. |
+| [rapidly-enterprise-portal.yaml](documents/solution/internet-application-development/rapidly-enterprise-portal.yaml)                                                                   | Rapidly set up a enterprise portal. |
+| [serverless-rabbitmq.yaml](documents/solution/internet-application-development/serverless-rabbitmq.yaml)                                                                                                    | Cloud Message Queue RabbitMQ version Serverless series advantages and practices. |
+| [websites-from-HTTP-to-HTTPS.yaml](documents/solution/internet-application-development/websites-from-HTTP-to-HTTPS.yaml)                                                                    | Making websites more secure from HTTP to HTTPS. |
 
 
 - security-and-compliance
