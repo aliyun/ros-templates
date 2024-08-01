@@ -456,6 +456,10 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)      | 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/one_gpu) |
 | [exclusive-qa-service.yml](documents/solution/ai/exclusive-qa-service.yml)     | 向量检索与通义千问搭建专属问答服务。  |
 | [discover-and-reach-high-value-users.yml](documents/solution/ai/discover-and-reach-high-value-users.yml)     | 高价值用户挖掘及触达  |
+| [ComfyUI-by-fc.yml](documents/solution/ai/ComfyUI-by-fc.yml)     | 通过函数计算部署ComfyUI以实现一个AIGC图像生成系统。  |
+| [drawing_with_tongyi_wanxiang.yml](documents/solution/ai/drawing_with_tongyi_wanxiang.yml)     | 通义万相的文本绘图与人像美化之旅。 |
+| [drawing_with_tongyi_wanxiang_new.yml](documents/solution/ai/drawing_with_tongyi_wanxiang_new.yml)     | 通义万相的文本绘图与人像美化之旅。 |
+
 
 - data-analysis
 
@@ -466,6 +470,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [leaderboard-gamer-points-app-deploy.yml](./documents/solution/data-analysis/leaderboard-gamer-points-app-deploy.yml) | 使用Centos7系统创建ECS实例安装部署游戏玩家积分排行榜应用。 |
 | [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml)                     | 基于AnalyticDB MySQL湖仓版的用户运营分析实践。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/adbmysql_uoap)   |
 | [cloud-native-enterprise-data-lake.yml](./documents/solution/data-analysis/cloud-native-enterprise-data-lake.yml)     | 云原生企业级数据湖。   ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/datalake)      |
+| [OLAP-analysis-based-on-Hologres.yml](./documents/solution/data-analysis/OLAP-analysis-based-on-Hologres.yml)     | 基于Hologres轻量高性能OLAP分析。                                                                               |
 
 - database
 
@@ -478,6 +483,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml) | RDS+ClickHouse构建一站式HTAP。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/rdsclickhouse_htap)                            |
 | [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml) | 网站数据库平滑迁移上云。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/smowdttc)                                              |
 | [migrate-database-to-cloud.yml](documents/solution/database/migrate-database-to-cloud.yml)             | 自建数据库迁移到云数据库。                                                                                                              |
+| [rag-application.yml](documents/solution/database/rag-application.yml)             | AnalyticDB和通义千问构建RAG应用。 |
 
 - iot
 
@@ -491,6 +497,8 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | 模板                                                                                                                 | 说明       |
 |--------------------------------------------------------------------------------------------------------------------------|-------------------|
 | [mse-end-to-end-canary-release-for-ack-application.yml](./documents/solution/micro/mse-realizes-full-link-grayscale.yml) | 基于MSE实现ACK应用的全链路灰度。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/iflgbomse) |
+| [build-microservices-on-ack.yml](./documents/solution/micro/build-microservices-on-ack.yml) | 快速使用ACK搭建微服务。 |
+| [elastic-scaling-container-through-hpa.yml](./documents/solution/micro/elastic-scaling-container-through-hpa.yml) | 通过HPA实现容器应用的水平弹性伸缩。 |
 
 - network
 
@@ -501,6 +509,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [ga-nlb-global-accelerate.yml](./documents/solution/network/ga-nlb-global-accelerate.yml)                                             | 互联网应用全球加速。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/gaoia) |
 | [enterprise-cloud-network-architecture-planning.yml](./documents/solution/network/enterprise-cloud-network-architecture-planning.yml) | 企业云上网络架构规划。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ecnap) |
 | [two-region-three-center-high-availability.yml](./documents/solution/network/two-region-three-center-high-availability.yml)           | 两地三中心异地多活。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/tltcamanidl)   |
+| [unified-internet-egress-with-nat-gateway.yml](./documents/solution/network/unified-internet-egress-with-nat-gateway.yml)           | 通过公网NAT网关实现云上统一公网出口。                       |
 
 - storage
 
@@ -510,6 +519,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [collect-cross-account-logs-by-auditing.yml](documents/solution/storage/collect-cross-account-logs-by-auditing.yml)       | 通过日志审计服务跨账号采集OSS日志。                                                        |
 | [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml)       | 云原生可观测运维。                                                                  |
 | [snapshot-optimize.yml](documents/solution/storage/snapshot-optimize.yml)         | 基于EBS部署高性能的MySQL服务。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ebs_mysql)                                                        |
+| [collect-application-log.yml](documents/solution/storage/collect-application-log.yml)         | 应用业务日志监控与告警。 |
 
 
 - cdn-and-video-cloud
@@ -527,6 +537,9 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | 模板                                                                                                                                   | 说明                     |
 |--------------------------------------------------------------------------------------------------------------------------------------|------------------------|
 | [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml) | 在ECS实例（CentOS 7）上搭建WordPress。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
+| [migrate-kafka-to-cloud.yml](documents/solution/cloud-migration/migrate-kafka-to-cloud.yml) | 自建Kafka迁移至云消息队列Kafka版。   |
+| [migrate-rabbitmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rabbitmq-to-cloud.yml) | 自建RabbitMQ迁移至云消息队列RabbitMQ版。   |
+| [migrate-rocketmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rocketmq-to-cloud.yml) | 自建RocketMQ集群迁移至云消息队列RocketMQ版。   |
 
 
 - high-availability-architecture
@@ -535,8 +548,11 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |----------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | [alb-cross-region-load-balance.yml](documents/solution/high-availability-architecture/alb-cross-region-load-balance.yml)           | ALB实现跨地域负载均衡。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/alb_acrlb) |
 | [elastic-highly-available-service.yml](documents/solution/high-availability-architecture/elastic-highly-available-service.yml) | 基于CLB、ESS构建弹性高可用服务。     |
-| [highly-available-blog-site-on-the-cloud.yml](documents/solution/high-availability-architecture/classic-architecture-on-the-cloud.yml) | 云上高可用博客网站。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/habwoc)    |
 | [highly-available-web-services.yml](documents/solution/high-availability-architecture/highly-available-web-services.yml)                     | 高可用及共享存储Web服务。    [解决方案](https://www.aliyun.com/solution/tech-solution/ha_web) |
+| [basic-highly-available-architecture.yml](documents/solution/high-availability-architecture/basic-highly-available-architecture.yml)                     | 云上高可用架构-基础版。                                  |
+| [classic-architecture-on-the-cloud.yml](documents/solution/high-availability-architecture/classic-architecture-on-the-cloud.yml)                     | 云上经典架构。                                |
+| [elastic-application-with-ess.yml](documents/solution/high-availability-architecture/elastic-application-with-ess.yml)                     | 通过ALB+ESS提升应用的可用性。                             |
+| [serverless-high-availability-architecture.yml](documents/solution/high-availability-architecture/serverless-high-availability-architecture.yml)                     | Serverless高可用架构。                           |
 
 
 - ops-on-cloud
@@ -557,10 +573,19 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - internet-application-development
 
-| 模板                                                                                                                                   | 说明                                                                        |
-|--------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml)           | Nginx访问日志数据归档。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/oss_nginx)|
-| [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml) | 视频网站的存储与媒体处理方案。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/vsaps) |
+| 模板                                                                                                                                                                                                                                                                 | 说明                                                                       |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| [Nginx-access-log-data-archive.yml](documents/solution/internet-application-development/Nginx-access-log-data-archive.yml)                                                                                                                                         | Nginx访问日志数据归档。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/oss_nginx)|
+| [video-website-solution.yml](documents/solution/internet-application-development/video-website-solution.yml)                                                                                                                                                       | 视频网站的存储与媒体处理方案。 ｜ [解决方案](https://aliyun.com/solution/tech-solution/vsaps) |
+| [log-security-audit-and-compliance-assessment.yaml](documents/solution/internet-application-development/log-security-audit-and-compliance-assessment.yaml)](documents/solution/internet-application-development/log-security-audit-and-compliance-assessment.yaml) | 日志安全审计与合规性评估。   |
+| [distributed-task-scheduling.yaml](documents/solution/internet-application-development/distributed-task-scheduling.yaml)                                                                   | 通过SchedulerX实现分布式任务调度。               |
+| [efficiently-build-app-on-the-cloud.yaml](documents/solution/internet-application-development/efficiently-build-app-on-the-cloud.yaml)                                       | 移动开发秘籍：云上高效构建APP。                               |
+| [file-processing-on-fc.yaml](documents/solution/internet-application-development/file-processing-on-fc.yaml)                                                                                            | 使用函数计算实现网站的文件处理。 |
+| [process-data-with-lindorm.yaml](documents/solution/internet-application-development/process-data-with-lindorm.yaml)                                                                            | Lindorm泛时序数据一站式处理。 |
+| [rapidly-deployment-applets.yaml](documents/solution/internet-application-development/rapidly-deployment-applets.yaml)                                                                       | 快速开发多平台小程序。 |
+| [rapidly-enterprise-portal.yaml](documents/solution/internet-application-development/rapidly-enterprise-portal.yaml)                                                                   | 快速搭建企业门户网站。 |
+| [serverless-rabbitmq.yaml](documents/solution/internet-application-development/serverless-rabbitmq.yaml)                                                                                                    | 云消息队列 RabbitMQ 版 Serverless 系列优势和实践。 |
+| [websites-from-HTTP-to-HTTPS.yaml](documents/solution/internet-application-development/websites-from-HTTP-to-HTTPS.yaml)                                                                    | 从 HTTP 到 HTTPS 让网站更安全。 |
 
 
 - security-and-compliance
