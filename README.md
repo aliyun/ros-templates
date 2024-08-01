@@ -537,9 +537,10 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - cloud-migration
 
-| 模板                                                                                                                                   | 说明                                                                                                                                        |
-|--------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml) | Manually build a WordPress website on a CentOS 7 ECS instance.  ｜ [Solution](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
+| 模板                                                                                                                                   | 说明                     |
+|--------------------------------------------------------------------------------------------------------------------------------------|------------------------|
+| [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml) | Manually build a WordPress website on a CentOS 7 ECS instance.  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
+| [migrate-prometheus-to-cloud.yml](documents/solution/cloud-migration/migrate-prometheus-to-cloud.yml) | Migrate self-built Prometheus to cloud-managed Prometheus service. ｜ 
 | [migrate-kafka-to-cloud.yml](documents/solution/cloud-migration/migrate-kafka-to-cloud.yml) | Migrate Kafka to Cloud.                                                                                                                   |
 | [migrate-rabbitmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rabbitmq-to-cloud.yml) | Migrate RabbitMq to Cloud.                                                                                                                |
 | [migrate-rocketmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rocketmq-to-cloud.yml) | Migrate RocketMQ to Cloud.                                                                                                                |
