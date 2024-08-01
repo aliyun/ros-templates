@@ -1,0 +1,423 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Speeding up applications based on caching.
+  zh-cn: 基于缓存实现应用提速。
+Parameters:
+  CommonName:
+    Type: String
+    Default: cache
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 本方案会创建一个抢占式实例。
+      en: >-
+        This solution will create a spot instance.
+    Default: ecs.c7.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+  DBUserName:
+    Type: String
+    ConstraintDescription:
+      en: >- 
+        Consist of 2 to 32 characters of lowercase letters, underline. 
+        Must begin with a letter and be end with an alphanumeric character
+      zh-cn: >-
+          由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头。
+    Label:
+      zh-cn: RDS数据库账号
+      en: RDS DB Username
+    Default: rds
+    AllowedPattern: '^[a-z][a-z0-9_]{0,31}$'
+    ReadOnly: true
+  DBPassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        RDS user password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        数据库账号密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: RDS Instance Password
+      zh-cn: RDS数据库密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-='
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: RDS Instance Class
+      zh-cn: RDS实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId:
+        Ref: ZoneId
+      EngineVersion: '8.0'
+      DBInstanceStorageType: cloud_essd
+      Engine: MySQL
+      Category: Basic
+    Default: mysql.n1e.medium.1
+  RedisAccountName:
+    Type: String
+    ConstraintDescription:
+      en: >-
+        Consist of 2 to 32 characters of lowercase letters, underline. 
+        Must begin with a letter and be end with an alphanumeric character
+      zh-cn: >-
+        由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头。
+    Label:
+      zh-cn: Redis数据库账号
+      en: Redis DB Username
+    Default: redis
+    ReadOnly: true
+    AllowedPattern: '^[a-z][a-z0-9_]{0,31}$'
+  RedisAccountPassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        RDS user password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        数据库账号密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Redis Instance Password
+      zh-cn: Redis 数据库密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-='
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+  RedisClass:
+    Type: String
+    Label:
+      en: Redis Specifications
+      zh-cn: Redis 规格
+    Description:
+      en: >-
+        'Fill in instance specifications based on redis type and availability
+        zone support;<br>see detail: <a href=''https://help.aliyun.com/zh/redis/product
+        -overview/instance-types-of-cloud-native-community-edition-instances''
+        target=''_blank''><b><font color=''blue''>Specification inquiry</font></b></a>'
+      zh-cn: >-
+        根据redis类型和可用区支持的情况填写实例规格；<br>请参见详细信息：
+        <a href='https://help.aliyun.com/zh/redis/product-overview/
+        instance-types-of-cloud-native-community-edition-instances'
+        target='_blank'><b><font color='blue'>规格查询</font></b></a>
+    Default: redis.shard.small.2.ce
+    AssociationProperty: 'ALIYUN::REDIS::Instance::InstanceClass'
+    AssociationPropertyMetadata:
+      Engine: Redis
+      ProductType: OnECS
+      InstanceChargeType: PostPaid
+      ZoneId: ${ZoneId}
+      OrderType: BUY
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 443/443
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 3306/3306
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      Password:
+        Ref: InstancePassword
+  InstallWeb:
+    Type: 'ALIYUN::ECS::RunCommand'
+    DependsOn:
+      - RedisAccount
+      - RdsDatabase
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          
+          # 环境变量配置
+          export PATH=/usr/local/bin:$PATH
+          
+          function log_info() {
+              printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_error() {
+              printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_fatal() {
+              printf "\n========================================================================\n"
+              printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
+              printf "\n========================================================================\n"
+              exit $1
+          }
+          
+          function debug_exec(){
+              local cmd="$@"
+              log_info "$cmd"
+              eval "$cmd"
+              ret=$?
+              echo ""
+              log_info "$cmd, exit code: $ret"
+              return $ret
+          }
+          
+          function install_web() {
+              yum install nginx -y
+              yum install java-1.8.0-openjdk.x86_64 -y
+              sed -i 's/ _;/ domain.not.exists;/' /etc/nginx/nginx.conf
+              curl -o AppWithRedisDemo.jar ''
+          }
+          
+          cat <<'EOF' > /etc/nginx/conf.d/app_with_redis.conf
+          server {
+              listen 80 default_server;
+              server_name _;
+          
+              location / {
+                  proxy_pass http://localhost:8080;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+          EOF
+          
+          if ! debug_exec install_web; then
+              log_fatal 3 "install web failed"
+          fi
+          
+          nohup java -DMYSQL_HOST="${RdsInstance.InnerConnectionString}" -DMYSQL_PASSWORD="${DBPassword}" -DREDIS_HOST="${RedisInstance.VpcPrivateConnectionString}" -DREDIS_PASSWORD="redis:${RedisAccountPassword}" -jar AppWithRedisDemo.jar  > output.log 2>&1 &
+          /bin/systemctl start nginx.service
+  RdsInstance:
+    Type: 'ALIYUN::RDS::DBInstance'
+    Properties:
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      ZoneId:
+        Ref: ZoneId
+      DBInstanceStorage: 40
+      Category: Basic
+      DBInstanceStorageType: cloud_essd
+      VSwitchId:
+        Ref: VSwitch
+      Engine: MySQL
+      VpcId:
+        Ref: Vpc
+      SlaveZoneIds:
+        - Auto
+      EngineVersion: '8.0'
+      SecurityIPList: '192.168.0.0/24'
+      MasterUsername:
+        Ref: DBUserName
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUserType: Super
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      CharacterSetName: utf8mb4
+      DBInstanceId:
+        Ref: RdsInstance
+      DBName: biz
+  RedisInstance:
+    Type: 'ALIYUN::REDIS::Instance'
+    Properties:
+      EngineVersion: '6.0'
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      InstanceClass:
+        Ref: RedisClass
+      InstanceName:
+        Fn::Sub: ${CommonName}-redis
+      Password:
+        Ref: RedisAccountPassword
+      ProductType: 'OnECS'
+      DeletionForce: true
+      NodeType: STAND_ALONE
+  RedisAccount:
+    Type: 'ALIYUN::REDIS::Account'
+    Properties:
+      InstanceId:
+        Ref: RedisInstance
+      AccountName:
+        Ref: RedisAccountName
+      AccountPrivilege: RoleReadWrite
+      AccountType: Normal
+      AccountPassword:
+        Ref: RedisAccountPassword
+Outputs:
+  RDSDatabaseName:
+    Description:
+      zh-cn: RDS 数据库名称。
+      en: The name of RDS database.
+    Value:
+      Ref: RdsDatabase
+  RDSDatabaseUserName:
+    Description:
+      zh-cn: RDS 数据库用户名。
+      en: The name of RDS database user.
+    Value:
+      Ref: DBUserName
+  RDSDatabaseEndpoint:
+    Description:
+      zh-cn: RDS 数据库链接地址。
+      en: The connection address of RDS database.
+    Value:
+      Fn::GetAtt:
+        - RdsInstance
+        - InnerConnectionString
+  RedisAccountName:
+    Description:
+      zh-cn: Redis 数据库用户名。
+      en: The name of redis database user.
+    Value:
+      Ref: RedisAccountName
+  RedisEndpoint:
+    Description:
+      zh-cn: Redis 数据库链接地址。
+      en: The connection address of Redis database.
+    Value:
+      Fn::GetAtt:
+        - RedisInstance
+        - VpcPrivateConnectionString
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub': >-
+        https://ecs-workbench.aliyun.com/?from=
+        EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            zh-cn: ECS 配置
+            en: ECS Configuration
+      - Parameters:
+          - DBUserName
+          - DBPassword
+          - DBInstanceClass
+        Label:
+          default:
+            zh-cn: RDS 配置
+            en: RDS Configuration
+      - Parameters:
+          - RedisAccountName
+          - RedisAccountPassword
+          - RedisClass
+        Label:
+          default:
+            zh-cn: Redis 配置
+            en: Redis Configuration
+    TemplateTags:
+      - acs:technical-solution:database:基于缓存实现应用提速-tech_solu_147
+    Hidden:
+      - CommonName
