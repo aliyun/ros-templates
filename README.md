@@ -461,6 +461,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [ComfyUI-by-fc.yml](documents/solution/ai/ComfyUI-by-fc.yml)     | Deploy ComfyUI through Function Computing to implement an AIGC image generation system.  |
 | [drawing_with_tongyi_wanxiang.yml](documents/solution/ai/drawing_with_tongyi_wanxiang.yml)     | Tongyi Wanxiang’s journey of text drawing and portrait beautification. |
 | [drawing_with_tongyi_wanxiang_new.yml](documents/solution/ai/drawing_with_tongyi_wanxiang_new.yml)     | Tongyi Wanxiang’s journey of text drawing and portrait beautification. |
+| [AnalyticDB-and-Bailian-system.yml](documents/solution/ai/AnalyticDB-and-Bailian-system.yml)     | AnalyticDB and Bailian build intelligent question and answer system. |
 
 
 
