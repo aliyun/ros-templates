@@ -1,7 +1,11 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: Puppet 社区版
-  en: open source puppet
+  zh-cn: 创建Puppet社区版环境，包括VPC、安全组、ECS实例（服务器与代理），配置网络访问与安全规则，自动化安装Puppet服务器与代理，实现集中配置管理。
+  en: Establish a Puppet Community Edition environment, comprising a Virtual Private
+    Cloud (VPC), Security Groups, Elastic Compute Service (ECS) instances for both
+    servers and agents, with configured network access and security policies. Automate
+    the deployment of Puppet server and agent installations to facilitate centralized
+    configuration management.
 Parameters:
   ServerZoneId:
     Type: String
@@ -53,7 +57,7 @@ Parameters:
       zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
       en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
         ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
-    Default:
+    Default: null
     AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
     MinLength: 8
     MaxLength: 30
@@ -176,18 +180,18 @@ Resources:
         Ref: NatEip
   SnatEntry:
     Type: ALIYUN::VPC::SnatEntry
-    DependsOn: NatEipAssociation
     Properties:
       SnatEntryName: public-network-access-in-vpc
       SnatTableId:
         Fn::GetAtt:
-          - NatGateway
-          - SNatTableId
+        - NatGateway
+        - SNatTableId
       SnatIp:
         Fn::GetAtt:
-          - NatEipAssociation
-          - EipAddress
+        - NatEipAssociation
+        - EipAddress
       SourceCIDR: 0.0.0.0/0
+    DependsOn: NatEipAssociation
   InstallPuppetServer:
     Type: ALIYUN::ECS::RunCommand
     Properties:
@@ -197,44 +201,64 @@ Resources:
       Sync: true
       Timeout: 1800
       CommandContent:
-        Fn::Sub: |-
-          #!/bin/bash
+        Fn::Sub: '#!/bin/bash
+
           echo "###############################"
+
           echo "# SSH configuration "
+
           echo "###############################"
+
           cat >> /etc/ssh/${SshKeyPair.KeyPairName}.pem  << EOF
+
           ${SshKeyPair.PrivateKeyBody}
+
           EOF
+
           chmod 400 /etc/ssh/${SshKeyPair.KeyPairName}.pem
+
           echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config
+
           echo "IdentityFile /etc/ssh/${SshKeyPair.KeyPairName}.pem" >> /etc/ssh/ssh_config
-          
+
+
           echo "###############################"
+
           echo "# Instance Puppet Server"
+
           echo "###############################"
+
           rpm -Uvh https://yum.puppet.com/puppet8-release-el-8.noarch.rpm
-          sed -i 's|yum.puppet.com|mirrors.cloud.aliyuncs.com/puppet/yum|g' /etc/yum.repos.d/puppet8-release.repo
+
+          sed -i ''s|yum.puppet.com|mirrors.cloud.aliyuncs.com/puppet/yum|g'' /etc/yum.repos.d/puppet8-release.repo
+
           yum install -y puppetserver
 
+
           # modify /etc/puppetlabs/puppet/puppet.conf
+
           /opt/puppetlabs/bin/puppet config set server puppet-server --section main
+
           /opt/puppetlabs/bin/puppet config set certname puppet-server --section main
-          
+
+
           cat /etc/puppetlabs/puppet/puppet.conf
-          
+
+
           systemctl enable puppetserver
+
           systemctl start puppetserver
+
           exec bash
-          /opt/puppetlabs/bin/puppetserver -v
+
+          /opt/puppetlabs/bin/puppetserver -v'
     DependsOn:
-      - SnatEntry
-      - SecurityGroupIngress_22
-      - SecurityGroupIngress_80
-      - SecurityGroupIngress_8140
+    - SecurityGroupIngress_22
+    - SecurityGroupIngress_80
+    - SecurityGroupIngress_8140
+    - SnatEntry
   PuppetAgent:
     Type: ALIYUN::ECS::InstanceGroup
-    Count:
-      Ref: AgentNumber
     Properties:
       ZoneId:
         Ref: AgentZoneId
@@ -258,6 +282,8 @@ Resources:
         Fn::Sub: ${CommonName}-agent-${ALIYUN::Index}
       InstanceName:
         Fn::Sub: ${CommonName}-agent-${ALIYUN::Index}
+    Count:
+      Ref: AgentNumber
   InstallPuppetAgent:
     Type: ALIYUN::ECS::RunCommand
     Properties:
@@ -268,80 +294,89 @@ Resources:
       Timeout: 1800
       CommandContent:
         Fn::Sub:
-          - |-
-            #!/bin/bash
-            echo "###############################"
-            echo "# SSH configuration "
-            echo "###############################"
-            
-            cat >> /etc/ssh/${SshKeyPair.KeyPairName}.pem  << EOF
-            ${SshKeyPair.PrivateKeyBody}
-            EOF
-            
-            chmod 400 /etc/ssh/${SshKeyPair.KeyPairName}.pem
-            echo "StrictHostKeyChecking=no" >> /etc/ssh/ssh_config
-            
-            echo "###############################"
-            echo "# Instance Puppet Agent"
-            echo "###############################"
-            rpm -Uvh https://yum.puppet.com/puppet8-release-el-8.noarch.rpm
-            sed -i 's|yum.puppet.com|mirrors.cloud.aliyuncs.com/puppet/yum|g' /etc/yum.repos.d/puppet8-release.repo
-            yum install -y puppet-agent
-            
-            cat >> /etc/hosts  << EOF
-            ${PrivateIp}    puppet-server
-            EOF
-            
-            echo "host done"
-            
-            source /etc/profile.d/puppet-agent.sh
-            # modify /etc/puppetlabs/puppet/puppet.conf
-            /opt/puppetlabs/bin/puppet config set server puppet-server --section main
-          - PrivateIp:
-              Fn::Select:
-                - 0
-                - Fn::GetAtt:
-                  - PuppetServer
-                  - PrivateIps
+        - '#!/bin/bash
+
+          echo "###############################"
+
+          echo "# SSH configuration "
+
+          echo "###############################"
+
+
+          cat >> /etc/ssh/${SshKeyPair.KeyPairName}.pem  << EOF
+
+          ${SshKeyPair.PrivateKeyBody}
+
+          EOF
+
+
+          chmod 400 /etc/ssh/${SshKeyPair.KeyPairName}.pem
+
+          echo "StrictHostKeyChecking=no" >> /etc/ssh/ssh_config
+
+
+          echo "###############################"
+
+          echo "# Instance Puppet Agent"
+
+          echo "###############################"
+
+          rpm -Uvh https://yum.puppet.com/puppet8-release-el-8.noarch.rpm
+
+          sed -i ''s|yum.puppet.com|mirrors.cloud.aliyuncs.com/puppet/yum|g'' /etc/yum.repos.d/puppet8-release.repo
+
+          yum install -y puppet-agent
+
+
+          cat >> /etc/hosts  << EOF
+
+          ${PrivateIp}    puppet-server
+
+          EOF
+
+
+          echo "host done"
+
+
+          source /etc/profile.d/puppet-agent.sh
+
+          # modify /etc/puppetlabs/puppet/puppet.conf
+
+          /opt/puppetlabs/bin/puppet config set server puppet-server --section main'
+        - PrivateIp:
+            Fn::Select:
+            - 0
+            - Fn::GetAtt:
+              - PuppetServer
+              - PrivateIps
   SignCa:
     Type: ALIYUN::ECS::RunCommand
-    DependsOn:
-      - InstallPuppetAgent
-      - InstallPuppetServer
     Properties:
       InstanceIds:
-        - Ref: PuppetServer
+      - Ref: PuppetServer
       Type: RunShellScript
       Sync: true
       Timeout: 1200
       CommandContent:
         Fn::Sub:
-          - |-
-            #!/bin/bash
-            echo "###############################"
-            echo "# Sign Ca for Agent"
-            echo "###############################"
-            
-            agent_ips="${AgentIps}"
-            for ip in $agent_ips
-            do
-                sleep 5
-                ssh -f -n $ip "/opt/puppetlabs/bin/puppet ssl bootstrap &"
-                sleep 10
-                host_name=`ssh $ip "hostname"`
-                echo "ip: $ip  hostname: $host_name"
-                echo $ip    $host_name >> /etc/hosts
-                /opt/puppetlabs/bin/puppetserver ca sign --certname $host_name 2>&1
-                sleep 5
-                ssh $ip "systemctl enable puppet"
-            done
-          - AgentIps:
-              Fn::Join:
-                - ' '
-                - Fn::Add:
-                    Fn::GetAtt:
-                      - PuppetAgent
-                      - PrivateIps
+        - "#!/bin/bash\necho \"###############################\"\necho \"# Sign Ca\
+          \ for Agent\"\necho \"###############################\"\n\nagent_ips=\"\
+          ${AgentIps}\"\nfor ip in $agent_ips\ndo\n    sleep 5\n    ssh -f -n $ip\
+          \ \"/opt/puppetlabs/bin/puppet ssl bootstrap &\"\n    sleep 10\n    host_name=`ssh\
+          \ $ip \"hostname\"`\n    echo \"ip: $ip  hostname: $host_name\"\n    echo\
+          \ $ip    $host_name >> /etc/hosts\n    /opt/puppetlabs/bin/puppetserver\
+          \ ca sign --certname $host_name 2>&1\n    sleep 5\n    ssh $ip \"systemctl\
+          \ enable puppet\"\ndone"
+        - AgentIps:
+            Fn::Join:
+            - ' '
+            - Fn::Add:
+                Fn::GetAtt:
+                - PuppetAgent
+                - PrivateIps
+    DependsOn:
+    - InstallPuppetAgent
+    - InstallPuppetServer
   SshKeyPair:
     Type: ALIYUN::ECS::SSHKeyPair
     Properties:
@@ -351,7 +386,7 @@ Resources:
     Type: ALIYUN::ECS::SSHKeyPairAttachment
     Properties:
       InstanceIds:
-        - Ref: PuppetServer
+      - Ref: PuppetServer
       KeyPairName:
         Ref: SshKeyPair
       AutoReboot: true
@@ -369,8 +404,7 @@ Outputs:
       zh-cn: Server Ecs登陆地址。
       en: Server Ecs login address.
     Value:
-      Fn::Sub:
-        https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${PuppetServer}
+      Fn::Sub: https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${PuppetServer}
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -395,7 +429,7 @@ Metadata:
         default:
           zh-cn: 实例密码配置
           en: Instance Password Configuration
-    Hidden:
-      - CommonName
     TemplateTags:
     - acs:integrate:computenest:open-source-puppet
+    Hidden:
+    - CommonName

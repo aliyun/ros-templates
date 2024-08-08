@@ -1,186 +1,99 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 高可用及共享存储Web服务。
-  en: Highly available web services.
+  zh-cn: 构建高可用Web服务，包含双可用区ECS实例、负载均衡SLB、NAS存储挂载，自动同步配置，支持公网访问。
+  en: Constructing a highly available web service comprises dual availability zone
+    ECS instances, a Load Balancer (SLB), Network Attached Storage (NAS) mounts, automatic
+    configuration synchronization, and is accessible via the public internet.
 Parameters:
-  NasZone1:
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    Type: String
-    Description:
-      zh-cn: 可用区1要不同与可用区2。
-      en: Availability zone 1 must be different from Availability zone 2.
-    Label:
-      zh-cn: NAS可用区1
-      en: NAS Availability Zone1
-  NasZone2:
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    Type: String
-    Description:
-      zh-cn: 可用区2要不同与可用区1。
-      en: Availability zone 2 must be different from Availability zone 1.
-    Label:
-      zh-cn: NAS可用区2
-      en: NAS Availability Zone2
-  CommonName:
-    Default: high-availability
-    Type: String
-  InstancePassword:
-    Type: String
-    Description:
-      zh-cn: >-
-        服务器登录密码,长度8~30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）。
-      en: >-
-        Server login password, Length 8~30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in).
-    MinLength: 8
-    Label:
-      zh-cn: 实例密码
-      en: Instance Password
-    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
-    NoEcho: true
-    MaxLength: 30
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
-    ConstraintDescription:
-      zh-cn: '长度8~30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）。'
-      en: >-
-        Length 8~30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
-  EcsInstanceType2:
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
-    AssociationPropertyMetadata:
-      SystemDiskCategory: cloud_essd
-      InstanceChargeType: PostPaid
-      ZoneId: '${Zone2}'
-    Type: String
-    Label:
-      zh-cn: 可用区2的实例类型
-      en: Instance Type Of Availability Zone2
-  Zone2:
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    Type: String
-    Description:
-      zh-cn: 可用区2要不同与可用区1。
-      en: Availability zone 2 must be different from Availability zone 1.
-    Label:
-      zh-cn: 交换机可用区2
-      en: VSwitch Availability Zone2
   Zone1:
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
     Type: String
-    Description:
-      zh-cn: 可用区1要不同与可用区2。
-      en: Availability zone 1 must be different from Availability zone 2.
     Label:
       zh-cn: 交换机可用区1
       en: VSwitch Availability Zone1
+    Description:
+      zh-cn: 可用区1要不同与可用区2。
+      en: Availability zone 1 must be different from Availability zone 2.
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  Zone2:
+    Type: String
+    Label:
+      zh-cn: 交换机可用区2
+      en: VSwitch Availability Zone2
+    Description:
+      zh-cn: 可用区2要不同与可用区1。
+      en: Availability zone 2 must be different from Availability zone 1.
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  NasZone1:
+    Type: String
+    Label:
+      zh-cn: NAS可用区1
+      en: NAS Availability Zone1
+    Description:
+      zh-cn: 可用区1要不同与可用区2。
+      en: Availability zone 1 must be different from Availability zone 2.
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  NasZone2:
+    Type: String
+    Label:
+      zh-cn: NAS可用区2
+      en: NAS Availability Zone2
+    Description:
+      zh-cn: 可用区2要不同与可用区1。
+      en: Availability zone 2 must be different from Availability zone 1.
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
   EcsInstanceType1:
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
-    AssociationPropertyMetadata:
-      SystemDiskCategory: cloud_essd
-      InstanceChargeType: PostPaid
-      ZoneId: '${Zone1}'
     Type: String
     Label:
       zh-cn: 可用区1的实例类型
       en: Instance Type Of Availability Zone1
-Rules:
-  DifferentZones2:
-    Assertions:
-      - Assert:
-          'Fn::Not':
-            'Fn::Equals':
-              - Ref: NasZone1
-              - Ref: NasZone2
-        AssertDescription: NAS Zones must be different
-  DifferentZones1:
-    Assertions:
-      - Assert:
-          'Fn::Not':
-            'Fn::Equals':
-              - Ref: Zone1
-              - Ref: Zone2
-        AssertDescription: ECS Zones must be different
-Outputs:
-  ECS1URL:
-    Description: ECS 1 URL
-    Value:
-      'Fn::Sub':
-        - >-
-          https://ecs.console.aliyun.com/#/server/region/${region}?instanceIds=${InstanceID}
-        - InstanceID:
-            'Fn::Select':
-              - '0'
-              - 'Fn::GetAtt':
-                  - EcsInstanceGroup1
-                  - InstanceIds
-          region:
-            Ref: 'ALIYUN::Region'
-  FileSystemId1:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: ${Zone1}
+  EcsInstanceType2:
+    Type: String
+    Label:
+      zh-cn: 可用区2的实例类型
+      en: Instance Type Of Availability Zone2
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: ${Zone2}
+  InstancePassword:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
     Description:
-      zh-cn: 主NAS
-      en: Master NAS
-    Value:
-      'Fn::Sub':
-        - 'https://nasnext.console.aliyun.com/${region}/filesystem/${InstanceID}'
-        - InstanceID:
-            'Fn::GetAtt':
-              - MasterFileSystem
-              - FileSystemId
-          region:
-            Ref: 'ALIYUN::Region'
-  ECS2URL:
-    Description: ECS 2 URL
-    Value:
-      'Fn::Sub':
-        - >-
-          https://ecs.console.aliyun.com/#/server/region/${region}?instanceIds=${InstanceID}
-        - InstanceID:
-            'Fn::Select':
-              - '0'
-              - 'Fn::GetAtt':
-                  - EcsInstanceGroup1
-                  - InstanceIds
-          region:
-            Ref: 'ALIYUN::Region'
-  SlbIpAddress:
-    Description:
-      zh-cn: 对外暴露的公网IP地址
-      en: Public IP Addresses
-    Value:
-      'Fn::Sub':
-        - 'http://${ServerAddress}'
-        - ServerAddress:
-            'Fn::GetAtt':
-              - Slb
-              - IpAddress
-  FileSystemId2:
-    Description:
-      zh-cn: 备NAS
-      en: Backup NAS
-    Value:
-      'Fn::Sub':
-        - 'https://nasnext.console.aliyun.com/${region}/filesystem/${InstanceID}'
-        - InstanceID:
-            'Fn::GetAtt':
-              - BackupFileSystem
-              - FileSystemId
-          region:
-            Ref: 'ALIYUN::Region'
-  MountInfo1:
-    Description:
-      zh-cn: NAS在ECS上的挂载目录1
-      en: NAS mounting directory 1 on ECS
-    Value: '/nas_master'
-  MountInfo2:
-    Description:
-      zh-cn: NAS在ECS上的挂载目录2
-      en: NAS mounting directory 2 on ECS
-    Value: '/nas_backup'
+      zh-cn: 服务器登录密码,长度8~30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8~30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
+    ConstraintDescription:
+      zh-cn: 长度8~30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8~30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: high-availability
 Resources:
+  Slb:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      AddressType: internet
+      LoadBalancerName:
+        Fn::Sub: ${CommonName}-slb
+      InstanceChargeType: PayByCLCU
+      PayType: PayOnDemand
   SlbListener:
-    Type: 'ALIYUN::SLB::Listener'
+    Type: ALIYUN::SLB::Listener
     Properties:
       Protocol: http
       HealthCheck:
@@ -190,7 +103,7 @@ Resources:
         UnhealthyThreshold: 3
         HealthyThreshold: 3
         Timeout: 5
-        HttpCode: 'http_2xx,http_3xx,http_4xx,http_5xx'
+        HttpCode: http_2xx,http_3xx,http_4xx,http_5xx
         Port: 80
       ListenerPort: 80
       Bandwidth: 10
@@ -198,405 +111,373 @@ Resources:
       LoadBalancerId:
         Ref: Slb
     DependsOn:
-      - Slb
-  EcsSecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    - Slb
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
     Properties:
-      SecurityGroupIngress:
-        - Priority: 1
-          PortRange: 80/80
-          NicType: internet
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - Priority: 1
-          PortRange: 22/22
-          NicType: internet
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
+      VpcName:
+        Fn::Sub: ${CommonName}_vpc
+      CidrBlock: 192.168.0.0/16
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
       VpcId:
         Ref: EcsVpc
+      SecurityGroupIngress:
+      - Priority: 1
+        PortRange: 80/80
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 22/22
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
       SecurityGroupEgress:
-        - Priority: 1
-          PortRange: '-1/-1'
-          DestCidrIp: 0.0.0.0/0
-          NicType: internet
-          IpProtocol: all
-        - Priority: 1
-          PortRange: '-1/-1'
-          DestCidrIp: 0.0.0.0/0
-          NicType: intranet
-          IpProtocol: all
+      - Priority: 1
+        PortRange: -1/-1
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+        IpProtocol: all
+      - Priority: 1
+        PortRange: -1/-1
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+        IpProtocol: all
       SecurityGroupName:
-        'Fn::Sub': '${CommonName}_sg'
-  MasterNasMountTarget:
-    Type: 'ALIYUN::NAS::MountTarget'
+        Fn::Sub: ${CommonName}_sg
+  EcsVSwitch3:
+    Type: ALIYUN::ECS::VSwitch
     Properties:
-      NetworkType: Vpc
-      FileSystemId:
-        Ref: MasterFileSystem
+      ZoneId:
+        Ref: NasZone1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: ${CommonName}_vsw_002
+      CidrBlock: 192.168.3.0/24
+  MasterFileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      ZoneId:
+        Ref: NasZone1
+      VpcId:
+        Ref: EcsVpc
+      StorageType: Capacity
+      ProtocolType: NFS
+      Description: MasterNAS
+  MasterNasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
       VpcId:
         Ref: EcsVpc
       VSwitchId:
         Ref: EcsVSwitch3
-      AccessGroupName: DEFAULT_VPC_GROUP_NAME
-  EcsVSwitch4:
-    Type: 'ALIYUN::ECS::VSwitch'
-    Properties:
-      VSwitchName:
-        'Fn::Sub': '${CommonName}_vsw_002'
-      VpcId:
-        Ref: EcsVpc
-      CidrBlock: 192.168.4.0/24
-      ZoneId:
-        Ref: NasZone2
-  MasterFileSystem:
-    Type: 'ALIYUN::NAS::FileSystem'
-    Properties:
-      StorageType: Capacity
-      ProtocolType: NFS
-      VpcId:
-        Ref: EcsVpc
-      Description: MasterNAS
-      ZoneId:
-        Ref: NasZone1
-  EcsVSwitch2:
-    Type: 'ALIYUN::ECS::VSwitch'
-    Properties:
-      VSwitchName:
-        'Fn::Sub': '${CommonName}_vsw_002'
-      VpcId:
-        Ref: EcsVpc
-      CidrBlock: 192.168.2.0/24
-      ZoneId:
-        Ref: Zone2
-  EcsVSwitch3:
-    Type: 'ALIYUN::ECS::VSwitch'
-    Properties:
-      VSwitchName:
-        'Fn::Sub': '${CommonName}_vsw_002'
-      VpcId:
-        Ref: EcsVpc
-      CidrBlock: 192.168.3.0/24
-      ZoneId:
-        Ref: NasZone1
-  EcsVSwitch1:
-    Type: 'ALIYUN::ECS::VSwitch'
-    Properties:
-      VSwitchName:
-        'Fn::Sub': '${CommonName}_vsw_001'
-      VpcId:
-        Ref: EcsVpc
-      CidrBlock: 192.168.1.0/24
-      ZoneId:
-        Ref: Zone1
-  BackupFileSystem:
-    Type: 'ALIYUN::NAS::FileSystem'
-    Properties:
-      StorageType: Capacity
-      ProtocolType: NFS
-      VpcId:
-        Ref: EcsVpc
-      Description: BackupNAS
-      ZoneId:
-        Ref: NasZone2
-  BackupNasMountTarget:
-    Type: 'ALIYUN::NAS::MountTarget'
-    Properties:
       NetworkType: Vpc
       FileSystemId:
-        Ref: BackupFileSystem
+        Ref: MasterFileSystem
+      AccessGroupName: DEFAULT_VPC_GROUP_NAME
+  EcsVSwitch4:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: NasZone2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: ${CommonName}_vsw_002
+      CidrBlock: 192.168.4.0/24
+  EcsVSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: Zone2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: ${CommonName}_vsw_002
+      CidrBlock: 192.168.2.0/24
+  EcsVSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: Zone1
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Fn::Sub: ${CommonName}_vsw_001
+      CidrBlock: 192.168.1.0/24
+  BackupFileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      ZoneId:
+        Ref: NasZone2
+      VpcId:
+        Ref: EcsVpc
+      StorageType: Capacity
+      ProtocolType: NFS
+      Description: BackupNAS
+  BackupNasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
       VpcId:
         Ref: EcsVpc
       VSwitchId:
         Ref: EcsVSwitch4
+      NetworkType: Vpc
+      FileSystemId:
+        Ref: BackupFileSystem
       AccessGroupName: DEFAULT_VPC_GROUP_NAME
   EcsInstanceGroup1:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      SystemDiskCategory: cloud_essd
-      VpcId:
-        Ref: EcsVpc
-      SecurityGroupId:
-        Ref: EcsSecurityGroup
-      SystemDiskSize: 40
-      ImageId: aliyun_3_x64_20G_alibase_20230727.vhd
-      SpotStrategy: SpotAsPriceGo
-      IoOptimized: optimized
-      VSwitchId:
-        Ref: EcsVSwitch1
-      Password:
-        Ref: InstancePassword
-      InstanceName:
-        'Fn::Sub': '${CommonName}_ecs_001'
-      InstanceType:
-        Ref: EcsInstanceType1
       ZoneId:
         Ref: Zone1
-      MaxAmount: 1
-  EcsInstanceGroup2:
-    Type: 'ALIYUN::ECS::InstanceGroup'
-    Properties:
-      SystemDiskCategory: cloud_essd
       VpcId:
         Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch1
       SecurityGroupId:
         Ref: EcsSecurityGroup
-      SystemDiskSize: 40
       ImageId: aliyun_3_x64_20G_alibase_20230727.vhd
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
       SpotStrategy: SpotAsPriceGo
       IoOptimized: optimized
-      VSwitchId:
-        Ref: EcsVSwitch2
       Password:
         Ref: InstancePassword
       InstanceName:
-        'Fn::Sub': '${CommonName}_ecs_002'
+        Fn::Sub: ${CommonName}_ecs_001
       InstanceType:
-        Ref: EcsInstanceType2
+        Ref: EcsInstanceType1
+      MaxAmount: 1
+  EcsInstanceGroup2:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
       ZoneId:
         Ref: Zone2
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch2
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_20230727.vhd
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      SpotStrategy: SpotAsPriceGo
+      IoOptimized: optimized
+      Password:
+        Ref: InstancePassword
+      InstanceName:
+        Fn::Sub: ${CommonName}_ecs_002
+      InstanceType:
+        Ref: EcsInstanceType2
       MaxAmount: 1
-  EcsVpc:
-    Type: 'ALIYUN::ECS::VPC'
-    Properties:
-      VpcName:
-        'Fn::Sub': '${CommonName}_vpc'
-      CidrBlock: 192.168.0.0/16
   SlbBackendServerAttachment:
-    Type: 'ALIYUN::SLB::BackendServerAttachment'
+    Type: ALIYUN::SLB::BackendServerAttachment
     Properties:
       BackendServerList:
-        'Fn::ListMerge':
-          - 'Fn::GetAtt':
-              - EcsInstanceGroup1
-              - InstanceIds
-          - 'Fn::GetAtt':
-              - EcsInstanceGroup2
-              - InstanceIds
+        Fn::ListMerge:
+        - Fn::GetAtt:
+          - EcsInstanceGroup1
+          - InstanceIds
+        - Fn::GetAtt:
+          - EcsInstanceGroup2
+          - InstanceIds
       BackendServerWeightList:
-        - 100
-        - 100
+      - 100
+      - 100
       LoadBalancerId:
         Ref: Slb
-  Slb:
-    Type: 'ALIYUN::SLB::LoadBalancer'
-    Properties:
-      AddressType: internet
-      LoadBalancerName:
-        'Fn::Sub': '${CommonName}-slb'
-      InstanceChargeType: PayByCLCU
-      PayType: PayOnDemand
   InstanceRunCommand:
-    Type: 'ALIYUN::ECS::RunCommand'
+    Type: ALIYUN::ECS::RunCommand
     Properties:
+      InstanceIds:
+      - Ref: EcsInstanceGroup1
+      - Ref: EcsInstanceGroup2
       CommandContent:
-        'Fn::Sub': >-
-          #!/bin/bash
-
-          if [ ! -f .ros.provision ]; then
-            echo "Name: 高可用及共享存储Web服务" > .ros.provision
-          fi
-
-
-          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e
-          's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-
-          if [[ "$name" != "高可用及共享存储Web服务" ]]; then
-            echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
-            exit 0
-          fi
-
-
-          echo "#########################"
-
-          echo "# Check Network"
-
-          echo "#########################"
-
-          ping -c 2 -W 2 aliyun.com > /dev/null
-
-          if [[ $? -ne 0 ]]; then
-            echo "当前实例无法访问公网"
-            exit 0
-          fi
-
-
-          if ! grep -q "^Step1: Prepare Environment$" .ros.provision; then
-            echo "#########################"
-            echo "# Prepare Environment"
-            echo "#########################"
-            systemctl status firewalld
-            systemctl stop firewalld
-            echo "Step1: Prepare Environment" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# Environment has been ready"
-            echo "#########################"
-          fi
-
-
-          if ! grep -q "^Step2: Install Nginx and deploy service$"
-          .ros.provision; then
-            echo "#########################"
-            echo "# Install Nginx"
-            echo "#########################"
-            sudo yum -y install nginx
-            sudo wget -O /usr/share/nginx/html/index.html https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20231013/jhgg/index.html
-            sudo wget -O /usr/share/nginx/html/lipstick.png https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20230925/zevs/lipstick.png
-            sudo systemctl start nginx
-            sudo systemctl enable nginx
-            echo "Step2: Install Nginx and deploy service" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# Nginx has been installed"
-            echo "#########################"
-          fi
-
-
-          if ! grep -q "^Step3: Mount to the ECS" .ros.provision; then
-            echo "#########################"
-            echo "# Mount to the ECS"
-            echo "#########################"
-            mkdir /nas_master
-            mkdir /nas_backup
-            sudo yum install -y nfs-utils
-            sudo echo "options sunrpc tcp_slot_table_entries=128" >>  /etc/modprobe.d/sunrpc.conf
-            sudo echo "options sunrpc tcp_max_slot_table_entries=128" >>  /etc/modprobe.d/sunrpc.conf
-            sudo mount -t nfs -o vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${MasterNasMountTarget.MountTargetDomain}:/ /nas_master
-            sudo mount -t nfs -o vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${BackupNasMountTarget.MountTargetDomain}:/ /nas_backup
-          
-            sudo echo "${MasterNasMountTarget.MountTargetDomain}:/ /nas_master nfs vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev,noresvport 0 0" >> /etc/fstab
-            
-            sudo echo "${BackupNasMountTarget.MountTargetDomain}:/ /nas_backup nfs vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev,noresvport 0 0" >> /etc/fstab
-
-            df -h | grep aliyun
-          else
-            echo "#########################"
-            echo "# The ECS has been attached to the Nas"
-            echo "#########################"
-          fi
-
-
-          if ! grep -q "^Step4: Shared file$" .ros.provision; then
-            echo "#########################"
-            echo "# Shared file"
-            echo "#########################"
-            sudo cp -Lvr /usr/share/nginx/html /nas_master
-            sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
-            echo "Step4: Shared file" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# File has been Shared"
-            echo "#########################"
-          fi
-
-
-          if ! grep -q "^Step5: Install inotify-tools、rsync$" .ros.provision;
-          then
-            echo "#########################"
-            echo "# Install inotify-tools、rsync"
-            echo "#########################"
-            sudo yum install -y inotify-tools rsync
-            echo "Step6: Install inotify-tools、rsync" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# Inotify-tools has been installed"
-            echo "#########################"
-          fi
-
-          if ! grep -q "^Step6: Install synchronization server$" .ros.provision;
-          then
-            echo "#########################"
-            echo "# Install synchronization server"
-            echo "#########################"
-            sudo wget -P /etc/systemd/system/ https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20231017/pftz/sync_nas.sh
-            sudo wget -P /etc/systemd/system/ https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/en-US/20230925/wmaj/sync_check_switch.sh
-            sudo chmod +x /etc/systemd/system/sync_nas.sh
-            sudo chmod +x /etc/systemd/system/sync_check_switch.sh
-            cat > /etc/systemd/system/sync-check-switch.service << \EOF
-          [Unit]
-
-          Description=Sync Check Switch
-
-          After=network.target
-
-
-          [Service]
-
-          ExecStart=/etc/systemd/system/sync_check_switch.sh
-
-          RestartSec=3
-
-          Restart=always
-
-
-          [Install]
-
-          WantedBy=default.target
-
-          EOF
-
-            cat > /etc/systemd/system/sync-nas.service << \EOF
-          [Unit]
-
-          Description=Sync NAS Service
-
-          After=network.target
-
-
-          [Service]
-
-          ExecStart=/etc/systemd/system/sync_nas.sh
-
-          Restart=always
-
-          RestartSec=3
-
-
-          [Install]
-
-          WantedBy=default.target
-
-          EOF
-
-            sudo systemctl daemon-reload
-            sudo systemctl start sync-nas.service
-            sudo systemctl enable sync-check-switch.service
-            sudo systemctl start sync-check-switch.service
-            sudo systemctl enable sync-nas.service
-            echo "Step6: Install " >> .ros.provision
-          else
-            echo "#########################"
-            echo "# Synchronization server has been installed"
-            echo "#########################"
-          fi
+        Fn::Sub: "#!/bin/bash\nif [ ! -f .ros.provision ]; then\n  echo \"Name: 高可用及共享存储Web服务\"\
+          \ > .ros.provision\nfi\n\nname=$(grep \"^Name:\" .ros.provision | awk -F':'\
+          \ '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')\nif\
+          \ [[ \"$name\" != \"高可用及共享存储Web服务\" ]]; then\n  echo \"当前实例已使用过\\\"$name\\\
+          \"教程的一键配置，不能再使用本教程的一键配置\"\n  exit 0\nfi\n\necho \"#########################\"\
+          \necho \"# Check Network\"\necho \"#########################\"\nping -c\
+          \ 2 -W 2 aliyun.com > /dev/null\nif [[ $? -ne 0 ]]; then\n  echo \"当前实例无法访问公网\"\
+          \n  exit 0\nfi\n\nif ! grep -q \"^Step1: Prepare Environment$\" .ros.provision;\
+          \ then\n  echo \"#########################\"\n  echo \"# Prepare Environment\"\
+          \n  echo \"#########################\"\n  systemctl status firewalld\n \
+          \ systemctl stop firewalld\n  echo \"Step1: Prepare Environment\" >> .ros.provision\n\
+          else\n  echo \"#########################\"\n  echo \"# Environment has been\
+          \ ready\"\n  echo \"#########################\"\nfi\n\nif ! grep -q \"^Step2:\
+          \ Install Nginx and deploy service$\" .ros.provision; then\n  echo \"#########################\"\
+          \n  echo \"# Install Nginx\"\n  echo \"#########################\"\n  sudo\
+          \ yum -y install nginx\n  sudo wget -O /usr/share/nginx/html/index.html\
+          \ https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20231013/jhgg/index.html\n\
+          \  sudo wget -O /usr/share/nginx/html/lipstick.png https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20230925/zevs/lipstick.png\n\
+          \  sudo systemctl start nginx\n  sudo systemctl enable nginx\n  echo \"\
+          Step2: Install Nginx and deploy service\" >> .ros.provision\nelse\n  echo\
+          \ \"#########################\"\n  echo \"# Nginx has been installed\"\n\
+          \  echo \"#########################\"\nfi\n\nif ! grep -q \"^Step3: Mount\
+          \ to the ECS\" .ros.provision; then\n  echo \"#########################\"\
+          \n  echo \"# Mount to the ECS\"\n  echo \"#########################\"\n\
+          \  mkdir /nas_master\n  mkdir /nas_backup\n  sudo yum install -y nfs-utils\n\
+          \  sudo echo \"options sunrpc tcp_slot_table_entries=128\" >>  /etc/modprobe.d/sunrpc.conf\n\
+          \  sudo echo \"options sunrpc tcp_max_slot_table_entries=128\" >>  /etc/modprobe.d/sunrpc.conf\n\
+          \  sudo mount -t nfs -o vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport\
+          \ ${MasterNasMountTarget.MountTargetDomain}:/ /nas_master\n  sudo mount\
+          \ -t nfs -o vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport\
+          \ ${BackupNasMountTarget.MountTargetDomain}:/ /nas_backup\n\n  sudo echo\
+          \ \"${MasterNasMountTarget.MountTargetDomain}:/ /nas_master nfs vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev,noresvport\
+          \ 0 0\" >> /etc/fstab\n  \n  sudo echo \"${BackupNasMountTarget.MountTargetDomain}:/\
+          \ /nas_backup nfs vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev,noresvport\
+          \ 0 0\" >> /etc/fstab\n\n  df -h | grep aliyun\nelse\n  echo \"#########################\"\
+          \n  echo \"# The ECS has been attached to the Nas\"\n  echo \"#########################\"\
+          \nfi\n\nif ! grep -q \"^Step4: Shared file$\" .ros.provision; then\n  echo\
+          \ \"#########################\"\n  echo \"# Shared file\"\n  echo \"#########################\"\
+          \n  sudo cp -Lvr /usr/share/nginx/html /nas_master\n  sudo cp /etc/nginx/nginx.conf\
+          \ /etc/nginx/nginx.conf.bak\n  echo \"Step4: Shared file\" >> .ros.provision\n\
+          else\n  echo \"#########################\"\n  echo \"# File has been Shared\"\
+          \n  echo \"#########################\"\nfi\n\nif ! grep -q \"^Step5: Install\
+          \ inotify-tools、rsync$\" .ros.provision; then\n  echo \"#########################\"\
+          \n  echo \"# Install inotify-tools、rsync\"\n  echo \"#########################\"\
+          \n  sudo yum install -y inotify-tools rsync\n  echo \"Step6: Install inotify-tools、rsync\"\
+          \ >> .ros.provision\nelse\n  echo \"#########################\"\n  echo\
+          \ \"# Inotify-tools has been installed\"\n  echo \"#########################\"\
+          \nfi\nif ! grep -q \"^Step6: Install synchronization server$\" .ros.provision;\
+          \ then\n  echo \"#########################\"\n  echo \"# Install synchronization\
+          \ server\"\n  echo \"#########################\"\n  sudo wget -P /etc/systemd/system/\
+          \ https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20231017/pftz/sync_nas.sh\n\
+          \  sudo wget -P /etc/systemd/system/ https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/en-US/20230925/wmaj/sync_check_switch.sh\n\
+          \  sudo chmod +x /etc/systemd/system/sync_nas.sh\n  sudo chmod +x /etc/systemd/system/sync_check_switch.sh\n\
+          \  cat > /etc/systemd/system/sync-check-switch.service << \\EOF\n[Unit]\n\
+          Description=Sync Check Switch\nAfter=network.target\n\n[Service]\nExecStart=/etc/systemd/system/sync_check_switch.sh\n\
+          RestartSec=3\nRestart=always\n\n[Install]\nWantedBy=default.target\nEOF\n\
+          \n  cat > /etc/systemd/system/sync-nas.service << \\EOF\n[Unit]\nDescription=Sync\
+          \ NAS Service\nAfter=network.target\n\n[Service]\nExecStart=/etc/systemd/system/sync_nas.sh\n\
+          Restart=always\nRestartSec=3\n\n[Install]\nWantedBy=default.target\nEOF\n\
+          \n  sudo systemctl daemon-reload\n  sudo systemctl start sync-nas.service\n\
+          \  sudo systemctl enable sync-check-switch.service\n  sudo systemctl start\
+          \ sync-check-switch.service\n  sudo systemctl enable sync-nas.service\n\
+          \  echo \"Step6: Install \" >> .ros.provision\nelse\n  echo \"#########################\"\
+          \n  echo \"# Synchronization server has been installed\"\n  echo \"#########################\"\
+          \nfi"
       Type: RunShellScript
       Sync: true
-      InstanceIds:
-        - Ref: EcsInstanceGroup1
-        - Ref: EcsInstanceGroup2
       Timeout: '300'
+Outputs:
+  ECS1URL:
+    Description: ECS 1 URL
+    Value:
+      Fn::Sub:
+      - https://ecs.console.aliyun.com/#/server/region/${region}?instanceIds=${InstanceID}
+      - InstanceID:
+          Fn::Select:
+          - '0'
+          - Fn::GetAtt:
+            - EcsInstanceGroup1
+            - InstanceIds
+        region:
+          Ref: ALIYUN::Region
+  FileSystemId1:
+    Description:
+      zh-cn: 主NAS
+      en: Master NAS
+    Value:
+      Fn::Sub:
+      - https://nasnext.console.aliyun.com/${region}/filesystem/${InstanceID}
+      - InstanceID:
+          Fn::GetAtt:
+          - MasterFileSystem
+          - FileSystemId
+        region:
+          Ref: ALIYUN::Region
+  ECS2URL:
+    Description: ECS 2 URL
+    Value:
+      Fn::Sub:
+      - https://ecs.console.aliyun.com/#/server/region/${region}?instanceIds=${InstanceID}
+      - InstanceID:
+          Fn::Select:
+          - '0'
+          - Fn::GetAtt:
+            - EcsInstanceGroup1
+            - InstanceIds
+        region:
+          Ref: ALIYUN::Region
+  SlbIpAddress:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+      - http://${ServerAddress}
+      - ServerAddress:
+          Fn::GetAtt:
+          - Slb
+          - IpAddress
+  FileSystemId2:
+    Description:
+      zh-cn: 备NAS
+      en: Backup NAS
+    Value:
+      Fn::Sub:
+      - https://nasnext.console.aliyun.com/${region}/filesystem/${InstanceID}
+      - InstanceID:
+          Fn::GetAtt:
+          - BackupFileSystem
+          - FileSystemId
+        region:
+          Ref: ALIYUN::Region
+  MountInfo1:
+    Description:
+      zh-cn: NAS在ECS上的挂载目录1
+      en: NAS mounting directory 1 on ECS
+    Value: /nas_master
+  MountInfo2:
+    Description:
+      zh-cn: NAS在ECS上的挂载目录2
+      en: NAS mounting directory 2 on ECS
+    Value: /nas_backup
+Rules:
+  DifferentZones1:
+    Assertions:
+    - Assert:
+        Fn::Not:
+          Fn::Equals:
+          - Ref: Zone1
+          - Ref: Zone2
+      AssertDescription: ECS Zones must be different
+  DifferentZones2:
+    Assertions:
+    - Assert:
+        Fn::Not:
+          Fn::Equals:
+          - Ref: NasZone1
+          - Ref: NasZone2
+      AssertDescription: NAS Zones must be different
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - Zone1
-          - Zone2
-          - NasZone1
-          - NasZone2
-        Label:
-          default:
-            zh-cn: 可用区配置
-            en: Availability Zone
-      - Parameters:
-          - EcsInstanceType1
-          - EcsInstanceType2
-          - InstancePassword
-        Label:
-          default:
-            zh-cn: ECS实例配置
-            en: Instance Configure
+    - Parameters:
+      - Zone1
+      - Zone2
+      - NasZone1
+      - NasZone2
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Availability Zone
+    - Parameters:
+      - EcsInstanceType1
+      - EcsInstanceType2
+      - InstancePassword
+      Label:
+        default:
+          zh-cn: ECS实例配置
+          en: Instance Configure
     TemplateTags:
-      - 'acs:technical-solution:high-availability-architecture:高可用及共享存储Web服务-tech_solu_12'
+    - acs:technical-solution:high-availability-architecture:高可用及共享存储Web服务-tech_solu_12
     Hidden:
-      - CommonName
+    - CommonName

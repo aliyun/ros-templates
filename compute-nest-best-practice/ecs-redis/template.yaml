@@ -1,24 +1,26 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: redis + ecs 部署
-  en: Redis+ECS deployment.
+  zh-cn: 部署一个带有安全组的ECS实例和Redis实例，配置了公网访问和自动扩展，支持指定付费方式和资源时长。
+  en: Deploy an ECS instance with a security group and a Redis instance, configured
+    for public network access and auto-scaling, accommodating specified payment methods
+    and resource duration.
 Parameters:
   ZoneId:
     Type: String
-    Description:
-      zh-cn: 创建实例前，请确认可用区是否支持Redis资源的规格。
-      en: Before you create an instance, confirm that the Availability Zone
-        supports the specifications of Redis resources.
-    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
     Label:
       en: Zone ID
       zh-cn: 可用区
+    Description:
+      zh-cn: 创建实例前，请确认可用区是否支持Redis资源的规格。
+      en: Before you create an instance, confirm that the Availability Zone supports
+        the specifications of Redis resources.
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
   VpcId:
-    AssociationProperty: ALIYUN::ECS::VPC::VPCId
     Type: String
     Label:
       zh-cn: VPC ID
       en: VPC ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
   VSwitchId:
     Type: String
     Label:
@@ -41,8 +43,8 @@ Parameters:
       LocaleKey: InstanceChargeType
     Default: PostPaid
     AllowedValues:
-      - PostPaid
-      - PrePaid
+    - PostPaid
+    - PrePaid
   PayPeriodUnit:
     Type: String
     Label:
@@ -54,12 +56,12 @@ Parameters:
         Condition:
           Fn::Not:
             Fn::Equals:
-              - ${PayType}
-              - PostPaid
+            - ${PayType}
+            - PostPaid
     Default: Month
     AllowedValues:
-      - Month
-      - Year
+    - Month
+    - Year
   PayPeriod:
     Type: Number
     Label:
@@ -71,8 +73,8 @@ Parameters:
         Condition:
           Fn::Not:
             Fn::Equals:
-              - ${PayType}
-              - PostPaid
+            - ${PayType}
+            - PostPaid
     Default: 1
     AllowedValues:
     - 1
@@ -94,54 +96,60 @@ Parameters:
       ZoneId: ${ZoneId}
       InstanceChargeType: ${PayType}
   InstancePassword:
-    NoEcho: true
     Type: String
-    Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
-      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
       zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
     AssociationProperty: ALIYUN::ECS::Instance::Password
-    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
     MinLength: 8
     MaxLength: 30
+    NoEcho: true
 Resources:
-  # 安全组
   EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
-      # 使用默认名称
-      SecurityGroupName:
-        Ref: ALIYUN::StackName
       VpcId:
         Ref: VpcId
-      # 入方向开放80端口
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
       SecurityGroupIngress:
-        - Priority: 1
-          PortRange: 80/80
-          NicType: internet
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-      # 出方向全开
+      - Priority: 1
+        PortRange: 80/80
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
       SecurityGroupEgress:
-        - Priority: 1
-          PortRange: -1/-1
-          DestCidrIp: 0.0.0.0/0
-          NicType: intranet
-          IpProtocol: all
-  # ecs配置
+      - Priority: 1
+        PortRange: -1/-1
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+        IpProtocol: all
   EcsInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
       InstanceName:
         Fn::Join:
-          - '-'
-          - - Ref: ALIYUN::StackName
-            - '[1,4]'
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
       IoOptimized: optimized
       PeriodUnit:
         Ref: PayPeriodUnit
@@ -149,18 +157,9 @@ Resources:
         Ref: PayPeriod
       InstanceChargeType:
         Ref: PayType
-      SecurityGroupId:
-        Ref: EcsSecurityGroup
-      VSwitchId:
-        Ref: VSwitchId
       MaxAmount: 1
       SystemDiskCategory: cloud_essd
       SystemDiskSize: 100
-      VpcId:
-        Ref: VpcId
-      ZoneId:
-        Ref: ZoneId
-      ImageId: centos_7
       InstanceType:
         Ref: EcsInstanceType
       Password:
@@ -169,28 +168,31 @@ Resources:
       InternetMaxBandwidthOut: 5
       UserData:
         Fn::Sub:
-          - |
-            #!/bin/bash
-            cat >> /root/conf.txt << "EOF"
-            DBConnectString=${DBConnectString}
-            EOF
-          - DBConnectString:
-              Fn::GetAtt:
-                - RedisInstance
-                - ConnectionDomain
-  # redis 实例配置
+        - '#!/bin/bash
+
+          cat >> /root/conf.txt << "EOF"
+
+          DBConnectString=${DBConnectString}
+
+          EOF
+
+          '
+        - DBConnectString:
+            Fn::GetAtt:
+            - RedisInstance
+            - ConnectionDomain
   RedisInstance:
     Type: ALIYUN::REDIS::Instance
     Properties:
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: VpcId
       VSwitchId:
         Ref: VSwitchId
       InstanceClass: redis.master.small.default
       EngineVersion: '5.0'
-      EvictionPolicy: 'noeviction'
-      ZoneId:
-        Ref: ZoneId
+      EvictionPolicy: noeviction
       InstanceName:
         Ref: ALIYUN::StackName
       Password:
@@ -200,54 +202,54 @@ Resources:
     Properties:
       InstanceId:
         Fn::GetAtt:
-          - RedisInstance
-          - InstanceId
+        - RedisInstance
+        - InstanceId
       SecurityIps:
         Fn::Join:
-          - ','
-          - Fn::GetAtt:
-              - EcsInstanceGroup
-              - PrivateIps
-Metadata:
-  'ALIYUN::ROS::Interface':
-    ParameterGroups:
-      - Parameters:
-          - ZoneId
-        Label:
-          default:
-            zh-cn: 可用区配置
-            en: Zone Configuration
-      - Parameters:
-          - VpcId
-          - VSwitchId
-        Label:
-          default:
-            zh-cn: 选择已有基础资源配置
-            en: Choose existing Infrastructure Configuration
-      - Parameters:
-          - PayType
-          - PayPeriodUnit
-          - PayPeriod
-        Label:
-          default:
-            zh-cn: 付费类型配置
-            en: PayType Configuration
-      - Parameters:
-          - EcsInstanceType
-          - InstancePassword
-        Label:
-          default:
-            en: Instance
-            zh-cn: ECS实例配置
-      - Parameters:
-          - InstanceClass
-        Label:
-          default:
-            zh-cn: Redis配置
-            en: Redis Configuration
+        - ','
+        - Fn::GetAtt:
+          - EcsInstanceGroup
+          - PrivateIps
 Outputs:
   InstanceId:
     Value:
-      'Fn::GetAtt':
-        - RedisInstance
-        - InstanceId
+      Fn::GetAtt:
+      - RedisInstance
+      - InstanceId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - VpcId
+      - VSwitchId
+      Label:
+        default:
+          zh-cn: 选择已有基础资源配置
+          en: Choose existing Infrastructure Configuration
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        default:
+          zh-cn: 付费类型配置
+          en: PayType Configuration
+    - Parameters:
+      - EcsInstanceType
+      - InstancePassword
+      Label:
+        default:
+          en: Instance
+          zh-cn: ECS实例配置
+    - Parameters:
+      - InstanceClass
+      Label:
+        default:
+          zh-cn: Redis配置
+          en: Redis Configuration

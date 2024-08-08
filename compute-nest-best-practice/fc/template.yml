@@ -1,53 +1,58 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: the best practice of ROS for deploying Kodbox with FC
-  zh-cn: ROS用FC部署Kodbox的最佳实践
+  zh-cn: 部署Kodbox基于FC，自动配置NAS存储，含初始化与功能函数，支持HTTP触发器，最佳实践方案。
+  en: Deploy Kodbox on FC (Fiber Channel), facilitating automatic configuration of
+    NAS (Network Attached Storage) inclusive of initialization and functional features,
+    with support for HTTP triggers, presenting an optimal practice solution.
 Parameters:
   ZoneId:
     Type: String
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     Label:
       en: VSwitch Availability Zone
       zh-cn: 交换机可用区
-  ServiceName:
-    Type: String
-    Default: fc-kodbox
-    Label:
-      en: ServiceName
-      zh-cn: 服务名称
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
   VpcId:
-    AssociationProperty: ALIYUN::ECS::VPC::VPCId
     Type: String
-    Description:
-      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
-      zh-cn: 现有虚拟专有网络的实例ID
     Label:
       en: VPC ID
       zh-cn: 专有网络VPC实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private
+        Cloud
+      zh-cn: 现有虚拟专有网络的实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
   VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private
+        Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
     AssociationPropertyMetadata:
       VpcId: ${VpcId}
       ZoneId: ${ZoneId}
-    Type: String
-    Description:
-      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
-      zh-cn: 现有业务网络交换机的实例ID
-    Label:
-      en: VSwitch ID
-      zh-cn: 交换机实例ID
   SecurityGroupId:
+    Type: String
+    Label:
+      en: SecurityGroup ID
+      zh-cn: 安全组ID
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private
+        Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
     AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
     AssociationPropertyMetadata:
       VpcId: ${VpcId}
       ZoneId: ${ZoneId}
+  ServiceName:
     Type: String
-    Description:
-      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
-      zh-cn: 现有业务网络交换机的实例ID
     Label:
-      en: SecurityGroup ID
-      zh-cn: 安全组ID
+      en: ServiceName
+      zh-cn: 服务名称
+    Default: fc-kodbox
 Resources:
   FcDefaultRole:
     Type: DATASOURCE::RAM::Roles
@@ -61,62 +66,60 @@ Resources:
       FileSystemType: standard
   NasMountTarget:
     Type: ALIYUN::NAS::MountTarget
-    DependsOn:
-      - NasFileSystem
     Properties:
-      FileSystemId:
-        Fn::GetAtt:
-          - NasFileSystem
-          - FileSystemId
-      NetworkType: Vpc
       VpcId:
         Ref: VpcId
       VSwitchId:
         Ref: VSwitchId
+      FileSystemId:
+        Fn::GetAtt:
+        - NasFileSystem
+        - FileSystemId
+      NetworkType: Vpc
       AccessGroupName: DEFAULT_VPC_GROUP_NAME
+    DependsOn:
+    - NasFileSystem
   FCKodBoxService:
     Type: ALIYUN::FC::Service
-    DependsOn:
-      - NasFileSystem
-      - NasMountTarget
-      - FcDefaultRole
     Properties:
       ServiceName:
         Ref: ServiceName
       InternetAccess: true
       Role:
         Fn::Select:
-          - Arn
-          - Fn::Select:
-              - '0'
-              - Fn::GetAtt:
-                  - FcDefaultRole
-                  - Roles
+        - Arn
+        - Fn::Select:
+          - '0'
+          - Fn::GetAtt:
+            - FcDefaultRole
+            - Roles
       VpcConfig:
         VpcId:
           Ref: VpcId
         VSwitchIds:
-          - Ref: VSwitchId
+        - Ref: VSwitchId
         SecurityGroupId:
           Ref: SecurityGroupId
       NasConfig:
         MountPoints:
-          - MountDir: /mnt/auto
-            ServerAddr:
-              Fn::Sub:
-                - ${MountDomain}:/${Point}
-                - MountDomain:
-                    Fn::GetAtt:
-                      - NasMountTarget
-                      - MountTargetDomain
-                  Point:
-                    Ref: ServiceName
+        - MountDir: /mnt/auto
+          ServerAddr:
+            Fn::Sub:
+            - ${MountDomain}:/${Point}
+            - MountDomain:
+                Fn::GetAtt:
+                - NasMountTarget
+                - MountTargetDomain
+              Point:
+                Ref: ServiceName
         UserId: 0
         GroupId: 0
+    DependsOn:
+    - FcDefaultRole
+    - NasFileSystem
+    - NasMountTarget
   FCFunctionInit:
     Type: ALIYUN::FC::Function
-    DependsOn:
-      - FCKodBoxService
     Properties:
       FunctionName: nas-init
       ServiceName:
@@ -129,21 +132,32 @@ Resources:
       InstanceConcurrency: 1
       InstanceType: e1
       Code:
-        SourceCode: |
-          import os
-          def handler(event, context):
-              if not os.path.exists("/mnt/auto/.kodbox-1.35.031"):
-                  os.system(
-                      "wget http://images.devsapp.cn/application/kodbox/kodbox-1.35.031.zip -O /mnt/auto/kodbox-1.35.031.zip")
-                  os.system(
-                      "cd /mnt/auto && unzip kodbox-1.35.031.zip && mv kodbox-1.35.031 .kodbox-1.35.031 && rm kodbox-1.35.031.zip && cd -")
-              return "nas init"
+        SourceCode: "import os\ndef handler(event, context):\n    if not os.path.exists(\"\
+          /mnt/auto/.kodbox-1.35.031\"):\n        os.system(\n            \"wget http://images.devsapp.cn/application/kodbox/kodbox-1.35.031.zip\
+          \ -O /mnt/auto/kodbox-1.35.031.zip\")\n        os.system(\n            \"\
+          cd /mnt/auto && unzip kodbox-1.35.031.zip && mv kodbox-1.35.031 .kodbox-1.35.031\
+          \ && rm kodbox-1.35.031.zip && cd -\")\n    return \"nas init\"\n"
+    DependsOn:
+    - FCKodBoxService
+  FCInitInvoker:
+    Type: ALIYUN::FC::FunctionInvoker
+    Properties:
+      ExecuteVersion: 1
+      CheckError: true
+      Async: true
+      ServiceName:
+        Fn::GetAtt:
+        - FCFunctionInit
+        - ServiceName
+      FunctionName:
+        Fn::GetAtt:
+        - FCFunctionInit
+        - FunctionName
+    DependsOn:
+    - FCFunctionInit
+    - FCKodBoxService
   FCFunctionKodBox:
     Type: ALIYUN::FC::Function
-    DependsOn:
-      - FCKodBoxService
-      - FCFunctionInit
-      - FCInitInvoker
     Properties:
       FunctionName: kodbox
       ServiceName:
@@ -157,22 +171,23 @@ Resources:
       InstanceType: e1
       CustomRuntimeConfig:
         Command:
-          - bash
-          - '-c'
-          - /code/kodbox/start.sh
+        - bash
+        - -c
+        - /code/kodbox/start.sh
       CAPort: 80
       Code:
         OssBucketName:
           Fn::Sub:
-            - computenest-artifacts-${DeployRegionId}
-            - DeployRegionId:
-                Ref: ALIYUN::Region
+          - computenest-artifacts-${DeployRegionId}
+          - DeployRegionId:
+              Ref: ALIYUN::Region
         OssObjectName: 1563457855438522/cn-beijing/1684844842065/kodbox.zip
+    DependsOn:
+    - FCFunctionInit
+    - FCInitInvoker
+    - FCKodBoxService
   FCKodBoxTrigger:
     Type: ALIYUN::FC::Trigger
-    DependsOn:
-      - FCKodBoxService
-      - FCFunctionKodBox
     Properties:
       FunctionName: kodbox
       ServiceName:
@@ -181,59 +196,45 @@ Resources:
       TriggerName: httpTrigger
       TriggerConfig:
         Methods:
-          - GET
-          - POST
-          - PUT
-          - DELETE
+        - GET
+        - POST
+        - PUT
+        - DELETE
         AuthType: anonymous
-  FCInitInvoker:
-    Type: ALIYUN::FC::FunctionInvoker
     DependsOn:
-      - FCKodBoxService
-      - FCFunctionInit
-    Properties:
-      ExecuteVersion: 1
-      CheckError: true
-      Async: true
-      ServiceName:
-        Fn::GetAtt:
-          - FCFunctionInit
-          - ServiceName
-      FunctionName:
-        Fn::GetAtt:
-          - FCFunctionInit
-          - FunctionName
+    - FCFunctionKodBox
+    - FCKodBoxService
 Outputs:
   FCKodboxConsole:
     Value:
       Fn::Sub:
-        - https://fcnext.console.aliyun.com/${DeployRegionId}/services/${FCServiceName}/function-detail/kodbox/LATEST?tab=trigger
-        - DeployRegionId:
-            Ref: ALIYUN::Region
-          FCServiceName:
-            Ref: ServiceName
+      - https://fcnext.console.aliyun.com/${DeployRegionId}/services/${FCServiceName}/function-detail/kodbox/LATEST?tab=trigger
+      - DeployRegionId:
+          Ref: ALIYUN::Region
+        FCServiceName:
+          Ref: ServiceName
   Description:
     Value: 请访问FCKodboxConsole到函数计算控制台配置并返回测试地址。若需要配置自定义域名，请到函数计算控制台-域名管理-添加自定义域名。详情参考：https://help.aliyun.com/document_detail/90763.html?spm=5176.fcnext.help.dexternal.7bea78c88Le12k。
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - ZoneId
-        Label:
-          default:
-            zh-cn: 可用区配置
-            en: Zone Configuration
-      - Parameters:
-          - VpcId
-          - VSwitchId
-          - SecurityGroupId
-        Label:
-          default:
-            zh-cn: 基础资源配置（必填）
-            en: Infrastructure Configuration
-      - Parameters:
-          - ServiceName
-        Label:
-          default:
-            zh-cn: FC 配置
-            en: FC Configuration
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - VpcId
+      - VSwitchId
+      - SecurityGroupId
+      Label:
+        default:
+          zh-cn: 基础资源配置（必填）
+          en: Infrastructure Configuration
+    - Parameters:
+      - ServiceName
+      Label:
+        default:
+          zh-cn: FC 配置
+          en: FC Configuration

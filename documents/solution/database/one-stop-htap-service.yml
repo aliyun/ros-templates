@@ -1,11 +1,22 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Build a one-stop HTAP service based on RDS and ClickHouse.
-  zh-cn: RDS+ClickHouse，构建更易用的一站式HTAP服务。
+  zh-cn: 构建RDS MySQL+ClickHouse HTAP环境，含VPC、安全组配置，自动化部署与数据同步。
+  en: Construct an RDS MySQL+ClickHouse Hybrid Transactional and Analytical Processing
+    (HTAP) environment, encompassing Virtual Private Cloud (VPC) setup, Security Group
+    configurations, automated deployment processes, and data synchronization mechanisms.
+Mappings:
+  DatabaseClass:
+    ClickHouse:
+      16C64G: S16
+      32C128G: S32
+      64C256G: S64
+      8C32G: S8
+    RDS:
+      16C64G: mysql.x4.2xlarge.2c
+      32C128G: mysql.x4.4xlarge.2c
+      64C256G: mysql.x4.8xlarge.2c
+      8C32G: mysql.x4.xlarge.2c
 Parameters:
-  CommonName:
-    Type: String
-    Default: rdsmysql2ck
   ZoneId:
     Type: String
     Label:
@@ -18,14 +29,15 @@ Parameters:
       en: Database Instance Class
       zh-cn: 数据库实例规格
     Description:
-      en: For optimal query performance, it is recommended that the instance size of the ClickHouse instance be larger than that of the RDS instance.
+      en: For optimal query performance, it is recommended that the instance size
+        of the ClickHouse instance be larger than that of the RDS instance.
       zh-cn: 为保证查询性能，建议ClickHouse实例的实例规格大于RDS实例实例规格。
     Default: 8C32G
     AllowedValues:
-      - 8C32G
-      - 16C64G
-      - 32C128G
-      - 64C256G
+    - 8C32G
+    - 16C64G
+    - 32C128G
+    - 64C256G
   RDSDBUser:
     Type: String
     Label:
@@ -35,27 +47,13 @@ Parameters:
       en: Username of RDS DB database.
       zh-cn: RDS数据库账号。
     ConstraintDescription:
-      en: Consist of lowercase letters, numbers, underscore (_), start with a letter, end with a letter or number, up to 32 characters.
+      en: Consist of lowercase letters, numbers, underscore (_), start with a letter,
+        end with a letter or number, up to 32 characters.
       zh-cn: 由小写字母、数字、下划线（_）组成，以字母开头，以字母或数字结尾，最多32个字符。
     Default: rds_user
+    AllowedPattern: ^[a-z][a-z0-9_]{0,30}[a-z0-9]$
     MinLength: 2
     MaxLength: 16
-    AllowedPattern: ^[a-z][a-z0-9_]{0,30}[a-z0-9]$
-  DataBasePassword:
-    Type: String
-    Label:
-      en: DataBase Password
-      zh-cn: 数据库密码
-    Description:
-      en: RDS database user and ClickHouse database user password. Length 8-32, must contain three(Capital letters, lowercase letters, numbers, !@#$%^&*()_+-= Special symbol in).
-      zh-cn: RDS数据库用户和ClickHouse数据库用户密码。长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-= 中的特殊符号）。
-    ConstraintDescription:
-      en: Length 8-32, must contain three(Capital letters, lowercase letters, numbers, !@#$%^&*()_+-= Special symbol in)
-      zh-cn: 长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-= 中的特殊符号）。
-    MinLength: 8
-    MaxLength: 32
-    NoEcho: true
-    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
   ClickHouseUser:
     Type: String
     Label:
@@ -65,12 +63,32 @@ Parameters:
       en: Username of ClickHouse DB database.
       zh-cn: ClickHouse数据库账号。
     ConstraintDescription:
-      en: Consist of lowercase letters, numbers, underscore (_), start with a letter, end with a letter or number, up to 32 characters.
+      en: Consist of lowercase letters, numbers, underscore (_), start with a letter,
+        end with a letter or number, up to 32 characters.
       zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
     Default: ck_user
+    AllowedPattern: ^[a-z][a-z0-9_]{0,30}[a-z0-9]$
     MinLength: 2
     MaxLength: 16
-    AllowedPattern: ^[a-z][a-z0-9_]{0,30}[a-z0-9]$
+  DataBasePassword:
+    Type: String
+    Label:
+      en: DataBase Password
+      zh-cn: 数据库密码
+    Description:
+      en: RDS database user and ClickHouse database user password. Length 8-32, must
+        contain three(Capital letters, lowercase letters, numbers, !@#$%^&*()_+-=
+        Special symbol in).
+      zh-cn: RDS数据库用户和ClickHouse数据库用户密码。长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=
+        中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-32, must contain three(Capital letters, lowercase letters, numbers,
+        !@#$%^&*()_+-= Special symbol in)
+      zh-cn: 长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-= 中的特殊符号）。
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
   InstanceType:
     Type: String
     Label:
@@ -87,56 +105,22 @@ Parameters:
       en: Instance Password
       zh-cn: 实例密码
     Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in).
       zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
     ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
       zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AssociationProperty: ALIYUN::ECS::Instance::Password
     AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
     MinLength: 8
     MaxLength: 30
     NoEcho: true
-    AssociationProperty: ALIYUN::ECS::Instance::Password
-Metadata:
-  ALIYUN::ROS::Interface:
-    ParameterGroups:
-      - Parameters:
-          - ZoneId
-        Label:
-          default:
-            en: Available Zone
-            zh-cn: 可用区
-      - Parameters:
-          - DBInstanceClass
-          - RDSDBUser
-          - ClickHouseUser
-          - DataBasePassword
-        Label:
-          default:
-            en: RDS&CK DataBase Configuration
-            zh-cn: RDS&CK数据库配置
-      - Parameters:
-          - InstanceType
-          - InstancePassword
-        Label:
-          en: ECS Configuration
-          zh-cn: ECS服务器配置
-    TemplateTags:
-      - acs:technical-solution:database:RDS+ClickHouse构建一站式HTAP-tech_solu_19
-    Hidden:
-      - CommonName
-Mappings:
-  DatabaseClass:
-    RDS:
-      8C32G: mysql.x4.xlarge.2c
-      16C64G: mysql.x4.2xlarge.2c
-      32C128G: mysql.x4.4xlarge.2c
-      64C256G: mysql.x4.8xlarge.2c
-    ClickHouse:
-      8C32G: S8
-      16C64G: S16
-      32C128G: S32
-      64C256G: S64
+  CommonName:
+    Type: String
+    Default: rdsmysql2ck
 Resources:
   VPC:
     Type: ALIYUN::ECS::VPC
@@ -147,10 +131,10 @@ Resources:
   VSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
-      VpcId:
-        Ref: VPC
       ZoneId:
         Ref: ZoneId
+      VpcId:
+        Ref: VPC
       CidrBlock: 192.168.0.0/24
       VSwitchName:
         Fn::Sub: vswitch_${CommonName}
@@ -198,6 +182,12 @@ Resources:
   RdsInstance:
     Type: ALIYUN::RDS::DBInstance
     Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
       DBInstanceDescription:
         Fn::Sub: rdsmysql_${CommonName}
       Engine: MySQL
@@ -207,16 +197,10 @@ Resources:
       DBInstanceStorageType: cloud_essd
       DBInstanceClass:
         Fn::FindInMap:
-          - DatabaseClass
-          - RDS
-          - Ref: DBInstanceClass
+        - DatabaseClass
+        - RDS
+        - Ref: DBInstanceClass
       SecurityIPList: 0.0.0.0/0
-      VpcId:
-        Ref: VPC
-      ZoneId:
-        Ref: ZoneId
-      VSwitchId:
-        Ref: VSwitch
       PayType: Postpaid
       MasterUserType: Super
       MasterUsername:
@@ -235,22 +219,22 @@ Resources:
   ClickHouse:
     Type: ALIYUN::ClickHouse::DBCluster
     Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
       DbNodeStorageType: cloud_essd
       DBNodeStorage: 100
       Category: Basic
-      ZoneId:
-        Ref: ZoneId
-      VSwitchId:
-        Ref: VSwitch
       DBClusterDescription:
         Fn::Sub: ck_${CommonName}
       DBClusterType:
         Fn::FindInMap:
-          - DatabaseClass
-          - ClickHouse
-          - Ref: DBInstanceClass
-      VpcId:
-        Ref: VPC
+        - DatabaseClass
+        - ClickHouse
+        - Ref: DBInstanceClass
       DBClusterVersion: 22.8.5.29
       DBNodeCount: 1
       PaymentType: Postpaid
@@ -258,6 +242,8 @@ Resources:
   EcsInstance:
     Type: ALIYUN::ECS::Instance
     Properties:
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: VPC
       VSwitchId:
@@ -272,96 +258,88 @@ Resources:
         Ref: InstancePassword
       IoOptimized: optimized
       AllocatePublicIP: true
-      ZoneId:
-        Ref: ZoneId
   InstallEnv:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
-        - Fn::GetAtt:
-            - EcsInstance
-            - InstanceId
+      - Fn::GetAtt:
+        - EcsInstance
+        - InstanceId
       Type: RunShellScript
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |
-          #!/bin/bash
+        Fn::Sub: '#!/bin/bash
+
           wget http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
+
           yum -y install mysql57-community-release-el7-10.noarch.rpm
+
           yum -y install * --nogpgcheck mysql-community-server
-          yum -y install gcc gcc-c++ autoconf automake make libtool bzr mysql-devel git mysql unzip --nogpgcheck
+
+          yum -y install gcc gcc-c++ autoconf automake make libtool bzr mysql-devel
+          git mysql unzip --nogpgcheck
+
           bzr branch lp:~percona-dev/perconatools/tpcc-mysql
+
           cd tpcc-mysql/src
+
           make
+
           cd ..
-          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser} -p${DataBasePassword} -D tpcc < create_table.sql
-          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser} -p${DataBasePassword} -D tpcc < add_fkey_idx.sql
-          IpAddr=`ping ${RdsInstance.InnerConnectionString} -c 1 | sed '1{s/[^(]*(//;s/).*//;q}'`
+
+          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser} -p${DataBasePassword}
+          -D tpcc < create_table.sql
+
+          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser} -p${DataBasePassword}
+          -D tpcc < add_fkey_idx.sql
+
+          IpAddr=`ping ${RdsInstance.InnerConnectionString} -c 1 | sed ''1{s/[^(]*(//;s/).*//;q}''`
+
           echo $IpAddr
+
           ./tpcc_load $IpAddr tpcc ${RDSDBUser} ${DataBasePassword} 10
+
+          '
   RunTpcc:
     Type: ALIYUN::ECS::RunCommand
-    DependsOn:
-      - InstallEnv
     Properties:
       InstanceIds:
-        - Fn::GetAtt:
-            - EcsInstance
-            - InstanceId
+      - Fn::GetAtt:
+        - EcsInstance
+        - InstanceId
       Type: RunShellScript
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |
-          #!/bin/bash
-          tpcc-mysql/tpcc_start -h ${RdsInstance.InnerConnectionString} -d tpcc -u ${RDSDBUser} -p ${DataBasePassword} -w 10 -c 100 -r 180 -l 600 -i 10 > tpcc.log 2>&1 &
+        Fn::Sub: '#!/bin/bash
+
+          tpcc-mysql/tpcc_start -h ${RdsInstance.InnerConnectionString} -d tpcc -u
+          ${RDSDBUser} -p ${DataBasePassword} -w 10 -c 100 -r 180 -l 600 -i 10 > tpcc.log
+          2>&1 &
+
+          '
+    DependsOn:
+    - InstallEnv
   ModuleAcsOosExecuteTemplate:
-    Version: default
     Type: MODULE::ACS::OOS::ExecuteTemplate
     Properties:
       CleanUp: true
       TemplateContent:
-        Fn::Sub: |
-          FormatVersion: OOS-2019-06-01
-          Tasks:
-            - Name: DescribeAccounts
-              Action: ACS::ExecuteAPI
-              Properties:
-                Service: ClickHouse
-                API: DescribeAccounts
-                Parameters:
-                  RegionId: '{{ ACS::RegionId }}'
-                  DBClusterId: ${ClickHouse.DBClusterId}
-              Outputs:
-                RequestId:
-                  ValueSelector: .RequestId
-                  Type: String
-            - Name: sleepTask1
-              Action: ACS::Sleep
-              Properties:
-                Duration: 5s
-            - Name: CreateSQLAccount
-              Action: ACS::ExecuteAPI
-              Properties:
-                Service: ClickHouse
-                API: CreateSQLAccount
-                Parameters:
-                  RegionId: '{{ ACS::RegionId }}'
-                  DBClusterId: ${ClickHouse.DBClusterId}
-                  AccountName: ${ClickHouseUser}
-                  AccountPassword: ${DataBasePassword}
-                  AccountType: Super
-            - Name: sleepTask2
-              Action: ACS::Sleep
-              Properties:
-                Duration: 20s
+        Fn::Sub: "FormatVersion: OOS-2019-06-01\nTasks:\n  - Name: DescribeAccounts\n\
+          \    Action: ACS::ExecuteAPI\n    Properties:\n      Service: ClickHouse\n\
+          \      API: DescribeAccounts\n      Parameters:\n        RegionId: '{{ ACS::RegionId\
+          \ }}'\n        DBClusterId: ${ClickHouse.DBClusterId}\n    Outputs:\n  \
+          \    RequestId:\n        ValueSelector: .RequestId\n        Type: String\n\
+          \  - Name: sleepTask1\n    Action: ACS::Sleep\n    Properties:\n      Duration:\
+          \ 5s\n  - Name: CreateSQLAccount\n    Action: ACS::ExecuteAPI\n    Properties:\n\
+          \      Service: ClickHouse\n      API: CreateSQLAccount\n      Parameters:\n\
+          \        RegionId: '{{ ACS::RegionId }}'\n        DBClusterId: ${ClickHouse.DBClusterId}\n\
+          \        AccountName: ${ClickHouseUser}\n        AccountPassword: ${DataBasePassword}\n\
+          \        AccountType: Super\n  - Name: sleepTask2\n    Action: ACS::Sleep\n\
+          \    Properties:\n      Duration: 20s\n"
+    Version: default
   SynDb:
     Type: ALIYUN::ClickHouse::SynDb
-    DependsOn:
-      - ModuleAcsOosExecuteTemplate
-      - RdsInstance
-      - Database
-      - InstallEnv
     Properties:
       DbClusterId:
         Ref: ClickHouse
@@ -377,14 +355,47 @@ Resources:
         Ref: DataBasePassword
       SkipUnsupported: true
       SynDbTables:
-        - Schema: tpcc
-          Tables:
-            - customer
-            - district
-            - history
-            - item
-            - new_orders
-            - order_line
-            - orders
-            - stock
-            - warehouse
+      - Schema: tpcc
+        Tables:
+        - customer
+        - district
+        - history
+        - item
+        - new_orders
+        - order_line
+        - orders
+        - stock
+        - warehouse
+    DependsOn:
+    - Database
+    - InstallEnv
+    - ModuleAcsOosExecuteTemplate
+    - RdsInstance
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          en: Available Zone
+          zh-cn: 可用区
+    - Parameters:
+      - DBInstanceClass
+      - RDSDBUser
+      - ClickHouseUser
+      - DataBasePassword
+      Label:
+        default:
+          en: RDS&CK DataBase Configuration
+          zh-cn: RDS&CK数据库配置
+    - Parameters:
+      - InstanceType
+      - InstancePassword
+      Label:
+        en: ECS Configuration
+        zh-cn: ECS服务器配置
+    TemplateTags:
+    - acs:technical-solution:database:RDS+ClickHouse构建一站式HTAP-tech_solu_19
+    Hidden:
+    - CommonName

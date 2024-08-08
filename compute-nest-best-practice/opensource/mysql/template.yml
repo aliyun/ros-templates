@@ -1,4 +1,11 @@
 ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 该模版用于自动化部署ECS实例与MySQL数据库，支持按需或预付费、自定义镜像、磁盘配置与安全组设置，可选配公网访问与带宽控制，通过参数化提供灵活的资源创建能力。
+  en: This template facilitates automated deployment of ECS instances alongside MySQL
+    databases, accommodating both on-demand and prepaid models. It supports custom
+    images, disk configurations, and security group settings, with optional public
+    access and bandwidth control. Resource creation is made flexible through parameterization,
+    empowering users with versatile provisioning capabilities.
 Conditions:
   IfAllocatePublicIp:
     Fn::Equals:
@@ -284,61 +291,108 @@ Resources:
         Ref: SystemDiskSize
       UserData:
         Fn::Sub:
-        - |
-          #!/bin/sh
+        - '#!/bin/sh
+
 
           # sleep一段时间确保网络就绪
+
           sleep 10
 
+
           # 对数据盘进行分区
+
           cat >> /root/InitDataDisk.sh << "EOF"
+
           #!/bin/bash
+
           echo "p
+
           n
+
           p
 
 
 
+
           w
+
           " |  fdisk -u /dev/vdb
+
           EOF
+
           /bin/bash /root/InitDataDisk.sh
+
           rm -f /root/InitDataDisk.sh
+
           # 在新分区上创建文件系统
+
           mkfs.ext4 /dev/vdb1
+
           # 创建目录，MySQL将安装在该目录下
+
           mkdir /data
+
           # 挂载文件系统
+
           mount /dev/vdb1 /data
+
           # 向 /etc/fstab 写入新分区信息
+
           echo /dev/vdb1 /data ext4 defaults,nodelalloc,noatime 0 2 >> /etc/fstab
+
           cd /data/
 
+
           # 启动MySQL服务
+
           rm -f mysql-community-release-el6-5.noarch.rpm
+
           service mysqld start
 
+
           # 以超级用户身份登入，创建admin用户，并允许admin用户以Password为密码远程登录
-          mysqladmin -u root password '${Password}'
+
+          mysqladmin -u root password ''${Password}''
+
           echo "create database test character set utf8 collate utf8_bin;" > ./test.sql
-          echo "CREATE USER 'admin'@'%' IDENTIFIED BY '${Password}';" >> ./test.sql
-          echo "GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' WITH GRANT OPTION;" >> ./test.sql
-          mysql -u root -p'${Password}' < ./test.sql
+
+          echo "CREATE USER ''admin''@''%'' IDENTIFIED BY ''${Password}'';" >> ./test.sql
+
+          echo "GRANT ALL PRIVILEGES ON *.* TO ''admin''@''%'' WITH GRANT OPTION;"
+          >> ./test.sql
+
+          mysql -u root -p''${Password}'' < ./test.sql
+
           rm ./test.sql
+
           # 将MySQL的配置和数据路径移动到数据盘上
+
           systemctl stop mysqld
+
           rsync -av /var/lib/mysql /data
+
           # 修改配置文件
-          sed -i 's/\/var\/lib/\/data/g' /etc/my.cnf
-          echo -e '\n' >> /etc/my.cnf
-          echo '[client]' >> /etc/my.cnf
-          echo 'port=3306' >> /etc/my.cnf
-          echo 'socket=/data/mysql/mysql.sock' >> /etc/my.cnf
+
+          sed -i ''s/\/var\/lib/\/data/g'' /etc/my.cnf
+
+          echo -e ''\n'' >> /etc/my.cnf
+
+          echo ''[client]'' >> /etc/my.cnf
+
+          echo ''port=3306'' >> /etc/my.cnf
+
+          echo ''socket=/data/mysql/mysql.sock'' >> /etc/my.cnf
+
           # 重启MySQL
+
           systemctl start mysqld
 
+
           # 执行成功回调WaitCondition结束WaitCondition的等待
+
           ${CurlCli} -d "{\"Data\" : \"SUCCESS\", \"Status\" : \"SUCCESS\"}"
+
+          '
         - CurlCli:
             Fn::GetAtt:
             - WaitConditionHandle

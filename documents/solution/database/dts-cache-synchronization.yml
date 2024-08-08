@@ -1,7 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS
-  zh-cn: 通过DTS实现MySQL与Redis缓存同步一致性方案
+  zh-cn: 该模版通过DTS实现MySQL与Redis的缓存同步，包括VPC、ECS、RDS、Redis实例创建及安全配置，同时设置消费组确保数据一致性。
+  en: This template achieves cache synchronization between MySQL and Redis via DTS,
+    encompassing the creation and security configuration of VPC, ECS, RDS, and Redis
+    instances, alongside the establishment of consumer groups to ensure data consistency.
 Parameters:
   ZoneId:
     Type: String
@@ -31,8 +33,15 @@ Parameters:
       en: System Disk Type
       zh-cn: 系统盘类型
     Description:
-      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
-      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
     AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
     AssociationPropertyMetadata:
       LocaleKey: DiskCategory
@@ -56,6 +65,18 @@ Parameters:
     MinLength: 8
     MaxLength: 30
     NoEcho: true
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: '8.0'
+      Engine: MySQL
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
   DBName:
     Type: String
     Label:
@@ -96,24 +117,12 @@ Parameters:
         is 8 to 32 characters long,Must contain three different types of characters.
       zh-cn: RDS数据库密码，由字母、数字、下划线（_）组成，长度为8~32个字符，必须包含3种不同类型的字符。
     ConstraintDescription:
-      en: Consisting of letters, numbers, and underline(_),
-        is 8 to 32 characters long.
+      en: Consisting of letters, numbers, and underline(_), is 8 to 32 characters
+        long.
       zh-cn: 由字母、数字、下划线（_）组成，长度为8~32个字符。
     MinLength: 8
     MaxLength: 32
     NoEcho: true
-  DBInstanceClass:
-    Type: String
-    Label:
-      en: Instance Class
-      zh-cn: 实例规格
-    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
-    AssociationPropertyMetadata:
-      ZoneId: ${ZoneId}
-      EngineVersion: "8.0"
-      Engine: MySQL
-      Category: HighAvailability
-      DBInstanceStorageType: cloud_essd
   RedisInstanceClass:
     Type: String
     Label:
@@ -150,7 +159,8 @@ Parameters:
       en: Consumer Group User Name
       zh-cn: 消费组账号
     Description:
-      en: The maximum length is 16 characters.  The value can contain letters, digits, and underscores (_).
+      en: The maximum length is 16 characters.  The value can contain letters, digits,
+        and underscores (_).
       zh-cn: 最长16个字符。可包含英文字母、数字和下划线（_）。
     Default: demoUser
   ConsumerGroupPassword:
@@ -159,17 +169,37 @@ Parameters:
       en: Consumer Group Password
       zh-cn: 消费组账号的密码
     Description:
-      en: The name contains 8 to 32 characters.  Contains at least two types of letters, digits, and special characters.
+      en: The name contains 8 to 32 characters.  Contains at least two types of letters,
+        digits, and special characters.
       zh-cn: 长度为8~32个字符。至少包含英文字母、数字和特殊字符中的两种。
     MinLength: '8'
     MaxLength: '32'
     NoEcho: true
 Resources:
+  AliyunDTSDefaultRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunDTSDefaultRole
+      Description: DTS默认使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - dts.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+      DeletionForce: true
+      PolicyAttachments:
+        System:
+        - AliyunDTSRolePolicy
   Vpc:
     Type: ALIYUN::ECS::VPC
-    DependsOn: AliyunDTSDefaultRole
     Properties:
       CidrBlock: 192.168.0.0/16
+    DependsOn: AliyunDTSDefaultRole
   VSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -179,10 +209,10 @@ Resources:
         Ref: Vpc
       VSwitchName:
         Fn::Join:
-          - '-'
-          - - VSwitch
-            - StackId
-            - Ref: ALIYUN::StackId
+        - '-'
+        - - VSwitch
+          - StackId
+          - Ref: ALIYUN::StackId
       CidrBlock: 192.168.0.0/24
   SecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
@@ -230,6 +260,8 @@ Resources:
     Properties:
       ZoneId:
         Ref: ZoneId
+      SlaveZoneIds:
+      - Ref: ZoneId
       VpcId:
         Ref: Vpc
       VSwitchId:
@@ -238,22 +270,20 @@ Resources:
         Ref: DBInstanceClass
       DBInstanceStorage: 100
       Engine: MySQL
-      EngineVersion: "8.0"
+      EngineVersion: '8.0'
       MasterUserPassword:
         Ref: RDSDBPassword
       MasterUserType: Super
       MasterUsername:
         Ref: RDSDBUser
       DBMappings:
-        - CharacterSetName: utf8mb4
-          DBName:
-            Ref: DBName
+      - CharacterSetName: utf8mb4
+        DBName:
+          Ref: DBName
       Category: HighAvailability
       DBInstanceStorageType: cloud_essd
       SecurityIPList: 0.0.0.0/0
       AllocatePublicConnection: true
-      SlaveZoneIds:
-        - Ref: ZoneId
   RedisInstance:
     Type: ALIYUN::REDIS::Instance
     Properties:
@@ -266,7 +296,7 @@ Resources:
       InstanceClass:
         Ref: RedisInstanceClass
       InstanceName: rds_mysql2redis_redis
-      EngineVersion: "5.0"
+      EngineVersion: '5.0'
       Connections:
         PublicConnection:
           ConnectionPort: 6379
@@ -280,15 +310,12 @@ Resources:
         Ref: RedisInstance
       SecurityIps: 0.0.0.0/0
   SubscriptionInstance:
-    DependsOn:
-      - RdsDBInstance
     Type: ALIYUN::DTS::SubscriptionInstance
     Properties:
       SourceEndpointInstanceType: MySQL
       Configuration:
         DbList:
-          Fn::Sub: |-
-            {"${DBName}":{"name":"${DBName}","all":true}}
+          Fn::Sub: '{"${DBName}":{"name":"${DBName}","all":true}}'
         SubscriptionDataType:
           DDL: false
           DML: true
@@ -307,6 +334,8 @@ Resources:
             Ref: Vpc
           VSwitchId:
             Ref: VSwitch
+    DependsOn:
+    - RdsDBInstance
   ConsumerGroup:
     Type: ALIYUN::DTS::ConsumerGroup
     Properties:
@@ -321,56 +350,57 @@ Resources:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
-        - Ref: EcsInstance
+      - Ref: EcsInstance
       Type: RunShellScript
       Sync: true
       Timeout: 7200
       CommandContent:
-        Fn::Sub: |-
-          #!/bin/bash
+        Fn::Sub: '#!/bin/bash
+
           yum install -y java-1.8.0-openjdk-devel maven wget unzip
-          echo 'JAVA_HOME=/usr/lib/jvm/java-1.8.0' >> /etc/profile
-          echo 'PATH=$PATH:$JAVA_HOME/bin' >> /etc/profile
+
+          echo ''JAVA_HOME=/usr/lib/jvm/java-1.8.0'' >> /etc/profile
+
+          echo ''PATH=$PATH:$JAVA_HOME/bin'' >> /etc/profile
+
           source /etc/profile
+
           wget https://database-plg.oss-cn-beijing.aliyuncs.com/dbbp/mysql2redis/subscribe-demo-master.zip
+
           unzip subscribe-demo-master.zip
+
           rm -rf subscribe-demo-master.zip
+
           cd subscribe-demo-master
-          FilePath='src/main/java/com/alibaba/dts/demo/DTSMySQL2RedisDemo.java'
+
+          FilePath=''src/main/java/com/alibaba/dts/demo/DTSMySQL2RedisDemo.java''
+
           sed -i "s/your broker url/${SubscriptionInstance.PublicHost}/" $FilePath
+
           sed -i "s/your dts topic/${SubscriptionInstance.SubscribeTopic}/" $FilePath
+
           sed -i "s/your sid/${ConsumerGroup.ConsumerGroupID}/" $FilePath
+
           sed -i "s/your user name/${ConsumerGroupUserName}/" $FilePath
+
           sed -i "s/your password/${RDSDBPassword}/" $FilePath
+
           timestamp=`date -d "$time" +%s`
+
           sed -i "s/start timestamp/$timestamp/" $FilePath
+
           sed -i "s/your redis url/${RedisInstance.PublicConnectionString}/" $FilePath
+
           sed -i "s/your redis password/${RedisPassword}/" $FilePath
+
           mvn clean install
-          nohup java -jar target/subscribe-demo-1.0-SNAPSHOT-jar-with-dependencies.jar  >message.log 2>&1 &
+
+          nohup java -jar target/subscribe-demo-1.0-SNAPSHOT-jar-with-dependencies.jar  >message.log
+          2>&1 &'
     DependsOn:
-      - Whitelist
-      - SecurityGroupIngress_22
-      - SecurityGroupIngress_3306
-  AliyunDTSDefaultRole:
-    Type: 'ALIYUN::RAM::Role'
-    Properties:
-      RoleName: AliyunDTSDefaultRole
-      Description: DTS默认使用此角色来访问您在其他云产品中的资源。
-      AssumeRolePolicyDocument:
-        Version: '1'
-        Statement:
-          - Action: 'sts:AssumeRole'
-            Effect: Allow
-            Principal:
-              Service:
-                - dts.aliyuncs.com
-      MaxSessionDuration: 3600
-      IgnoreExisting: true
-      DeletionForce: true
-      PolicyAttachments:
-        System:
-          - AliyunDTSRolePolicy
+    - SecurityGroupIngress_22
+    - SecurityGroupIngress_3306
+    - Whitelist
 Outputs:
   RdsInstanceInnerConnectionString:
     Description:
@@ -378,34 +408,34 @@ Outputs:
       zh-cn: RDS外网连接串。
     Value:
       Fn::GetAtt:
-        - RdsDBInstance
-        - PublicConnectionString
+      - RdsDBInstance
+      - PublicConnectionString
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - ZoneId
-          - InstanceType
-          - SystemDiskCategory
-          - InstancePassword
-        Label:
-          default: ECS
-      - Parameters:
-          - DBInstanceClass
-          - DBName
-          - RDSDBUser
-          - RDSDBPassword
-        Label:
-          default: RDS
-      - Parameters:
-          - RedisInstanceClass
-          - RedisPassword
-        Label:
-          default: Redis
-      - Parameters:
-          - ConsumerGroupUserName
-          - ConsumerGroupPassword
-        Label:
-          default: Dts
+    - Parameters:
+      - ZoneId
+      - InstanceType
+      - SystemDiskCategory
+      - InstancePassword
+      Label:
+        default: ECS
+    - Parameters:
+      - DBInstanceClass
+      - DBName
+      - RDSDBUser
+      - RDSDBPassword
+      Label:
+        default: RDS
+    - Parameters:
+      - RedisInstanceClass
+      - RedisPassword
+      Label:
+        default: Redis
+    - Parameters:
+      - ConsumerGroupUserName
+      - ConsumerGroupPassword
+      Label:
+        default: Dts
     TemplateTags:
-      - acs:technical-solution:database:实时同步RDS与Redis构建缓存一致性-tech_solu_21
+    - acs:technical-solution:database:实时同步RDS与Redis构建缓存一致性-tech_solu_21

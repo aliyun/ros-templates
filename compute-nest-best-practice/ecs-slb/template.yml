@@ -1,8 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Use the existing VPC、VSWitch, create 1 SLB, 2 ECS instances, and bind all ECS
-    instances to the SLB.
-  zh-cn: 使用已有VPC、VSWitch，创建1个SLB、2个ECS实例，并将所有ECS实例绑定到SLB上。
+  zh-cn: 在现有VPC/VSwitch中，配置1个内部SLB，部署2台ECS实例并配置自动挂载磁盘、安装Nginx，最后将这些ECS实例添加到SLB后端并设定监听规则。
+  en: Within the existing VPC/VSwitch, configure one internal SLB, deploy two ECS
+    instances with auto-attached disks, install Nginx on them, and subsequently add
+    these ECS instances to the SLB backend, followed by setting up the listener rules.
 Parameters:
   ZoneId:
     Type: String
@@ -194,35 +195,59 @@ Resources:
       AllocatePublicIP: false
       UserData:
         Fn::Sub:
-        - |
-          #!/bin/bash
+        - '#!/bin/bash
+
           # 挂盘到/disk1
+
           cat >> /root/InitDataDisk.sh << "EOF"
+
           #!/bin/bash
+
           echo "p
+
           n
+
           p
 
 
 
+
           w
+
           " |  fdisk -u /dev/vdb
+
           EOF
+
           /bin/bash /root/InitDataDisk.sh
+
           rm -f /root/InitDataDisk.sh
+
           mkfs -t ext4 /dev/vdb1
+
           cp /etc/fstab /etc/fstab.bak
+
           mkdir /disk1
-          echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /disk1 ext4 defaults 0 0 >> /etc/fstab
+
+          echo `blkid /dev/vdb1 | awk ''{print $2}'' | sed ''s/\\\"//g''` /disk1 ext4
+          defaults 0 0 >> /etc/fstab
+
           mount -a
 
+
           # 这里配置安装脚本
+
           yum install -y nginx
+
           # 配置启动脚本
+
           systemctl start nginx.service
 
+
           # 执行成功回调WaitCondition结束waitCondition的等待
+
           ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+
+          '
         - CurlCli:
             Fn::GetAtt:
             - WaitConditionHandle

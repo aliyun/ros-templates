@@ -1,114 +1,98 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: A simple demo that deploys a RDS instance and a container-base app into ack. The app use RDS instance as a persistence storage.
-  zh-cn: 新建一个RDS实例并向ACK中部署容器应用。容器应用使用RDS实例作为数据库。
+  zh-cn: 创建RDS实例与ACK集群部署，配置容器应用连接RDS数据库，含网络与支付设置。
+  en: Provisioning an RDS instance along with ACK cluster deployment, configuring
+    container applications to connect to the RDS database, including network and payment
+    configurations.
 Parameters:
-  ZoneId:
-    Type: String
-    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
-    Description:
-      en: Availability zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
-      zh-cn: 可用区ID
-    Label:
-      en: VSwitch Available Zone
-      zh-cn: 可用区
   VpcId:
     Type: String
     AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Available Zone
+      zh-cn: 可用区
+    Description:
+      en: Availability zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources</font></b>
+      zh-cn: 可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
   VSwitchId:
     Type: String
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
     AssociationPropertyMetadata:
       VpcId: ${VpcId}
       ZoneId: ${ZoneId}
-  PayType:
-    AssociationProperty: ChargeType
-    AssociationPropertyMetadata:
-      LocaleKey: InstanceChargeType
+  ClusterId:
     Type: String
     Label:
-      en: ECS Instance Charge Type
-      zh-cn: 付费类型
-    Default: PostPaid
-    AllowedValues:
-      - PostPaid
-      - PrePaid
-  PayPeriod:
-    Type: Number
+      en: Kubernetes ClusterId
+      zh-cn: K8s集群ID
     Description:
-      en: The subscription period. Unit is months.
-      zh-cn: 购买时长，单位（月）
-    Label:
-      en: The subscription period. Unit is months.
-      zh-cn: 购买时长，单位（月）
-    Default: 1
-    AllowedValues:
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
-      - 12
-      - 24
-      - 36
-    AssociationProperty: PayPeriod
-    AssociationPropertyMetadata:
-      Visible:
-        Condition:
-          Fn::Or:
-            - Fn::Equals:
-                - ${PayType}
-                - PrePaid
-            - Fn::Equals:
-                - ${PayType}
-                - undefined
+      en: The ID of Kubernetes ClusterId in which application deployed.
+      zh-cn: 部署应用程序的K8s集群ID
+    ConstraintDescription:
+      en: must be lowercase letters or numbers
+      zh-cn: 集群ID必须由小写字母或者数字组成
+    AssociationProperty: ALIYUN::CS::Cluster::ClusterId
+    AllowedPattern: '[0-9a-z]+$'
+  NameSpace:
+    Type: String
+    Description:
+      en: The NameSpace in which application deployed.
+      zh-cn: 部署应用程序的K8s命名空间
   RdsInstanceClass:
-    Label: MySQL 实例规格
     Type: String
+    Label: MySQL 实例规格
     Description:
-      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html' target='_blank'><b><font color='blue'>实例规格表</font></b></a>
-      en: 'Select the instance specification based on the type of database engine and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.html'' target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
+      zh-cn: 根据数据库引擎的类型和可用的区域支持选择实例规格；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/26312.html'
+        target='_blank'><b><font color='blue'>实例规格表</font></b></a>
+      en: 'Select the instance specification based on the type of database engine
+        and the available area support;<br>see detail: <a href=''https://www.alibabacloud.com/help/doc-detail/26312.html''
+        target=''_blank''><b><font color=''blue''>Instance specification sheet</font></b></a>'
     Default: rds.mysql.s2.large
   RdsInstanceStorage:
-    Label: 磁盘大小
     Type: Number
+    Label: 磁盘大小
     Description:
       zh-cn: RDS 实例大小，范围为 20 - 2000，每 5 个增量，单位为 GB
-      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
+      en: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit
+        GB
+    ConstraintDescription: The size range of RDS instances is 20 - 2000, Incrementing
+      in every 5, unit GB
+    Default: 30
     MinValue: 20
     MaxValue: 2000
-    ConstraintDescription: The size range of RDS instances is 20 - 2000, Incrementing in every 5, unit GB
-    Default: 30
   RdsInstanceStorageType:
+    Type: String
     Label:
       zh-cn: 实例存储类型
       en: Storage Type
-    Type: String
     Description:
-      zh-cn: 实例存储类型；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/69795.html' target='_blank'><b><font color='blue'>存储类型</font></b></a>
-      en: The storage type of DB instance; see detail <a href='https://www.alibabacloud.com/help/en/apsaradb-for-rds/latest/storage-types' target='_blank'><b><font color=''blue''>Storage types</font></b></a>'
+      zh-cn: 实例存储类型；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/69795.html'
+        target='_blank'><b><font color='blue'>存储类型</font></b></a>
+      en: The storage type of DB instance; see detail <a href='https://www.alibabacloud.com/help/en/apsaradb-for-rds/latest/storage-types'
+        target='_blank'><b><font color=''blue''>Storage types</font></b></a>'
     AllowedValues:
-      - local_ssd
-      - cloud_ssd
-      - cloud_essd
-      - cloud_essd2
-      - cloud_essd3
+    - local_ssd
+    - cloud_ssd
+    - cloud_essd
+    - cloud_essd2
+    - cloud_essd3
   RdsCategory:
+    Type: String
     Label:
       zh-cn: 实例系列
       en: DB Category
-    Type: String
-    AllowedValues:
-      - Basic
-      - HighAvailability
-      - AlwaysOn
-      - Finance
     AssociationPropertyMetadata:
       LocaleKey: RDSCategory
+    AllowedValues:
+    - Basic
+    - HighAvailability
+    - AlwaysOn
+    - Finance
   RdsAccountName:
     Type: String
     Label:
@@ -120,47 +104,70 @@ Parameters:
     Default: db_root
   RdsAccountPassword:
     Type: String
-    NoEcho: true
     Label:
       zh-cn: 用户密码
       en: DB Account Password
     Description:
-      zh-cn: |-
-        长度为8~32个字符。由大写英文字母、小写英文字母、数字、特殊字符中的任意三种组成。支持的特殊字符如下：
-        !@#$&amp;%^*()_+-= 。
-      en: |-
-        The length is 8 ~ 32 characters. It is composed of uppercase English letters, lowercase English letters, numbers and special characters. The special characters supported are as follows:
-        !@#$& amp;%^* ()_+-=  .
-  ClusterId:
-    Type: String
-    Description:
-      en: >-
-        The ID of Kubernetes ClusterId in which application deployed.
-      zh-cn: >-
-        部署应用程序的K8s集群ID
-    AllowedPattern: '[0-9a-z]+$'
-    Label:
-      en: Kubernetes ClusterId
-      zh-cn: K8s集群ID
-    AssociationProperty: ALIYUN::CS::Cluster::ClusterId
-    ConstraintDescription:
-      en: >-
-        must be lowercase letters or numbers
-      zh-cn: '集群ID必须由小写字母或者数字组成'
-  NameSpace:
-    Type: String
-    Description:
-      en: >-
-        The NameSpace in which application deployed.
-      zh-cn: >-
-        部署应用程序的K8s命名空间
+      zh-cn: '长度为8~32个字符。由大写英文字母、小写英文字母、数字、特殊字符中的任意三种组成。支持的特殊字符如下：
+
+        !@#$&amp;%^*()_+-= 。'
+      en: 'The length is 8 ~ 32 characters. It is composed of uppercase English letters,
+        lowercase English letters, numbers and special characters. The special characters
+        supported are as follows:
+
+        !@#$& amp;%^* ()_+-=  .'
+    NoEcho: true
   SecurityIpList:
     Type: String
     Description:
-      en: >-
-        The IP whitelist of RDS instance, K8s application's private IP CIDR should be set here.
-      zh-cn: >-
-        RDS实例的IP白名单，需要将K8s应用的私网IP段设置在白名单里
+      en: The IP whitelist of RDS instance, K8s application's private IP CIDR should
+        be set here.
+      zh-cn: RDS实例的IP白名单，需要将K8s应用的私网IP段设置在白名单里
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  PayPeriod:
+    Type: Number
+    Label:
+      en: The subscription period. Unit is months.
+      zh-cn: 购买时长，单位（月）
+    Description:
+      en: The subscription period. Unit is months.
+      zh-cn: 购买时长，单位（月）
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Or:
+          - Fn::Equals:
+            - ${PayType}
+            - PrePaid
+          - Fn::Equals:
+            - ${PayType}
+            - undefined
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 12
+    - 24
+    - 36
 Resources:
   DBInstance:
     Type: ALIYUN::RDS::DBInstance
@@ -172,7 +179,7 @@ Resources:
       VSwitchId:
         Ref: VSwitchId
       Engine: MySQL
-      EngineVersion: "5.7"
+      EngineVersion: '5.7'
       DBInstanceClass:
         Ref: RdsInstanceClass
       DBInstanceStorage:
@@ -189,7 +196,6 @@ Resources:
       SecurityIPList:
         Ref: SecurityIpList
   RdsAccount:
-    DependsOn: DBInstance
     Type: ALIYUN::RDS::Account
     Properties:
       DBInstanceId:
@@ -199,16 +205,17 @@ Resources:
         Ref: RdsAccountName
       AccountPassword:
         Ref: RdsAccountPassword
+    DependsOn: DBInstance
   RdsParameter:
     Type: ALIYUN::RDS::DBInstanceParameterGroup
     Properties:
       DBInstanceId:
         Ref: DBInstance
       Parameters:
-        - Key: innodb_large_prefix
-          Value: 'ON'
-        - Key: innodb_adaptive_flushing_lwm
-          Value: '10'
+      - Key: innodb_large_prefix
+        Value: 'ON'
+      - Key: innodb_adaptive_flushing_lwm
+        Value: '10'
   Database:
     Type: ALIYUN::RDS::Database
     Properties:
@@ -217,93 +224,45 @@ Resources:
         Ref: DBInstance
       DBName: springboot_demo
     DependsOn:
-      - DBInstance
+    - DBInstance
   ClusterApplication:
-    DependsOn: Database
     Type: ALIYUN::CS::ClusterApplication
     Properties:
       ClusterId:
         Ref: ClusterId
       YamlContent:
         Fn::Sub:
-          - |
-            apiVersion: v1
-            kind: Namespace
-            metadata:
-              name: ${NameSpace}
-            ---
-            apiVersion: v1
-            data:
-              .dockerconfigjson: {{ computenest::acr::dockerconfigjson }}
-            kind: Secret
-            metadata:
-              name: computenestrepo
-              namespace: ${NameSpace}
-            type: kubernetes.io/dockerconfigjson
-            ---
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              labels:
-                app: springboot-demo-deployment
-              name: springboot-demo-deployment
-              namespace: ${NameSpace}
-            spec:
-              progressDeadlineSeconds: 600
-              replicas: 2
-              revisionHistoryLimit: 10
-              selector:
-                matchLabels:
-                  app: springboot-demo-pod
-              template:
-                metadata:
-                  labels:
-                    app: springboot-demo-pod
-                spec:
-                  containers:
-                    - env:
-                        - name: DB_HOST
-                          value: ${RdsConnectString}
-                        - name: DB_USER
-                          value: ${DbUser}
-                        - name: DB_PASSWORD
-                          value: ${DbPassword}
-                      image: {{ computenest::acrimage::springbootdemo }}
-                      imagePullPolicy: Always
-                      name: springboot-demo-container
-                      ports:
-                        - containerPort: 8080
-                          protocol: TCP
-                  imagePullSecrets:
-                    - name: computenestrepo
-                  restartPolicy: Always
-            ---
-            apiVersion: v1
-            kind: Service
-            metadata:
-              labels:
-                app: springboot-demo-svc
-              name: springboot-demo-svc
-              namespace: ${NameSpace}
-            spec:
-              ports:
-                - name: http
-                  port: 80
-                  protocol: TCP
-                  targetPort: 8080
-              selector:
-                app: springboot-demo-pod
-              type: LoadBalancer
-          - NameSpace:
-              Ref: NameSpace
-            DbUser:
-              Ref: RdsAccountName
-            DbPassword:
-              Ref: RdsAccountPassword
-            RdsConnectString:
-              Fn::GetAtt:
-                - DBInstance
-                - InnerConnectionString
+        - "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${NameSpace}\n---\n\
+          apiVersion: v1\ndata:\n  .dockerconfigjson: {{ computenest::acr::dockerconfigjson\
+          \ }}\nkind: Secret\nmetadata:\n  name: computenestrepo\n  namespace: ${NameSpace}\n\
+          type: kubernetes.io/dockerconfigjson\n---\napiVersion: apps/v1\nkind: Deployment\n\
+          metadata:\n  labels:\n    app: springboot-demo-deployment\n  name: springboot-demo-deployment\n\
+          \  namespace: ${NameSpace}\nspec:\n  progressDeadlineSeconds: 600\n  replicas:\
+          \ 2\n  revisionHistoryLimit: 10\n  selector:\n    matchLabels:\n      app:\
+          \ springboot-demo-pod\n  template:\n    metadata:\n      labels:\n     \
+          \   app: springboot-demo-pod\n    spec:\n      containers:\n        - env:\n\
+          \            - name: DB_HOST\n              value: ${RdsConnectString}\n\
+          \            - name: DB_USER\n              value: ${DbUser}\n         \
+          \   - name: DB_PASSWORD\n              value: ${DbPassword}\n          image:\
+          \ {{ computenest::acrimage::springbootdemo }}\n          imagePullPolicy:\
+          \ Always\n          name: springboot-demo-container\n          ports:\n\
+          \            - containerPort: 8080\n              protocol: TCP\n      imagePullSecrets:\n\
+          \        - name: computenestrepo\n      restartPolicy: Always\n---\napiVersion:\
+          \ v1\nkind: Service\nmetadata:\n  labels:\n    app: springboot-demo-svc\n\
+          \  name: springboot-demo-svc\n  namespace: ${NameSpace}\nspec:\n  ports:\n\
+          \    - name: http\n      port: 80\n      protocol: TCP\n      targetPort:\
+          \ 8080\n  selector:\n    app: springboot-demo-pod\n  type: LoadBalancer\n"
+        - NameSpace:
+            Ref: NameSpace
+          DbUser:
+            Ref: RdsAccountName
+          DbPassword:
+            Ref: RdsAccountPassword
+          RdsConnectString:
+            Fn::GetAtt:
+            - DBInstance
+            - InnerConnectionString
+    DependsOn: Database
   AppExternalIp:
     Type: DATASOURCE::CS::ClusterApplicationResources
     Properties:
@@ -323,33 +282,33 @@ Outputs:
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - VpcId
-          - ZoneId
-          - VSwitchId
-        Label:
-          en: Network Configuration
-          zh-cn: 网络参数配置
-      - Parameters:
-          - ClusterId
-          - NameSpace
-        Label:
-          en: ACK Configuration
-          zh-cn: ACK参数配置
-      - Parameters:
-          - RdsInstanceClass
-          - RdsInstanceStorage
-          - RdsInstanceStorageType
-          - RdsCategory
-          - RdsAccountName
-          - RdsAccountPassword
-          - SecurityIpList
-        Label:
-          en: Database Configuration
-          zh-cn: 数据库参数配置
-      - Parameters:
-          - PayType
-          - PayPeriod
-        Label:
-          en: Payment Configuration
-          zh-cn: 支付配置
+    - Parameters:
+      - VpcId
+      - ZoneId
+      - VSwitchId
+      Label:
+        en: Network Configuration
+        zh-cn: 网络参数配置
+    - Parameters:
+      - ClusterId
+      - NameSpace
+      Label:
+        en: ACK Configuration
+        zh-cn: ACK参数配置
+    - Parameters:
+      - RdsInstanceClass
+      - RdsInstanceStorage
+      - RdsInstanceStorageType
+      - RdsCategory
+      - RdsAccountName
+      - RdsAccountPassword
+      - SecurityIpList
+      Label:
+        en: Database Configuration
+        zh-cn: 数据库参数配置
+    - Parameters:
+      - PayType
+      - PayPeriod
+      Label:
+        en: Payment Configuration
+        zh-cn: 支付配置

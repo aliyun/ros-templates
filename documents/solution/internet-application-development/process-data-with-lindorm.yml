@@ -1,7 +1,10 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Lindorm one-stop processing of pan-time series data.
-  zh-cn: Lindorm泛时序数据一站式处理。
+  zh-cn: 创建VPC、交换机、安全组，部署Lindorm数据库(2节点)、ECS实例(1台)及应用，支持泛时序数据一站式处理。
+  en: Create a Virtual Private Cloud (VPC), switches, security groups, deploy a Lindorm
+    database cluster (with 2 nodes), provision an Elastic Compute Service (ECS) instance
+    (1 unit), and set up the application to facilitate end-to-end processing of pan-temporal
+    data.
 Parameters:
   ZoneId:
     Type: String
@@ -22,73 +25,69 @@ Parameters:
       SystemDiskCategory: cloud_essd
   InstancePassword:
     Type: String
-    NoEcho: true
-    Default: null
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Default: null
+    NoEcho: true
   CommonName:
     Type: String
     Default: lindorm-demo
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.0.0/24
-      ZoneId:
-        Ref: ZoneId
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: '-1/-1'
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: icmp
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: -1/-1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
   LindormInstance:
-    Type: 'ALIYUN::Lindorm::Instance'
+    Type: ALIYUN::Lindorm::Instance
     Properties:
-      InstanceStorage: 160
       ZoneId:
         Ref: ZoneId
-      InstanceChargeType: POSTPAY
-      VSwitchId:
-        Ref: VSwitch
       VpcId:
         Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      InstanceStorage: 160
+      InstanceChargeType: POSTPAY
       LindormSpec: lindorm.g.xlarge
       LindormNum: 2
       SolrSpec: lindorm.g.xlarge
@@ -97,12 +96,12 @@ Resources:
       InstanceName:
         Fn::Sub: ${CommonName}-lindorm
   EcsInstance:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch
       SecurityGroupId:
@@ -121,40 +120,20 @@ Resources:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
-        - Ref: EcsInstance
+      - Ref: EcsInstance
       Sync: true
       Type: RunShellScript
       Timeout: 300
       CommandContent:
-        Fn::Sub: |-
-          #!/bin/bash
-
-          function log_info() {
-              printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
-          }
-          
-          function log_error() {
-              printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
-          }
-          
-          function debug_exec(){
-              local cmd="$@"
-              log_info "$cmd"
-              eval "$cmd"
-              ret=$?
-              echo ""
-              log_info "$cmd, exit code: $ret"
-              return $ret
-          }
-          
-          function init_work(){
-            yum upgrade & yum install -y python3 cryptography==3.4.8
-            
-            wget -O lindorm-cli-linux-latest.tar.gz https://tsdbtools.oss-cn-hangzhou.aliyuncs.com/lindorm-cli-linux-latest.tar.gz
-            tar zxvf lindorm-cli-linux-latest.tar.gz
-          }
-          
-          debug_exec init_work
+        Fn::Sub: "#!/bin/bash\n\nfunction log_info() {\n    printf \"%s [INFO] %s\\\
+          n\" \"$(date '+%Y-%m-%d %H:%M:%S')\" \"$1\"\n}\n\nfunction log_error() {\n\
+          \    printf \"%s [ERROR] %s\\n\" \"$(date '+%Y-%m-%d %H:%M:%S')\" \"$1\"\
+          \n}\n\nfunction debug_exec(){\n    local cmd=\"$@\"\n    log_info \"$cmd\"\
+          \n    eval \"$cmd\"\n    ret=$?\n    echo \"\"\n    log_info \"$cmd, exit\
+          \ code: $ret\"\n    return $ret\n}\n\nfunction init_work(){\n  yum upgrade\
+          \ & yum install -y python3 cryptography==3.4.8\n  \n  wget -O lindorm-cli-linux-latest.tar.gz\
+          \ https://tsdbtools.oss-cn-hangzhou.aliyuncs.com/lindorm-cli-linux-latest.tar.gz\n\
+          \  tar zxvf lindorm-cli-linux-latest.tar.gz\n}\n\ndebug_exec init_work"
 Outputs:
   EcsLoginAddress:
     Description:
@@ -165,10 +144,10 @@ Outputs:
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-        - ZoneId
-        - InstanceType
-        - InstancePassword
+    - Parameters:
+      - ZoneId
+      - InstanceType
+      - InstancePassword
     TemplateTags:
     - acs:technical-solution:internet-application-development:Lindorm泛时序数据一站式处理-tech_solu_141
     Hidden:

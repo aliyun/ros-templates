@@ -1,152 +1,148 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Serverless high availability architecture.
-  zh-cn: Serverless高可用架构。
+  zh-cn: 创建Serverless高可用架构，包括VPC、交换机、安全组、PolarDB集群、ALB、SAE应用，实现跨可用区部署与自动扩展。
+  en: Establish a Serverless high-availability architecture comprising Virtual Private
+    Cloud (VPC), switches, security groups, PolarDB clusters, Application Load Balancers
+    (ALB), and Serverless App Engine (SAE) applications, facilitating cross-zone deployment
+    and automatic scaling.
 Parameters:
-  CommonName:
-    Type: String
-    Default: serverless
-  ZoneId1:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    AssociationPropertyMetadata:
-      ExclusiveTo:
-        - ZoneId2
-    Label:
-      en: Availability Zone
-      zh-cn: 可用区1
-  ZoneId2:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    AssociationPropertyMetadata:
-      ExclusiveTo:
-        - ZoneId1
-    Label:
-      en: Availability Zone
-      zh-cn: 可用区2
   DBUserName:
     Type: String
-    ConstraintDescription:
-      en: >-
-        Consist of 2 to 32 characters of lowercase letters, underline. 
-        Must begin with a letter and be end with an alphanumeric character
-      zh-cn: >-
-        由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头。
     Label:
       zh-cn: MySQL数据库账号
       en: MySQL DB Username
+    ConstraintDescription:
+      en: Consist of 2 to 32 characters of lowercase letters, underline.  Must begin
+        with a letter and be end with an alphanumeric character
+      zh-cn: 由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头。
     Default: applets
-    AllowedPattern: '^[a-z][a-z0-9_]{0,31}$'
+    AllowedPattern: ^[a-z][a-z0-9_]{0,31}$
   DBPassword:
-    NoEcho: true
     Type: String
-    Description:
-      en: >-
-        MySQL user password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        数据库账号密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
     Label:
       en: MySQL Instance Password
       zh-cn: MySQL数据库密码
+    Description:
+      en: MySQL user password, Length 8-30, must contain three(Capital letters, lowercase
+        letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 数据库账号密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    NoEcho: true
+  ZoneId1:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区1
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - ZoneId2
+  ZoneId2:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区2
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - ZoneId1
+  CommonName:
+    Type: String
+    Default: serverless
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch1:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId1
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.1.0/24
-      ZoneId:
-        Ref: ZoneId1
       VSwitchName:
         Fn::Sub: ${CommonName}-web-01
   VSwitch2:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId2
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.2.0/24
-      ZoneId:
-        Ref: ZoneId2
       VSwitchName:
         Fn::Sub: ${CommonName}-web-02
   VSwitch3:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId1
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.3.0/24
-      ZoneId:
-        Ref: ZoneId1
       VSwitchName:
         Fn::Sub: ${CommonName}-db-01
   VSwitch4:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId1
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.4.0/24
-      ZoneId:
-        Ref: ZoneId1
       VSwitchName:
         Fn::Sub: ${CommonName}-pub-01
   VSwitch5:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId2
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.5.0/24
-      ZoneId:
-        Ref: ZoneId2
       VSwitchName:
         Fn::Sub: ${CommonName}-pub-02
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 443/443
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 443/443
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
   PolarDBCluster:
-    Type: 'ALIYUN::POLARDB::DBCluster'
+    Type: ALIYUN::POLARDB::DBCluster
     Properties:
-      VpcId:
-        Ref: Vpc
-      DBType: MySQL
-      ClusterNetworkType: VPC
       ZoneId:
         Ref: ZoneId1
-      SecurityGroupIds:
-        - Ref: SecurityGroup
-      DBVersion: '8.0'
-      DBMinorVersion: '8.0.2'
-      DBNodeClass: polar.mysql.sl.small
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch3
+      SecurityGroupIds:
+      - Ref: SecurityGroup
+      DBType: MySQL
+      ClusterNetworkType: VPC
+      DBVersion: '8.0'
+      DBMinorVersion: 8.0.2
+      DBNodeClass: polar.mysql.sl.small
       CreationCategory: Normal
       ScaleRoNumMin: 1
       ScaleRoNumMax: 4
@@ -156,7 +152,7 @@ Resources:
       PayType: Postpaid
       ServerlessType: AgileServerless
   PolarDBDatabase:
-    Type: 'ALIYUN::POLARDB::DBInstance'
+    Type: ALIYUN::POLARDB::DBInstance
     Properties:
       DBClusterId:
         Ref: PolarDBCluster
@@ -164,7 +160,7 @@ Resources:
       DBName: applets
       DBDescription: serverless demo
   PolarDBAccount:
-    Type: 'ALIYUN::POLARDB::Account'
+    Type: ALIYUN::POLARDB::Account
     Properties:
       DBClusterId:
         Ref: PolarDBCluster
@@ -177,61 +173,60 @@ Resources:
       DBName:
         Ref: PolarDBDatabase
   ALB:
-    Type: 'ALIYUN::ALB::LoadBalancer'
+    Type: ALIYUN::ALB::LoadBalancer
     Properties:
+      VpcId:
+        Ref: Vpc
       LoadBalancerName:
         Fn::Sub: ${CommonName}-alb
       LoadBalancerEdition: Basic
-      VpcId:
-        Ref: Vpc
       LoadBalancerBillingConfig:
         PayType: PostPay
       AddressType: Internet
       AddressAllocatedMode: Fixed
       ZoneMappings:
-        - ZoneId:
-            Ref: ZoneId1
-          VSwitchId:
-            Ref: VSwitch1
-        - ZoneId:
-            Ref: ZoneId2
-          VSwitchId:
-            Ref: VSwitch2
+      - ZoneId:
+          Ref: ZoneId1
+        VSwitchId:
+          Ref: VSwitch1
+      - ZoneId:
+          Ref: ZoneId2
+        VSwitchId:
+          Ref: VSwitch2
   SaeNamespace:
-    Type: 'ALIYUN::SAE::Namespace'
+    Type: ALIYUN::SAE::Namespace
     Properties:
       NamespaceName: serverless-demo
       NamespaceId:
         Fn::Sub:
-          - '${Region}:serverless${Suffix}'
-          - Region:
-              Ref: ALIYUN::Region
-            Suffix:
-              Fn::Jq:
-                - First
-                - .StackId[:5]
-                - StackId:
-                    Ref: ALIYUN::StackId
+        - ${Region}:serverless${Suffix}
+        - Region:
+            Ref: ALIYUN::Region
+          Suffix:
+            Fn::Jq:
+            - First
+            - .StackId[:5]
+            - StackId:
+                Ref: ALIYUN::StackId
   SAE:
-    Type: 'ALIYUN::SAE::Application'
-    DependsOn: SaeNamespace
+    Type: ALIYUN::SAE::Application
     Properties:
-      AppName:
-        Fn::Sub:
-          - 'serverless-demo-${Suffix}'
-          - Suffix:
-              Fn::Jq:
-                - First
-                - .StackId[:5]
-                - StackId:
-                    Ref: ALIYUN::StackId
-      AppDescription: serverless-demo
       VpcId:
         Ref: Vpc
+      VSwitchId:
+        Fn::Sub: ${VSwitch4},${VSwitch5}
       SecurityGroupId:
         Ref: SecurityGroup
-      VSwitchId:
-        Fn::Sub: '${VSwitch4},${VSwitch5}'
+      AppName:
+        Fn::Sub:
+        - serverless-demo-${Suffix}
+        - Suffix:
+            Fn::Jq:
+            - First
+            - .StackId[:5]
+            - StackId:
+                Ref: ALIYUN::StackId
+      AppDescription: serverless-demo
       Replicas: 2
       NamespaceId:
         Ref: SaeNamespace
@@ -242,33 +237,25 @@ Resources:
       Jdk: Open JDK 8
       PackageUrl: https://help-static-aliyun-doc.aliyuncs.com/tech-solution/sae-demo-0.0.3.jar
       Timezone: Asia/Shanghai
-      JarStartArgs: '$JAVA_HOME/bin/java $Options -jar $CATALINA_OPTS "$package_path" $args'
-      JarStartOptions: >-
-        -XX:+UseContainerSupport 
-        -XX:InitialRAMPercentage=70.0 
-        -XX:MaxRAMPercentage=70.0 
-        -XX:+PrintGCDetails 
-        -XX:+PrintGCDateStamps 
-        -Xloggc:/home/admin/nas/gc-${POD_IP}-$(date '+%s').log 
-        -XX:+HeapDumpOnOutOfMemoryError 
-        -XX:HeapDumpPath=/home/admin/nas/dump-${POD_IP}-$(date '+%s').hprof
+      JarStartArgs: $JAVA_HOME/bin/java $Options -jar $CATALINA_OPTS "$package_path"
+        $args
+      JarStartOptions: -XX:+UseContainerSupport  -XX:InitialRAMPercentage=70.0  -XX:MaxRAMPercentage=70.0  -XX:+PrintGCDetails  -XX:+PrintGCDateStamps  -Xloggc:/home/admin/nas/gc-${POD_IP}-$(date
+        '+%s').log  -XX:+HeapDumpOnOutOfMemoryError  -XX:HeapDumpPath=/home/admin/nas/dump-${POD_IP}-$(date
+        '+%s').hprof
       Envs:
-        Fn::Sub: >-
-          [{"name":"APPLETS_MYSQL_ENDPOINT","value":"${PolarDBCluster.PrimaryConnectionString}"},
-          {"name":"APPLETS_MYSQL_USER","value":"${PolarDBAccount}"},
-          {"name":"APPLETS_MYSQL_PASSWORD","value":"${DBPassword}"},
-          {"name":"APPLETS_MYSQL_DB_NAME","value":"applets"},
-          {"name":"APP_MANUAL_DEPLOY","value":false}]
+        Fn::Sub: '[{"name":"APPLETS_MYSQL_ENDPOINT","value":"${PolarDBCluster.PrimaryConnectionString}"},
+          {"name":"APPLETS_MYSQL_USER","value":"${PolarDBAccount}"}, {"name":"APPLETS_MYSQL_PASSWORD","value":"${DBPassword}"},
+          {"name":"APPLETS_MYSQL_DB_NAME","value":"applets"}, {"name":"APP_MANUAL_DEPLOY","value":false}]'
       Readiness: '{"exec":{"command":["sleep","6s"]},"initialDelaySeconds":15,"timeoutSeconds":12}'
       Liveness: '{"httpGet":{"path":"/","port":80,"scheme":"HTTP"},"initialDelaySeconds":10,"timeoutSeconds":10,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}'
+    DependsOn: SaeNamespace
   WaitApp:
-    Type: 'ALIYUN::ROS::Sleep'
-    DependsOn: SAE
+    Type: ALIYUN::ROS::Sleep
     Properties:
       CreateDuration: 180
+    DependsOn: SAE
   SaeIngress:
-    Type: 'ALIYUN::SAE::Ingress'
-    DependsOn: WaitApp
+    Type: ALIYUN::SAE::Ingress
     Properties:
       NamespaceId:
         Ref: SaeNamespace
@@ -279,33 +266,34 @@ Resources:
       ListenerProtocol: HTTP
       ListenerPort: 80
       Rules:
-        - Domain: example.com
-          Path: /
-          AppId:
-            Ref: SAE
-          ContainerPort: 80
-          BackendProtocol: http
+      - Domain: example.com
+        Path: /
+        AppId:
+          Ref: SAE
+        ContainerPort: 80
+        BackendProtocol: http
       DefaultRule:
         AppId:
           Ref: SAE
         ContainerPort: 80
         BackendProtocol: http
+    DependsOn: WaitApp
 Outputs:
   WebUrl:
     Description:
       zh-cn: Web 访问地址。
       en: The Addresses of Web.
     Value:
-      'Fn::Sub': 'http://${ALB.DNSName}'
+      Fn::Sub: http://${ALB.DNSName}
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - DBUserName
-          - DBPassword
-          - ZoneId1
-          - ZoneId2
+    - Parameters:
+      - DBUserName
+      - DBPassword
+      - ZoneId1
+      - ZoneId2
     TemplateTags:
-      - acs:technical-solution:high-availability-architecture:Serverless高可用架构-tech_solu_129
+    - acs:technical-solution:high-availability-architecture:Serverless高可用架构-tech_solu_129
     Hidden:
-      - CommonName
+    - CommonName

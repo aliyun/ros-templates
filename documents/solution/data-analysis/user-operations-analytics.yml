@@ -1,344 +1,39 @@
 ROSTemplateFormatVersion: '2015-09-01'
-Workspace:
-  variables.tf: |+
-    variable "zone_id" {
-      type = string
-      description = <<EOT
-      {
-          "AssociationProperty": "ALIYUN::ECS::Instance::ZoneId",
-          "Description": {
-            "zh-cn": "可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>",
-            "en": "Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>"
-          },
-          "Label": {
-            "zh-cn": "可用区ID",
-            "en": "Available Zone ID"
-          }
-      }
-      EOT
-    }
-
-    variable "adb_compute_resource" {
-      type = string
-      default = "16ACU"
-      description = <<EOT
-      {
-          "Label": {
-            "zh-cn": "计算预留资源",
-            "en": "Compute Resource"
-          }
-      }
-      EOT
-    }
-
-    variable "adb_storage_resource" {
-      type = string
-      default = "24ACU"
-      description = <<EOT
-      {
-          "Label": {
-            "zh-cn": "存储预留资源",
-            "en": "Storage Resource"
-          }
-      }
-      EOT
-    }
-
-
-    variable "rds_instance_type" {
-      type = string
-      description = <<EOT
-      {
-          "Label": {
-            "zh-cn": "RDS实例规格",
-            "en": "RDS Instance Type"
-          },
-          "AssociationProperty": "ALIYUN::RDS::Instance::InstanceType",
-          "AssociationPropertyMetadata": {
-            "ZoneId": "$${zone_id}",
-            "Engine": "MySQL",
-            "EngineVersion": "8.0",
-            "Category": "HighAvailability",
-            "DBInstanceStorageType": "cloud_essd"
-        }
-      }
-      EOT
-    }
-
-    variable "rds_instance_storage" {
-      type = number
-      default = 20
-      description = <<EOT
-      {
-          "Label": {
-            "zh-cn": "RDS数据库存储空间",
-            "en": "RDS Instance Storage"
-          }
-      }
-      EOT
-    }
-
-    variable "rds_db_name" {
-      type = string
-      default = "dim"
-      description = <<EOT
-      {
-          "Label": {
-            "zh-cn": "RDS数据库名称",
-            "en": "RDS DBName"
-          }
-      }
-      EOT
-    }
-
-
-    variable "rds_account" {
-      type = string
-      default = "testuser"
-      description = <<EOT
-      {
-          "Label": {
-            "zh-cn": "RDS数据库账号名称",
-            "en": "RDS Instance DB AccountName"
-          }
-      }
-      EOT
-    }
-
-    variable "rds_password" {
-      type = string
-      default = "testPassword01"
-      description = <<EOT
-      {
-          "Label": {
-            "zh-cn": "RDS数据库账号密码",
-            "en": "RDS Instance DB AccountPassword"
-          },
-          "NoEcho": true
-      }
-      EOT
-    }
-
-    variable "oss_bucket_name" {
-      type = string
-      default = "demo-bucket03"
-      description = <<EOT
-      {
-          "Label": {
-            "zh-cn": "OSS存储空间名称",
-            "en": "OSS BucketName"
-          }
-      }
-      EOT
-    }
-
-
-    variable "topic_name" {
-      type = string
-      default = "test_topic"
-      description = <<EOT
-      {
-          "Label": {
-            "zh-cn": "Topic名称",
-            "en": "Topic Name"
-          }
-      }
-      EOT
-    }
-
-  .metadata: |-
-    {
-      "ALIYUN::ROS::Interface": {
-        "ParameterGroups": [
-          {
-            "Parameters": [
-              "zone_id"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "可用区配置",
-                "en": "Zone Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "adb_compute_resource",
-              "adb_storage_resource"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "ADB配置",
-                "en": "ADB Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "rds_instance_type",
-              "rds_instance_storage",
-              "rds_db_name",
-              "rds_account",
-              "rds_password"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "RDS配置",
-                "en": "RDS Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "oss_bucket_name"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "OSS配置",
-                "en": "OSS Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "topic_name"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "Kafka配置",
-                "en": "Kafka Configuration"
-              }
-            }
-          }
-        ],
-        "TemplateTags": [
-          "acs:technical-solution:应用的用户运营分析"
-        ]
-      }
-    }
-  main.tf: |-
-
-    resource "alicloud_vpc" "vpc" {
-        cidr_block = "192.168.0.0/16"
-    }
-
-    resource "alicloud_vswitch" "vsw" {
-        vpc_id       = alicloud_vpc.vpc.id
-        cidr_block   = "192.168.0.0/24"
-        zone_id      = var.zone_id
-    }
-
-    resource "alicloud_adb_db_cluster_lake_version" "adb" {
-        compute_resource              = var.adb_compute_resource
-        db_cluster_version            = "5.0"
-        payment_type                  = "PayAsYouGo"
-        storage_resource              = var.adb_storage_resource
-        enable_default_resource_group = false
-        vswitch_id                    = alicloud_vswitch.vsw.id
-        vpc_id                        = alicloud_vpc.vpc.id
-        zone_id                       = var.zone_id
-    }
-
-    resource "alicloud_db_instance" "rds" {
-        engine                   = "MySQL"
-        engine_version           = "8.0"
-        instance_type            = var.rds_instance_type
-        instance_storage         = var.rds_instance_storage
-        instance_charge_type     = "Postpaid"
-        vswitch_id               = alicloud_vswitch.vsw.id
-        monitoring_period        = "60"
-        db_instance_storage_type = "cloud_essd"
-    }
-
-    resource "alicloud_db_account" "account" {
-        instance_id = alicloud_db_instance.rds.id
-        name        = var.rds_account
-        password    = var.rds_password
-        type        = "Super"
-    }
-
-    resource "alicloud_db_database" "db" {
-        instance_id = alicloud_db_instance.rds.id
-        name        = var.rds_db_name
-    }
-
-    resource "alicloud_alikafka_instance" "kafka" {
-        partition_num  = 50
-        paid_type      = "PostPaid"
-        io_max         = 20
-        disk_type      = 0
-        disk_size      = 500
-        deploy_type    = 5
-        vswitch_id     = alicloud_vswitch.vsw.id
-    }
-
-    resource "alicloud_alikafka_topic" "topic" {
-        instance_id   = alicloud_alikafka_instance.kafka.id
-        topic         = var.topic_name
-        local_topic   = "false"
-        compact_topic = "false"
-        partition_num = "12"
-        remark        = "dafault_kafka_topic_remark"
-    }
-
-    resource "alicloud_oss_bucket" "bucket-acl" {
-        bucket = var.oss_bucket_name
-        acl    = "private"
-    }
+Transform: Aliyun::Terraform-v1.2
+Description:
+  zh-cn: 创建VPC、VSwitch、AnalyticDB集群、RDS实例、Kafka实例、OSS存储桶及配置，实现用户运营分析技术解决方案。
+  en: Create a Virtual Private Cloud (VPC), Virtual Switch (VSwitch), AnalyticDB cluster,
+    RDS instance, Kafka instance, Object Storage Service (OSS) bucket, and configure
+    them to implement a user operation analysis technical solution.
 Parameters:
-  rds_instance_storage:
-    Default: '20'
-    Type: Number
-    Label:
-      zh-cn: RDS数据库存储空间
-      en: RDS Instance Storage
   zone_id:
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     Type: String
-    Description:
-      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
-      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
     Label:
       zh-cn: 可用区ID
       en: Available Zone ID
-  topic_name:
-    Default: test_topic
-    Type: String
-    Label:
-      zh-cn: Topic名称
-      en: Topic Name
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
   adb_compute_resource:
-    Default: 16ACU
     Type: String
     Label:
       zh-cn: 计算预留资源
       en: Compute Resource
-  rds_db_name:
-    Default: dim
-    Type: String
-    Label:
-      zh-cn: RDS数据库名称
-      en: RDS DBName
-  oss_bucket_name:
-    Default: demo-bucket03
-    Type: String
-    Label:
-      zh-cn: OSS存储空间名称
-      en: OSS BucketName
+    Default: 16ACU
   adb_storage_resource:
-    Default: 24ACU
     Type: String
     Label:
       zh-cn: 存储预留资源
       en: Storage Resource
-  rds_password:
-    Default: testPassword01
-    NoEcho: true
+    Default: 24ACU
+  rds_instance_type:
     Type: String
     Label:
-      zh-cn: RDS数据库账号密码
-      en: RDS Instance DB AccountPassword
-  rds_instance_type:
+      zh-cn: RDS实例规格
+      en: RDS Instance Type
     AssociationProperty: ALIYUN::RDS::Instance::InstanceType
     AssociationPropertyMetadata:
       Engine: MySQL
@@ -346,55 +41,164 @@ Parameters:
       DBInstanceStorageType: cloud_essd
       ZoneId: ${zone_id}
       EngineVersion: '8.0'
+  rds_instance_storage:
+    Type: Number
+    Label:
+      zh-cn: RDS数据库存储空间
+      en: RDS Instance Storage
+    Default: '20'
+  rds_db_name:
     Type: String
     Label:
-      zh-cn: RDS实例规格
-      en: RDS Instance Type
+      zh-cn: RDS数据库名称
+      en: RDS DBName
+    Default: dim
   rds_account:
-    Default: testuser
     Type: String
     Label:
       zh-cn: RDS数据库账号名称
       en: RDS Instance DB AccountName
-Outputs: {}
-Transform: Aliyun::Terraform-v1.2
+    Default: testuser
+  rds_password:
+    Type: String
+    Label:
+      zh-cn: RDS数据库账号密码
+      en: RDS Instance DB AccountPassword
+    Default: testPassword01
+    NoEcho: true
+  oss_bucket_name:
+    Type: String
+    Label:
+      zh-cn: OSS存储空间名称
+      en: OSS BucketName
+    Default: demo-bucket03
+  topic_name:
+    Type: String
+    Label:
+      zh-cn: Topic名称
+      en: Topic Name
+    Default: test_topic
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - zone_id
-        Label:
-          default:
-            zh-cn: 可用区配置
-            en: Zone Configuration
-      - Parameters:
-          - adb_compute_resource
-          - adb_storage_resource
-        Label:
-          default:
-            zh-cn: ADB配置
-            en: ADB Configuration
-      - Parameters:
-          - rds_instance_type
-          - rds_instance_storage
-          - rds_db_name
-          - rds_account
-          - rds_password
-        Label:
-          default:
-            zh-cn: RDS配置
-            en: RDS Configuration
-      - Parameters:
-          - oss_bucket_name
-        Label:
-          default:
-            zh-cn: OSS配置
-            en: OSS Configuration
-      - Parameters:
-          - topic_name
-        Label:
-          default:
-            zh-cn: Kafka配置
-            en: Kafka Configuration
+    - Parameters:
+      - zone_id
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - adb_compute_resource
+      - adb_storage_resource
+      Label:
+        default:
+          zh-cn: ADB配置
+          en: ADB Configuration
+    - Parameters:
+      - rds_instance_type
+      - rds_instance_storage
+      - rds_db_name
+      - rds_account
+      - rds_password
+      Label:
+        default:
+          zh-cn: RDS配置
+          en: RDS Configuration
+    - Parameters:
+      - oss_bucket_name
+      Label:
+        default:
+          zh-cn: OSS配置
+          en: OSS Configuration
+    - Parameters:
+      - topic_name
+      Label:
+        default:
+          zh-cn: Kafka配置
+          en: Kafka Configuration
     TemplateTags:
-      - acs:technical-solution:AnalyticDB MySQL湖仓版的用户运营分析实践-tech_solu_13
+    - acs:technical-solution:AnalyticDB MySQL湖仓版的用户运营分析实践-tech_solu_13
+Workspace:
+  main.tf: "\nresource \"alicloud_vpc\" \"vpc\" {\n    cidr_block = \"192.168.0.0/16\"\
+    \n}\n\nresource \"alicloud_vswitch\" \"vsw\" {\n    vpc_id       = alicloud_vpc.vpc.id\n\
+    \    cidr_block   = \"192.168.0.0/24\"\n    zone_id      = var.zone_id\n}\n\n\
+    resource \"alicloud_adb_db_cluster_lake_version\" \"adb\" {\n    compute_resource\
+    \              = var.adb_compute_resource\n    db_cluster_version            =\
+    \ \"5.0\"\n    payment_type                  = \"PayAsYouGo\"\n    storage_resource\
+    \              = var.adb_storage_resource\n    enable_default_resource_group =\
+    \ false\n    vswitch_id                    = alicloud_vswitch.vsw.id\n    vpc_id\
+    \                        = alicloud_vpc.vpc.id\n    zone_id                  \
+    \     = var.zone_id\n}\n\nresource \"alicloud_db_instance\" \"rds\" {\n    engine\
+    \                   = \"MySQL\"\n    engine_version           = \"8.0\"\n    instance_type\
+    \            = var.rds_instance_type\n    instance_storage         = var.rds_instance_storage\n\
+    \    instance_charge_type     = \"Postpaid\"\n    vswitch_id               = alicloud_vswitch.vsw.id\n\
+    \    monitoring_period        = \"60\"\n    db_instance_storage_type = \"cloud_essd\"\
+    \n}\n\nresource \"alicloud_db_account\" \"account\" {\n    instance_id = alicloud_db_instance.rds.id\n\
+    \    name        = var.rds_account\n    password    = var.rds_password\n    type\
+    \        = \"Super\"\n}\n\nresource \"alicloud_db_database\" \"db\" {\n    instance_id\
+    \ = alicloud_db_instance.rds.id\n    name        = var.rds_db_name\n}\n\nresource\
+    \ \"alicloud_alikafka_instance\" \"kafka\" {\n    partition_num  = 50\n    paid_type\
+    \      = \"PostPaid\"\n    io_max         = 20\n    disk_type      = 0\n    disk_size\
+    \      = 500\n    deploy_type    = 5\n    vswitch_id     = alicloud_vswitch.vsw.id\n\
+    }\n\nresource \"alicloud_alikafka_topic\" \"topic\" {\n    instance_id   = alicloud_alikafka_instance.kafka.id\n\
+    \    topic         = var.topic_name\n    local_topic   = \"false\"\n    compact_topic\
+    \ = \"false\"\n    partition_num = \"12\"\n    remark        = \"dafault_kafka_topic_remark\"\
+    \n}\n\nresource \"alicloud_oss_bucket\" \"bucket-acl\" {\n    bucket = var.oss_bucket_name\n\
+    \    acl    = \"private\"\n}"
+  .metadata: "{\n  \"ALIYUN::ROS::Interface\": {\n    \"ParameterGroups\": [\n   \
+    \   {\n        \"Parameters\": [\n          \"zone_id\"\n        ],\n        \"\
+    Label\": {\n          \"default\": {\n            \"zh-cn\": \"可用区配置\",\n    \
+    \        \"en\": \"Zone Configuration\"\n          }\n        }\n      },\n  \
+    \    {\n        \"Parameters\": [\n          \"adb_compute_resource\",\n     \
+    \     \"adb_storage_resource\"\n        ],\n        \"Label\": {\n          \"\
+    default\": {\n            \"zh-cn\": \"ADB配置\",\n            \"en\": \"ADB Configuration\"\
+    \n          }\n        }\n      },\n      {\n        \"Parameters\": [\n     \
+    \     \"rds_instance_type\",\n          \"rds_instance_storage\",\n          \"\
+    rds_db_name\",\n          \"rds_account\",\n          \"rds_password\"\n     \
+    \   ],\n        \"Label\": {\n          \"default\": {\n            \"zh-cn\"\
+    : \"RDS配置\",\n            \"en\": \"RDS Configuration\"\n          }\n       \
+    \ }\n      },\n      {\n        \"Parameters\": [\n          \"oss_bucket_name\"\
+    \n        ],\n        \"Label\": {\n          \"default\": {\n            \"zh-cn\"\
+    : \"OSS配置\",\n            \"en\": \"OSS Configuration\"\n          }\n       \
+    \ }\n      },\n      {\n        \"Parameters\": [\n          \"topic_name\"\n\
+    \        ],\n        \"Label\": {\n          \"default\": {\n            \"zh-cn\"\
+    : \"Kafka配置\",\n            \"en\": \"Kafka Configuration\"\n          }\n   \
+    \     }\n      }\n    ],\n    \"TemplateTags\": [\n      \"acs:technical-solution:应用的用户运营分析\"\
+    \n    ]\n  }\n}"
+  variables.tf: "variable \"zone_id\" {\n  type = string\n  description = <<EOT\n\
+    \  {\n      \"AssociationProperty\": \"ALIYUN::ECS::Instance::ZoneId\",\n    \
+    \  \"Description\": {\n        \"zh-cn\": \"可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>\"\
+    ,\n        \"en\": \"Availability Zone ID,<br><b>note： <font color='blue'>Before\
+    \ selecting, please confirm that the Availability Zone supports the specification\
+    \ of creating ECS resources</font></b>\"\n      },\n      \"Label\": {\n     \
+    \   \"zh-cn\": \"可用区ID\",\n        \"en\": \"Available Zone ID\"\n      }\n  }\n\
+    \  EOT\n}\n\nvariable \"adb_compute_resource\" {\n  type = string\n  default =\
+    \ \"16ACU\"\n  description = <<EOT\n  {\n      \"Label\": {\n        \"zh-cn\"\
+    : \"计算预留资源\",\n        \"en\": \"Compute Resource\"\n      }\n  }\n  EOT\n}\n\n\
+    variable \"adb_storage_resource\" {\n  type = string\n  default = \"24ACU\"\n\
+    \  description = <<EOT\n  {\n      \"Label\": {\n        \"zh-cn\": \"存储预留资源\"\
+    ,\n        \"en\": \"Storage Resource\"\n      }\n  }\n  EOT\n}\n\n\nvariable\
+    \ \"rds_instance_type\" {\n  type = string\n  description = <<EOT\n  {\n     \
+    \ \"Label\": {\n        \"zh-cn\": \"RDS实例规格\",\n        \"en\": \"RDS Instance\
+    \ Type\"\n      },\n      \"AssociationProperty\": \"ALIYUN::RDS::Instance::InstanceType\"\
+    ,\n      \"AssociationPropertyMetadata\": {\n        \"ZoneId\": \"$${zone_id}\"\
+    ,\n        \"Engine\": \"MySQL\",\n        \"EngineVersion\": \"8.0\",\n     \
+    \   \"Category\": \"HighAvailability\",\n        \"DBInstanceStorageType\": \"\
+    cloud_essd\"\n    }\n  }\n  EOT\n}\n\nvariable \"rds_instance_storage\" {\n  type\
+    \ = number\n  default = 20\n  description = <<EOT\n  {\n      \"Label\": {\n \
+    \       \"zh-cn\": \"RDS数据库存储空间\",\n        \"en\": \"RDS Instance Storage\"\n\
+    \      }\n  }\n  EOT\n}\n\nvariable \"rds_db_name\" {\n  type = string\n  default\
+    \ = \"dim\"\n  description = <<EOT\n  {\n      \"Label\": {\n        \"zh-cn\"\
+    : \"RDS数据库名称\",\n        \"en\": \"RDS DBName\"\n      }\n  }\n  EOT\n}\n\n\n\
+    variable \"rds_account\" {\n  type = string\n  default = \"testuser\"\n  description\
+    \ = <<EOT\n  {\n      \"Label\": {\n        \"zh-cn\": \"RDS数据库账号名称\",\n     \
+    \   \"en\": \"RDS Instance DB AccountName\"\n      }\n  }\n  EOT\n}\n\nvariable\
+    \ \"rds_password\" {\n  type = string\n  default = \"testPassword01\"\n  description\
+    \ = <<EOT\n  {\n      \"Label\": {\n        \"zh-cn\": \"RDS数据库账号密码\",\n     \
+    \   \"en\": \"RDS Instance DB AccountPassword\"\n      },\n      \"NoEcho\": true\n\
+    \  }\n  EOT\n}\n\nvariable \"oss_bucket_name\" {\n  type = string\n  default =\
+    \ \"demo-bucket03\"\n  description = <<EOT\n  {\n      \"Label\": {\n        \"\
+    zh-cn\": \"OSS存储空间名称\",\n        \"en\": \"OSS BucketName\"\n      }\n  }\n  EOT\n\
+    }\n\n\nvariable \"topic_name\" {\n  type = string\n  default = \"test_topic\"\n\
+    \  description = <<EOT\n  {\n      \"Label\": {\n        \"zh-cn\": \"Topic名称\"\
+    ,\n        \"en\": \"Topic Name\"\n      }\n  }\n  EOT\n}\n\n"

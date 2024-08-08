@@ -1,131 +1,129 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Uniformly manage public IP addresses of ECS instances in a VPC.
-  zh-cn: 通过公网NAT网关实现云上统一公网出口。
+  zh-cn: 创建VPC环境，配置双可用区ECS实例，部署公网NAT网关实现统一的云上公网访问出口。
+  en: Create a Virtual Private Cloud (VPC) environment, configure dual-Availability
+    Zone Elastic Compute Service (ECS) instances, and deploy a public-facing NAT Gateway
+    to establish a unified cloud Internet access gateway.
 Parameters:
-  CommonName:
-    Type: String
-    Default: unified-egress
   ZoneId1:
     Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    AssociationPropertyMetadata:
-      ExclusiveTo:
-        - ZoneId2
     Label:
       en: Availability Zone
       zh-cn: 可用区1
-  ZoneId2:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     AssociationPropertyMetadata:
       ExclusiveTo:
-        - ZoneId1
+      - ZoneId2
+  ZoneId2:
+    Type: String
     Label:
       en: Availability Zone
       zh-cn: 可用区2
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - ZoneId1
   InstanceType1:
     Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
-    AssociationPropertyMetadata:
-      InstanceChargeType: PostPaid
-      SystemDiskCategory: cloud_essd
-      ZoneId: ${ZoneId}
     Label:
       en: Instance Type
       zh-cn: 实例规格1
-  InstanceType2:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
       ZoneId: ${ZoneId}
+  InstanceType2:
+    Type: String
     Label:
       en: Instance Type
       zh-cn: 实例规格2
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
   InstancePassword:
-    NoEcho: true
     Type: String
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
     Default: null
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: unified-egress
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch1:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId1
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.1.0/24
-      ZoneId:
-        Ref: ZoneId1
       VSwitchName:
         Fn::Sub: ${CommonName}-app1-vsw
   VSwitch2:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId2
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.2.0/24
-      ZoneId:
-        Ref: ZoneId2
       VSwitchName:
         Fn::Sub: ${CommonName}-app2-vsw
   VSwitch3:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId1
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.3.0/24
-      ZoneId:
-        Ref: ZoneId1
       VSwitchName:
         Fn::Sub: ${CommonName}-pub-vsw
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 443/443
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 443/443
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
   EcsInstance1:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId1
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch1
       SecurityGroupId:
@@ -141,12 +139,12 @@ Resources:
       Password:
         Ref: InstancePassword
   EcsInstance2:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId2
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch2
       SecurityGroupId:
@@ -162,73 +160,69 @@ Resources:
       Password:
         Ref: InstancePassword
   NatGateway:
-    Type: 'ALIYUN::VPC::NatGateway'
+    Type: ALIYUN::VPC::NatGateway
     Properties:
-      NatGatewayName:
-        Fn::Sub: ${CommonName}-ngw
-      VSwitchId:
-        Ref: VSwitch3
-      NatType: Enhanced
       VpcId:
         Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch3
+      NatGatewayName:
+        Fn::Sub: ${CommonName}-ngw
+      NatType: Enhanced
   Eip:
-    Type: 'ALIYUN::VPC::EIP'
+    Type: ALIYUN::VPC::EIP
     Properties:
       DeletionProtection: false
       Isp: BGP
       Bandwidth: 200
       InternetChargeType: PayByTraffic
   EipAssociation:
-    Type: 'ALIYUN::VPC::EIPAssociation'
+    Type: ALIYUN::VPC::EIPAssociation
     Properties:
       InstanceId:
         Ref: NatGateway
       AllocationId:
         Ref: Eip
   SNat:
-    Type: 'ALIYUN::VPC::SnatEntry'
-    DependsOn: EipAssociation
+    Type: ALIYUN::VPC::SnatEntry
     Properties:
+      SourceVSwitchIds:
+      - Ref: VSwitch1
+      - Ref: VSwitch2
       SnatTableId:
         Fn::GetAtt:
-          - NatGateway
-          - SNatTableId
+        - NatGateway
+        - SNatTableId
       SnatEntryName:
         Fn::Sub: ${CommonName}-snat
-      SourceVSwitchIds:
-        - Ref: VSwitch1
-        - Ref: VSwitch2
       SnatIp:
         Fn::GetAtt:
-          - Eip
-          - EipAddress
+        - Eip
+        - EipAddress
+    DependsOn: EipAssociation
 Outputs:
   EcsLoginAddress1:
     Description:
       en: Ecs1 login address.
       zh-cn: ECS1 登录地址。
     Value:
-      Fn::Sub: >-
-        https://ecs-workbench.aliyun.com/?from=EcsConsole
-        &instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance1}
+      Fn::Sub: https://ecs-workbench.aliyun.com/?from=EcsConsole &instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance1}
   EcsLoginAddress2:
     Description:
       en: Ecs2 login address.
       zh-cn: ECS2 登录地址。
     Value:
-      Fn::Sub: >-
-        https://ecs-workbench.aliyun.com/?from=EcsConsole
-        &instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance2}
+      Fn::Sub: https://ecs-workbench.aliyun.com/?from=EcsConsole &instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance2}
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - ZoneId1
-          - ZoneId2
-          - InstanceType1
-          - InstanceType2
-          - InstancePassword
+    - Parameters:
+      - ZoneId1
+      - ZoneId2
+      - InstanceType1
+      - InstanceType2
+      - InstancePassword
     TemplateTags:
-      - acs:technical-solution:network:通过公网NAT网关实现云上统一公网出口-tech_solu_134
+    - acs:technical-solution:network:通过公网NAT网关实现云上统一公网出口-tech_solu_134
     Hidden:
-      - CommonName
+    - CommonName

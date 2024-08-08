@@ -1,12 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: >-
-    The one-click deployment template of the PAI AI painting solution will
-    deploy cloud resources such as VPC, VSwitch, security group, Nat gateway,
-    EIP, PAI-EAS, and NAS.
-  zh-cn: >-
-    该PAI
-    AI绘画解决方案一键部署模板将会部署VPC、VSwitch、安全组、Nat网关、EIP、PAI-EAS、NAS等云资源。请在新加坡地域使用该模板
+  zh-cn: 一键部署PAI AI绘画方案，涵盖VPC、VSwitch、安全组、Nat网关、EIP、PAI-EAS及NAS资源，适用于新加坡区域。
+  en: One-click deployment of the PAI AI painting solution, encompassing VPC, VSwitch,
+    Security Group, NAT Gateway, EIP, PAI-EAS, and NAS resources, tailored for the
+    Singapore region.
 Parameters:
   ZoneId:
     Type: String
@@ -20,7 +17,6 @@ Parameters:
     Default: ap-southeast-1c
   InstanceType:
     Type: String
-    AllowedPattern: '(^ecs.*gn.*)|(^ml.*)|(^ecs.*gu.*)'
     Label:
       en: PAI service instance type
       zh-cn: PAI使用的实例规格
@@ -28,14 +24,15 @@ Parameters:
       en: PAI-EAS instance specifications.
       zh-cn: PAI-EAS实例规格。
     Default: ecs.gn6i-c16g1.4xlarge
+    AllowedPattern: (^ecs.*gn.*)|(^ml.*)|(^ecs.*gu.*)
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       VpcName: vpc_SDWebUI
       CidrBlock: 192.168.0.0/16
   VSwitch:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
       ZoneId:
         Ref: ZoneId
@@ -44,7 +41,7 @@ Resources:
       VSwitchName: vswitch_SDWebUI
       CidrBlock: 192.168.0.0/18
   NatGateway:
-    Type: 'ALIYUN::VPC::NatGateway'
+    Type: ALIYUN::VPC::NatGateway
     Properties:
       VpcId:
         Ref: Vpc
@@ -55,28 +52,14 @@ Resources:
       InternetChargeType: PayByLcu
       NetworkType: internet
       Tags:
-        - Key: WebUI
-          Value: SD_WebUI
+      - Key: WebUI
+        Value: SD_WebUI
   Eip:
-    Type: 'ALIYUN::VPC::EIP'
+    Type: ALIYUN::VPC::EIP
     Properties:
       Name: eip_SDWebUI
       Bandwidth: 200
       InternetChargeType: PayByTraffic
-  CreateSnatTableEntry:
-    Type: ALIYUN::VPC::SnatEntry
-    Properties:
-      SnatTableId:
-        Fn::GetAtt:
-          - NatGateway
-          - SNatTableId
-      SnatIp:
-        Fn::GetAtt:
-          - Eip
-          - EipAddress
-      SourceCIDR: 192.168.0.0/18
-    DependsOn:
-      - ElasticIpAssociation
   ElasticIpAssociation:
     Type: ALIYUN::VPC::EIPAssociation
     Properties:
@@ -84,33 +67,47 @@ Resources:
         Ref: NatGateway
       AllocationId:
         Fn::GetAtt:
-          - Eip
-          - AllocationId
+        - Eip
+        - AllocationId
+  CreateSnatTableEntry:
+    Type: ALIYUN::VPC::SnatEntry
+    Properties:
+      SnatTableId:
+        Fn::GetAtt:
+        - NatGateway
+        - SNatTableId
+      SnatIp:
+        Fn::GetAtt:
+        - Eip
+        - EipAddress
+      SourceCIDR: 192.168.0.0/18
+    DependsOn:
+    - ElasticIpAssociation
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName: sg_SDWebUI
       SecurityGroupType: normal
       SecurityGroupIngress:
-        - Priority: 1
-          PortRange: 22/22
-          NicType: internet
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - Priority: 1
-          PortRange: 80/80
-          NicType: internet
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - Priority: 1
-          PortRange: 443/443
-          NicType: internet
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
+      - Priority: 1
+        PortRange: 22/22
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 80/80
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 1
+        PortRange: 443/443
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
   Nas:
-    Type: 'ALIYUN::NAS::FileSystem'
+    Type: ALIYUN::NAS::FileSystem
     Properties:
       ZoneId:
         Ref: ZoneId
@@ -119,13 +116,13 @@ Resources:
       ProtocolType: NFS
       EncryptType: 0
   NasAccessGroup:
-    Type: 'ALIYUN::NAS::AccessGroup'
+    Type: ALIYUN::NAS::AccessGroup
     Properties:
       AccessGroupType: Vpc
       AccessGroupName: nas_accessgroup_SDWebUI
       FileSystemType: standard
   NasAccessRule:
-    Type: 'ALIYUN::NAS::AccessRule'
+    Type: ALIYUN::NAS::AccessRule
     Properties:
       Priority: 100
       UserAccessType: no_squash
@@ -135,7 +132,7 @@ Resources:
       RWAccessType: RDWR
       FileSystemType: standard
   NasMountTarget:
-    Type: 'ALIYUN::NAS::MountTarget'
+    Type: ALIYUN::NAS::MountTarget
     Properties:
       VpcId:
         Ref: Vpc
@@ -150,23 +147,23 @@ Resources:
       AccessGroupName:
         Ref: NasAccessGroup
     DependsOn:
-      - NasAccessRule
+    - NasAccessRule
   RandomString:
-    Type: 'ALIYUN::RandomString'
+    Type: ALIYUN::RandomString
     Properties:
       length: 10
       character_classes:
-        - class: lowercase
-          min: 1
-        - class: digits
-          min: 1
+      - class: lowercase
+        min: 1
+      - class: digits
+        min: 1
   Pai-Eas:
-    Type: 'ALIYUN::PAI::Service'
+    Type: ALIYUN::PAI::Service
     Properties:
       ServiceConfig:
         metadata:
           name:
-            'Fn::Sub': 'sdwebui_${RandomString.value}'
+            Fn::Sub: sdwebui_${RandomString.value}
           instance: 1
           type: SDCluster
           enable_webservice: 'true'
@@ -183,33 +180,30 @@ Resources:
             security_group_id:
               Ref: SecurityGroup
         storage:
-          - nfs:
-              path: /
-              server:
-                'Fn::GetAtt':
-                  - NasMountTarget
-                  - MountTargetDomain
-            properties:
-              resource_type: model
-            mount_path: /code/stable-diffusion-webui/data-nas
+        - nfs:
+            path: /
+            server:
+              Fn::GetAtt:
+              - NasMountTarget
+              - MountTargetDomain
+          properties:
+            resource_type: model
+          mount_path: /code/stable-diffusion-webui/data-nas
         containers:
-          - image: >-
-              eas-registry-vpc.ap-southeast-1.cr.aliyuncs.com/pai-eas/stable-diffusion-webui:4.1
-            script: >-
-              ./webui.sh --listen --port 8000 --skip-version-check --no-hashing
-              --no-download-sd-model --skip-install --api --filebrowser
-              --cluster-status --sd-dynamic-cache --data-dir
-              /code/stable-diffusion-webui/data-nas
-            port: 8000
+        - image: eas-registry-vpc.ap-southeast-1.cr.aliyuncs.com/pai-eas/stable-diffusion-webui:4.1
+          script: ./webui.sh --listen --port 8000 --skip-version-check --no-hashing
+            --no-download-sd-model --skip-install --api --filebrowser --cluster-status
+            --sd-dynamic-cache --data-dir /code/stable-diffusion-webui/data-nas
+          port: 8000
         meta:
           type: SDCluster
         options:
           enableCache: ture
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - ZoneId
-          - InstanceType
+    - Parameters:
+      - ZoneId
+      - InstanceType
     TemplateTags:
     - acs:technical-solution:ai:PAI部署多形态的Stable Diffusion WebUI服务-tech_solu_91

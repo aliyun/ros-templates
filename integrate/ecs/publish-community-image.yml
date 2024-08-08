@@ -1,104 +1,99 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 多地域发布社区镜像
-  en: Publishing community mirrors in multiple regions
+  zh-cn: 跨区域复制并公开自定义镜像为社区镜像，支持权限配置与元数据保留。
+  en: Cross-region replication of custom images and public exposure as community images,
+    with support for permission configurations and metadata retention.
 Parameters:
   ImageId:
     Type: String
-    AssociationProperty: 'ALIYUN::ECS::Image::ImageId'
-    AssociationPropertyMetadata:
-      SupportedImageOwnerAlias:
-        - self
-    Description:
-      zh-cn: >-
-        如果您是RAM用户，请提前联系RAM管理员账号为您添加ROSFullAccess策略，否则创建会报错。
-        请参考<a href='https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user' 
-        target='_blank'><b><font color='blue'>为RAM用户授权</font></b></a>。
-      en: >-
-        If you are a RAM user, please contact the RAM administrator account in advance to add a 
-        ROSFullAccess policy for you, otherwise an error will be reported when creating it.
-        Please refer to <a href='https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user' 
-        target='_blank'><b><font color='blue'>Authorize RAM users</font></b></a>.
     Label:
       zh-cn: 待发布为社区镜像的镜像ID
       en: Image ID to be published as a community image
+    Description:
+      zh-cn: 如果您是RAM用户，请提前联系RAM管理员账号为您添加ROSFullAccess策略，否则创建会报错。 请参考<a href='https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user'  target='_blank'><b><font
+        color='blue'>为RAM用户授权</font></b></a>。
+      en: If you are a RAM user, please contact the RAM administrator account in advance
+        to add a  ROSFullAccess policy for you, otherwise an error will be reported
+        when creating it. Please refer to <a href='https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user'  target='_blank'><b><font
+        color='blue'>Authorize RAM users</font></b></a>.
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      SupportedImageOwnerAlias:
+      - self
   DestinationRegionIds:
     Type: CommaDelimitedList
-    AssociationProperty: 'ALIYUN::ECS::RegionId'
     Label:
       zh-cn: 社区镜像的目标地域
       en: Target region for community mirroring
     Description:
-      zh-cn: >-
-        若您选择的目标地域是镜像所在的地域，则发布为社区镜像会将该自定义镜像的权限公开；若您选择的目标地域是其他地域，
-        则发布时会自动将您的自定义镜像复制到这些地域并将权限公开。复制过程中，镜像名称、描述与原镜像相同，仅镜像ID不同。
-      en: >-
-        If the target region you choose is the region where the image is located, 
-        publishing it as a community image will make the permissions of the custom image public; 
-        if the target region you choose is another region, your custom image will be automatically 
-        copied to These regions will make the permissions public. 
-        During the copying process, the image name and description are the same as the original image, 
-        only the image ID is different.
+      zh-cn: 若您选择的目标地域是镜像所在的地域，则发布为社区镜像会将该自定义镜像的权限公开；若您选择的目标地域是其他地域， 则发布时会自动将您的自定义镜像复制到这些地域并将权限公开。复制过程中，镜像名称、描述与原镜像相同，仅镜像ID不同。
+      en: If the target region you choose is the region where the image is located,  publishing
+        it as a community image will make the permissions of the custom image public;  if
+        the target region you choose is another region, your custom image will be
+        automatically  copied to These regions will make the permissions public.  During
+        the copying process, the image name and description are the same as the original
+        image,  only the image ID is different.
+    AssociationProperty: ALIYUN::ECS::RegionId
 Resources:
   ImageData:
-    Type: 'DATASOURCE::ECS::Images'
+    Type: DATASOURCE::ECS::Images
     Properties:
       ImageId:
         Ref: ImageId
   CopyImage:
-    Type: 'ALIYUN::ECS::CopyImage'
-    DeletionPolicy: Retain
-    Count:
-      'Fn::Length':
-        Ref: DestinationRegionIds
+    Type: ALIYUN::ECS::CopyImage
     Properties:
       ImageId:
         Ref: ImageId
       DestinationRegionId:
-        'Fn::Select':
-          - Ref: 'ALIYUN::Index'
-          - Ref: DestinationRegionIds
+        Fn::Select:
+        - Ref: ALIYUN::Index
+        - Ref: DestinationRegionIds
       AllowCopyInSameRegion: true
       DestinationDescription:
-        'Fn::Jq':
-          - First
-          - '.[0].Description'
-          - 'Fn::GetAtt':
-              - ImageData
-              - Images
+        Fn::Jq:
+        - First
+        - .[0].Description
+        - Fn::GetAtt:
+          - ImageData
+          - Images
       DestinationImageName:
-        'Fn::Jq':
-          - First
-          - '.[0].ImageName'
-          - 'Fn::GetAtt':
-              - ImageData
-              - Images
-  PublishCommunityImage:
-    Type: 'ALIYUN::ECS::ImageSharePermission'
+        Fn::Jq:
+        - First
+        - .[0].ImageName
+        - Fn::GetAtt:
+          - ImageData
+          - Images
+    DeletionPolicy: Retain
     Count:
-      'Fn::Length':
+      Fn::Length:
         Ref: DestinationRegionIds
+  PublishCommunityImage:
+    Type: ALIYUN::ECS::ImageSharePermission
     Properties:
+      ImageId:
+        Fn::Select:
+        - Ref: ALIYUN::Index
+        - Fn::GetAtt:
+          - CopyImage
+          - ImageId
       RegionId:
-        'Fn::Select':
-          - Ref: 'ALIYUN::Index'
-          - Ref: DestinationRegionIds
+        Fn::Select:
+        - Ref: ALIYUN::Index
+        - Ref: DestinationRegionIds
       KeepPermission: true
       IsPublic: true
-      ImageId:
-        'Fn::Select':
-          - Ref: 'ALIYUN::Index'
-          - 'Fn::GetAtt':
-              - CopyImage
-              - ImageId
+    Count:
+      Fn::Length:
+        Ref: DestinationRegionIds
 Outputs:
   CopyImageIds:
-    Value:
-      'Fn::GetAtt':
-        - CopyImage
-        - ImageId
     Description: The destination image ids.
+    Value:
+      Fn::GetAtt:
+      - CopyImage
+      - ImageId
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     TemplateTags:
-      - 'acs:integrate:ecs:publish-community-image'
+    - acs:integrate:ecs:publish-community-image

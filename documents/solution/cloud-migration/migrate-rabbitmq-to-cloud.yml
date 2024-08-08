@@ -1,97 +1,95 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Migrate RabbitMq to Cloud.
-  zh-cn: 自建RabbitMQ迁移至云消息队列RabbitMQ版。
+  zh-cn: 创建VPC、ECS实例，安装Docker与Java，配置RabbitMQ容器，同时部署云上RabbitMQ实例，实现自建RabbitMQ至云端的迁移。
+  en: Create a VPC and ECS instances, install Docker and Java, configure a RabbitMQ
+    container, simultaneously deploy a cloud-based RabbitMQ instance, and facilitate
+    the migration from an on-premises RabbitMQ to the cloud-based setup.
 Parameters:
-  CommonName:
-    Type: String
-    Default: migrate-rabbitmq
   ZoneId:
     Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    AssociationPropertyMetadata:
-      AutoSelectFirst: true
     Label:
       en: Availability Zone
       zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
   InstanceType:
     Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
       ZoneId: ${ZoneId}
-    Label:
-      en: Instance Type
-      zh-cn: 实例规格
   InstancePassword:
-    NoEcho: true
     Type: String
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
     Default: null
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: migrate-rabbitmq
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.0.0/24
-      ZoneId:
-        Ref: ZoneId
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 443/443
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 15672/15672
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 5672/5672
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 443/443
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 15672/15672
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 5672/5672
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
   EcsInstance:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch
       SecurityGroupId:
@@ -107,90 +105,63 @@ Resources:
       Password:
         Ref: InstancePassword
   ModuleInstallDocker:
-    Version: default
-    Type: 'MODULE::ACS::OOS::Extension'
+    Type: MODULE::ACS::OOS::Extension
     Properties:
       EcsInstanceIds:
         Fn::GetAtt:
-          - EcsInstance
-          - InstanceIds
+        - EcsInstance
+        - InstanceIds
       PackageName: ACS-Extension-DockerCE-1853370294850618
-  ModuleInstallJava:
     Version: default
-    Type: 'MODULE::ACS::OOS::Extension'
-    DependsOn: ModuleInstallDocker
+  ModuleInstallJava:
+    Type: MODULE::ACS::OOS::Extension
     Properties:
       EcsInstanceIds:
         Fn::GetAtt:
-          - EcsInstance
-          - InstanceIds
+        - EcsInstance
+        - InstanceIds
       PackageName: ACS-Extension-java-1853370294850618
+    DependsOn: ModuleInstallDocker
+    Version: default
   InstallRabbitMQ:
-    Type: 'ALIYUN::ECS::RunCommand'
-    DependsOn:
-      - ModuleInstallDocker
-      - ModuleInstallJava
+    Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
         Fn::GetAtt:
-          - EcsInstance
-          - InstanceIds
+        - EcsInstance
+        - InstanceIds
       Type: RunShellScript
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |-
-          #!/bin/bash
-          export PATH=/usr/local/bin:$PATH
-          
-          # RabbitMQ 默认的用户和密码
-          RABBITMQ_USER="guest"
-          RABBITMQ_PASS="guest"
-          
-          # 要创建的 Vhost、Exchange 和 Queue 名称
-          RABBITMQ_VHOST="myvhost"
-          RABBITMQ_EXCHANGE="myexchange"
-          RABBITMQ_QUEUE="myqueue"
-          RABBITMQ_ROUTING_KEY="my.routing.key"
-          
-          # 拉取并运行 RabbitMQ Docker 容器
-          docker pull rabbitmq:3.13-management-alpine
-          docker run -d --hostname my-rabbit --name rabbitmq --restart=always -p 5672:5672 -p 15672:15672 rabbitmq:3.13-management-alpine
-          
-          # 等待 RabbitMQ 启动
-          echo "Waiting for RabbitMQ to start..."
-          sleep 10
-          
-          # 创建 Vhost
-          echo "Creating Vhost..."
-          curl -u $RABBITMQ_USER:$RABBITMQ_PASS \
-               -X PUT http://localhost:15672/api/vhosts/$RABBITMQ_VHOST \
-               -H "Content-Type: application/json"
-          
-          # 创建 Exchange
-          echo "Creating Exchange..."
-          curl -u $RABBITMQ_USER:$RABBITMQ_PASS \
-               -X PUT http://localhost:15672/api/exchanges/$RABBITMQ_VHOST/$RABBITMQ_EXCHANGE \
-               -H "Content-Type: application/json" \
-               -d '{"type":"direct","auto_delete":false,"durable":true,"internal":false,"arguments":{}}'
-          
-          # 创建 Queue
-          echo "Creating Queue..."
-          curl -u $RABBITMQ_USER:$RABBITMQ_PASS \
-               -X PUT http://localhost:15672/api/queues/$RABBITMQ_VHOST/$RABBITMQ_QUEUE \
-               -H "Content-Type: application/json" \
-               -d '{"auto_delete":false,"durable":true,"arguments":{}}'
-          
-          # 绑定 Queue 到 Exchange
-          echo "Binding Queue to Exchange..."
-          curl -u $RABBITMQ_USER:$RABBITMQ_PASS \
-               -X POST http://localhost:15672/api/bindings/$RABBITMQ_VHOST/e/$RABBITMQ_EXCHANGE/q/$RABBITMQ_QUEUE \
-               -H "Content-Type: application/json" \
-               -d "{\"routing_key\":\"$RABBITMQ_ROUTING_KEY\",\"arguments\":{}}"
-          
-          echo "RabbitMQ setup complete!"
+        Fn::Sub: "#!/bin/bash\nexport PATH=/usr/local/bin:$PATH\n\n# RabbitMQ 默认的用户和密码\n\
+          RABBITMQ_USER=\"guest\"\nRABBITMQ_PASS=\"guest\"\n\n# 要创建的 Vhost、Exchange\
+          \ 和 Queue 名称\nRABBITMQ_VHOST=\"myvhost\"\nRABBITMQ_EXCHANGE=\"myexchange\"\
+          \nRABBITMQ_QUEUE=\"myqueue\"\nRABBITMQ_ROUTING_KEY=\"my.routing.key\"\n\n\
+          # 拉取并运行 RabbitMQ Docker 容器\ndocker pull rabbitmq:3.13-management-alpine\n\
+          docker run -d --hostname my-rabbit --name rabbitmq --restart=always -p 5672:5672\
+          \ -p 15672:15672 rabbitmq:3.13-management-alpine\n\n# 等待 RabbitMQ 启动\necho\
+          \ \"Waiting for RabbitMQ to start...\"\nsleep 10\n\n# 创建 Vhost\necho \"\
+          Creating Vhost...\"\ncurl -u $RABBITMQ_USER:$RABBITMQ_PASS \\\n     -X PUT\
+          \ http://localhost:15672/api/vhosts/$RABBITMQ_VHOST \\\n     -H \"Content-Type:\
+          \ application/json\"\n\n# 创建 Exchange\necho \"Creating Exchange...\"\ncurl\
+          \ -u $RABBITMQ_USER:$RABBITMQ_PASS \\\n     -X PUT http://localhost:15672/api/exchanges/$RABBITMQ_VHOST/$RABBITMQ_EXCHANGE\
+          \ \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\"type\"\
+          :\"direct\",\"auto_delete\":false,\"durable\":true,\"internal\":false,\"\
+          arguments\":{}}'\n\n# 创建 Queue\necho \"Creating Queue...\"\ncurl -u $RABBITMQ_USER:$RABBITMQ_PASS\
+          \ \\\n     -X PUT http://localhost:15672/api/queues/$RABBITMQ_VHOST/$RABBITMQ_QUEUE\
+          \ \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\"auto_delete\"\
+          :false,\"durable\":true,\"arguments\":{}}'\n\n# 绑定 Queue 到 Exchange\necho\
+          \ \"Binding Queue to Exchange...\"\ncurl -u $RABBITMQ_USER:$RABBITMQ_PASS\
+          \ \\\n     -X POST http://localhost:15672/api/bindings/$RABBITMQ_VHOST/e/$RABBITMQ_EXCHANGE/q/$RABBITMQ_QUEUE\
+          \ \\\n     -H \"Content-Type: application/json\" \\\n     -d \"{\\\"routing_key\\\
+          \":\\\"$RABBITMQ_ROUTING_KEY\\\",\\\"arguments\\\":{}}\"\n\necho \"RabbitMQ\
+          \ setup complete!\""
+    DependsOn:
+    - ModuleInstallDocker
+    - ModuleInstallJava
   RabbitMQ:
-    Type: 'ALIYUN::AMQP::Instance'
+    Type: ALIYUN::AMQP::Instance
     Properties:
       PayType: PayAsYouGo
       SupportEip: true
@@ -203,28 +174,28 @@ Outputs:
       zh-cn: ECS登录地址。
       en: Ecs login address.
     Value:
-      'Fn::Sub': https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
+      Fn::Sub: https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
   MqAdminAddress:
     Description:
       zh-cn: 自建RabbitMQ管理地址。
       en: RabbitMQ login address.
     Value:
       Fn::Sub:
-        - http://${PublicIp}:15672
-        - PublicIp:
-            Fn::Select:
-              - 0
-              - Fn::GetAtt:
-                  - EcsInstance
-                  - PublicIps
+      - http://${PublicIp}:15672
+      - PublicIp:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstance
+            - PublicIps
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - ZoneId
-          - InstanceType
-          - InstancePassword
+    - Parameters:
+      - ZoneId
+      - InstanceType
+      - InstancePassword
     TemplateTags:
-      - acs:technical-solution:cloud-migration:自建RabbitMQ迁移至云消息队列RabbitMQ版-tech_solu_122
+    - acs:technical-solution:cloud-migration:自建RabbitMQ迁移至云消息队列RabbitMQ版-tech_solu_122
     Hidden:
-      - CommonName
+    - CommonName

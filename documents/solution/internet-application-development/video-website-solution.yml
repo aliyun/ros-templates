@@ -1,7 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Storage and Media Processing Solution for Video Website.
-  zh-cn: 视频网站的存储与媒体处理方案。
+  zh-cn: 创建双可用区ECS实例、OSS存储桶、ALB负载均衡、MNS队列，配置媒体处理与视频上传服务，实现视频网站的存储与CDN分发。
+  en: Create dual availability zone ECS instances, OSS buckets, ALB load balancers,
+    and MNS queues, configure media processing and video upload services, to implement
+    storage for the video website and CDN distribution.
 Parameters:
   BucketNameScr:
     Type: String
@@ -19,8 +21,8 @@ Parameters:
       Length: 5
       Prefix: vod-bucket-src-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
+      - Class: lowercase
+        min: 1
   BucketNameTarget:
     Type: String
     Label:
@@ -37,8 +39,8 @@ Parameters:
       Length: 5
       Prefix: vod-bucket-target-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
+      - Class: lowercase
+        min: 1
   Zone1:
     Type: String
     Label:
@@ -48,7 +50,7 @@ Parameters:
     AssociationPropertyMetadata:
       AutoSelectFirst: true
       ExclusiveTo:
-        - Zone2
+      - Zone2
   Zone2:
     Type: String
     Label:
@@ -58,7 +60,7 @@ Parameters:
     AssociationPropertyMetadata:
       AutoSelectFirst: true
       ExclusiveTo:
-        - Zone1
+      - Zone1
   EcsInstanceType:
     Type: String
     Label:
@@ -191,18 +193,18 @@ Resources:
       Description: VodUploadRoleTest
       AssumeRolePolicyDocument:
         Statement:
-          - Action: sts:AssumeRole
-            Effect: Allow
-            Principal:
-              RAM:
-                - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            RAM:
+            - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
         Version: '1'
       MaxSessionDuration: 3600
       DeletionForce: true
       PolicyAttachments:
         System:
-          - AliyunSTSAssumeRoleAccess
-          - AliyunVODUploadAuth
+        - AliyunSTSAssumeRoleAccess
+        - AliyunVODUploadAuth
   EcsInstanceGroup1:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
@@ -321,20 +323,20 @@ Resources:
       ListenerProtocol: HTTP
   OssBucketScr:
     Type: ALIYUN::OSS::Bucket
-    DependsOn: AutoEnableOSS
     Properties:
       BucketName:
         Ref: BucketNameScr
       StorageClass: Standard
       DeletionForce: true
+    DependsOn: AutoEnableOSS
   OssBucketTarget:
     Type: ALIYUN::OSS::Bucket
-    DependsOn: AutoEnableOSS
     Properties:
       BucketName:
         Ref: BucketNameTarget
       StorageClass: Standard
       DeletionForce: true
+    DependsOn: AutoEnableOSS
   VideoUploadService:
     Type: ALIYUN::ECS::RunCommand
     Properties:
@@ -345,34 +347,65 @@ Resources:
       Type: RunShellScript
       Timeout: 300
       CommandContent:
-        Fn::Sub: |
-          #!/bin/bash
+        Fn::Sub: '#!/bin/bash
+
 
           wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20230830/qhwb/server.zip
+
           yum install unzip -y
+
           unzip server.zip
+
           cd server
+
           pip3 install --upgrade pip
+
           pip3 install -r requirements.txt
+
           pip3 install uwsgi==2.0.22
+
           sed -i "s/socket=127.0.0.1:5000/http=0.0.0.0:8000/g" uwsgi.ini
+
           export ECS_RAM_ROLE=${RoleForEcs}
+
           export ROLE_ARN=${VodUploadRoleTestRole.Arn}
+
           nohup uwsgi uwsgi.ini > output.log 2>&1 &
+
+          '
   Queue:
     Type: ALIYUN::MNS::Queue
-    DependsOn: AutoEnableMNS
     Properties:
       QueueName:
         Fn::Sub: ${CommonName}-mns-queue
+    DependsOn: AutoEnableMNS
+  AliyunVODDefaultRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunVODDefaultRole
+      Description: VOD默认使用此角色来访问您在其他云产品中的资源。
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - vod.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+      DeletionForce: true
+      PolicyAttachments:
+        System:
+        - AliyunVODRolePolicy
   VodStorage:
     Type: ALIYUN::VOD::Storage
-    DependsOn: AliyunVODDefaultRole
     Properties:
       StorageType: user_oss_bucket
       StorageLocation:
         Fn::Sub: ${OssBucketScr.DomainName}
       DefaultUpload: true
+    DependsOn: AliyunVODDefaultRole
   MessageCallback:
     Type: ALIYUN::VOD::MessageCallback
     Properties:
@@ -483,25 +516,6 @@ Resources:
     - Application
     - MessageCallback
     - VodStorage
-  AliyunVODDefaultRole:
-    Type: ALIYUN::RAM::Role
-    Properties:
-      RoleName: AliyunVODDefaultRole
-      Description: VOD默认使用此角色来访问您在其他云产品中的资源。
-      AssumeRolePolicyDocument:
-        Version: '1'
-        Statement:
-          - Action: 'sts:AssumeRole'
-            Effect: Allow
-            Principal:
-              Service:
-                - vod.aliyuncs.com
-      MaxSessionDuration: 3600
-      IgnoreExisting: true
-      DeletionForce: true
-      PolicyAttachments:
-        System:
-          - AliyunVODRolePolicy
 Outputs:
   VideoUrl:
     Description:

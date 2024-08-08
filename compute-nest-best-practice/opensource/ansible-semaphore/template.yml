@@ -1,7 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Ansible Semaphore Community Edition
-  zh-cn: Ansible Semaphore社区版
+  zh-cn: 创建一个高度安全的Ansible Semaphore社区版环境，包含ECS实例、RDS MySQL高可用数据库、安全组配置，及自动化安装与配置Semaphore服务。
+  en: Establish a highly secure Ansible Semaphore Community Edition environment, comprising
+    ECS instances, a high-availability RDS MySQL database, security group configurations,
+    along with automated installation and setup of the Semaphore service.
 Parameters:
   AdminPassword:
     Type: String
@@ -67,8 +69,7 @@ Parameters:
         three of the following types: uppercase letters, lowercase letter, digits,
         and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
       zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
-    AllowedPattern: 
-      ^(?=.*[a-zA-Z])(?=.*[a-z0-9])(?=.*[a-z!@#$%^&*()_+=-])(?=.*[A-Z0-9])(?=.*[A-Z!@#$%^&*()_+=-])(?=.*[0-9!@#$%^&*()_+=-])[a-zA-Z0-9!@#$%^&*()_+=-]{8,32}$
+    AllowedPattern: ^(?=.*[a-zA-Z])(?=.*[a-z0-9])(?=.*[a-z!@#$%^&*()_+=-])(?=.*[A-Z0-9])(?=.*[A-Z!@#$%^&*()_+=-])(?=.*[0-9!@#$%^&*()_+=-])[a-zA-Z0-9!@#$%^&*()_+=-]{8,32}$
     NoEcho: true
   DBInstanceClass:
     Type: String
@@ -78,7 +79,7 @@ Parameters:
     AssociationProperty: ALIYUN::RDS::Instance::InstanceType
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
-      EngineVersion: "8.0"
+      EngineVersion: '8.0'
       Engine: MySQL
       Category: HighAvailability
       DBInstanceStorageType: cloud_essd
@@ -153,7 +154,7 @@ Resources:
         Ref: DBInstanceClass
       DBInstanceStorage: 50
       Engine: MySQL
-      EngineVersion: "8.0"
+      EngineVersion: '8.0'
       MasterUserPassword:
         Ref: DBPassword
       MasterUserType: Super
@@ -176,62 +177,27 @@ Resources:
       Sync: true
       Timeout: 7200
       CommandContent:
-        Fn::Sub: |-
-          #!/bin/bash
-          echo "###############################"
-          echo "# Instance Ansible Semaphore"
-          echo "###############################"
-          wget '{{ computenest::file::ansibleSemaphore }}'
-          yum install -y semaphore_2.9.37_linux_amd64.rpm
-
-          echo "###############################"
-          echo "# Config Ansible Semaphore"
-          echo "###############################"
-          mkdir /etc/semaphore
-          cat > /etc/semaphore/config.json << \EOF
-          {
-            "mysql": {
-              "host": "${RdsDBInstance.InnerConnectionString}",
-              "user": "${DBUser}",
-              "pass": "${DBPassword}",
-              "name": "semaphore"
-            },
-            "dialect": "mysql",
-            "tmp_path": "/tmp/semaphore",
-            "port": "80"
-          }
-          EOF
-
-          semaphore migrate --config /etc/semaphore/config.json
-          semaphore user add --admin --login admin --name Admin --email admin@localhost \
-            --password ${AdminPassword} --config /etc/semaphore/config.json
-
-          cat > /etc/systemd/system/semaphore.service << \EOF
-          [Unit]
-          Description=Ansible Semaphore
-          Documentation=https://github.com/ansible-semaphore/semaphore
-          Wants=network-online.target
-          After=network-online.target
-
-          [Service]
-          Type=simple
-          ExecReload=/bin/kill -HUP $MAINPID
-          ExecStart=/usr/bin/semaphore service --config=/etc/semaphore/config.json
-          SyslogIdentifier=semaphore
-          Restart=always
-          RestartSec=10s
-
-          [Install]
-          WantedBy=multi-user.target
-          EOF
-
-          echo "###############################"
-          echo "# Run Ansible Semaphore"
-          echo "###############################"
-          systemctl daemon-reload
-          systemctl enable semaphore
-          systemctl start semaphore
-          systemctl status semaphore
+        Fn::Sub: "#!/bin/bash\necho \"###############################\"\necho \"#\
+          \ Instance Ansible Semaphore\"\necho \"###############################\"\
+          \nwget '{{ computenest::file::ansibleSemaphore }}'\nyum install -y semaphore_2.9.37_linux_amd64.rpm\n\
+          \necho \"###############################\"\necho \"# Config Ansible Semaphore\"\
+          \necho \"###############################\"\nmkdir /etc/semaphore\ncat >\
+          \ /etc/semaphore/config.json << \\EOF\n{\n  \"mysql\": {\n    \"host\":\
+          \ \"${RdsDBInstance.InnerConnectionString}\",\n    \"user\": \"${DBUser}\"\
+          ,\n    \"pass\": \"${DBPassword}\",\n    \"name\": \"semaphore\"\n  },\n\
+          \  \"dialect\": \"mysql\",\n  \"tmp_path\": \"/tmp/semaphore\",\n  \"port\"\
+          : \"80\"\n}\nEOF\n\nsemaphore migrate --config /etc/semaphore/config.json\n\
+          semaphore user add --admin --login admin --name Admin --email admin@localhost\
+          \ \\\n  --password ${AdminPassword} --config /etc/semaphore/config.json\n\
+          \ncat > /etc/systemd/system/semaphore.service << \\EOF\n[Unit]\nDescription=Ansible\
+          \ Semaphore\nDocumentation=https://github.com/ansible-semaphore/semaphore\n\
+          Wants=network-online.target\nAfter=network-online.target\n\n[Service]\n\
+          Type=simple\nExecReload=/bin/kill -HUP $MAINPID\nExecStart=/usr/bin/semaphore\
+          \ service --config=/etc/semaphore/config.json\nSyslogIdentifier=semaphore\n\
+          Restart=always\nRestartSec=10s\n\n[Install]\nWantedBy=multi-user.target\n\
+          EOF\n\necho \"###############################\"\necho \"# Run Ansible Semaphore\"\
+          \necho \"###############################\"\nsystemctl daemon-reload\nsystemctl\
+          \ enable semaphore\nsystemctl start semaphore\nsystemctl status semaphore"
     DependsOn:
     - SecurityGroupIngress_80
 Outputs:

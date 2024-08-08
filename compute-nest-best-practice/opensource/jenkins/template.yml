@@ -1,7 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: 部署ecs创建jenkins
-  zh-cn: 部署ecs创建jenkins
+  zh-cn: 创建预配置ECS实例，搭载Jenkins环境，支持自定义付费方式、系统及数据盘设置，自动安装JDK与Jenkins，公开8080端口。
+  en: Create a pre-configured ECS instance equipped with a Jenkins environment, supporting
+    customized payment methods, operating system, and data disk configurations. Automatically
+    install JDK and Jenkins, with port 8080 exposed for public access.
 Parameters:
   PayType:
     Type: String
@@ -246,45 +248,79 @@ Resources:
         Ref: InternetMaxBandwidthOut
       UserData:
         Fn::Sub:
-        - |
-          #!/bin/bash
+        - '#!/bin/bash
+
           # 挂盘到/data
+
           cat >> /root/InitDataDisk.sh << "EOF"
+
           #!/bin/bash
+
           echo "p
+
           n
+
           p
 
 
 
+
           w
+
           " |  fdisk -u /dev/vdb
+
           EOF
+
           /bin/bash /root/InitDataDisk.sh
+
           rm -f /root/InitDataDisk.sh
+
           mkfs -t ext4 /dev/vdb1
+
           cp /etc/fstab /etc/fstab.bak
+
           mkdir /data
-          echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /data ext4 defaults 0 0 >> /etc/fstab
+
+          echo `blkid /dev/vdb1 | awk ''{print $2}'' | sed ''s/\\\"//g''` /data ext4
+          defaults 0 0 >> /etc/fstab
+
           mount -a
 
+
           # 1.安装JDK
+
           yum install java-1.8.0-openjdk* -y
+
           # 2.安装jenkins
-          wget '{{ computenest::file::jenkins }}'
+
+          wget ''{{ computenest::file::jenkins }}''
+
           rpm -ivh jenkins-2.190.3-1.1.noarch.rpm
+
           # 3.修改jenkins默认端口配置（与服务器开放的端口一致）(此处因开放端口与默认端口8080一致故不用修改）
+
           # sudo sed -i "s#8080#80#g" /etc/sysconfig/jenkins
+
           # 4.启动jenkins
+
           systemctl start jenkins
+
           # 将jenkins数据转移到数据盘路径并修改配置数据
+
           cp -r /var/lib/jenkins /data/jenkins
-          sed -i 's/\/var\/lib\/jenkins\/data\/jenkins/g' /etc/sysconfig/jenkins
+
+          sed -i ''s/\/var\/lib\/jenkins\/data\/jenkins/g'' /etc/sysconfig/jenkins
+
           # 重启jenkins
+
           sudo systemctl restart jenkins
 
+
           # 执行成功回调WaitCondition结束waitCondition的等待
+
           ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+
+          '
         - CurlCli:
             Fn::GetAtt:
             - WaitConditionHandle

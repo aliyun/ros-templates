@@ -1,73 +1,65 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 单ecs节点启动consul服务，弹性ip提供公网访问
-  en: create consul
+  zh-cn: 创建单个ECS实例部署Consul服务，配置安全组与数据盘，弹性IP提供公网访问选项。
+  en: Create a single ECS instance to deploy the Consul service, configure security
+    groups and data disks, with Elastic IP providing public internet access options.
+Conditions:
+  AllocatePublicIpOn:
+    Fn::Equals:
+    - true
+    - Ref: AllocatePublicIp
 Parameters:
   VpcId:
-    AssociationProperty: ALIYUN::ECS::VPC::VPCId
     Type: String
-    Description:
-      zh-cn: 控制台-VPC-专有网络下查询
-      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
     Label:
       zh-cn: 现有VPC的实例ID
       en: Existing VPC ID
-  ZoneId:
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
-    Type: String
     Description:
-      zh-cn: 现有交换机的可用区ID
-      en: Availability ID for existing switches
+      zh-cn: 控制台-VPC-专有网络下查询
+      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  ZoneId:
+    Type: String
     Label:
       zh-cn: 交换机可用区
       en: VSwitch Zone ID
+    Description:
+      zh-cn: 现有交换机的可用区ID
+      en: Availability ID for existing switches
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
   VSwitchId:
+    Type: String
+    Label:
+      zh-cn: 网络交换机ID
+      en: VSwitch ID
+    Description:
+      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
+      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
+        Private Cloud-VSwitches
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
     AssociationPropertyMetadata:
       VpcId: VpcId
       ZoneId: ZoneId
-    Type: String
-    Description:
-      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
-      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual Private Cloud-VSwitches
-    Label:
-      zh-cn: 网络交换机ID
-      en: VSwitch ID
-  InstanceType:
-    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
-    AssociationPropertyMetadata:
-      ZoneId: ZoneId
-    Type: String
-    Description:
-      zh-cn: 选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备
-      en: Before selecting the model please confirm that the current available zone under the model is in stock, some models need to be reported in advance
-    Label:
-      zh-cn: 实例规格
-      en: Instance Type
   PayType:
     Type: String
     Label:
       en: ECS Instance Charge Type
       zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
     Default: PostPaid
     AllowedValues:
     - PostPaid
     - PrePaid
-    AssociationProperty: ChargeType
-    AssociationPropertyMetadata:
-      LocaleKey: InstanceChargeType
   PayPeriodUnit:
     Type: String
-    Description:
-      en: Pay Period Unit
-      zh-cn: 购买资源时长周期
     Label:
       en: Pay Period Unit
       zh-cn: 购买资源时长周期
-    Default: Month
-    AllowedValues:
-    - Month
-    - Year
+    Description:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
     AssociationProperty: PayPeriodUnit
     AssociationPropertyMetadata:
       Visible:
@@ -76,25 +68,20 @@ Parameters:
             Fn::Equals:
             - ${PayType}
             - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
   PayPeriod:
     Type: Number
-    Description:
-      en: When the resource purchase duration is Month, the value of Period ranges from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance types are PrePaid valid </b></font>
-      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
     Label:
       en: Period
       zh-cn: 购买资源时长
-    Default: 1
-    AllowedValues:
-    - 1
-    - 2
-    - 3
-    - 4
-    - 5
-    - 6
-    - 7
-    - 8
-    - 9
+    Description:
+      en: When the resource purchase duration is Month, the value of Period ranges
+        from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance
+        types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
     AssociationProperty: PayPeriod
     AssociationPropertyMetadata:
       Visible:
@@ -106,73 +93,101 @@ Parameters:
           - Fn::Equals:
             - ${PayType}
             - undefined
-  InstancePassword:
-    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+  InstanceType:
     Type: String
-    Description:
-      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-    MinLength: 8
     Label:
-      zh-cn: 实例密码
-      en: Instance Password
-    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
-    NoEcho: true
-    MaxLength: 30
-    ConstraintDescription:
-      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
-  AllocatePublicIp:
-    Type: Boolean
+      zh-cn: 实例规格
+      en: Instance Type
     Description:
-      zh-cn: 是否开启公网访问
-      en: Whether to enable public network access
-    Label:
-      zh-cn: 是否开启公网访问
-      en: Whether to enable public network access
+      zh-cn: 选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备
+      en: Before selecting the model please confirm that the current available zone
+        under the model is in stock, some models need to be reported in advance
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
   SystemDiskCategory:
     Type: String
-    AllowedValues:
-    - cloud_efficiency
-    - cloud_essd
     Label:
       en: System Disk Category
       zh-cn: 系统盘类型
-    Default: cloud_essd
     AssociationPropertyMetadata:
       LocaleKey: DiskCategory
+    Default: cloud_essd
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_essd
   SystemDiskSize:
-    Default: 100
     Type: Number
     Label:
       zh-cn: 系统盘空间 (GB)
       en: System Disk Space (GB)
+    Default: 100
   DataDiskCategory:
     Type: String
-    AllowedValues:
-    - cloud_efficiency        # 高效云盘
-    - cloud_essd              # ESSD云盘
-    Default: cloud_efficiency
     Label:
       en: Disk Type
       zh-cn: 数据盘类型
     AssociationPropertyMetadata:
       LocaleKey: DiskCategory
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_essd
   DataDiskSize:
-    Default: 40
     Type: Number
-    Description:
-      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
-      en: 'System disk size of each node, range of values: 40-500, units: GB.'
-    MinValue: 40
-    MaxValue: 500
     Label:
       zh-cn: 数据盘空间
       en: Data Disk Space
+    Description:
+      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  InstancePassword:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  AllocatePublicIp:
+    Type: Boolean
+    Label:
+      zh-cn: 是否开启公网访问
+      en: Whether to enable public network access
+    Description:
+      zh-cn: 是否开启公网访问
+      en: Whether to enable public network access
 Resources:
   SecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
+      VpcId:
+        Ref: VpcId
       SecurityGroupName:
         Ref: ALIYUN::StackName
       SecurityGroupIngress:
@@ -181,81 +196,127 @@ Resources:
         NicType: intranet
         SourceCidrIp: 0.0.0.0/0
         IpProtocol: tcp
-      VpcId:
-        Ref: VpcId
   ConsulServer:
-    DependsOn:
-    - SecurityGroup
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      UserData:
-        Fn::Sub:
-        - |
-          #!/bin/bash
-          # 挂盘到/data
-          cat >> /root/InitDataDisk.sh << "EOF"
-          #!/bin/bash
-          echo "p
-          n
-          p
-
-
-
-          w
-          " |  fdisk -u /dev/vdb
-          EOF
-          /bin/bash /root/InitDataDisk.sh
-          rm -f /root/InitDataDisk.sh
-          mkfs -t ext4 /dev/vdb1
-          cp /etc/fstab /etc/fstab.bak
-          mkdir /data
-          echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /data ext4 defaults 0 0 >> /etc/fstab
-          mount -a
-
-          #环境初始化
-          HOSTNAME=`hostname`
-          IP_SELF=`hostname -I | awk '{print $1}'`
-          yum install -y java-1.8.0-openjdk-devel.x86_64
-          mkdir /opt/consul
-          cd /opt/consul
-          wget '{{ computenest::file::DemoFirst }}'
-          yum -y install unzip
-          unzip  consul_1.7.2_linux_amd64.zip
-          ln -s /opt/consul/consul /usr/bin/consul
-          echo 'consul agent -dev -ui -node='$HOSTNAME' -bind='$IP_SELF '-client=0.0.0.0 -data-dir=/data/consul'  >> /opt/consul/startConsul.sh
-          # 这里配置安装脚本
-
-          cat >> /usr/lib/systemd/system/consul.service << "EOF"
-          [Unit]
-          Description=consul
-          After=network.target
-
-          [Service]
-          ExecStart=/bin/bash  /opt/consul/startConsul.sh
-          ExecStop=/bin/bash -c 'consul leave'
-          PrivateTmp=true
-
-          [Install]
-          WantedBy=multi-user.target
-          EOF
-
-          systemctl daemon-reload
-          # 配置启动脚本
-          systemctl enable consul
-          systemctl start consul
-          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
-        - CurlCli:
-            Fn::GetAtt:
-            - RosWaitConditionHandle
-            - CurlCli
       ZoneId:
         Ref: ZoneId
       VpcId:
         Ref: VpcId
-      Password:
-        Ref: InstancePassword
+      VSwitchId:
+        Ref: VSwitchId
       SecurityGroupId:
         Ref: SecurityGroup
+      ImageId: centos_7
+      UserData:
+        Fn::Sub:
+        - '#!/bin/bash
+
+          # 挂盘到/data
+
+          cat >> /root/InitDataDisk.sh << "EOF"
+
+          #!/bin/bash
+
+          echo "p
+
+          n
+
+          p
+
+
+
+
+          w
+
+          " |  fdisk -u /dev/vdb
+
+          EOF
+
+          /bin/bash /root/InitDataDisk.sh
+
+          rm -f /root/InitDataDisk.sh
+
+          mkfs -t ext4 /dev/vdb1
+
+          cp /etc/fstab /etc/fstab.bak
+
+          mkdir /data
+
+          echo `blkid /dev/vdb1 | awk ''{print $2}'' | sed ''s/\\\"//g''` /data ext4
+          defaults 0 0 >> /etc/fstab
+
+          mount -a
+
+
+          #环境初始化
+
+          HOSTNAME=`hostname`
+
+          IP_SELF=`hostname -I | awk ''{print $1}''`
+
+          yum install -y java-1.8.0-openjdk-devel.x86_64
+
+          mkdir /opt/consul
+
+          cd /opt/consul
+
+          wget ''{{ computenest::file::DemoFirst }}''
+
+          yum -y install unzip
+
+          unzip  consul_1.7.2_linux_amd64.zip
+
+          ln -s /opt/consul/consul /usr/bin/consul
+
+          echo ''consul agent -dev -ui -node=''$HOSTNAME'' -bind=''$IP_SELF ''-client=0.0.0.0
+          -data-dir=/data/consul''  >> /opt/consul/startConsul.sh
+
+          # 这里配置安装脚本
+
+
+          cat >> /usr/lib/systemd/system/consul.service << "EOF"
+
+          [Unit]
+
+          Description=consul
+
+          After=network.target
+
+
+          [Service]
+
+          ExecStart=/bin/bash  /opt/consul/startConsul.sh
+
+          ExecStop=/bin/bash -c ''consul leave''
+
+          PrivateTmp=true
+
+
+          [Install]
+
+          WantedBy=multi-user.target
+
+          EOF
+
+
+          systemctl daemon-reload
+
+          # 配置启动脚本
+
+          systemctl enable consul
+
+          systemctl start consul
+
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+
+          '
+        - CurlCli:
+            Fn::GetAtt:
+            - RosWaitConditionHandle
+            - CurlCli
+      Password:
+        Ref: InstancePassword
       HostName: Consul-[0,3]
       PeriodUnit:
         Ref: PayPeriodUnit
@@ -275,9 +336,6 @@ Resources:
       AllocatePublicIP:
         Ref: AllocatePublicIp
       IoOptimized: optimized
-      VSwitchId:
-        Ref: VSwitchId
-      ImageId: centos_7
       InstanceName: CONSUL-[0,3]
       InstanceType:
         Ref: InstanceType
@@ -287,8 +345,11 @@ Resources:
         - 10
         - 0
       MaxAmount: 1
+    DependsOn:
+    - SecurityGroup
   RosWaitConditionHandle:
     Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
   RosWaitCondition:
     Type: ALIYUN::ROS::WaitCondition
     Properties:
@@ -296,11 +357,6 @@ Resources:
       Handle:
         Ref: RosWaitConditionHandle
       Timeout: 1000
-Conditions:
-  AllocatePublicIpOn:
-    Fn::Equals:
-    - true
-    - Ref: AllocatePublicIp
 Outputs:
   EcsInstanceIds:
     Description:
@@ -323,7 +379,8 @@ Outputs:
   ConsulWebUrl:
     Description:
       zh-cn: consul服务访问URL,开启公网访问返回公网URL,否则是私网URL
-      en: Consul service access URL, open public network access and return public network URL, otherwise it is private network URL
+      en: Consul service access URL, open public network access and return public
+        network URL, otherwise it is private network URL
     Value:
       Fn::If:
       - AllocatePublicIpOn

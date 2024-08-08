@@ -1,17 +1,13 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Build elastic and highly available services by CLB, ESS, NAT, EIP, RDS and OOS. This
-    solution takes WordPress as an example. Two ECS instances are deployed in two
-    zones through ESS, and are automatically bound to the default server group of
-    CLB to provide external services. Among them, the ECS instance uses the RDS high-availability
-    instance as the database, and has public network access through the NAT gateway
-    bound to the EIP, and the CLB listens to the WordPress 80 port and perform health
-    checks. In addition, scaling rules are configured in ESS, and when the average
-    CPU value exceeds or falls below a certain threshold, the capacity will be automatically
-    scaled.
-  zh-cn: 
-    基于CLB、ESS、NAT、EIP、RDS、OOS构建弹性高可用服务。本方案以WordPress为例，通过ESS在2个可用区分别部署2台ECS实例，并自动绑定到CLB的默认服务器组，从而对外提供服务。其中，ECS实例使用RDS高可用版实例作为数据库，通过绑定了EIP的NAT网关具备公网访问能力，CLB监听WordPress
-    80端口并进行健康检查。此外，ESS中配置了伸缩规则，当CPU平均值超过或低于特定阈值时，会自动扩缩容。
+  zh-cn: 构建WordPress弹性高可用服务，跨双可用区部署ECS，通过ESS自动扩缩容，结合CLB负载均衡、RDS高可用数据库、NAT网关及EIP实现公网访问与流量分发，配置健康检查与自动故障恢复。
+  en: Construct a high-availability WordPress service leveraging Elastic Compute Service
+    (ECS) instances deployed across dual availability zones, with Auto Scaling provided
+    by Elastic Scaling Service (ESS). Combine this setup with Classic Load Balancer
+    (CLB) for load distribution, Highly Available Relational Database Service (RDS)
+    for robust data management, NAT Gateway and Elastic IP (EIP) to facilitate public
+    access and efficient traffic distribution. Further, implement health checks and
+    automated fault recovery mechanisms to ensure service resilience.
 Parameters:
   LoadBalancerSpec:
     Type: String
@@ -25,22 +21,22 @@ Parameters:
     Label:
       en: VSwitch Availability Zone1
       zh-cn: 可用区1
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
   ZoneId2:
     Type: String
     Label:
       en: VSwitch Availability Zone2
       zh-cn: 可用区2
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     AssociationPropertyMetadata:
       ExclusiveTo:
-        - ZoneId1
+      - ZoneId1
   InstanceType1:
     Type: String
     Label:
       en: Instance Type
       zh-cn: 实例类型1
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
@@ -50,7 +46,7 @@ Parameters:
     Label:
       en: Instance Type
       zh-cn: 实例类型2
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
@@ -63,7 +59,7 @@ Parameters:
     AssociationProperty: ALIYUN::RDS::Instance::InstanceType
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId1}
-      EngineVersion: "8.0"
+      EngineVersion: '8.0'
       Engine: MySQL
       Category: HighAvailability
       DBInstanceStorageType: cloud_essd
@@ -77,8 +73,7 @@ Parameters:
         three of the following types: uppercase letters, lowercase letter, digits,
         and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
       zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
-    AllowedPattern: 
-      ^(?=.*[a-zA-Z])(?=.*[a-z0-9])(?=.*[a-z!@#$%^&*()_+=-])(?=.*[A-Z0-9])(?=.*[A-Z!@#$%^&*()_+=-])(?=.*[0-9!@#$%^&*()_+=-])[a-zA-Z0-9!@#$%^&*()_+=-]{8,32}$
+    AllowedPattern: ^(?=.*[a-zA-Z])(?=.*[a-z0-9])(?=.*[a-z!@#$%^&*()_+=-])(?=.*[A-Z0-9])(?=.*[A-Z!@#$%^&*()_+=-])(?=.*[0-9!@#$%^&*()_+=-])[a-zA-Z0-9!@#$%^&*()_+=-]{8,32}$
     NoEcho: true
   CommonName:
     Type: String
@@ -124,12 +119,12 @@ Resources:
         IpProtocol: tcp
         NicType: internet
       SecurityGroupEgress:
-      - PortRange: '-1/-1'
+      - PortRange: -1/-1
         Priority: 1
         IpProtocol: all
         DestCidrIp: 0.0.0.0/0
         NicType: internet
-      - PortRange: '-1/-1'
+      - PortRange: -1/-1
         Priority: 1
         IpProtocol: all
         DestCidrIp: 0.0.0.0/0
@@ -286,64 +281,37 @@ Resources:
       InstanceName:
         Fn::Sub: ${CommonName}-wordpress
       UserData:
-        Fn::Sub: |-
-          #!/bin/bash
-          script=/root/setup-wordpress.sh
-          cat<<\EOF>$script
-          #!/bin/bash
-          if [ ! -f .ros.provision ]; then
-            echo "Name: ha-service" > .ros.provision
-          fi
-
-          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-          if [[ "$name" != "ha-service" ]]; then
-            echo "ha-service installed, skip"
-            exit 0
-          fi
-
-          if ! grep -q "^Step1: Install Environment$" .ros.provision; then
-            echo "#########################"
-            echo "# Install Environment"
-            echo "#########################"
-            yum -y install httpd httpd-manual mod_ssl mod_perl mod_auth_mysql sysbench
-            systemctl start httpd
-            systemctl enable httpd
-            systemctl status httpd
-
-            yum install -y yum-utils epel-release http://rpms.remirepo.net/enterprise/remi-release-7.rpm 
-            yum-config-manager --enable remi-php82
-            yum -y install php php-opcache php-mysqlnd php-pdo php-gd php-ldap php-odbc php-pear php-xml php-xmlrpc php-mbstring php-soap
-            echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php
-            systemctl restart httpd
-            echo "Step1: Install Environment" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# Environment has been installed"
-            echo "#########################"
-          fi
-
-          if ! grep -q "^Step2: Install and Config WordPress$" .ros.provision; then
-            echo "################################"
-            echo "# Install and Config WordPress"
-            echo "################################"
-            wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/WordPress/wordpress-6.3.1-zh_CN.tar.gz
-            tar -xvf wordpress-6.3.1-zh_CN.tar.gz -C /var/www/html
-            mv /var/www/html/wordpress/* /var/www/html
-            chown -R apache:apache /var/www/html/wordpress
-            chmod -R 755 /var/www/html/wordpress
-            mv /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
-            sed -i 's/localhost/${RdsInstance.InnerConnectionString}/' /var/www/html/wp-config.php
-            sed -i 's/username_here/${RdsAccount}/' /var/www/html/wp-config.php
-            sed -i 's/password_here/${RdsDBPassword}/' /var/www/html/wp-config.php
-            sed -i 's/database_name_here/${RdsDatabase}/' /var/www/html/wp-config.php
-            systemctl restart httpd
-            echo "Step2: Install and Config WordPress" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# WordPress has been installed and configed"
-            echo "#########################"
-          fi
-          EOF
+        Fn::Sub: "#!/bin/bash\nscript=/root/setup-wordpress.sh\ncat<<\\EOF>$script\n\
+          #!/bin/bash\nif [ ! -f .ros.provision ]; then\n  echo \"Name: ha-service\"\
+          \ > .ros.provision\nfi\n\nname=$(grep \"^Name:\" .ros.provision | awk -F':'\
+          \ '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')\nif\
+          \ [[ \"$name\" != \"ha-service\" ]]; then\n  echo \"ha-service installed,\
+          \ skip\"\n  exit 0\nfi\n\nif ! grep -q \"^Step1: Install Environment$\"\
+          \ .ros.provision; then\n  echo \"#########################\"\n  echo \"\
+          # Install Environment\"\n  echo \"#########################\"\n  yum -y\
+          \ install httpd httpd-manual mod_ssl mod_perl mod_auth_mysql sysbench\n\
+          \  systemctl start httpd\n  systemctl enable httpd\n  systemctl status httpd\n\
+          \n  yum install -y yum-utils epel-release http://rpms.remirepo.net/enterprise/remi-release-7.rpm\
+          \ \n  yum-config-manager --enable remi-php82\n  yum -y install php php-opcache\
+          \ php-mysqlnd php-pdo php-gd php-ldap php-odbc php-pear php-xml php-xmlrpc\
+          \ php-mbstring php-soap\n  echo \"<?php phpinfo(); ?>\" > /var/www/html/phpinfo.php\n\
+          \  systemctl restart httpd\n  echo \"Step1: Install Environment\" >> .ros.provision\n\
+          else\n  echo \"#########################\"\n  echo \"# Environment has been\
+          \ installed\"\n  echo \"#########################\"\nfi\n\nif ! grep -q\
+          \ \"^Step2: Install and Config WordPress$\" .ros.provision; then\n  echo\
+          \ \"################################\"\n  echo \"# Install and Config WordPress\"\
+          \n  echo \"################################\"\n  wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/WordPress/wordpress-6.3.1-zh_CN.tar.gz\n\
+          \  tar -xvf wordpress-6.3.1-zh_CN.tar.gz -C /var/www/html\n  mv /var/www/html/wordpress/*\
+          \ /var/www/html\n  chown -R apache:apache /var/www/html/wordpress\n  chmod\
+          \ -R 755 /var/www/html/wordpress\n  mv /var/www/html/wp-config-sample.php\
+          \ /var/www/html/wp-config.php\n  sed -i 's/localhost/${RdsInstance.InnerConnectionString}/'\
+          \ /var/www/html/wp-config.php\n  sed -i 's/username_here/${RdsAccount}/'\
+          \ /var/www/html/wp-config.php\n  sed -i 's/password_here/${RdsDBPassword}/'\
+          \ /var/www/html/wp-config.php\n  sed -i 's/database_name_here/${RdsDatabase}/'\
+          \ /var/www/html/wp-config.php\n  systemctl restart httpd\n  echo \"Step2:\
+          \ Install and Config WordPress\" >> .ros.provision\nelse\n  echo \"#########################\"\
+          \n  echo \"# WordPress has been installed and configed\"\n  echo \"#########################\"\
+          \nfi\nEOF"
   EssScalingGroupEnable:
     Type: ALIYUN::ESS::ScalingGroupEnable
     Properties:
@@ -392,18 +360,13 @@ Resources:
       NotificationArn:
         Fn::Sub: acs:ess:${ALIYUN::Region}:${ALIYUN::TenantId}:oos/ACS-ESS-LifeCycleRunCommand
       NotificationMetadata:
-        Fn::Sub: |-
-          {
-            "commandContent": "bash -x /root/setup-wordpress.sh",
-            "commandType": "RunShellScript",
-            "timeout": 1200,
-            "OOSAssumeRole": "${ESSLifecycleOOSRunCommandRole.RoleName}",
-            "regionId": "${!regionId}",
-            "instanceIds": "${!instanceIds}",
-            "lifecycleHookId": "${!lifecycleHookId}",
-            "rateControl": "{\"Mode\":\"Concurrency\",\"MaxErrors\":0,\"Concurrency\":10}",
-            "lifecycleActionToken": "${!lifecycleActionToken}"
-          }
+        Fn::Sub: "{\n  \"commandContent\": \"bash -x /root/setup-wordpress.sh\",\n\
+          \  \"commandType\": \"RunShellScript\",\n  \"timeout\": 1200,\n  \"OOSAssumeRole\"\
+          : \"${ESSLifecycleOOSRunCommandRole.RoleName}\",\n  \"regionId\": \"${!regionId}\"\
+          ,\n  \"instanceIds\": \"${!instanceIds}\",\n  \"lifecycleHookId\": \"${!lifecycleHookId}\"\
+          ,\n  \"rateControl\": \"{\\\"Mode\\\":\\\"Concurrency\\\",\\\"MaxErrors\\\
+          \":0,\\\"Concurrency\\\":10}\",\n  \"lifecycleActionToken\": \"${!lifecycleActionToken}\"\
+          \n}"
     DependsOn: SnatEntry
   EssScalingRule:
     Type: ALIYUN::ESS::ScalingRule
@@ -463,6 +426,6 @@ Metadata:
           en: RDS Configuration
           zh-cn: RDS配置
     TemplateTags:
-    - 'acs:technical-solution:high-availability-architecture:弹性高可用服务'
+    - acs:technical-solution:high-availability-architecture:弹性高可用服务
     Hidden:
     - CommonName

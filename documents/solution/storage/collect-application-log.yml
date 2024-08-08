@@ -1,118 +1,115 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Application business log monitoring and alarming.
-  zh-cn: 应用业务日志监控与告警。
+  zh-cn: 创建VPC、ECS实例，模拟生成日志，配置SLS项目、存储库、索引及采集配置，实现日志监控与查询。
+  en: Create a VPC (Virtual Private Cloud), provision ECS (Elastic Compute Service)
+    instances, simulate log generation, configure SLS (Log Service) projects, repositories,
+    indices, and collection configurations to facilitate log monitoring and querying
+    capabilities.
 Parameters:
-  CommonName:
+  InstanceType:
     Type: String
-    Default: collect-app-log
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      zh-cn: 本方案会创建一个抢占式实例，模拟日志采集。
+      en: This solution will create a spot instance and simulate log collection.
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Default: ecs.c7.large
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Default: null
+    NoEcho: true
   SlsProjectName:
     Type: String
     Label:
       en: Name of sls project
       zh-cn: 日志项目的名称
     Description:
-      en: >-
-        The name contains 3 to 36 characters. It must start and end with 
-        a lowercase letter or number. The value can contain lowercase 
-        letters, digits, and hyphens (-).
+      en: The name contains 3 to 36 characters. It must start and end with  a lowercase
+        letter or number. The value can contain lowercase  letters, digits, and hyphens
+        (-).
       zh-cn: 长度为3~36个字符。必须以小写英文字母或数字开头和结尾。可包含小写英文字母、数字和短划线（-）。
     AssociationProperty: AutoCompleteInput
     AssociationPropertyMetadata:
       Length: 5
       Prefix: biz-log-test-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
+      - Class: lowercase
+        min: 1
+  CommonName:
+    Type: String
+    Default: collect-app-log
   ZoneId:
     Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    AssociationPropertyMetadata:
-      AutoSelectFirst: true
     Label:
       en: Availability Zone
       zh-cn: 可用区
-  InstanceType:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     AssociationPropertyMetadata:
-      SpotStrategy: SpotAsPriceGo
-      InstanceChargeType: PostPaid
-      SystemDiskCategory: cloud_essd
-      ZoneId: ${ZoneId}
-    Label:
-      en: Instance Type
-      zh-cn: 实例规格
-    Description:
-      zh-cn: 本方案会创建一个抢占式实例，模拟日志采集。
-      en: >-
-        This solution will create a spot instance and simulate log collection.
-    Default: ecs.c7.large
-  InstancePassword:
-    NoEcho: true
-    Type: String
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
-    Label:
-      en: Instance Password
-      zh-cn: 实例密码
-    ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
-    Default: null
+      AutoSelectFirst: true
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.0.0/24
-      ZoneId:
-        Ref: ZoneId
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 443/443
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 3306/3306
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 443/443
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 3306/3306
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
   EcsInstance:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch
       SecurityGroupId:
@@ -129,101 +126,63 @@ Resources:
       Password:
         Ref: InstancePassword
   GenerateLog:
-    Type: 'ALIYUN::ECS::RunCommand'
+    Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
         Fn::GetAtt:
-          - EcsInstance
-          - InstanceIds
+        - EcsInstance
+        - InstanceIds
       Type: RunShellScript
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |-
-          #!/bin/bash
-          export PATH=/usr/local/bin:$PATH
-
-          cat << EOF > sls-monitor-test.py
-          # -*- coding: utf-8 -*-
-          import sys
-          import random
-          import time
-          import os
-          from argparse import ArgumentParser
-          from ipaddress import IPv4Address, IPv4Network
-          
-          MIN_SLEEP_RANGE = 1000
-          MAX_SLEEP_RANGE = 5000
-          IPV4_PUBLIC_NETWORKS = [
-              IPv4Network('10.0.0.0/8'),
-              IPv4Network('172.16.0.0/12'),
-              IPv4Network('192.168.0.0/16'),
-              IPv4Network('127.0.0.0/8'),
-              IPv4Network('169.254.0.0/16')
-          ]
-          
-          def generate_public_ipv4_address():
-              while True:
-                  ip_address = IPv4Address(random.randint(0, 2**32 - 1))
-                  if not any(ip_address in network for network in IPV4_PUBLIC_NETWORKS):
-                      return str(ip_address)
-          
-          def parse_args():
-              parser = ArgumentParser()
-              parser.add_argument('--output-file', required=True, help='Output file path')
-              parser.add_argument('--min-sleep', type=int, default=MIN_SLEEP_RANGE,
-                                  help='Minimum sleep interval in milliseconds (default: %d)' % MIN_SLEEP_RANGE)
-              parser.add_argument('--max-sleep', type=int, default=MAX_SLEEP_RANGE,
-                                  help='Maximum sleep interval in milliseconds (default: %d)' % MAX_SLEEP_RANGE)
-              parser.add_argument('--failed-probability', type=float, default=0.1,
-                                  help='Probability of generating a "failed" entry (default: %.1f)' % 0.1)
-              parser.add_argument('--max-entries', type=int, default=sys.maxsize,
-                                  help='Maximum number of entries to output (default: no limit)')
-              return parser.parse_args()
-          
-          def write_to_file(message, log_level, userid, code, client_ip):
-              with open(args.output_file, mode='a', encoding='utf-8') as f:
-                  f.write(f'level: {log_level} userid: {userid} action: login code: {code} client_ip: {client_ip}\n')
-          
-          def main():
-              global args
-              args = parse_args()
-              entry_count = 0
-          
-              while entry_count < args.max_entries:
-                  # Generate random user ID
-                  userid = random.randint(10000, 10000000)
-                  # Generate random IP address
-                  client_ip = generate_public_ipv4_address()
-                  # Determine whether to log a successful or failed event
-                  if random.random() < args.failed_probability:
-                      code = 'failed'
-                      log_level = 'WARNING'
-                  else:
-                      code = 'success'
-                      log_level = 'INFO'
-                  message = None
-                  write_to_file(message, log_level, userid, code, client_ip)
-                  entry_count += 1
-          
-                  # Sleep for a random interval within the specified range
-                  sleep_time = random.randint(args.min_sleep, args.max_sleep) / 1000.0
-                  time.sleep(sleep_time)
-          
-          if __name__ == '__main__':
-              main()
-          EOF
-          nohup python3 sls-monitor-test.py  --output-file=/tmp/sls-monitor-test.log --max-sleep=2000 --min-sleep=500 --failed-probability=0.1 --max-entries=100000 > output.log 2>&1 &
+        Fn::Sub: "#!/bin/bash\nexport PATH=/usr/local/bin:$PATH\n\ncat << EOF > sls-monitor-test.py\n\
+          # -*- coding: utf-8 -*-\nimport sys\nimport random\nimport time\nimport\
+          \ os\nfrom argparse import ArgumentParser\nfrom ipaddress import IPv4Address,\
+          \ IPv4Network\n\nMIN_SLEEP_RANGE = 1000\nMAX_SLEEP_RANGE = 5000\nIPV4_PUBLIC_NETWORKS\
+          \ = [\n    IPv4Network('10.0.0.0/8'),\n    IPv4Network('172.16.0.0/12'),\n\
+          \    IPv4Network('192.168.0.0/16'),\n    IPv4Network('127.0.0.0/8'),\n \
+          \   IPv4Network('169.254.0.0/16')\n]\n\ndef generate_public_ipv4_address():\n\
+          \    while True:\n        ip_address = IPv4Address(random.randint(0, 2**32\
+          \ - 1))\n        if not any(ip_address in network for network in IPV4_PUBLIC_NETWORKS):\n\
+          \            return str(ip_address)\n\ndef parse_args():\n    parser = ArgumentParser()\n\
+          \    parser.add_argument('--output-file', required=True, help='Output file\
+          \ path')\n    parser.add_argument('--min-sleep', type=int, default=MIN_SLEEP_RANGE,\n\
+          \                        help='Minimum sleep interval in milliseconds (default:\
+          \ %d)' % MIN_SLEEP_RANGE)\n    parser.add_argument('--max-sleep', type=int,\
+          \ default=MAX_SLEEP_RANGE,\n                        help='Maximum sleep\
+          \ interval in milliseconds (default: %d)' % MAX_SLEEP_RANGE)\n    parser.add_argument('--failed-probability',\
+          \ type=float, default=0.1,\n                        help='Probability of\
+          \ generating a \"failed\" entry (default: %.1f)' % 0.1)\n    parser.add_argument('--max-entries',\
+          \ type=int, default=sys.maxsize,\n                        help='Maximum\
+          \ number of entries to output (default: no limit)')\n    return parser.parse_args()\n\
+          \ndef write_to_file(message, log_level, userid, code, client_ip):\n    with\
+          \ open(args.output_file, mode='a', encoding='utf-8') as f:\n        f.write(f'level:\
+          \ {log_level} userid: {userid} action: login code: {code} client_ip: {client_ip}\\\
+          n')\n\ndef main():\n    global args\n    args = parse_args()\n    entry_count\
+          \ = 0\n\n    while entry_count < args.max_entries:\n        # Generate random\
+          \ user ID\n        userid = random.randint(10000, 10000000)\n        # Generate\
+          \ random IP address\n        client_ip = generate_public_ipv4_address()\n\
+          \        # Determine whether to log a successful or failed event\n     \
+          \   if random.random() < args.failed_probability:\n            code = 'failed'\n\
+          \            log_level = 'WARNING'\n        else:\n            code = 'success'\n\
+          \            log_level = 'INFO'\n        message = None\n        write_to_file(message,\
+          \ log_level, userid, code, client_ip)\n        entry_count += 1\n\n    \
+          \    # Sleep for a random interval within the specified range\n        sleep_time\
+          \ = random.randint(args.min_sleep, args.max_sleep) / 1000.0\n        time.sleep(sleep_time)\n\
+          \nif __name__ == '__main__':\n    main()\nEOF\nnohup python3 sls-monitor-test.py\
+          \  --output-file=/tmp/sls-monitor-test.log --max-sleep=2000 --min-sleep=500\
+          \ --failed-probability=0.1 --max-entries=100000 > output.log 2>&1 &"
   AutoEnableSLS:
     Type: ALIYUN::ROS::AutoEnableService
     Properties:
       ServiceName: SLS
   SlsProject:
-    DependsOn: AutoEnableSLS
     Type: ALIYUN::SLS::Project
     Properties:
       Name:
         Ref: SlsProjectName
+    DependsOn: AutoEnableSLS
   SlsLogStore:
     Type: ALIYUN::SLS::Logstore
     Properties:
@@ -238,12 +197,12 @@ Resources:
       FullTextIndex:
         Enable: true
       KeyIndices:
-        - Name: content
-          Type: text
+      - Name: content
+        Type: text
       LogstoreName:
         Fn::GetAtt:
-          - SlsLogStore
-          - LogstoreName
+        - SlsLogStore
+        - LogstoreName
   InstallLogAgent:
     Type: ALIYUN::OOS::Execution
     Properties:
@@ -256,8 +215,8 @@ Resources:
         targets:
           ResourceIds:
             Fn::GetAtt:
-              - EcsInstance
-              - InstanceIds
+            - EcsInstance
+            - InstanceIds
           RegionId:
             Ref: ALIYUN::Region
           Type: ResourceIds
@@ -267,7 +226,7 @@ Resources:
           Concurrency: 1
         action: install
     DependsOn:
-      - SlsIndex
+    - SlsIndex
   SlsMachineGroup:
     Type: ALIYUN::SLS::MachineGroup
     Properties:
@@ -277,10 +236,10 @@ Resources:
       MachineIdentifyType: ip
       MachineList:
         Fn::GetAtt:
-          - EcsInstance
-          - PrivateIps
+        - EcsInstance
+        - PrivateIps
     DependsOn:
-      - InstallLogAgent
+    - InstallLogAgent
   SlsLogtailConfig:
     Type: ALIYUN::SLS::LogtailConfig
     Properties:
@@ -289,8 +248,8 @@ Resources:
       LogtailConfigName: sls-monitor-test
       LogstoreName:
         Fn::GetAtt:
-          - SlsLogStore
-          - LogstoreName
+        - SlsLogStore
+        - LogstoreName
       RawConfigData:
         configName: sls-monitor-test
         inputDetail:
@@ -303,10 +262,10 @@ Resources:
           enableRawLog: false
           fileEncoding: utf8
           filePattern: sls-monitor-test.log
-          filterKey: [ ]
-          filterRegex: [ ]
+          filterKey: []
+          filterRegex: []
           key:
-            - content
+          - content
           localStorage: true
           logBeginRegex: .*
           logPath: /tmp
@@ -320,7 +279,7 @@ Resources:
           priority: 0
           regex: (.*)
           sendRateExpire: 0
-          sensitive_keys: [ ]
+          sensitive_keys: []
           tailExisted: false
           timeFormat: ''
           topicFormat: none
@@ -329,8 +288,8 @@ Resources:
         outputDetail:
           logstoreName:
             Fn::GetAtt:
-              - SlsLogStore
-              - LogstoreName
+            - SlsLogStore
+            - LogstoreName
         outputType: LogService
   ApplyConfigToMachineGroup:
     Type: ALIYUN::SLS::ApplyConfigToMachineGroup
@@ -339,33 +298,33 @@ Resources:
         Ref: SlsProject
       ConfigName:
         Fn::GetAtt:
-          - SlsLogtailConfig
-          - LogtailConfigName
+        - SlsLogtailConfig
+        - LogtailConfigName
       GroupName:
         Fn::GetAtt:
-          - SlsMachineGroup
-          - GroupName
+        - SlsMachineGroup
+        - GroupName
 Outputs:
   EcsLoginAddress:
     Description:
       zh-cn: ECS登录地址。
       en: Ecs login address.
     Value:
-      'Fn::Sub': https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
+      Fn::Sub: https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
   LogQueryAddress:
     Description:
       zh-cn: 日志查询地址。
       en: Log query address.
     Value:
-      'Fn::Sub': https://sls.console.aliyun.com/lognext/project/${SlsProject}/logsearch/${SlsLogStore.LogstoreName}
+      Fn::Sub: https://sls.console.aliyun.com/lognext/project/${SlsProject}/logsearch/${SlsLogStore.LogstoreName}
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - InstanceType
-          - InstancePassword
-          - SlsProjectName
+    - Parameters:
+      - InstanceType
+      - InstancePassword
+      - SlsProjectName
     TemplateTags:
-      - acs:technical-solution:storage:应用业务日志监控与告警-tech_solu_118
+    - acs:technical-solution:storage:应用业务日志监控与告警-tech_solu_118
     Hidden:
-      - CommonName
+    - CommonName

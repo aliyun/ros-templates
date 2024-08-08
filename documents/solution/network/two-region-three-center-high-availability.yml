@@ -1,8 +1,8 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Transform: Aliyun::Terraform-v1.2
 Description:
-  zh-cn: 两地三中心异地多活。
-  en: Two regions three centers high availability.
+  zh-cn: 构建两地三中心的高可用架构，包括两个地域的VPC、ECS、PolarDB集群、ALB负载均衡器以及CEN互联，实现异地多活与数据同步。
+  en: Build a high-availability architecture with three centers in two places, including VPC, ECS, PolarDB cluster, ALB load balancer and CEN interconnection in two regions to achieve multi-activity and data synchronization in different places.
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -41,7 +41,7 @@ Metadata:
           zh-cn: PolarDB配置
           en: PolarDB Configuration
     TemplateTags:
-      - acs:technical-solution:network:两地三中心异地多活网络-tech_solu_42
+    - acs:technical-solution:network:两地三中心异地多活网络-tech_solu_42
     ResourcesForParameterConstraints:
       polardb1:
         Type: ALIYUN::POLARDB::DBCluster
@@ -68,1062 +68,368 @@ Metadata:
           DBNodeClass:
             Ref: polardb_class
 Workspace:
-  main.tf: |
-    provider "alicloud" {
-      alias = "user1_region1"
-      region = var.region1
-    }
-
-    provider "alicloud" {
-      alias = "user1_region2"
-      region = var.region2
-    }
-
-
-    module "vpc1" {
-      source = "./vpc"
-      providers = {alicloud: alicloud.user1_region1}
-      vpc_cidr = "192.168.0.0/16"
-      vsw_cidrs = ["192.168.1.0/24", "192.168.2.0/24"]
-      zone_ids = [var.region1_zone_id1, var.region1_zone_id2]
-    }
-
-    resource "alicloud_route_entry" "user1_region1_route_entry" {
-      provider = alicloud.user1_region1
-      for_each = toset(["192.168.3.0/24", "192.168.4.0/24"])
-      route_table_id        = module.vpc1.route_table_id
-      destination_cidrblock = each.key
-      nexthop_type          = "Attachment"
-      nexthop_id            = alicloud_cen_transit_router_vpc_attachment.vpc_att1.transit_router_attachment_id
-    }
-
-    resource "alicloud_route_entry" "route_entry2" {
-      provider = alicloud.user1_region2
-      for_each = toset(["192.168.1.0/24", "192.168.2.0/24"])
-      route_table_id        = module.vpc2.route_table_id
-      destination_cidrblock = each.key
-      nexthop_type          = "Attachment"
-      nexthop_id            = alicloud_cen_transit_router_vpc_attachment.vpc_att2.transit_router_attachment_id
-    }
-
-
-    module "vpc2" {
-      source = "./vpc"
-      providers = {alicloud: alicloud.user1_region2}
-      vpc_cidr = "192.168.0.0/16"
-      vsw_cidrs = ["192.168.3.0/24", "192.168.4.0/24"]
-      zone_ids = [var.region2_zone_id1, var.region2_zone_id2]
-    }
-
-    module "ecs1" {
-      source = "./ecs"
-      providers = {alicloud: alicloud.user1_region1}
-      vpc_id = module.vpc1.vpc_id
-      vsw_id = module.vpc1.vsw_ids[0]
-      zone_id = var.region1_zone_id1
-      instance_type = var.region1_instance_type1
-      system_disk_category = "cloud_essd"
-      ecs_password = var.ecs_password
-      instance_name = "APP001"
-    }
-
-    module "ecs2" {
-      source = "./ecs"
-      providers = {alicloud: alicloud.user1_region1}
-      vpc_id = module.vpc1.vpc_id
-      vsw_id = module.vpc1.vsw_ids[1]
-      zone_id = var.region1_zone_id2
-      instance_type = var.region1_instance_type2
-      system_disk_category = "cloud_essd"
-      ecs_password = var.ecs_password
-      instance_name = "APP002"
-    }
-
-    module "ecs3" {
-      source = "./ecs"
-      providers = {alicloud: alicloud.user1_region2}
-      vpc_id = module.vpc2.vpc_id
-      vsw_id = module.vpc2.vsw_ids[0]
-      zone_id = var.region2_zone_id1
-      instance_type = var.region2_instance_type1
-      system_disk_category = "cloud_essd"
-      ecs_password = var.ecs_password
-      instance_name = "APP003"
-    }
-
-    module "ecs4" {
-      source = "./ecs"
-      providers = {alicloud: alicloud.user1_region2}
-      vpc_id = module.vpc2.vpc_id
-      vsw_id = module.vpc2.vsw_ids[1]
-      zone_id = var.region2_zone_id2
-      instance_type = var.region2_instance_type2
-      system_disk_category = "cloud_essd"
-      ecs_password = var.ecs_password
-      instance_name = "APP004"
-    }
-
-    data "alicloud_polardb_node_classes" "data_polardb1" {
-      provider = alicloud.user1_region1
-      db_type    = "MySQL"
-      db_version = "8.0"
-      pay_type   = "PostPaid"
-      zone_id    = var.region1_zone_id2
-    }
-
-    data "alicloud_polardb_node_classes" "data_polardb2" {
-      provider = alicloud.user1_region2
-      db_type    = "MySQL"
-      db_version = "8.0"
-      pay_type   = "PostPaid"
-      zone_id    = var.region2_zone_id1
-    }
-
-    resource "alicloud_polardb_cluster" "polardb1" {
-      provider = alicloud.user1_region1
-      db_type       = "MySQL"
-      db_version    = "8.0"
-      db_node_class = var.polardb_class
-      pay_type      = "PostPaid"
-      vswitch_id    = module.vpc1.vsw_ids[1]
-      description   = "terraform-example"
-
-      db_cluster_ip_array {
-        db_cluster_ip_array_name = "default"
-        security_ips             = [module.ecs1.private_ip, module.ecs2.private_ip]
-      }
-    }
-
-    resource "alicloud_polardb_cluster" "polardb2" {
-      provider = alicloud.user1_region2
-      db_type       = "MySQL"
-      db_version    = "8.0"
-      db_node_class = var.polardb_class
-      pay_type      = "PostPaid"
-      vswitch_id    = module.vpc2.vsw_ids[0]
-      description   = "terraform-example"
-
-      db_cluster_ip_array {
-        db_cluster_ip_array_name = "default"
-        security_ips             = [module.ecs3.private_ip, module.ecs4.private_ip]
-      }
-    }
-
-    resource "alicloud_polardb_account" "polardb_account1" {
-      provider = alicloud.user1_region1
-      db_cluster_id       = alicloud_polardb_cluster.polardb1.id
-      account_name        = var.polardb_account_name
-      account_password    = var.polardb_password
-      account_description = "terraform-example"
-    }
-
-    resource "alicloud_polardb_account" "polardb_account2" {
-      provider = alicloud.user1_region2
-      db_cluster_id       = alicloud_polardb_cluster.polardb2.id
-      account_name        = var.polardb_account_name
-      account_password    = var.polardb_password
-      account_description = "terraform-example"
-    }
-
-    resource "alicloud_polardb_database" "polardb_database1" {
-      provider = alicloud.user1_region1
-      db_cluster_id = alicloud_polardb_cluster.polardb1.id
-      db_name       = "terraform-example"
-    }
-
-    resource "alicloud_polardb_database" "polardb_database2" {
-      provider = alicloud.user1_region2
-      db_cluster_id = alicloud_polardb_cluster.polardb2.id
-      db_name       = "terraform-example"
-    }
-
-    resource "alicloud_polardb_account_privilege" "privilege" {
-      provider = alicloud.user1_region1
-      db_cluster_id     = alicloud_polardb_cluster.polardb1.id
-      account_name      = alicloud_polardb_account.polardb_account1.account_name
-      account_privilege = "ReadOnly"
-      db_names          = [alicloud_polardb_database.polardb_database1.db_name]
-    }
-
-    resource "alicloud_alb_load_balancer" "alb1" {
-      provider = alicloud.user1_region1
-      vpc_id                 = module.vpc1.vpc_id
-      address_type           = "Internet"
-      address_allocated_mode = "Dynamic"
-      load_balancer_name     = "test_create_by_ros"
-      load_balancer_edition  = "Basic"
-      load_balancer_billing_config {
-        pay_type = "PayAsYouGo"
-      }
-      zone_mappings {
-        vswitch_id = module.vpc1.vsw_ids[0]
-        zone_id    = var.region1_zone_id1
-      }
-      zone_mappings {
-        vswitch_id = module.vpc1.vsw_ids[1]
-        zone_id    = var.region1_zone_id2
-      }
-    }
-
-
-    resource "alicloud_alb_load_balancer" "alb2" {
-      provider = alicloud.user1_region2
-      vpc_id                 = module.vpc2.vpc_id
-      address_type           = "Internet"
-      address_allocated_mode = "Dynamic"
-      load_balancer_name     = "test_create_by_ros"
-      load_balancer_edition  = "Basic"
-      load_balancer_billing_config {
-        pay_type = "PayAsYouGo"
-      }
-      zone_mappings {
-        vswitch_id = module.vpc2.vsw_ids[0]
-        zone_id    = var.region2_zone_id1
-      }
-      zone_mappings {
-        vswitch_id = module.vpc2.vsw_ids[1]
-        zone_id    = var.region2_zone_id2
-      }
-    }
-
-    resource "alicloud_alb_server_group" "server_group1" {
-      provider = alicloud.user1_region1
-      protocol          = "HTTP"
-      vpc_id            = module.vpc1.vpc_id
-      server_group_name = "test_create_by_ros"
-      health_check_config {
-        health_check_connect_port = "46325"
-        health_check_enabled      = true
-        health_check_host         = "tf-example.com"
-        health_check_codes        = ["http_2xx", "http_3xx"]
-        health_check_http_version = "HTTP1.1"
-        health_check_interval     = "2"
-        health_check_method       = "HEAD"
-        health_check_path         = "/tf-example"
-        health_check_protocol     = "HTTP"
-        health_check_timeout      = 5
-        healthy_threshold         = 3
-        unhealthy_threshold       = 3
-      }
-      sticky_session_config {
-        sticky_session_enabled = true
-        cookie                 = "tf-example"
-        sticky_session_type    = "Server"
-      }
-      servers {
-        port        = 80
-        server_id   = module.ecs1.id
-        server_ip   =module.ecs1.private_ip
-        server_type = "Ecs"
-        weight      = 100
-      }
-      servers {
-        port        = 80
-        server_id   = module.ecs2.id
-        server_ip   =module.ecs2.private_ip
-        server_type = "Ecs"
-        weight      = 100
-      }
-    }
-
-    resource "alicloud_alb_server_group" "server_group2" {
-      provider = alicloud.user1_region2
-      protocol          = "HTTP"
-      vpc_id            = module.vpc2.vpc_id
-      server_group_name = "test_create_by_ros"
-      health_check_config {
-        health_check_connect_port = "46325"
-        health_check_enabled      = true
-        health_check_host         = "tf-example.com"
-        health_check_codes        = ["http_2xx", "http_3xx"]
-        health_check_http_version = "HTTP1.1"
-        health_check_interval     = "2"
-        health_check_method       = "HEAD"
-        health_check_path         = "/tf-example"
-        health_check_protocol     = "HTTP"
-        health_check_timeout      = 5
-        healthy_threshold         = 3
-        unhealthy_threshold       = 3
-      }
-      sticky_session_config {
-        sticky_session_enabled = true
-        cookie                 = "tf-example"
-        sticky_session_type    = "Server"
-      }
-      servers {
-        port        = 80
-        server_id   = module.ecs3.id
-        server_ip   =module.ecs3.private_ip
-        server_type = "Ecs"
-        weight      = 100
-      }
-      servers {
-        port        = 80
-        server_id   = module.ecs4.id
-        server_ip   =module.ecs4.private_ip
-        server_type = "Ecs"
-        weight      = 100
-      }
-    }
-
-    resource "alicloud_alb_listener" "listener1" {
-      provider = alicloud.user1_region1
-      load_balancer_id     = alicloud_alb_load_balancer.alb1.id
-      listener_protocol    = "HTTP"
-      listener_port        = 80
-      default_actions {
-        type = "ForwardGroup"
-        forward_group_config {
-          server_group_tuples {
-            server_group_id = alicloud_alb_server_group.server_group1.id
-          }
-        }
-      }
-    }
-
-
-    resource "alicloud_alb_listener" "listener2" {
-      provider = alicloud.user1_region2
-      load_balancer_id     = alicloud_alb_load_balancer.alb2.id
-      listener_protocol    = "HTTP"
-      listener_port        = 80
-      default_actions {
-        type = "ForwardGroup"
-        forward_group_config {
-          server_group_tuples {
-            server_group_id = alicloud_alb_server_group.server_group2.id
-          }
-        }
-      }
-    }
-
-    resource "alicloud_cen_instance" "cen" {
-      cen_instance_name = "云上企业网络"
-    }
-    
-    data "alicloud_cen_transit_router_service" "open" {
-      enable = "On"
-    }
-
-    resource "alicloud_cen_transit_router" "tr1" {
-      provider = alicloud.user1_region1
-      cen_id = alicloud_cen_instance.cen.id
-      depends_on = [data.alicloud_cen_transit_router_service.open]
-    }
-
-    resource "alicloud_cen_transit_router" "tr2" {
-      provider = alicloud.user1_region2
-      cen_id = alicloud_cen_instance.cen.id
-      depends_on = [data.alicloud_cen_transit_router_service.open]
-    }
-
-    resource "alicloud_cen_transit_router_vpc_attachment" "vpc_att1" {
-      provider = alicloud.user1_region1
-      transit_router_attachment_name = "vpc_attachment_1"
-      cen_id            = alicloud_cen_instance.cen.id
-      transit_router_id = alicloud_cen_transit_router.tr1.transit_router_id
-      vpc_id            = module.vpc1.vpc_id
-      zone_mappings {
-        zone_id    = var.region1_zone_id1
-        vswitch_id = module.vpc1.vsw_ids[0]
-      }
-      zone_mappings {
-        zone_id    = var.region1_zone_id2
-        vswitch_id = module.vpc1.vsw_ids[1]
-      }
-    }
-
-    resource "alicloud_cen_transit_router_vpc_attachment" "vpc_att2" {
-      provider = alicloud.user1_region2
-      transit_router_attachment_name = "vpc_attachment_2"
-      cen_id            = alicloud_cen_instance.cen.id
-      transit_router_id = alicloud_cen_transit_router.tr2.transit_router_id
-      vpc_id            = module.vpc2.vpc_id
-      zone_mappings {
-        zone_id    = var.region2_zone_id1
-        vswitch_id = module.vpc2.vsw_ids[0]
-      }
-      zone_mappings {
-        zone_id    = var.region2_zone_id2
-        vswitch_id = module.vpc2.vsw_ids[1]
-      }
-    }
-
-    resource "alicloud_cen_transit_router_route_table" "route_table1" {
-      provider = alicloud.user1_region1
-      transit_router_id = alicloud_cen_transit_router.tr1.transit_router_id
-    }
-
-    resource "alicloud_cen_transit_router_route_table" "route_table2" {
-      provider = alicloud.user1_region2
-      transit_router_id = alicloud_cen_transit_router.tr2.transit_router_id
-    }
-
-    resource "alicloud_cen_transit_router_route_entry" "route_entry1" {
-      provider = alicloud.user1_region1
-      for_each = toset(["192.168.1.0/24", "192.168.2.0/24"])
-      transit_router_route_table_id                     = alicloud_cen_transit_router_route_table.route_table1.transit_router_route_table_id
-      transit_router_route_entry_destination_cidr_block = each.key
-      transit_router_route_entry_next_hop_type          = "Attachment"
-      transit_router_route_entry_next_hop_id            = alicloud_cen_transit_router_vpc_attachment.vpc_att1.transit_router_attachment_id
-    }
-
-    resource "alicloud_cen_transit_router_route_entry" "route_entry2" {
-      provider = alicloud.user1_region2
-      for_each = toset(["192.168.3.0/24", "192.168.4.0/24"])
-      transit_router_route_table_id                     = alicloud_cen_transit_router_route_table.route_table2.transit_router_route_table_id
-      transit_router_route_entry_destination_cidr_block = each.key
-      transit_router_route_entry_next_hop_type          = "Attachment"
-      transit_router_route_entry_next_hop_id            = alicloud_cen_transit_router_vpc_attachment.vpc_att2.transit_router_attachment_id
-    }
-
-
-    resource "alicloud_cen_transit_router_route_table_association" "association1" {
-      provider = alicloud.user1_region1
-      transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table1.transit_router_route_table_id
-      transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.vpc_att1.transit_router_attachment_id
-    }
-
-    resource "alicloud_cen_transit_router_route_table_association" "association2" {
-      provider = alicloud.user1_region2
-      transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table2.transit_router_route_table_id
-      transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.vpc_att2.transit_router_attachment_id
-    }
-
-    resource "alicloud_cen_bandwidth_package" "example" {
-      bandwidth                  = 2
-      cen_bandwidth_package_name = "tf_example"
-      geographic_region_a_id     = "China"
-      geographic_region_b_id     = "China"
-      payment_type = "PrePaid"
-    }
-
-    resource "alicloud_cen_bandwidth_package_attachment" "example" {
-      instance_id          = alicloud_cen_instance.cen.id
-      bandwidth_package_id = alicloud_cen_bandwidth_package.example.id
-    }
-
-    resource "alicloud_cen_transit_router_peer_attachment" "user2_peer_attachment" {
-      provider = alicloud.user1_region2
-      cen_id                                = alicloud_cen_instance.cen.id
-      transit_router_id                     = alicloud_cen_transit_router.tr2.transit_router_id
-      peer_transit_router_region_id         = var.region1
-      peer_transit_router_id                = alicloud_cen_transit_router.tr1.transit_router_id
-      cen_bandwidth_package_id              = alicloud_cen_bandwidth_package_attachment.example.id
-      bandwidth                             = 2
-      auto_publish_route_enabled  = true
-    }
-
-    resource "alicloud_cen_transit_router_route_table_association" "association3" {
-      provider = alicloud.user1_region1
-      transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table1.transit_router_route_table_id
-      transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.user2_peer_attachment.transit_router_attachment_id
-    }
-
-    resource "alicloud_cen_transit_router_route_table_propagation" "propagation3" {
-      provider = alicloud.user1_region1
-      transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table1.transit_router_route_table_id
-      transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.user2_peer_attachment.transit_router_attachment_id
-    }
-
-    resource "alicloud_cen_transit_router_route_table_association" "association4" {
-      provider = alicloud.user1_region2
-      transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table2.transit_router_route_table_id
-      transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.user2_peer_attachment.transit_router_attachment_id
-    }
-
-    resource "alicloud_cen_transit_router_route_table_propagation" "propagation4" {
-      provider = alicloud.user1_region2
-      transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table2.transit_router_route_table_id
-      transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.user2_peer_attachment.transit_router_attachment_id
-    }
-
-    resource "alicloud_dts_instance" "default" {
-      provider = alicloud.user1_region1
-      type                             = "sync"
-      payment_type                     = "PayAsYouGo"
-      instance_class                   = "large"
-      source_endpoint_engine_name      = "MySQL"
-      source_region                    = var.region1
-      destination_endpoint_engine_name = "MySQL"
-      destination_region               = var.region2
-    }
-  .metadata: |-
-    {
-      "ALIYUN::ROS::Interface": {
-        "ParameterGroups": [
-          {
-            "Parameters": [
-              "region1",
-              "region1_zone_id1",
-              "region1_zone_id2",
-              "region2",
-              "region2_zone_id1",
-              "region2_zone_id2"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "地域和可用区配置",
-                "en": "Region and Zone Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "region1_instance_type1",
-              "region1_instance_type2",
-              "region2_instance_type1",
-              "region2_instance_type2"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "ECS实例配置",
-                "en": "Ecs InstanceType Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "ecs_password"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "ECS实例密码配置",
-                "en": "Ecs Password Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "polardb_account_name",
-              "polardb_password",
-              "polardb_class"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "PolarDB配置",
-                "en": "PolarDB Configuration"
-              }
-            }
-          }
-        ],
-        "TemplateTags": [
-          "acs:technical-solution:network:两地三中心异地多活网络-tech_solu_42"
-        ],
-        "ResourcesForParameterConstraints": {
-          "polardb1": {
-            "Type": "ALIYUN::POLARDB::DBCluster",
-            "Properties": {
-              "ZoneId": {
-                "Ref": "region1_zone_id2"
-              },
-              "RegionId": {
-                "Ref": "region1"
-              },
-              "PayType": "PostPaid",
-              "DBType": "MySQL",
-              "DBVersion": "8.0",
-              "DBNodeClass": {
-                "Ref": "polardb_class"
-              }
-            }
-          },
-          "polardb2": {
-            "Type": "ALIYUN::POLARDB::DBCluster",
-            "Properties": {
-              "ZoneId": {
-                "Ref": "region2_zone_id1"
-              },
-              "RegionId": {
-                "Ref": "region2"
-              },
-              "PayType": "PostPaid",
-              "DBType": "MySQL",
-              "DBVersion": "8.0",
-              "DBNodeClass": {
-                "Ref": "polardb_class"
-              }
-            }
-          }
-        }
-      }
-    }
-  ecs/main.tf: |-
-    variable "vpc_id" {}
-    variable "vsw_id" {}
-    variable "zone_id" {}
-    variable "instance_type" {}
-    variable "system_disk_category" {}
-    variable "ecs_password" {}
-    variable "instance_name" {}
-
-    terraform {
-      required_providers {
-        alicloud = {
-          source  = "hashicorp/alicloud"
-          version = "~> 1.1"
-        }
-      }
-    }
-
-    resource "alicloud_security_group" "group" {
-      vpc_id = var.vpc_id
-    }
-
-    resource "alicloud_security_group_rule" "rule" {
-      type              = "ingress"
-      ip_protocol       = "all"
-      nic_type          = "intranet"
-      policy            = "accept"
-      port_range        = "22/22"
-      priority          = 1
-      security_group_id = alicloud_security_group.group.id
-      cidr_ip           = "0.0.0.0/0"
-    }
-
-    resource "alicloud_instance" "ecs" {
-      availability_zone = var.zone_id
-      security_groups   = alicloud_security_group.group.*.id
-      instance_type              = var.instance_type
-      system_disk_category       = var.system_disk_category
-      image_id                   = "aliyun_3_x64_20G_alibase_20230727.vhd"
-      instance_name              = var.instance_name
-      vswitch_id                 = var.vsw_id
-      password                   = var.ecs_password
-    }
-
-    output "private_ip" {
-      value = alicloud_instance.ecs.private_ip
-    }
-
-    output "id" {
-      value = alicloud_instance.ecs.id
-    }
-  outputs.tf: |
-    output "ecs1_ip" {
-      value       = module.ecs1.private_ip
-      description = <<EOT
-      {
-        "Description": "ECS1 ip"
-      }
-      EOT
-    }
-
-    output "ecs2_ip" {
-      value       = module.ecs2.private_ip
-      description = <<EOT
-      {
-        "Description": "ECS2 ip"
-      }
-      EOT
-    }
-
-    output "ecs3_ip" {
-      value       = module.ecs3.private_ip
-      description = <<EOT
-      {
-        "Description": "ECS3 ip"
-      }
-      EOT
-    }
-
-    output "ecs4_ip" {
-      value       = module.ecs4.private_ip
-      description = <<EOT
-      {
-        "Description": "ECS4 ip"
-      }
-      EOT
-    }
-
-    output "polardb1_connection_string" {
-      value       = format("%s:3306", alicloud_polardb_cluster.polardb1.connection_string)
-      description = <<EOT
-      {
-        "Description": "Polardb1 connection string"
-      }
-      EOT
-    }
-
-    output "polardb2_connection_string" {
-      value       = format("%s:3306", alicloud_polardb_cluster.polardb2.connection_string)
-      description = <<EOT
-      {
-        "Description": "Polardb2 connection string"
-      }
-      EOT
-    }
-  variables.tf: |-
-    variable "region1" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::RegionId",
-        "Description":{
-            "zh-cn": "企业版转发路由器支持的地域和可用区: https://help.aliyun.com/document_detail/181681.html",
-            "en": "Geographic and availability zones supported by Enterprise forwarding routers: https://help.aliyun.com/document_detail/181681.html"
-        },
-        "Label": {
-            "zh-cn": "资源部署地域1",
-            "en": "Resource deployment region 1"
-        },
-        "AllowedValues": [
-          "cn-hangzhou",
-          "cn-shanghai",
-          "cn-nanjing",
-          "cn-fuzhou",
-          "cn-shenzhen",
-          "cn-heyuan",
-          "cn-guangzhou",
-          "cn-qingdao",
-          "cn-beijing",
-          "cn-zhangjiakou",
-          "cn-chengdu"
-        ]
-      }
-      EOT
-      default = "cn-shanghai"
-    }
-
-    variable "region2" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::RegionId",
-        "Label": {
-            "zh-cn": "资源部署地域2",
-            "en": "Resource deployment region 2"
-        },
-        "AllowedValues": [
-          "cn-hangzhou",
-          "cn-shanghai",
-          "cn-nanjing",
-          "cn-fuzhou",
-          "cn-shenzhen",
-          "cn-heyuan",
-          "cn-guangzhou",
-          "cn-qingdao",
-          "cn-beijing",
-          "cn-zhangjiakou",
-          "cn-chengdu"
-        ]
-      }
-      EOT
-      default = "cn-beijing"
-    }
-
-
-    variable "region1_zone_id1" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ZoneId",
-        "AssociationPropertyMetadata": {
-            "RegionId": "$${region1}"
-        },
-        "Label": {
-            "zh-cn": "地域1的可用区ID1",
-            "en": "Availability zone ID 1 of region 1"
-        },
-        "AllowedValues": [
-          "cn-beijing-g",
-          "cn-beijing-h",
-          "cn-beijing-j",
-          "cn-beijing-k",
-          "cn-beijing-i",
-          "cn-beijing-l",
-          "cn-shanghai-f",
-          "cn-shanghai-g",
-          "cn-shanghai-e",
-          "cn-shanghai-b",
-          "cn-shanghai-n",
-          "cn-shanghai-m",
-          "cn-shanghai-l",
-          "cn-hangzhou-h",
-          "cn-hangzhou-i",
-          "cn-hangzhou-j",
-          "cn-hangzhou-k",
-          "cn-shenzhen-e",
-          "cn-shenzhen-d",
-          "cn-shenzhen-f",
-          "cn-shenzhen-a",
-          "cn-qingdao-b",
-          "cn-qingdao-c",
-          "cn-nanjing-a",
-          "cn-guangzhou-a",
-          "cn-guangzhou-b",
-          "cn-heyuan-a",
-          "cn-heyuan-b",
-          "cn-fuzhou-a",
-          "cn-zhangjiakou-a",
-          "cn-zhangjiakou-c",
-          "cn-zhangjiakou-b",
-          "cn-chengdu-b",
-          "cn-chengdu-a"
-        ]
-      }
-      EOT
-      default = "cn-shanghai-l"
-    }
-
-    variable "region1_zone_id2" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ZoneId",
-        "AssociationPropertyMetadata": {
-            "RegionId": "$${region1}"
-        },
-        "Label": {
-            "zh-cn": "地域1的可用区ID2",
-            "en": "Availability zone ID 2 of region 1"
-        }
-      }
-      EOT
-      default = "cn-shanghai-m"
-    }
-
-    variable "region2_zone_id1" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ZoneId",
-        "AssociationPropertyMetadata": {
-            "RegionId": "$${region2}"
-        },
-        "Label": {
-            "zh-cn": "地域2的可用区ID1",
-            "en": "Availability zone ID 1 of region 2"
-        }
-      }
-      EOT
-      default = "cn-beijing-k"
-    }
-
-    variable "region2_zone_id2" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ZoneId",
-        "AssociationPropertyMetadata": {
-            "RegionId": "$${region2}"
-        },
-        "Label": {
-            "zh-cn": "地域2的可用区ID2",
-            "en": "Availability zone ID 2 of region 2"
-        },
-        "AllowedValues": [
-          "cn-beijing-g",
-          "cn-beijing-h",
-          "cn-beijing-j",
-          "cn-beijing-k",
-          "cn-beijing-i",
-          "cn-beijing-l",
-          "cn-shanghai-f",
-          "cn-shanghai-g",
-          "cn-shanghai-e",
-          "cn-shanghai-b",
-          "cn-shanghai-n",
-          "cn-shanghai-m",
-          "cn-shanghai-l",
-          "cn-hangzhou-h",
-          "cn-hangzhou-i",
-          "cn-hangzhou-j",
-          "cn-hangzhou-k",
-          "cn-shenzhen-e",
-          "cn-shenzhen-d",
-          "cn-shenzhen-f",
-          "cn-shenzhen-a",
-          "cn-qingdao-b",
-          "cn-qingdao-c",
-          "cn-nanjing-a",
-          "cn-guangzhou-a",
-          "cn-guangzhou-b",
-          "cn-heyuan-a",
-          "cn-heyuan-b",
-          "cn-fuzhou-a",
-          "cn-zhangjiakou-a",
-          "cn-zhangjiakou-c",
-          "cn-zhangjiakou-b",
-          "cn-chengdu-b",
-          "cn-chengdu-a"
-        ]
-      }
-      EOT
-      default = "cn-beijing-g"
-    }
-
-    variable "region1_instance_type1" {
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
-        "AssociationPropertyMetadata": {
-          "RegionId": "$${region1}",
-          "ZoneId": "$${region1_zone_id1}",
-          "SystemDiskCategory": "cloud_essd"
-        },
-        "Label": {
-            "zh-cn": "APP001的实例规格",
-            "en": "Instance type1"
-        }
-      }
-      EOT
-      default = "ecs.g7nex.large"
-    }
-
-    variable "region1_instance_type2" {
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
-        "AssociationPropertyMetadata": {
-          "RegionId": "$${region1}",
-          "ZoneId": "$${region1_zone_id2}",
-          "SystemDiskCategory": "cloud_essd"
-        },
-        "Label": {
-            "zh-cn": "APP002的实例规格",
-            "en": "Instance type"
-        }
-      }
-      EOT
-      default = "ecs.g5.large"
-    }
-
-    variable "region2_instance_type1" {
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
-        "AssociationPropertyMetadata": {
-          "RegionId": "$${region2}",
-          "ZoneId": "$${region2_zone_id1}",
-          "SystemDiskCategory": "cloud_essd"
-        },
-        "Label": {
-            "zh-cn": "APP003的实例规格",
-            "en": "Instance type"
-        }
-      }
-      EOT
-      default = "ecs.s6-c1m1.small"
-    }
-
-    variable "region2_instance_type2" {
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
-        "AssociationPropertyMetadata": {
-          "RegionId": "$${region2}",
-          "ZoneId": "$${region2_zone_id2}",
-          "SystemDiskCategory": "cloud_essd"
-        },
-        "Label": {
-            "zh-cn": "APP004的实例规格",
-            "en": "Instance type"
-        }
-      }
-      EOT
-      default = "ecs.c6e.large"
-    }
-
-    variable "ecs_password" {
-      type = string
-      sensitive = true
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::Instance::Password",
-        "Label": {
-            "zh-cn": "登录密码",
-            "en": "Ecs password"
-        }
-      }
-      EOT
-    }
-
-    variable "polardb_account_name" {
-      type = string
-      description = <<EOT
-      {
-        "Description":{
-            "zh-cn": "由小写字母、数字、下划线（_）组成，字母开头，字母或数字结尾，长度不超过32个字符。",
-            "en": "It must contain a maximum of 32 lowercase letters, digits, and underscores (_). It must start with a letter and end with a digit."
-        },
-        "Label": {
-            "zh-cn": "PolarDB账号名称",
-            "en": "PolarDb account name"
-        }
-      }
-      EOT
-      default = "ros"
-    }
-
-    variable "polardb_password" {
-      type = string
-      sensitive = true
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::Instance::Password",
-        "Label": {
-            "zh-cn": "PolarDB登录密码",
-            "en": "PolarDB password"
-        }
-      }
-      EOT
-    }
-
-
-    variable "polardb_class" {
-      type = string
-      description = <<EOT
-      {
-        "Description":{
-            "zh-cn": "如果没有可选的规格，请切换 地域1的可用区ID2 和 地域2的可用区ID1 后重试。",
-            "en": "If there are no optional specifications, please switch the Availability Zone ID2 of Region 1 and the Availability Zone ID1 of Region 2 and try again."
-        },
-        "Label": {
-            "zh-cn": "PolarDB规格",
-            "en": "PolarDB class"
-        }
-      }
-      EOT
-      default = "polar.mysql.x4.large"
-    }
-  vpc/main.tf: |
-    variable "vpc_cidr" {}
-    variable "vsw_cidrs" {}
-    variable "zone_ids" {}
-
-    terraform {
-      required_providers {
-        alicloud = {
-          source  = "hashicorp/alicloud"
-          version = "~> 1.1"
-        }
-      }
-    }
-
-    resource "alicloud_vpc" "vpc" {
-      vpc_name = "vpc_test"
-      cidr_block = var.vpc_cidr
-    }
-
-    resource "alicloud_vswitch" "vsw" {
-      count = length(var.zone_ids)
-      vpc_id = alicloud_vpc.vpc.id
-      cidr_block = var.vsw_cidrs[count.index]
-      zone_id = var.zone_ids[count.index]
-    }
-
-    output "vpc_id" {
-      value = alicloud_vpc.vpc.id
-    }
-    output "vsw_ids" {
-      value = alicloud_vswitch.vsw.*.id
-    }
-
-    output "vpc_cidr_block" {
-      value = alicloud_vpc.vpc.cidr_block
-    }
-
-    output "route_table_id" {
-      value = alicloud_vpc.vpc.route_table_id
-    }
+  main.tf: "provider \"alicloud\" {\n  alias = \"user1_region1\"\n  region = var.region1\n\
+    }\n\nprovider \"alicloud\" {\n  alias = \"user1_region2\"\n  region = var.region2\n\
+    }\n\n\nmodule \"vpc1\" {\n  source = \"./vpc\"\n  providers = {alicloud: alicloud.user1_region1}\n\
+    \  vpc_cidr = \"192.168.0.0/16\"\n  vsw_cidrs = [\"192.168.1.0/24\", \"192.168.2.0/24\"\
+    ]\n  zone_ids = [var.region1_zone_id1, var.region1_zone_id2]\n}\n\nresource \"\
+    alicloud_route_entry\" \"user1_region1_route_entry\" {\n  provider = alicloud.user1_region1\n\
+    \  for_each = toset([\"192.168.3.0/24\", \"192.168.4.0/24\"])\n  route_table_id\
+    \        = module.vpc1.route_table_id\n  destination_cidrblock = each.key\n  nexthop_type\
+    \          = \"Attachment\"\n  nexthop_id            = alicloud_cen_transit_router_vpc_attachment.vpc_att1.transit_router_attachment_id\n\
+    }\n\nresource \"alicloud_route_entry\" \"route_entry2\" {\n  provider = alicloud.user1_region2\n\
+    \  for_each = toset([\"192.168.1.0/24\", \"192.168.2.0/24\"])\n  route_table_id\
+    \        = module.vpc2.route_table_id\n  destination_cidrblock = each.key\n  nexthop_type\
+    \          = \"Attachment\"\n  nexthop_id            = alicloud_cen_transit_router_vpc_attachment.vpc_att2.transit_router_attachment_id\n\
+    }\n\n\nmodule \"vpc2\" {\n  source = \"./vpc\"\n  providers = {alicloud: alicloud.user1_region2}\n\
+    \  vpc_cidr = \"192.168.0.0/16\"\n  vsw_cidrs = [\"192.168.3.0/24\", \"192.168.4.0/24\"\
+    ]\n  zone_ids = [var.region2_zone_id1, var.region2_zone_id2]\n}\n\nmodule \"ecs1\"\
+    \ {\n  source = \"./ecs\"\n  providers = {alicloud: alicloud.user1_region1}\n\
+    \  vpc_id = module.vpc1.vpc_id\n  vsw_id = module.vpc1.vsw_ids[0]\n  zone_id =\
+    \ var.region1_zone_id1\n  instance_type = var.region1_instance_type1\n  system_disk_category\
+    \ = \"cloud_essd\"\n  ecs_password = var.ecs_password\n  instance_name = \"APP001\"\
+    \n}\n\nmodule \"ecs2\" {\n  source = \"./ecs\"\n  providers = {alicloud: alicloud.user1_region1}\n\
+    \  vpc_id = module.vpc1.vpc_id\n  vsw_id = module.vpc1.vsw_ids[1]\n  zone_id =\
+    \ var.region1_zone_id2\n  instance_type = var.region1_instance_type2\n  system_disk_category\
+    \ = \"cloud_essd\"\n  ecs_password = var.ecs_password\n  instance_name = \"APP002\"\
+    \n}\n\nmodule \"ecs3\" {\n  source = \"./ecs\"\n  providers = {alicloud: alicloud.user1_region2}\n\
+    \  vpc_id = module.vpc2.vpc_id\n  vsw_id = module.vpc2.vsw_ids[0]\n  zone_id =\
+    \ var.region2_zone_id1\n  instance_type = var.region2_instance_type1\n  system_disk_category\
+    \ = \"cloud_essd\"\n  ecs_password = var.ecs_password\n  instance_name = \"APP003\"\
+    \n}\n\nmodule \"ecs4\" {\n  source = \"./ecs\"\n  providers = {alicloud: alicloud.user1_region2}\n\
+    \  vpc_id = module.vpc2.vpc_id\n  vsw_id = module.vpc2.vsw_ids[1]\n  zone_id =\
+    \ var.region2_zone_id2\n  instance_type = var.region2_instance_type2\n  system_disk_category\
+    \ = \"cloud_essd\"\n  ecs_password = var.ecs_password\n  instance_name = \"APP004\"\
+    \n}\n\ndata \"alicloud_polardb_node_classes\" \"data_polardb1\" {\n  provider\
+    \ = alicloud.user1_region1\n  db_type    = \"MySQL\"\n  db_version = \"8.0\"\n\
+    \  pay_type   = \"PostPaid\"\n  zone_id    = var.region1_zone_id2\n}\n\ndata \"\
+    alicloud_polardb_node_classes\" \"data_polardb2\" {\n  provider = alicloud.user1_region2\n\
+    \  db_type    = \"MySQL\"\n  db_version = \"8.0\"\n  pay_type   = \"PostPaid\"\
+    \n  zone_id    = var.region2_zone_id1\n}\n\nresource \"alicloud_polardb_cluster\"\
+    \ \"polardb1\" {\n  provider = alicloud.user1_region1\n  db_type       = \"MySQL\"\
+    \n  db_version    = \"8.0\"\n  db_node_class = var.polardb_class\n  pay_type \
+    \     = \"PostPaid\"\n  vswitch_id    = module.vpc1.vsw_ids[1]\n  description\
+    \   = \"terraform-example\"\n\n  db_cluster_ip_array {\n    db_cluster_ip_array_name\
+    \ = \"default\"\n    security_ips             = [module.ecs1.private_ip, module.ecs2.private_ip]\n\
+    \  }\n}\n\nresource \"alicloud_polardb_cluster\" \"polardb2\" {\n  provider =\
+    \ alicloud.user1_region2\n  db_type       = \"MySQL\"\n  db_version    = \"8.0\"\
+    \n  db_node_class = var.polardb_class\n  pay_type      = \"PostPaid\"\n  vswitch_id\
+    \    = module.vpc2.vsw_ids[0]\n  description   = \"terraform-example\"\n\n  db_cluster_ip_array\
+    \ {\n    db_cluster_ip_array_name = \"default\"\n    security_ips            \
+    \ = [module.ecs3.private_ip, module.ecs4.private_ip]\n  }\n}\n\nresource \"alicloud_polardb_account\"\
+    \ \"polardb_account1\" {\n  provider = alicloud.user1_region1\n  db_cluster_id\
+    \       = alicloud_polardb_cluster.polardb1.id\n  account_name        = var.polardb_account_name\n\
+    \  account_password    = var.polardb_password\n  account_description = \"terraform-example\"\
+    \n}\n\nresource \"alicloud_polardb_account\" \"polardb_account2\" {\n  provider\
+    \ = alicloud.user1_region2\n  db_cluster_id       = alicloud_polardb_cluster.polardb2.id\n\
+    \  account_name        = var.polardb_account_name\n  account_password    = var.polardb_password\n\
+    \  account_description = \"terraform-example\"\n}\n\nresource \"alicloud_polardb_database\"\
+    \ \"polardb_database1\" {\n  provider = alicloud.user1_region1\n  db_cluster_id\
+    \ = alicloud_polardb_cluster.polardb1.id\n  db_name       = \"terraform-example\"\
+    \n}\n\nresource \"alicloud_polardb_database\" \"polardb_database2\" {\n  provider\
+    \ = alicloud.user1_region2\n  db_cluster_id = alicloud_polardb_cluster.polardb2.id\n\
+    \  db_name       = \"terraform-example\"\n}\n\nresource \"alicloud_polardb_account_privilege\"\
+    \ \"privilege\" {\n  provider = alicloud.user1_region1\n  db_cluster_id     =\
+    \ alicloud_polardb_cluster.polardb1.id\n  account_name      = alicloud_polardb_account.polardb_account1.account_name\n\
+    \  account_privilege = \"ReadOnly\"\n  db_names          = [alicloud_polardb_database.polardb_database1.db_name]\n\
+    }\n\nresource \"alicloud_alb_load_balancer\" \"alb1\" {\n  provider = alicloud.user1_region1\n\
+    \  vpc_id                 = module.vpc1.vpc_id\n  address_type           = \"\
+    Internet\"\n  address_allocated_mode = \"Dynamic\"\n  load_balancer_name     =\
+    \ \"test_create_by_ros\"\n  load_balancer_edition  = \"Basic\"\n  load_balancer_billing_config\
+    \ {\n    pay_type = \"PayAsYouGo\"\n  }\n  zone_mappings {\n    vswitch_id = module.vpc1.vsw_ids[0]\n\
+    \    zone_id    = var.region1_zone_id1\n  }\n  zone_mappings {\n    vswitch_id\
+    \ = module.vpc1.vsw_ids[1]\n    zone_id    = var.region1_zone_id2\n  }\n}\n\n\n\
+    resource \"alicloud_alb_load_balancer\" \"alb2\" {\n  provider = alicloud.user1_region2\n\
+    \  vpc_id                 = module.vpc2.vpc_id\n  address_type           = \"\
+    Internet\"\n  address_allocated_mode = \"Dynamic\"\n  load_balancer_name     =\
+    \ \"test_create_by_ros\"\n  load_balancer_edition  = \"Basic\"\n  load_balancer_billing_config\
+    \ {\n    pay_type = \"PayAsYouGo\"\n  }\n  zone_mappings {\n    vswitch_id = module.vpc2.vsw_ids[0]\n\
+    \    zone_id    = var.region2_zone_id1\n  }\n  zone_mappings {\n    vswitch_id\
+    \ = module.vpc2.vsw_ids[1]\n    zone_id    = var.region2_zone_id2\n  }\n}\n\n\
+    resource \"alicloud_alb_server_group\" \"server_group1\" {\n  provider = alicloud.user1_region1\n\
+    \  protocol          = \"HTTP\"\n  vpc_id            = module.vpc1.vpc_id\n  server_group_name\
+    \ = \"test_create_by_ros\"\n  health_check_config {\n    health_check_connect_port\
+    \ = \"46325\"\n    health_check_enabled      = true\n    health_check_host   \
+    \      = \"tf-example.com\"\n    health_check_codes        = [\"http_2xx\", \"\
+    http_3xx\"]\n    health_check_http_version = \"HTTP1.1\"\n    health_check_interval\
+    \     = \"2\"\n    health_check_method       = \"HEAD\"\n    health_check_path\
+    \         = \"/tf-example\"\n    health_check_protocol     = \"HTTP\"\n    health_check_timeout\
+    \      = 5\n    healthy_threshold         = 3\n    unhealthy_threshold       =\
+    \ 3\n  }\n  sticky_session_config {\n    sticky_session_enabled = true\n    cookie\
+    \                 = \"tf-example\"\n    sticky_session_type    = \"Server\"\n\
+    \  }\n  servers {\n    port        = 80\n    server_id   = module.ecs1.id\n  \
+    \  server_ip   =module.ecs1.private_ip\n    server_type = \"Ecs\"\n    weight\
+    \      = 100\n  }\n  servers {\n    port        = 80\n    server_id   = module.ecs2.id\n\
+    \    server_ip   =module.ecs2.private_ip\n    server_type = \"Ecs\"\n    weight\
+    \      = 100\n  }\n}\n\nresource \"alicloud_alb_server_group\" \"server_group2\"\
+    \ {\n  provider = alicloud.user1_region2\n  protocol          = \"HTTP\"\n  vpc_id\
+    \            = module.vpc2.vpc_id\n  server_group_name = \"test_create_by_ros\"\
+    \n  health_check_config {\n    health_check_connect_port = \"46325\"\n    health_check_enabled\
+    \      = true\n    health_check_host         = \"tf-example.com\"\n    health_check_codes\
+    \        = [\"http_2xx\", \"http_3xx\"]\n    health_check_http_version = \"HTTP1.1\"\
+    \n    health_check_interval     = \"2\"\n    health_check_method       = \"HEAD\"\
+    \n    health_check_path         = \"/tf-example\"\n    health_check_protocol \
+    \    = \"HTTP\"\n    health_check_timeout      = 5\n    healthy_threshold    \
+    \     = 3\n    unhealthy_threshold       = 3\n  }\n  sticky_session_config {\n\
+    \    sticky_session_enabled = true\n    cookie                 = \"tf-example\"\
+    \n    sticky_session_type    = \"Server\"\n  }\n  servers {\n    port        =\
+    \ 80\n    server_id   = module.ecs3.id\n    server_ip   =module.ecs3.private_ip\n\
+    \    server_type = \"Ecs\"\n    weight      = 100\n  }\n  servers {\n    port\
+    \        = 80\n    server_id   = module.ecs4.id\n    server_ip   =module.ecs4.private_ip\n\
+    \    server_type = \"Ecs\"\n    weight      = 100\n  }\n}\n\nresource \"alicloud_alb_listener\"\
+    \ \"listener1\" {\n  provider = alicloud.user1_region1\n  load_balancer_id   \
+    \  = alicloud_alb_load_balancer.alb1.id\n  listener_protocol    = \"HTTP\"\n \
+    \ listener_port        = 80\n  default_actions {\n    type = \"ForwardGroup\"\n\
+    \    forward_group_config {\n      server_group_tuples {\n        server_group_id\
+    \ = alicloud_alb_server_group.server_group1.id\n      }\n    }\n  }\n}\n\n\nresource\
+    \ \"alicloud_alb_listener\" \"listener2\" {\n  provider = alicloud.user1_region2\n\
+    \  load_balancer_id     = alicloud_alb_load_balancer.alb2.id\n  listener_protocol\
+    \    = \"HTTP\"\n  listener_port        = 80\n  default_actions {\n    type =\
+    \ \"ForwardGroup\"\n    forward_group_config {\n      server_group_tuples {\n\
+    \        server_group_id = alicloud_alb_server_group.server_group2.id\n      }\n\
+    \    }\n  }\n}\n\nresource \"alicloud_cen_instance\" \"cen\" {\n  cen_instance_name\
+    \ = \"云上企业网络\"\n}\n\ndata \"alicloud_cen_transit_router_service\" \"open\" {\n\
+    \  enable = \"On\"\n}\n\nresource \"alicloud_cen_transit_router\" \"tr1\" {\n\
+    \  provider = alicloud.user1_region1\n  cen_id = alicloud_cen_instance.cen.id\n\
+    \  depends_on = [data.alicloud_cen_transit_router_service.open]\n}\n\nresource\
+    \ \"alicloud_cen_transit_router\" \"tr2\" {\n  provider = alicloud.user1_region2\n\
+    \  cen_id = alicloud_cen_instance.cen.id\n  depends_on = [data.alicloud_cen_transit_router_service.open]\n\
+    }\n\nresource \"alicloud_cen_transit_router_vpc_attachment\" \"vpc_att1\" {\n\
+    \  provider = alicloud.user1_region1\n  transit_router_attachment_name = \"vpc_attachment_1\"\
+    \n  cen_id            = alicloud_cen_instance.cen.id\n  transit_router_id = alicloud_cen_transit_router.tr1.transit_router_id\n\
+    \  vpc_id            = module.vpc1.vpc_id\n  zone_mappings {\n    zone_id    =\
+    \ var.region1_zone_id1\n    vswitch_id = module.vpc1.vsw_ids[0]\n  }\n  zone_mappings\
+    \ {\n    zone_id    = var.region1_zone_id2\n    vswitch_id = module.vpc1.vsw_ids[1]\n\
+    \  }\n}\n\nresource \"alicloud_cen_transit_router_vpc_attachment\" \"vpc_att2\"\
+    \ {\n  provider = alicloud.user1_region2\n  transit_router_attachment_name = \"\
+    vpc_attachment_2\"\n  cen_id            = alicloud_cen_instance.cen.id\n  transit_router_id\
+    \ = alicloud_cen_transit_router.tr2.transit_router_id\n  vpc_id            = module.vpc2.vpc_id\n\
+    \  zone_mappings {\n    zone_id    = var.region2_zone_id1\n    vswitch_id = module.vpc2.vsw_ids[0]\n\
+    \  }\n  zone_mappings {\n    zone_id    = var.region2_zone_id2\n    vswitch_id\
+    \ = module.vpc2.vsw_ids[1]\n  }\n}\n\nresource \"alicloud_cen_transit_router_route_table\"\
+    \ \"route_table1\" {\n  provider = alicloud.user1_region1\n  transit_router_id\
+    \ = alicloud_cen_transit_router.tr1.transit_router_id\n}\n\nresource \"alicloud_cen_transit_router_route_table\"\
+    \ \"route_table2\" {\n  provider = alicloud.user1_region2\n  transit_router_id\
+    \ = alicloud_cen_transit_router.tr2.transit_router_id\n}\n\nresource \"alicloud_cen_transit_router_route_entry\"\
+    \ \"route_entry1\" {\n  provider = alicloud.user1_region1\n  for_each = toset([\"\
+    192.168.1.0/24\", \"192.168.2.0/24\"])\n  transit_router_route_table_id      \
+    \               = alicloud_cen_transit_router_route_table.route_table1.transit_router_route_table_id\n\
+    \  transit_router_route_entry_destination_cidr_block = each.key\n  transit_router_route_entry_next_hop_type\
+    \          = \"Attachment\"\n  transit_router_route_entry_next_hop_id        \
+    \    = alicloud_cen_transit_router_vpc_attachment.vpc_att1.transit_router_attachment_id\n\
+    }\n\nresource \"alicloud_cen_transit_router_route_entry\" \"route_entry2\" {\n\
+    \  provider = alicloud.user1_region2\n  for_each = toset([\"192.168.3.0/24\",\
+    \ \"192.168.4.0/24\"])\n  transit_router_route_table_id                     =\
+    \ alicloud_cen_transit_router_route_table.route_table2.transit_router_route_table_id\n\
+    \  transit_router_route_entry_destination_cidr_block = each.key\n  transit_router_route_entry_next_hop_type\
+    \          = \"Attachment\"\n  transit_router_route_entry_next_hop_id        \
+    \    = alicloud_cen_transit_router_vpc_attachment.vpc_att2.transit_router_attachment_id\n\
+    }\n\n\nresource \"alicloud_cen_transit_router_route_table_association\" \"association1\"\
+    \ {\n  provider = alicloud.user1_region1\n  transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table1.transit_router_route_table_id\n\
+    \  transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.vpc_att1.transit_router_attachment_id\n\
+    }\n\nresource \"alicloud_cen_transit_router_route_table_association\" \"association2\"\
+    \ {\n  provider = alicloud.user1_region2\n  transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table2.transit_router_route_table_id\n\
+    \  transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.vpc_att2.transit_router_attachment_id\n\
+    }\n\nresource \"alicloud_cen_bandwidth_package\" \"example\" {\n  bandwidth  \
+    \                = 2\n  cen_bandwidth_package_name = \"tf_example\"\n  geographic_region_a_id\
+    \     = \"China\"\n  geographic_region_b_id     = \"China\"\n  payment_type =\
+    \ \"PrePaid\"\n}\n\nresource \"alicloud_cen_bandwidth_package_attachment\" \"\
+    example\" {\n  instance_id          = alicloud_cen_instance.cen.id\n  bandwidth_package_id\
+    \ = alicloud_cen_bandwidth_package.example.id\n}\n\nresource \"alicloud_cen_transit_router_peer_attachment\"\
+    \ \"user2_peer_attachment\" {\n  provider = alicloud.user1_region2\n  cen_id \
+    \                               = alicloud_cen_instance.cen.id\n  transit_router_id\
+    \                     = alicloud_cen_transit_router.tr2.transit_router_id\n  peer_transit_router_region_id\
+    \         = var.region1\n  peer_transit_router_id                = alicloud_cen_transit_router.tr1.transit_router_id\n\
+    \  cen_bandwidth_package_id              = alicloud_cen_bandwidth_package_attachment.example.id\n\
+    \  bandwidth                             = 2\n  auto_publish_route_enabled  =\
+    \ true\n}\n\nresource \"alicloud_cen_transit_router_route_table_association\"\
+    \ \"association3\" {\n  provider = alicloud.user1_region1\n  transit_router_route_table_id\
+    \ = alicloud_cen_transit_router_route_table.route_table1.transit_router_route_table_id\n\
+    \  transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.user2_peer_attachment.transit_router_attachment_id\n\
+    }\n\nresource \"alicloud_cen_transit_router_route_table_propagation\" \"propagation3\"\
+    \ {\n  provider = alicloud.user1_region1\n  transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table1.transit_router_route_table_id\n\
+    \  transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.user2_peer_attachment.transit_router_attachment_id\n\
+    }\n\nresource \"alicloud_cen_transit_router_route_table_association\" \"association4\"\
+    \ {\n  provider = alicloud.user1_region2\n  transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table2.transit_router_route_table_id\n\
+    \  transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.user2_peer_attachment.transit_router_attachment_id\n\
+    }\n\nresource \"alicloud_cen_transit_router_route_table_propagation\" \"propagation4\"\
+    \ {\n  provider = alicloud.user1_region2\n  transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table2.transit_router_route_table_id\n\
+    \  transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.user2_peer_attachment.transit_router_attachment_id\n\
+    }\n\nresource \"alicloud_dts_instance\" \"default\" {\n  provider = alicloud.user1_region1\n\
+    \  type                             = \"sync\"\n  payment_type               \
+    \      = \"PayAsYouGo\"\n  instance_class                   = \"large\"\n  source_endpoint_engine_name\
+    \      = \"MySQL\"\n  source_region                    = var.region1\n  destination_endpoint_engine_name\
+    \ = \"MySQL\"\n  destination_region               = var.region2\n}\n"
+  .metadata: "{\n  \"ALIYUN::ROS::Interface\": {\n    \"ParameterGroups\": [\n   \
+    \   {\n        \"Parameters\": [\n          \"region1\",\n          \"region1_zone_id1\"\
+    ,\n          \"region1_zone_id2\",\n          \"region2\",\n          \"region2_zone_id1\"\
+    ,\n          \"region2_zone_id2\"\n        ],\n        \"Label\": {\n        \
+    \  \"default\": {\n            \"zh-cn\": \"地域和可用区配置\",\n            \"en\": \"\
+    Region and Zone Configuration\"\n          }\n        }\n      },\n      {\n \
+    \       \"Parameters\": [\n          \"region1_instance_type1\",\n          \"\
+    region1_instance_type2\",\n          \"region2_instance_type1\",\n          \"\
+    region2_instance_type2\"\n        ],\n        \"Label\": {\n          \"default\"\
+    : {\n            \"zh-cn\": \"ECS实例配置\",\n            \"en\": \"Ecs InstanceType\
+    \ Configuration\"\n          }\n        }\n      },\n      {\n        \"Parameters\"\
+    : [\n          \"ecs_password\"\n        ],\n        \"Label\": {\n          \"\
+    default\": {\n            \"zh-cn\": \"ECS实例密码配置\",\n            \"en\": \"Ecs\
+    \ Password Configuration\"\n          }\n        }\n      },\n      {\n      \
+    \  \"Parameters\": [\n          \"polardb_account_name\",\n          \"polardb_password\"\
+    ,\n          \"polardb_class\"\n        ],\n        \"Label\": {\n          \"\
+    default\": {\n            \"zh-cn\": \"PolarDB配置\",\n            \"en\": \"PolarDB\
+    \ Configuration\"\n          }\n        }\n      }\n    ],\n    \"TemplateTags\"\
+    : [\n      \"acs:technical-solution:network:两地三中心异地多活网络-tech_solu_42\"\n    ],\n\
+    \    \"ResourcesForParameterConstraints\": {\n      \"polardb1\": {\n        \"\
+    Type\": \"ALIYUN::POLARDB::DBCluster\",\n        \"Properties\": {\n         \
+    \ \"ZoneId\": {\n            \"Ref\": \"region1_zone_id2\"\n          },\n   \
+    \       \"RegionId\": {\n            \"Ref\": \"region1\"\n          },\n    \
+    \      \"PayType\": \"PostPaid\",\n          \"DBType\": \"MySQL\",\n        \
+    \  \"DBVersion\": \"8.0\",\n          \"DBNodeClass\": {\n            \"Ref\"\
+    : \"polardb_class\"\n          }\n        }\n      },\n      \"polardb2\": {\n\
+    \        \"Type\": \"ALIYUN::POLARDB::DBCluster\",\n        \"Properties\": {\n\
+    \          \"ZoneId\": {\n            \"Ref\": \"region2_zone_id1\"\n        \
+    \  },\n          \"RegionId\": {\n            \"Ref\": \"region2\"\n         \
+    \ },\n          \"PayType\": \"PostPaid\",\n          \"DBType\": \"MySQL\",\n\
+    \          \"DBVersion\": \"8.0\",\n          \"DBNodeClass\": {\n           \
+    \ \"Ref\": \"polardb_class\"\n          }\n        }\n      }\n    }\n  }\n}"
+  ecs/main.tf: "variable \"vpc_id\" {}\nvariable \"vsw_id\" {}\nvariable \"zone_id\"\
+    \ {}\nvariable \"instance_type\" {}\nvariable \"system_disk_category\" {}\nvariable\
+    \ \"ecs_password\" {}\nvariable \"instance_name\" {}\n\nterraform {\n  required_providers\
+    \ {\n    alicloud = {\n      source  = \"hashicorp/alicloud\"\n      version =\
+    \ \"~> 1.1\"\n    }\n  }\n}\n\nresource \"alicloud_security_group\" \"group\"\
+    \ {\n  vpc_id = var.vpc_id\n}\n\nresource \"alicloud_security_group_rule\" \"\
+    rule\" {\n  type              = \"ingress\"\n  ip_protocol       = \"all\"\n \
+    \ nic_type          = \"intranet\"\n  policy            = \"accept\"\n  port_range\
+    \        = \"22/22\"\n  priority          = 1\n  security_group_id = alicloud_security_group.group.id\n\
+    \  cidr_ip           = \"0.0.0.0/0\"\n}\n\nresource \"alicloud_instance\" \"ecs\"\
+    \ {\n  availability_zone = var.zone_id\n  security_groups   = alicloud_security_group.group.*.id\n\
+    \  instance_type              = var.instance_type\n  system_disk_category    \
+    \   = var.system_disk_category\n  image_id                   = \"aliyun_3_x64_20G_alibase_20230727.vhd\"\
+    \n  instance_name              = var.instance_name\n  vswitch_id             \
+    \    = var.vsw_id\n  password                   = var.ecs_password\n}\n\noutput\
+    \ \"private_ip\" {\n  value = alicloud_instance.ecs.private_ip\n}\n\noutput \"\
+    id\" {\n  value = alicloud_instance.ecs.id\n}"
+  outputs.tf: "output \"ecs1_ip\" {\n  value       = module.ecs1.private_ip\n  description\
+    \ = <<EOT\n  {\n    \"Description\": \"ECS1 ip\"\n  }\n  EOT\n}\n\noutput \"ecs2_ip\"\
+    \ {\n  value       = module.ecs2.private_ip\n  description = <<EOT\n  {\n    \"\
+    Description\": \"ECS2 ip\"\n  }\n  EOT\n}\n\noutput \"ecs3_ip\" {\n  value   \
+    \    = module.ecs3.private_ip\n  description = <<EOT\n  {\n    \"Description\"\
+    : \"ECS3 ip\"\n  }\n  EOT\n}\n\noutput \"ecs4_ip\" {\n  value       = module.ecs4.private_ip\n\
+    \  description = <<EOT\n  {\n    \"Description\": \"ECS4 ip\"\n  }\n  EOT\n}\n\
+    \noutput \"polardb1_connection_string\" {\n  value       = format(\"%s:3306\"\
+    , alicloud_polardb_cluster.polardb1.connection_string)\n  description = <<EOT\n\
+    \  {\n    \"Description\": \"Polardb1 connection string\"\n  }\n  EOT\n}\n\noutput\
+    \ \"polardb2_connection_string\" {\n  value       = format(\"%s:3306\", alicloud_polardb_cluster.polardb2.connection_string)\n\
+    \  description = <<EOT\n  {\n    \"Description\": \"Polardb2 connection string\"\
+    \n  }\n  EOT\n}\n"
+  variables.tf: "variable \"region1\" {\n  type = string\n  description = <<EOT\n\
+    \  {\n    \"AssociationProperty\": \"ALIYUN::ECS::RegionId\",\n    \"Description\"\
+    :{\n        \"zh-cn\": \"企业版转发路由器支持的地域和可用区: https://help.aliyun.com/document_detail/181681.html\"\
+    ,\n        \"en\": \"Geographic and availability zones supported by Enterprise\
+    \ forwarding routers: https://help.aliyun.com/document_detail/181681.html\"\n\
+    \    },\n    \"Label\": {\n        \"zh-cn\": \"资源部署地域1\",\n        \"en\": \"\
+    Resource deployment region 1\"\n    },\n    \"AllowedValues\": [\n      \"cn-hangzhou\"\
+    ,\n      \"cn-shanghai\",\n      \"cn-nanjing\",\n      \"cn-fuzhou\",\n     \
+    \ \"cn-shenzhen\",\n      \"cn-heyuan\",\n      \"cn-guangzhou\",\n      \"cn-qingdao\"\
+    ,\n      \"cn-beijing\",\n      \"cn-zhangjiakou\",\n      \"cn-chengdu\"\n  \
+    \  ]\n  }\n  EOT\n  default = \"cn-shanghai\"\n}\n\nvariable \"region2\" {\n \
+    \ type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\": \"ALIYUN::ECS::RegionId\"\
+    ,\n    \"Label\": {\n        \"zh-cn\": \"资源部署地域2\",\n        \"en\": \"Resource\
+    \ deployment region 2\"\n    },\n    \"AllowedValues\": [\n      \"cn-hangzhou\"\
+    ,\n      \"cn-shanghai\",\n      \"cn-nanjing\",\n      \"cn-fuzhou\",\n     \
+    \ \"cn-shenzhen\",\n      \"cn-heyuan\",\n      \"cn-guangzhou\",\n      \"cn-qingdao\"\
+    ,\n      \"cn-beijing\",\n      \"cn-zhangjiakou\",\n      \"cn-chengdu\"\n  \
+    \  ]\n  }\n  EOT\n  default = \"cn-beijing\"\n}\n\n\nvariable \"region1_zone_id1\"\
+    \ {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ZoneId\",\n    \"AssociationPropertyMetadata\": {\n        \"RegionId\": \"\
+    $${region1}\"\n    },\n    \"Label\": {\n        \"zh-cn\": \"地域1的可用区ID1\",\n\
+    \        \"en\": \"Availability zone ID 1 of region 1\"\n    },\n    \"AllowedValues\"\
+    : [\n      \"cn-beijing-g\",\n      \"cn-beijing-h\",\n      \"cn-beijing-j\"\
+    ,\n      \"cn-beijing-k\",\n      \"cn-beijing-i\",\n      \"cn-beijing-l\",\n\
+    \      \"cn-shanghai-f\",\n      \"cn-shanghai-g\",\n      \"cn-shanghai-e\",\n\
+    \      \"cn-shanghai-b\",\n      \"cn-shanghai-n\",\n      \"cn-shanghai-m\",\n\
+    \      \"cn-shanghai-l\",\n      \"cn-hangzhou-h\",\n      \"cn-hangzhou-i\",\n\
+    \      \"cn-hangzhou-j\",\n      \"cn-hangzhou-k\",\n      \"cn-shenzhen-e\",\n\
+    \      \"cn-shenzhen-d\",\n      \"cn-shenzhen-f\",\n      \"cn-shenzhen-a\",\n\
+    \      \"cn-qingdao-b\",\n      \"cn-qingdao-c\",\n      \"cn-nanjing-a\",\n \
+    \     \"cn-guangzhou-a\",\n      \"cn-guangzhou-b\",\n      \"cn-heyuan-a\",\n\
+    \      \"cn-heyuan-b\",\n      \"cn-fuzhou-a\",\n      \"cn-zhangjiakou-a\",\n\
+    \      \"cn-zhangjiakou-c\",\n      \"cn-zhangjiakou-b\",\n      \"cn-chengdu-b\"\
+    ,\n      \"cn-chengdu-a\"\n    ]\n  }\n  EOT\n  default = \"cn-shanghai-l\"\n\
+    }\n\nvariable \"region1_zone_id2\" {\n  type = string\n  description = <<EOT\n\
+    \  {\n    \"AssociationProperty\": \"ZoneId\",\n    \"AssociationPropertyMetadata\"\
+    : {\n        \"RegionId\": \"$${region1}\"\n    },\n    \"Label\": {\n       \
+    \ \"zh-cn\": \"地域1的可用区ID2\",\n        \"en\": \"Availability zone ID 2 of region\
+    \ 1\"\n    }\n  }\n  EOT\n  default = \"cn-shanghai-m\"\n}\n\nvariable \"region2_zone_id1\"\
+    \ {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ZoneId\",\n    \"AssociationPropertyMetadata\": {\n        \"RegionId\": \"\
+    $${region2}\"\n    },\n    \"Label\": {\n        \"zh-cn\": \"地域2的可用区ID1\",\n\
+    \        \"en\": \"Availability zone ID 1 of region 2\"\n    }\n  }\n  EOT\n \
+    \ default = \"cn-beijing-k\"\n}\n\nvariable \"region2_zone_id2\" {\n  type = string\n\
+    \  description = <<EOT\n  {\n    \"AssociationProperty\": \"ZoneId\",\n    \"\
+    AssociationPropertyMetadata\": {\n        \"RegionId\": \"$${region2}\"\n    },\n\
+    \    \"Label\": {\n        \"zh-cn\": \"地域2的可用区ID2\",\n        \"en\": \"Availability\
+    \ zone ID 2 of region 2\"\n    },\n    \"AllowedValues\": [\n      \"cn-beijing-g\"\
+    ,\n      \"cn-beijing-h\",\n      \"cn-beijing-j\",\n      \"cn-beijing-k\",\n\
+    \      \"cn-beijing-i\",\n      \"cn-beijing-l\",\n      \"cn-shanghai-f\",\n\
+    \      \"cn-shanghai-g\",\n      \"cn-shanghai-e\",\n      \"cn-shanghai-b\",\n\
+    \      \"cn-shanghai-n\",\n      \"cn-shanghai-m\",\n      \"cn-shanghai-l\",\n\
+    \      \"cn-hangzhou-h\",\n      \"cn-hangzhou-i\",\n      \"cn-hangzhou-j\",\n\
+    \      \"cn-hangzhou-k\",\n      \"cn-shenzhen-e\",\n      \"cn-shenzhen-d\",\n\
+    \      \"cn-shenzhen-f\",\n      \"cn-shenzhen-a\",\n      \"cn-qingdao-b\",\n\
+    \      \"cn-qingdao-c\",\n      \"cn-nanjing-a\",\n      \"cn-guangzhou-a\",\n\
+    \      \"cn-guangzhou-b\",\n      \"cn-heyuan-a\",\n      \"cn-heyuan-b\",\n \
+    \     \"cn-fuzhou-a\",\n      \"cn-zhangjiakou-a\",\n      \"cn-zhangjiakou-c\"\
+    ,\n      \"cn-zhangjiakou-b\",\n      \"cn-chengdu-b\",\n      \"cn-chengdu-a\"\
+    \n    ]\n  }\n  EOT\n  default = \"cn-beijing-g\"\n}\n\nvariable \"region1_instance_type1\"\
+    \ {\n  description = <<EOT\n  {\n    \"AssociationProperty\": \"ALIYUN::ECS::Instance::InstanceType\"\
+    ,\n    \"AssociationPropertyMetadata\": {\n      \"RegionId\": \"$${region1}\"\
+    ,\n      \"ZoneId\": \"$${region1_zone_id1}\",\n      \"SystemDiskCategory\":\
+    \ \"cloud_essd\"\n    },\n    \"Label\": {\n        \"zh-cn\": \"APP001的实例规格\"\
+    ,\n        \"en\": \"Instance type1\"\n    }\n  }\n  EOT\n  default = \"ecs.g7nex.large\"\
+    \n}\n\nvariable \"region1_instance_type2\" {\n  description = <<EOT\n  {\n   \
+    \ \"AssociationProperty\": \"ALIYUN::ECS::Instance::InstanceType\",\n    \"AssociationPropertyMetadata\"\
+    : {\n      \"RegionId\": \"$${region1}\",\n      \"ZoneId\": \"$${region1_zone_id2}\"\
+    ,\n      \"SystemDiskCategory\": \"cloud_essd\"\n    },\n    \"Label\": {\n  \
+    \      \"zh-cn\": \"APP002的实例规格\",\n        \"en\": \"Instance type\"\n    }\n\
+    \  }\n  EOT\n  default = \"ecs.g5.large\"\n}\n\nvariable \"region2_instance_type1\"\
+    \ {\n  description = <<EOT\n  {\n    \"AssociationProperty\": \"ALIYUN::ECS::Instance::InstanceType\"\
+    ,\n    \"AssociationPropertyMetadata\": {\n      \"RegionId\": \"$${region2}\"\
+    ,\n      \"ZoneId\": \"$${region2_zone_id1}\",\n      \"SystemDiskCategory\":\
+    \ \"cloud_essd\"\n    },\n    \"Label\": {\n        \"zh-cn\": \"APP003的实例规格\"\
+    ,\n        \"en\": \"Instance type\"\n    }\n  }\n  EOT\n  default = \"ecs.s6-c1m1.small\"\
+    \n}\n\nvariable \"region2_instance_type2\" {\n  description = <<EOT\n  {\n   \
+    \ \"AssociationProperty\": \"ALIYUN::ECS::Instance::InstanceType\",\n    \"AssociationPropertyMetadata\"\
+    : {\n      \"RegionId\": \"$${region2}\",\n      \"ZoneId\": \"$${region2_zone_id2}\"\
+    ,\n      \"SystemDiskCategory\": \"cloud_essd\"\n    },\n    \"Label\": {\n  \
+    \      \"zh-cn\": \"APP004的实例规格\",\n        \"en\": \"Instance type\"\n    }\n\
+    \  }\n  EOT\n  default = \"ecs.c6e.large\"\n}\n\nvariable \"ecs_password\" {\n\
+    \  type = string\n  sensitive = true\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::ECS::Instance::Password\",\n    \"Label\": {\n        \"zh-cn\": \"\
+    登录密码\",\n        \"en\": \"Ecs password\"\n    }\n  }\n  EOT\n}\n\nvariable \"\
+    polardb_account_name\" {\n  type = string\n  description = <<EOT\n  {\n    \"\
+    Description\":{\n        \"zh-cn\": \"由小写字母、数字、下划线（_）组成，字母开头，字母或数字结尾，长度不超过32个字符。\"\
+    ,\n        \"en\": \"It must contain a maximum of 32 lowercase letters, digits,\
+    \ and underscores (_). It must start with a letter and end with a digit.\"\n \
+    \   },\n    \"Label\": {\n        \"zh-cn\": \"PolarDB账号名称\",\n        \"en\"\
+    : \"PolarDb account name\"\n    }\n  }\n  EOT\n  default = \"ros\"\n}\n\nvariable\
+    \ \"polardb_password\" {\n  type = string\n  sensitive = true\n  description =\
+    \ <<EOT\n  {\n    \"AssociationProperty\": \"ALIYUN::ECS::Instance::Password\"\
+    ,\n    \"Label\": {\n        \"zh-cn\": \"PolarDB登录密码\",\n        \"en\": \"PolarDB\
+    \ password\"\n    }\n  }\n  EOT\n}\n\n\nvariable \"polardb_class\" {\n  type =\
+    \ string\n  description = <<EOT\n  {\n    \"Description\":{\n        \"zh-cn\"\
+    : \"如果没有可选的规格，请切换 地域1的可用区ID2 和 地域2的可用区ID1 后重试。\",\n        \"en\": \"If there\
+    \ are no optional specifications, please switch the Availability Zone ID2 of Region\
+    \ 1 and the Availability Zone ID1 of Region 2 and try again.\"\n    },\n    \"\
+    Label\": {\n        \"zh-cn\": \"PolarDB规格\",\n        \"en\": \"PolarDB class\"\
+    \n    }\n  }\n  EOT\n  default = \"polar.mysql.x4.large\"\n}"
+  vpc/main.tf: "variable \"vpc_cidr\" {}\nvariable \"vsw_cidrs\" {}\nvariable \"zone_ids\"\
+    \ {}\n\nterraform {\n  required_providers {\n    alicloud = {\n      source  =\
+    \ \"hashicorp/alicloud\"\n      version = \"~> 1.1\"\n    }\n  }\n}\n\nresource\
+    \ \"alicloud_vpc\" \"vpc\" {\n  vpc_name = \"vpc_test\"\n  cidr_block = var.vpc_cidr\n\
+    }\n\nresource \"alicloud_vswitch\" \"vsw\" {\n  count = length(var.zone_ids)\n\
+    \  vpc_id = alicloud_vpc.vpc.id\n  cidr_block = var.vsw_cidrs[count.index]\n \
+    \ zone_id = var.zone_ids[count.index]\n}\n\noutput \"vpc_id\" {\n  value = alicloud_vpc.vpc.id\n\
+    }\noutput \"vsw_ids\" {\n  value = alicloud_vswitch.vsw.*.id\n}\n\noutput \"vpc_cidr_block\"\
+    \ {\n  value = alicloud_vpc.vpc.cidr_block\n}\n\noutput \"route_table_id\" {\n\
+    \  value = alicloud_vpc.vpc.route_table_id\n}\n"

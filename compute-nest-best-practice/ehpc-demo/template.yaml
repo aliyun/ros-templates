@@ -1,4 +1,14 @@
 ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 该模版用于创建一个弹性高性能计算（EHPCC）集群，包含管理、登录和计算节点，支持Tiny、Simple、Standard三种部署模式，配置实例类型、数量、存储、网络及付费方式，同时自动化设置文件系统与安全组，确保集群运行在指定VPC环境，且提供Web访问入口。
+  en: 'This template is designed for establishing an Elastic High-Performance Computing
+    Cluster (EHPCC), encompassing management, login, and compute nodes. It accommodates
+    three deployment modes: Tiny, Simple, and Standard, allowing customization of
+    instance types, quantities, storage configurations, networking setups, and billing
+    methods. The process automates the configuration of file systems and security
+    groups, ensuring the cluster operates within a specified Virtual Private Cloud
+    (VPC) environment. Additionally, it provisions a web access portal for convenient
+    cluster management.'
 Conditions:
   TinyMode:
     Fn::Equals:
@@ -27,7 +37,7 @@ Parameters:
       en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
         ()`~!@#$%^&*-+=|{}[]:;'<>,.?/ Special symbol in).
     AssociationProperty: ALIYUN::ECS::Instance::Password
-    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
     MinLength: 8
     MaxLength: 30
     NoEcho: true
@@ -267,11 +277,10 @@ Parameters:
       zh-cn: 购买资源时长
       en: Period
     Description:
-      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font
-        color='red'>当ECS实例类型为PrePaid有效</b></font>
-      en: When the resource purchase duration is Month, the value of Period
-        ranges from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When
-        ECS instance types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
+      en: When the resource purchase duration is Month, the value of Period ranges
+        from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance
+        types are PrePaid valid </b></font>
     AssociationProperty: PayPeriod
     AssociationPropertyMetadata:
       Visible:
@@ -292,94 +301,76 @@ Parameters:
     - 8
     - 9
 Resources:
-  # 创建权限组
   AccessGroup:
     Type: ALIYUN::NAS::AccessGroup
     Properties:
       AccessGroupName:
         Fn::Join:
-          - '-'
-          - - Ref: ALIYUN::StackName
-            - '[1,4]'
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
       AccessGroupType: Vpc
-  # 创建权限组规则
   AccessRule:
-    DependsOn: AccessGroup
     Type: ALIYUN::NAS::AccessRule
     Properties:
       AccessGroupName:
         Fn::GetAtt:
         - AccessGroup
         - AccessGroupName
-      # 优先级
       Priority: 1
-      # 读写权限类型
       RWAccessType: RDWR
-      # 地址
       SourceCidrIp: 0.0.0.0/0
-      # 用户权限类型
       UserAccessType: no_squash
-  # 创建文件系统
+    DependsOn: AccessGroup
   FileSystem:
     Type: ALIYUN::NAS::FileSystem
     Properties:
-      # 协议类型
-      ProtocolType: NFS
-      # 存储类型
-      StorageType: Capacity
       ZoneId:
         Ref: ZoneId
-      VSwitchId:
-        Ref: VSwitchId
       VpcId:
         Ref: VpcId
-  # 创建挂载点
+      VSwitchId:
+        Ref: VSwitchId
+      ProtocolType: NFS
+      StorageType: Capacity
   MountTarget:
-    DependsOn:
-    - FileSystem
-    - AccessRule
     Type: ALIYUN::NAS::MountTarget
     Properties:
-      # 权限组名称
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
       AccessGroupName:
         Fn::GetAtt:
         - AccessGroup
         - AccessGroupName
-      # 文件系统ID
       FileSystemId:
         Fn::GetAtt:
         - FileSystem
         - FileSystemId
-      # 网络类型
       NetworkType: Vpc
-      VSwitchId:
-        Ref: VSwitchId
-      VpcId:
-        Ref: VpcId
-  # 安全组
+    DependsOn:
+    - AccessRule
+    - FileSystem
   EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
-      # 使用默认名称
-      SecurityGroupName:
-        Ref: ALIYUN::StackName
       VpcId:
         Ref: VpcId
-      # 入方向开放22端口
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
       SecurityGroupIngress:
       - Priority: 1
         PortRange: 22/22
         NicType: internet
         SourceCidrIp: 0.0.0.0/0
         IpProtocol: tcp
-      # 出方向全开
       SecurityGroupEgress:
       - Priority: 1
         PortRange: -1/-1
         DestCidrIp: 0.0.0.0/0
         NicType: intranet
         IpProtocol: all
-  # 类型用于创建一个弹性高性能计算集群
   Cluster:
     Type: ALIYUN::EHPC::Cluster
     Properties:
@@ -393,11 +384,11 @@ Resources:
       OsTag: CentOS_7.6_64
       EcsOrderComputeCount:
         Ref: EphcComputeCount
-      VolumeType: 'nas'
+      VolumeType: nas
       VolumeId:
         Fn::GetAtt:
-          - FileSystem
-          - FileSystemId
+        - FileSystem
+        - FileSystemId
       EcsOrderManagerInstanceType:
         Ref: EhpcLoginInstanceType
       EcsOrderComputeInstanceType:
@@ -423,23 +414,20 @@ Resources:
         Ref: AccountType
       VolumeMountpoint:
         Fn::GetAtt:
-          - MountTarget
-          - MountTargetDomain
+        - MountTarget
+        - MountTargetDomain
       EcsOrderManagerCount:
         Ref: EhpcManagerCount
       EcsOrderLoginInstanceType:
         Ref: EhpcLoginInstanceType
-  # 类型用于获取弹性高性能计算集群节点的列表
   ClusterNodes:
     Type: DATASOURCE::EHPC::Nodes
     Properties:
-      # 节点类型
       Role:
         Fn::If:
         - TinyMode
         - Manager
         - Login
-      # 待查询的集群ID。
       ClusterId:
         Fn::GetAtt:
         - Cluster
@@ -458,7 +446,6 @@ Outputs:
             - Nodes
   Software:
     Value: 1.0.0
-
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:

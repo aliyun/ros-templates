@@ -1,7 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Online one-click upgrade of RDS MySQL to PolarDB MySQL version without modifying any code and configuration of the application.
-  zh-cn: 在不修改应用程序任何代码和配置的情况下，将RDS MySQL在线一键升级至PolarDB MySQL版。
+  zh-cn: 一键升级RDS MySQL到PolarDB MySQL，自动配置网络、安全与数据迁移，无需改动应用代码。
+  en: One-click upgrade from RDS MySQL to PolarDB MySQL, with automatic configuration
+    of network, security, and data migration, eliminating the need for any modifications
+    to application code.
 Parameters:
   ZoneId:
     Type: String
@@ -62,9 +64,9 @@ Parameters:
     ConstraintDescription:
       en: '[20, 32000] Incrementing in every 5G, unit: GB'
       zh-cn: '[20, 32000] 每 5G 递增，单位：GB'
+    Default: 100
     MinValue: 20
     MaxValue: 32000
-    Default: 100
   RdsAccountPassword:
     Type: String
     Label:
@@ -92,18 +94,18 @@ Resources:
   VSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
-      VSwitchName: vsw_rds2polardb
       ZoneId:
         Ref: ZoneId
       VpcId:
         Ref: Vpc
+      VSwitchName: vsw_rds2polardb
       CidrBlock: 192.168.0.0/24
   SecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
-      SecurityGroupName: sg_rds2polardb
       VpcId:
         Ref: Vpc
+      SecurityGroupName: sg_rds2polardb
   SecurityGroupIngress_3306:
     Type: ALIYUN::ECS::SecurityGroupIngress
     Properties:
@@ -116,28 +118,28 @@ Resources:
   RdsInstance:
     Type: ALIYUN::RDS::DBInstance
     Properties:
-      DBInstanceDescription: rds_2polardb
+      ZoneId:
+        Ref: ZoneId
+      SlaveZoneIds:
+      - Ref: ZoneId
       VpcId:
         Ref: Vpc
       VSwitchId:
         Ref: VSwitch
-      ZoneId:
-        Ref: ZoneId
+      SecurityGroupId:
+        Ref: SecurityGroup
+      DBInstanceDescription: rds_2polardb
       Engine: MySQL
       EngineVersion: '8.0'
       DBInstanceClass:
         Ref: DBInstanceClass
       DBInstanceNetType: Intranet
       Category: HighAvailability
-      SlaveZoneIds:
-        - Ref: ZoneId
       DBInstanceStorageType: cloud_essd
       DBInstanceStorage:
         Ref: DBInstanceStorage
       AllocatePublicConnection: true
       SecurityIPList: 192.168.0.0/16
-      SecurityGroupId:
-        Ref: SecurityGroup
   RdsDatabase:
     Type: ALIYUN::RDS::Database
     Properties:
@@ -167,16 +169,16 @@ Resources:
   InstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      InstanceName: ecs_rds2polardb
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: Vpc
       VSwitchId:
         Ref: VSwitch
-      ZoneId:
-        Ref: ZoneId
       SecurityGroupId:
         Ref: SecurityGroup
       ImageId: centos_7_6
+      InstanceName: ecs_rds2polardb
       InstanceType:
         Ref: InstanceType
       SystemDiskCategory:
@@ -190,62 +192,45 @@ Resources:
       InternetMaxBandwidthOut: 100
       InternetChargeType: PayByTraffic
       Tags:
-        - Key: rds
-          Value: polardb
+      - Key: rds
+        Value: polardb
   PrepareMySQLEnvironment:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
         Fn::GetAtt:
-          - InstanceGroup
-          - InstanceIds
+        - InstanceGroup
+        - InstanceIds
       Type: RunShellScript
       Sync: true
       Timeout: 7200
       CommandContent:
-        Fn::Sub: |-
-          #!/bin/bash
-          echo "################################"
-          echo "# Install MySQL Client"
-          echo "################################"
-          wget https://repo.mysql.com//mysql80-community-release-el7-9.noarch.rpm
-          rpm -ivh mysql80-community-release-el7-9.noarch.rpm
-          yum -y install mysql-community-client
-          mysql --version
-          
-          echo "################################"
-          echo "# Create MySQL Table"
-          echo "################################"
-          mysql -h${RdsInstance.InnerConnectionString} -uu_rds2polardb -p${RdsAccountPassword} -Ddb_rds2polardb -e"CREATE TABLE t_rds2polardb(id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY, gmt_create datetime NOT NULL);"
-          
-          echo "################################"
-          echo "# Prepare MySQL Script"
-          echo "################################"
-          cat > ~/loop_insert_query_mysql.sh << \EOF
-          export MYSQL_HOST=${RdsInstance.InnerConnectionString}
-          export MYSQL_PWD=${RdsAccountPassword}
-          while true; do
-              mysql -A -uu_rds2polardb -Ddb_rds2polardb -NBe'insert into t_rds2polardb(gmt_create) values(now());select concat("系统时间:",now(),"   数据写入时间:",max(gmt_create),"   总行数:",count(*)) from t_rds2polardb;show variables like "polardb_version";'
-              sleep 5
-          done
-          EOF
-          chmod +x ~/loop_insert_query_mysql.sh
-          
-          cat > ~/loop_query_polardb.sh << \EOF
-          export MYSQL_HOST=${PolarDBCluster.PrimaryConnectionString}
-          export MYSQL_PWD=${RdsAccountPassword}
-          while true; do
-              mysql -A -uu_rds2polardb -Ddb_rds2polardb -NBe'select concat("系统时间:",now(),"   数据写入时间:",max(gmt_create),"   总行数:",count(*)) from t_rds2polardb;show variables like "polardb_version";'
-              sleep 5
-          done
-          EOF
-          chmod +x ~/loop_query_polardb.sh
+        Fn::Sub: "#!/bin/bash\necho \"################################\"\necho \"\
+          # Install MySQL Client\"\necho \"################################\"\nwget\
+          \ https://repo.mysql.com//mysql80-community-release-el7-9.noarch.rpm\nrpm\
+          \ -ivh mysql80-community-release-el7-9.noarch.rpm\nyum -y install mysql-community-client\n\
+          mysql --version\n\necho \"################################\"\necho \"# Create\
+          \ MySQL Table\"\necho \"################################\"\nmysql -h${RdsInstance.InnerConnectionString}\
+          \ -uu_rds2polardb -p${RdsAccountPassword} -Ddb_rds2polardb -e\"CREATE TABLE\
+          \ t_rds2polardb(id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY, gmt_create\
+          \ datetime NOT NULL);\"\n\necho \"################################\"\necho\
+          \ \"# Prepare MySQL Script\"\necho \"################################\"\n\
+          cat > ~/loop_insert_query_mysql.sh << \\EOF\nexport MYSQL_HOST=${RdsInstance.InnerConnectionString}\n\
+          export MYSQL_PWD=${RdsAccountPassword}\nwhile true; do\n    mysql -A -uu_rds2polardb\
+          \ -Ddb_rds2polardb -NBe'insert into t_rds2polardb(gmt_create) values(now());select\
+          \ concat(\"系统时间:\",now(),\"   数据写入时间:\",max(gmt_create),\"   总行数:\",count(*))\
+          \ from t_rds2polardb;show variables like \"polardb_version\";'\n    sleep\
+          \ 5\ndone\nEOF\nchmod +x ~/loop_insert_query_mysql.sh\n\ncat > ~/loop_query_polardb.sh\
+          \ << \\EOF\nexport MYSQL_HOST=${PolarDBCluster.PrimaryConnectionString}\n\
+          export MYSQL_PWD=${RdsAccountPassword}\nwhile true; do\n    mysql -A -uu_rds2polardb\
+          \ -Ddb_rds2polardb -NBe'select concat(\"系统时间:\",now(),\"   数据写入时间:\",max(gmt_create),\"\
+          \   总行数:\",count(*)) from t_rds2polardb;show variables like \"polardb_version\"\
+          ;'\n    sleep 5\ndone\nEOF\nchmod +x ~/loop_query_polardb.sh"
     DependsOn:
-      - RdsAccountPrivilege
+    - RdsAccountPrivilege
   PolarDBCluster:
     Type: ALIYUN::POLARDB::DBCluster
     Properties:
-      DBClusterDescription: rds2_polardb
       ZoneId:
         Ref: ZoneId
       VpcId:
@@ -253,7 +238,8 @@ Resources:
       VSwitchId:
         Ref: VSwitch
       SecurityGroupIds:
-        - Ref: SecurityGroup
+      - Ref: SecurityGroup
+      DBClusterDescription: rds2_polardb
       DBType: MySQL
       ClusterNetworkType: VPC
       DBVersion: '8.0'
@@ -267,7 +253,7 @@ Resources:
         Ref: RdsInstance
       StorageType: PSL5
     DependsOn:
-      - RdsAccountPrivilege
+    - RdsAccountPrivilege
 Outputs:
   RdsInnerConnectionString:
     Description:
@@ -275,34 +261,34 @@ Outputs:
       en: Rds Inner Connection address.
     Value:
       Fn::GetAtt:
-        - RdsInstance
-        - InnerConnectionString
+      - RdsInstance
+      - InnerConnectionString
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - ZoneId
-        Label:
-          en: Basic Configuration
-          zh-cn: 基础配置
-      - Parameters:
-          - InstanceType
-          - SystemDiskCategory
-          - Password
-        Label:
-          en: ECS Configuration
-          zh-cn: ECS配置
-      - Parameters:
-          - DBInstanceClass
-          - DBInstanceStorage
-          - RdsAccountPassword
-        Label:
-          en: RDS Configuration
-          zh-cn: RDS配置
-      - Parameters:
-          - PolarDBNodeClass
-        Label:
-          en: PolarDB Configuration
-          zh-cn: PolarDB配置
+    - Parameters:
+      - ZoneId
+      Label:
+        en: Basic Configuration
+        zh-cn: 基础配置
+    - Parameters:
+      - InstanceType
+      - SystemDiskCategory
+      - Password
+      Label:
+        en: ECS Configuration
+        zh-cn: ECS配置
+    - Parameters:
+      - DBInstanceClass
+      - DBInstanceStorage
+      - RdsAccountPassword
+      Label:
+        en: RDS Configuration
+        zh-cn: RDS配置
+    - Parameters:
+      - PolarDBNodeClass
+      Label:
+        en: PolarDB Configuration
+        zh-cn: PolarDB配置
     TemplateTags:
-      - acs:technical-solution:db:RDS MySQL迁移至PolarDB MySQL版-tech_solu_25
+    - acs:technical-solution:db:RDS MySQL迁移至PolarDB MySQL版-tech_solu_25

@@ -1,7 +1,10 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: Puppet 企业版
-  en: Puppet Enterprise
+  zh-cn: 创建Puppet企业版环境，包括VPC、安全组、ECS实例，自动安装Puppet Server并设置密码，提供公网访问的控制台URL。
+  en: Establish a Puppet Enterprise environment comprising a Virtual Private Cloud
+    (VPC), Security Groups, Elastic Compute Service (ECS) instances, with automated
+    deployment of the Puppet Server including password setup, and provision of a public-facing
+    console URL for access.
 Parameters:
   ZoneId:
     Type: String
@@ -23,7 +26,8 @@ Parameters:
       zh-cn: Puppet 密码
       en: Puppet Password
     Description:
-      zh-cn: Puppet登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      zh-cn: Puppet登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）。
       en: Puppet login password, Length 8-30, must contain three(Capital letters,
         lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
         in).
@@ -53,17 +57,17 @@ Resources:
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - Priority: 1
-          PortRange: "-1/-1"
-          NicType: intranet
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: all
+      - Priority: 1
+        PortRange: -1/-1
+        NicType: intranet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
       SecurityGroupEgress:
-        - Priority: 1
-          PortRange: "-1/-1"
-          DestCidrIp: 0.0.0.0/0
-          NicType: intranet
-          IpProtocol: all
+      - Priority: 1
+        PortRange: -1/-1
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+        IpProtocol: all
   VSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -107,33 +111,53 @@ Resources:
       Timeout: 1800
       CommandContent:
         Fn::Sub:
-          - |
-            #!/bin/bash
-            
-            wget 'https://image-test3.oss-cn-shenzhen.aliyuncs.com/puppet-enterprise-2023.5.0-el-7-x86_64.tar.gz' >/dev/null 2>&1
-            echo "`date +'%Y-%m-%dT%H:%M:%S'`  download complete"
-            tar -xzf puppet-enterprise-2023.5.0-el-7-x86_64.tar.gz
-            echo "`date +'%Y-%m-%dT%H:%M:%S'`  tar complete"
-            
-            echo y | ./puppet-enterprise-2023.5.0-el-7-x86_64/puppet-enterprise-installer > /tmp/puppet-installer.log
-            echo "installer: $?" >> /tmp/puppet-installer.log
-            echo "`date +'%Y-%m-%dT%H:%M:%S'` puppet enterprise install complete" >> /tmp/puppet-installer.log
-            
-            puppet infrastructure console_password --password=${PuppetPassword}
-            echo "`date +'%Y-%m-%dT%H:%M:%S'` console password set complete" >> /tmp/puppet-installer.log
-            
-            sed -i '34i "puppet_enterprise::profile::console::proxy::http_redirect::server_name": "${ServerAddress}"' /etc/puppetlabs/enterprise/conf.d/pe.conf
-            puppet agent -t >> /tmp/puppet-installer.log
-            echo "agent1: $?" >> /tmp/puppet-installer.log
-            sleep 60
-            puppet agent -t >> /tmp/puppet-installer.log
-            echo "agent2: $?" >> /tmp/puppet-installer.log
-          - ServerAddress:
-              Fn::Select:
-                - 0
-                - Fn::GetAtt:
-                    - PuppetServer
-                    - PublicIps
+        - '#!/bin/bash
+
+
+          wget ''https://image-test3.oss-cn-shenzhen.aliyuncs.com/puppet-enterprise-2023.5.0-el-7-x86_64.tar.gz''
+          >/dev/null 2>&1
+
+          echo "`date +''%Y-%m-%dT%H:%M:%S''`  download complete"
+
+          tar -xzf puppet-enterprise-2023.5.0-el-7-x86_64.tar.gz
+
+          echo "`date +''%Y-%m-%dT%H:%M:%S''`  tar complete"
+
+
+          echo y | ./puppet-enterprise-2023.5.0-el-7-x86_64/puppet-enterprise-installer
+          > /tmp/puppet-installer.log
+
+          echo "installer: $?" >> /tmp/puppet-installer.log
+
+          echo "`date +''%Y-%m-%dT%H:%M:%S''` puppet enterprise install complete"
+          >> /tmp/puppet-installer.log
+
+
+          puppet infrastructure console_password --password=${PuppetPassword}
+
+          echo "`date +''%Y-%m-%dT%H:%M:%S''` console password set complete" >> /tmp/puppet-installer.log
+
+
+          sed -i ''34i "puppet_enterprise::profile::console::proxy::http_redirect::server_name":
+          "${ServerAddress}"'' /etc/puppetlabs/enterprise/conf.d/pe.conf
+
+          puppet agent -t >> /tmp/puppet-installer.log
+
+          echo "agent1: $?" >> /tmp/puppet-installer.log
+
+          sleep 60
+
+          puppet agent -t >> /tmp/puppet-installer.log
+
+          echo "agent2: $?" >> /tmp/puppet-installer.log
+
+          '
+        - ServerAddress:
+            Fn::Select:
+            - 0
+            - Fn::GetAtt:
+              - PuppetServer
+              - PublicIps
 Outputs:
   ServerEcsLoginAddress:
     Description:
@@ -147,13 +171,13 @@ Outputs:
       en: Puppet Enterprise Login URL
     Value:
       Fn::Sub:
-        - https://${ServerAddress}/
-        - ServerAddress:
-            Fn::Select:
-              - 0
-              - Fn::GetAtt:
-                  - PuppetServer
-                  - PublicIps
+      - https://${ServerAddress}/
+      - ServerAddress:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - PuppetServer
+            - PublicIps
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -161,7 +185,7 @@ Metadata:
       - ZoneId
       - InstanceType
       - PuppetPassword
-    Hidden:
-      - CommonName
     TemplateTags:
     - acs:integrate:computenest:puppet-enterprise
+    Hidden:
+    - CommonName

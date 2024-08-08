@@ -1,7 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: ecs部署nginx
-  zh-cn: ecs部署nginx
+  zh-cn: 创建ECS实例部署Nginx与可选MySQL RDS，配置公网访问与安全组，支持按需或预付费、自动安装容器应用与Nginx配置。
+  en: Create an ECS instance to deploy Nginx with an optional MySQL RDS, configure
+    public network access and security groups, supporting on-demand or prepaid instances,
+    as well as automated installation of container applications and Nginx configurations.
 Conditions:
   UseRDSPlugin:
     Fn::Equals:
@@ -401,26 +403,21 @@ Resources:
       Sync: true
       CommandContent:
         Fn::Sub:
-        - |
-          #!/bin/bash
-          docker stop `docker ps |grep aigc|awk -F' ' '{print $1}'`
-          echo "docker run -d --gpus all -p8081:7860 -v /home/models:/workspace/stable-diffusion-webui/models -v /home/extensions:/workspace/stable-diffusion-webui/extensions -v /home/embeddings:/workspace/stable-diffusion-webui/embeddings -v /home/aesthetic_embeddings:/workspace/stable-diffusion-webui/aesthetic_embeddings -e DB_HOST=${DBConnectString} -e DB_USER=${DBMasterUsername} -e DB_PASSWORD='${DBMasterPassword}' -e DB_PORT=3306 registry.cn-shanghai.aliyuncs.com/tcc_public/aigc:stable-diffusion-v9 sh -c '/opt/conda/bin/python /opt/conda/bin/conda run --no-capture-output -n stabel python3 launch.py --listen --api --enable-insecure-extension-access' "> /etc/init.d/start_sd_docker.sh
-          /etc/init.d/start_sd_docker.sh
-          for ((i=0;i<100;i++))
-          do
-             curl 127.0.0.1:8081
-             if [ "$?" == 0 ]
-             then
-               break
-             fi
-             sleep 1
-          done
-          htpasswd -bc /etc/nginx/password ${UserName} '${Password}'
-          systemctl start nginx
-          systemctl status nginx
-          systemctl enable nginx
-          # 执行成功回调WaitCondition结束waitCondition的等待
-          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+        - "#!/bin/bash\ndocker stop `docker ps |grep aigc|awk -F' ' '{print $1}'`\n\
+          echo \"docker run -d --gpus all -p8081:7860 -v /home/models:/workspace/stable-diffusion-webui/models\
+          \ -v /home/extensions:/workspace/stable-diffusion-webui/extensions -v /home/embeddings:/workspace/stable-diffusion-webui/embeddings\
+          \ -v /home/aesthetic_embeddings:/workspace/stable-diffusion-webui/aesthetic_embeddings\
+          \ -e DB_HOST=${DBConnectString} -e DB_USER=${DBMasterUsername} -e DB_PASSWORD='${DBMasterPassword}'\
+          \ -e DB_PORT=3306 registry.cn-shanghai.aliyuncs.com/tcc_public/aigc:stable-diffusion-v9\
+          \ sh -c '/opt/conda/bin/python /opt/conda/bin/conda run --no-capture-output\
+          \ -n stabel python3 launch.py --listen --api --enable-insecure-extension-access'\
+          \ \"> /etc/init.d/start_sd_docker.sh\n/etc/init.d/start_sd_docker.sh\nfor\
+          \ ((i=0;i<100;i++))\ndo\n   curl 127.0.0.1:8081\n   if [ \"$?\" == 0 ]\n\
+          \   then\n     break\n   fi\n   sleep 1\ndone\nhtpasswd -bc /etc/nginx/password\
+          \ ${UserName} '${Password}'\nsystemctl start nginx\nsystemctl status nginx\n\
+          systemctl enable nginx\n# 执行成功回调WaitCondition结束waitCondition的等待\n${CurlCli}\
+          \ -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"status\\\" : \\\"SUCCESS\\\"\
+          }\"\n"
         - DBMasterUsername:
             Ref: DBMasterUsername
           DBMasterPassword:

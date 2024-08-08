@@ -1,28 +1,56 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Deploy a nginx server by ECI，and use public EIP to provide service.
-  zh-cn: 使用Nginx镜像部署Eci实例，并绑定EIP提供公网服务
+  zh-cn: 使用ROS模版部署Nginx容器实例于ECI，配置EIP实现公网访问，支持资源参数化配置。
+  en: Deploy Nginx container instances using ROS (Resource Orchestration Service)
+    templates on ECI (Elastic Container Instance), configure EIP (Elastic IP) to enable
+    public network access, and support parameterized configuration of resources.
 Parameters:
-  Memory:
-    Type: Number
+  ZoneId:
+    Type: String
     Label:
-      en: Memory size (GB)
-      zh-cn: 内存大小 (GB)
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
     Description:
-      en: Memory size (GB)
-      zh-cn: 内存大小 (GB)
-    AllowedValues:
-      - 0.5
-      - 1
-      - 2
-      - 4
-      - 8
-      - 16
-      - 32
-      - 64
-      - 128
-      - 256
-      -
+      zh-cn: </font><a href='https://help.aliyun.com/document_detail/188196.html'
+        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>。
+      en: <a href='https://help.aliyun.com/document_detail/188196.html' target='_blank'><b><font
+        color='blue'>View region and zone info</font></b></a>.
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private
+        Cloud
+      zh-cn: 现有虚拟专有网络的实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private
+        Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+  SecurityGroupId:
+    Type: String
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+    Description:
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+      zh-cn: 现有业务安全组的实例ID
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
   Cpu:
     Type: Number
     Label:
@@ -32,74 +60,35 @@ Parameters:
       en: Cpu core amount
       zh-cn: CPU 内核数
     AllowedValues:
-      - 0.25
-      - 0.5
-      - 1
-      - 2
-      - 4
-      - 8
-      - 16
-      - 32
-      - 64
-  ZoneId:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    - 0.25
+    - 0.5
+    - 1
+    - 2
+    - 4
+    - 8
+    - 16
+    - 32
+    - 64
+  Memory:
+    Type: Number
     Label:
-      en: VSwitch Availability Zone
-      zh-cn: 交换机可用区
+      en: Memory size (GB)
+      zh-cn: 内存大小 (GB)
     Description:
-      zh-cn: >-
-        </font><a href='https://help.aliyun.com/document_detail/188196.html'
-        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>。
-      en: >-
-        <a href='https://help.aliyun.com/document_detail/188196.html'
-        target='_blank'><b><font color='blue'>View region and zone
-        info</font></b></a>.
-  VpcId:
-    AssociationProperty: 'ALIYUN::ECS::VPC::VPCId'
-    Type: String
-    Description:
-      en: >-
-        Please search the ID starting with (vpc-xxx) from console-Virtual
-        Private Cloud
-      zh-cn: 现有虚拟专有网络的实例ID
-    Label:
-      en: VPC ID
-      zh-cn: 专有网络VPC实例ID
-  VSwitchId:
-    AssociationProperty: 'ALIYUN::ECS::VSwitch::VSwitchId'
-    AssociationPropertyMetadata:
-      VpcId: '${VpcId}'
-      ZoneId: '${ZoneId}'
-    Type: String
-    Description:
-      en: >-
-        Instance ID of existing business network switches, console-Virtual
-        Private Cloud-VSwitches under query
-      zh-cn: 现有业务网络交换机的实例ID
-    Label:
-      en: VSwitch ID
-      zh-cn: 交换机实例ID
-  SecurityGroupId:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::SecurityGroup::SecurityGroupId'
-    AssociationPropertyMetadata:
-      VpcId: '${VpcId}'
-    Description:
-      en: >-
-        Please search the business security group ID starting with(sg-xxx)from
-        console-ECS-Network & Security
-      zh-cn: 现有业务安全组的实例ID
-    Label:
-      en: Business Security Group ID
-      zh-cn: 业务安全组ID
-Outputs:
-  EipAddress:
-    Description: IP address of created EIP.
-    Value:
-      Fn::GetAtt:
-        - Eip
-        - EipAddress
+      en: Memory size (GB)
+      zh-cn: 内存大小 (GB)
+    AllowedValues:
+    - 0.5
+    - 1
+    - 2
+    - 4
+    - 8
+    - 16
+    - 32
+    - 64
+    - 128
+    - 256
+    - null
 Resources:
   Eip:
     Type: ALIYUN::VPC::EIP
@@ -109,8 +98,14 @@ Resources:
     Name:
       Ref: ALIYUN::StackName
   ContainerGroup:
-    Type: 'ALIYUN::ECI::ContainerGroup'
+    Type: ALIYUN::ECI::ContainerGroup
     Properties:
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
       Memory:
         Ref: Memory
       Cpu:
@@ -119,35 +114,36 @@ Resources:
         Ref: Eip
       ContainerGroupName: nginx-container-group
       Container:
-        - Name: nginx
-          Image: nginx:1.14.2
-          Cpu:
-            Ref: Cpu
-          Memory:
-            Ref: Memory
-          Port:
-            - Port: 80
-              Protocol: TCP
-            - Port: 80
-              Protocol: TCP
-      ZoneId:
-        Ref: ZoneId
-      VSwitchId:
-        Ref: VSwitchId
-      SecurityGroupId:
-        Ref: SecurityGroupId
+      - Name: nginx
+        Image: nginx:1.14.2
+        Cpu:
+          Ref: Cpu
+        Memory:
+          Ref: Memory
+        Port:
+        - Port: 80
+          Protocol: TCP
+        - Port: 80
+          Protocol: TCP
       RestartPolicy: Always
+Outputs:
+  EipAddress:
+    Description: IP address of created EIP.
+    Value:
+      Fn::GetAtt:
+      - Eip
+      - EipAddress
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - ZoneId
-          - VpcId
-          - VSwitchId
-          - SecurityGroupId
-          - Cpu
-          - Memory
-        Label:
-          default:
-            zh-cn: 配置信息
-            en: Settings
+    - Parameters:
+      - ZoneId
+      - VpcId
+      - VSwitchId
+      - SecurityGroupId
+      - Cpu
+      - Memory
+      Label:
+        default:
+          zh-cn: 配置信息
+          en: Settings

@@ -1,22 +1,21 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 在ECS实例上搭建WordPress博客平台。
-  en: Build a WordPress blog platform.
+  zh-cn: 创建VPC、交换机、安全组，部署ECS实例并安装WordPress，配置网络访问与安全设置。
+  en: Create a Virtual Private Cloud (VPC), configure subnets, establish security
+    groups, deploy Elastic Compute Service (ECS) instances, and install WordPress,
+    followed by configuring network access controls and security settings.
 Parameters:
   ZoneId:
     Type: String
-    Default: null
-    Required: true
     Label:
       en: Availability Zone
       zh-cn: 可用区
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     AssociationPropertyMetadata:
       AutoSelectFirst: true
+    Default: null
   InstanceType:
     Type: String
-    Default: null
-    Required: true
     Label:
       en: Instance Type
       zh-cn: 实例类型
@@ -26,74 +25,71 @@ Parameters:
       SpotStrategy: SpotAsPriceGo
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
+    Default: null
   InstancePassword:
     Type: String
-    NoEcho: true
-    Default: null
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Default: null
+    NoEcho: true
   CommonName:
     Type: String
     Default: wordpress
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.0.0/24
-      ZoneId:
-        Ref: ZoneId
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 3389/3389
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: '-1/-1'
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: icmp
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 3389/3389
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: -1/-1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
   EcsInstance:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch
       SecurityGroupId:
@@ -110,12 +106,12 @@ Resources:
       Password:
         Ref: InstancePassword
   ModuleInstallWordpress:
-    Version: default
-    Type: 'MODULE::ACS::OOS::Extension'
+    Type: MODULE::ACS::OOS::Extension
     Properties:
       EcsInstanceIds:
-        - Ref: EcsInstance
+      - Ref: EcsInstance
       PackageName: ACS-Extension-WordPress-One-Click-1853370294850618
+    Version: default
 Outputs:
   EcsLoginAddress:
     Description:
@@ -129,21 +125,21 @@ Outputs:
       zh-cn: Wordpress 博客访问地址。
     Value:
       Fn::Sub:
-        - http://${PublicIp}
-        - PublicIp:
-            Fn::Select:
-              - 0
-              - Fn::GetAtt:
-                  - EcsInstance
-                  - PublicIps
+      - http://${PublicIp}
+      - PublicIp:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstance
+            - PublicIps
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - ZoneId
-          - InstanceType
-          - InstancePassword
-    Hidden:
-      - CommonName
+    - Parameters:
+      - ZoneId
+      - InstanceType
+      - InstancePassword
     TemplateTags:
-      - acs:example:弹性计算:在ECS实例上搭建WordPress博客平台
+    - acs:example:弹性计算:在ECS实例上搭建WordPress博客平台
+    Hidden:
+    - CommonName

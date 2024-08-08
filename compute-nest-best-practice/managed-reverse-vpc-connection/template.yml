@@ -1,7 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: the best practice of managed reverse VPC connection
-  zh-cn: 托管版VPC私网反向访问最佳实践
+  zh-cn: 创建托管VPC环境，配置Nat Gateway与ECS实例，实现私网反向访问，自动映射域名至Nat IP。
+  en: Create a managed VPC environment, configure a NAT Gateway with ECS instances
+    to facilitate private network reverse access, and automatically map domain names
+    to the NAT IP address.
 Parameters:
   ZoneId:
     Type: String
@@ -139,19 +141,13 @@ Resources:
       SystemDiskSize: 40
       UserData:
         Fn::Sub:
-        - |
-          #!/bin/sh
-          # 读取用户传入的域名列表和模板创建的NatIP列表，一一映射到/etc/host文件中
-          Hosts="${AccessDomains}"
-          PrivateIps="${NatIp}"
-          Hosts=(`echo $Hosts | sed 's/\[//g' | sed 's/\]//g' | sed 's/,//g'`)
-          PrivateIps=(`echo $PrivateIps | sed 's/\[//g' | sed 's/\]//g' | sed 's/,//g'`)
-          arraylength=${!#Hosts[@]}
-          for (( i=0; i<$arraylength; i++ ));
-            do
-              echo ${!PrivateIps[$i]} ${!Hosts[$i]} >> /etc/hosts
-            done
-          ${CurlCli} -d "{\"Data\" : \"SUCCESS\", \"Status\" : \"SUCCESS\"}"
+        - "#!/bin/sh\n# 读取用户传入的域名列表和模板创建的NatIP列表，一一映射到/etc/host文件中\nHosts=\"${AccessDomains}\"\
+          \nPrivateIps=\"${NatIp}\"\nHosts=(`echo $Hosts | sed 's/\\[//g' | sed 's/\\\
+          ]//g' | sed 's/,//g'`)\nPrivateIps=(`echo $PrivateIps | sed 's/\\[//g' |\
+          \ sed 's/\\]//g' | sed 's/,//g'`)\narraylength=${!#Hosts[@]}\nfor (( i=0;\
+          \ i<$arraylength; i++ ));\n  do\n    echo ${!PrivateIps[$i]} ${!Hosts[$i]}\
+          \ >> /etc/hosts\n  done\n${CurlCli} -d \"{\\\"Data\\\" : \\\"SUCCESS\\\"\
+          , \\\"Status\\\" : \\\"SUCCESS\\\"}\"\n"
         - CurlCli:
             Fn::GetAtt:
             - WaitConditionHandle

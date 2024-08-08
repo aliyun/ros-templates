@@ -1,17 +1,29 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 配置ECS实例的IPv6地址
-  en: Configure the IPv6 address of the ECS instance.
+  zh-cn: 创建ECS实例并配置IPv6地址，支持新创建或现有实例，自动分配公网IPv6带宽。
+  en: Create ECS instances and configure IPv6 addresses, supporting both new creations
+    and existing instances, with automatic allocation of public IPv6 bandwidth.
+Conditions:
+  CreateAndEnableIpv6:
+    Fn::And:
+    - CreateInstance
+    - Fn::Equals:
+      - Ref: PublicIpv6Address
+      - Enable
+  CreateInstance:
+    Fn::Equals:
+    - Ref: InstanceSource
+    - CreateNew
+  UseExistedInstance:
+    Fn::Equals:
+    - Ref: InstanceSource
+    - UseExisted
 Parameters:
   InstanceSource:
     Type: String
-    Default: CreateNew
     Label:
       zh-cn: 实例来源
       en: Instance Source
-    AllowedValues:
-      - CreateNew
-      - UseExisted
     AssociationPropertyMetadata:
       ValueLabelMapping:
         CreateNew:
@@ -20,10 +32,12 @@ Parameters:
         UseExisted:
           zh-cn: 选择已有实例
           en: Select Existed Instance
+    Default: CreateNew
+    AllowedValues:
+    - CreateNew
+    - UseExisted
   ZoneId:
     Type: String
-    Default: null
-    Required: true
     Label:
       en: Availability Zone
       zh-cn: 可用区
@@ -33,29 +47,27 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${InstanceSource}
-            - CreateNew
+          - ${InstanceSource}
+          - CreateNew
+    Default: null
   ImageId:
     Type: String
-    Default: aliyun_3_9_x64_20G_alibase_20231219.vhd
-    Required: true
     Label:
       en: Image of Instance
       zh-cn: 实例镜像
     AssociationProperty: ALIYUN::ECS::Image::ImageId
     AssociationPropertyMetadata:
       SupportedImageOwnerAlias:
-        - system
+      - system
       IsSupportCloudinit: true
       Visible:
         Condition:
           Fn::Equals:
-            - ${InstanceSource}
-            - CreateNew
+          - ${InstanceSource}
+          - CreateNew
+    Default: aliyun_3_9_x64_20G_alibase_20231219.vhd
   InstanceType:
     Type: String
-    Default: null
-    Required: true
     Label:
       en: Instance Type
       zh-cn: 实例类型
@@ -68,39 +80,35 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${InstanceSource}
-            - CreateNew
+          - ${InstanceSource}
+          - CreateNew
+    Default: null
   InstancePassword:
     Type: String
-    NoEcho: true
-    Default: null
-    Confirm: true
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Equals:
-            - ${InstanceSource}
-            - CreateNew
+          - ${InstanceSource}
+          - CreateNew
+    Default: null
+    NoEcho: true
+    Confirm: true
   EcsInstanceId:
     Type: String
-    Default: null
     Label:
       en: ECS Instance ID
       zh-cn: ECS实例ID
@@ -110,16 +118,20 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${InstanceSource}
-            - UseExisted
+          - ${InstanceSource}
+          - UseExisted
+    Default: null
   PublicIpv6Address:
     Type: String
     Label:
       zh-cn: 配置IPv6公网带宽
       en: Configure IPv6 Internet Bandwidth
-    AllowedValues:
-      - Enable
-      - Disable
+    Description:
+      en: By default, the IPv6 address assigned to the ECS instance can be used only
+        for  communications over private networks. To allow communications over the
+        Internet,  you must enable IPv6 Internet bandwidth. Select your configuration  from
+        the preceding options.
+      zh-cn: 默认情况下，为ECS实例分配的IPv6地址仅具有私网通信能力，若您希望IPv6地址具有公网通信能力， 则需开通IPv6公网带宽。请从以上选项中选择您的配置。
     AssociationPropertyMetadata:
       ValueLabelMapping:
         Enable:
@@ -128,15 +140,9 @@ Parameters:
         Disable:
           zh-cn: 不开通IPv6公网带宽
           en: Disable IPv6 Internet Bandwidth
-    Description:
-      en: >-
-        By default, the IPv6 address assigned to the ECS instance can be used only for 
-        communications over private networks. To allow communications over the Internet, 
-        you must enable IPv6 Internet bandwidth. Select your configuration 
-        from the preceding options.
-      zh-cn: >-
-        默认情况下，为ECS实例分配的IPv6地址仅具有私网通信能力，若您希望IPv6地址具有公网通信能力，
-        则需开通IPv6公网带宽。请从以上选项中选择您的配置。
+    AllowedValues:
+    - Enable
+    - Disable
   CommonName:
     Type: String
     Default: config-ipv6
@@ -146,26 +152,11 @@ Parameters:
     AssociationPropertyMetadata:
       Length: 2
       CharacterClasses:
-        - Class: number
-          min: 1
-Conditions:
-  CreateInstance:
-    Fn::Equals:
-      - Ref: InstanceSource
-      - CreateNew
-  UseExistedInstance:
-    Fn::Equals:
-      - Ref: InstanceSource
-      - UseExisted
-  CreateAndEnableIpv6:
-    Fn::And:
-      - CreateInstance
-      - Fn::Equals:
-          - Ref: PublicIpv6Address
-          - Enable
+      - Class: number
+        min: 1
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Condition: CreateInstance
     Properties:
       CidrBlock: 192.168.0.0/16
@@ -173,26 +164,26 @@ Resources:
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Condition: CreateInstance
     Properties:
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.0.0/24
-      ZoneId:
-        Ref: ZoneId
       Ipv6CidrBlock: 0
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   Ipv6Gateway:
-    Type: 'ALIYUN::VPC::Ipv6Gateway'
-    DependsOn: VSwitch
+    Type: ALIYUN::VPC::Ipv6Gateway
     Condition: CreateInstance
     Properties:
       VpcId:
         Ref: Vpc
+    DependsOn: VSwitch
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Condition: CreateInstance
     Properties:
       VpcId:
@@ -200,26 +191,26 @@ Resources:
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 3389/3389
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: '-1/-1'
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: icmp
-        - PortRange: '-1/-1'
-          Ipv6SourceCidrIp: ::/0
-          IpProtocol: icmpv6
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 3389/3389
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: -1/-1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+      - PortRange: -1/-1
+        Ipv6SourceCidrIp: ::/0
+        IpProtocol: icmpv6
   EcsInstance:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Condition: CreateInstance
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch
       SecurityGroupId:
@@ -238,39 +229,38 @@ Resources:
         Ref: InstancePassword
       Ipv6AddressCount: 1
   Ipv6InternetBandwidth:
-    Type: 'ALIYUN::VPC::Ipv6InternetBandwidth'
+    Type: ALIYUN::VPC::Ipv6InternetBandwidth
     Condition: CreateAndEnableIpv6
     Properties:
       Bandwidth: 1
       Ipv6AddressId:
         Fn::Jq:
-          - First
-          - .[0][0]
-          - Fn::GetAtt:
-              - EcsInstance
-              - Ipv6AddressIds
+        - First
+        - .[0][0]
+        - Fn::GetAtt:
+          - EcsInstance
+          - Ipv6AddressIds
       Ipv6GatewayId:
         Ref: Ipv6Gateway
       InternetChargeType: PayByTraffic
   DsEni:
-    Type: 'DATASOURCE::ECS::NetworkInterfaces'
+    Type: DATASOURCE::ECS::NetworkInterfaces
     Condition: UseExistedInstance
     Properties:
       InstanceId:
         Ref: EcsInstanceId
       Type: Primary
   DsEcs:
-    Type: 'DATASOURCE::ECS::Instances'
+    Type: DATASOURCE::ECS::Instances
     Properties:
       InstanceIds:
-        - Fn::If:
-            - UseExistedInstance
-            - Ref: EcsInstanceId
-            - Ref: EcsInstance
+      - Fn::If:
+        - UseExistedInstance
+        - Ref: EcsInstanceId
+        - Ref: EcsInstance
   DsIpv6Gateway:
-    Type: 'MODULE::ACS::OOS::ExecuteAPI'
+    Type: MODULE::ACS::OOS::ExecuteAPI
     Condition: UseExistedInstance
-    Version: default
     Properties:
       Service: VPC
       Prefix: DescribeIpv6Gateways
@@ -279,15 +269,15 @@ Resources:
       Parameters:
         VpcId:
           Fn::Jq:
-            - First
-            - .[0].VpcId
-            - Fn::GetAtt:
-                - DsEcs
-                - Instances
-  DsIpv6Addresses:
-    Type: 'MODULE::ACS::OOS::ExecuteAPI'
-    Condition: UseExistedInstance
+          - First
+          - .[0].VpcId
+          - Fn::GetAtt:
+            - DsEcs
+            - Instances
     Version: default
+  DsIpv6Addresses:
+    Type: MODULE::ACS::OOS::ExecuteAPI
+    Condition: UseExistedInstance
     Properties:
       Service: VPC
       Prefix: DescribeIpv6Addresses
@@ -296,273 +286,83 @@ Resources:
       Parameters:
         AssociatedInstanceId:
           Ref: EcsInstanceId
+    Version: default
   DsVsw:
-    Type: 'DATASOURCE::VPC::VSwitch'
+    Type: DATASOURCE::VPC::VSwitch
     Condition: UseExistedInstance
     Properties:
       VSwitchId:
         Fn::Jq:
-          - First
-          - .[0].VswitchId
-          - Fn::GetAtt:
-              - DsEcs
-              - Instances
+        - First
+        - .[0].VswitchId
+        - Fn::GetAtt:
+          - DsEcs
+          - Instances
   SecurityGroupIngress:
-    Type: 'ALIYUN::ECS::SecurityGroupIngress'
+    Type: ALIYUN::ECS::SecurityGroupIngress
     Condition: UseExistedInstance
     Properties:
       SecurityGroupId:
         Fn::Jq:
-          - First
-          - .[0].SecurityGroupIds[0]
-          - Fn::GetAtt:
-              - DsEcs
-              - Instances
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DsEcs
+          - Instances
       Ipv6SourceCidrIp: ::/0
       IpProtocol: icmpv6
       NicType: intranet
-      PortRange: '-1/-1'
-  ConfigureIPv6Address:
-    Type: 'ALIYUN::ROS::Stack'
-    DependsOn: AssignIpv6Address
-    Properties:
-      Parameters:
-        OsType:
-          Fn::Jq:
-            - First
-            - .[0].OSType
-            - Fn::GetAtt:
-                - DsEcs
-                - Instances
-        InstanceId:
-          Fn::If:
-            - UseExistedInstance
-            - Ref: EcsInstanceId
-            - Ref: EcsInstance
-      TemplateBody:
-        ROSTemplateFormatVersion: '2015-09-01'
-        Parameters:
-          OsType:
-            Type: String
-            Default: null
-          InstanceId:
-            Type: String
-        Conditions:
-          Linux:
-            Fn::Equals:
-              - linux
-              - Ref: OsType
-          Windows:
-            Fn::Equals:
-              - windows
-              - Ref: OsType
-        Resources:
-          WaiteWindowsReady:
-            Type: 'ALIYUN::ROS::Sleep'
-            Condition: Windows
-            Properties:
-              CreateDuration: 300
-          WindowsCommand:
-            Type: 'ALIYUN::ECS::RunCommand'
-            DependsOn: WaiteWindowsReady
-            Condition: Windows
-            Properties:
-              InstanceIds:
-                - Ref: InstanceId
-              Type: RunPowerShellScript
-              Sync: true
-              Timeout: 3600
-              CommandContent:
-                Fn::Sub: |-
-                  # powershell
-                  Write-Output "Start"
-                  $install_dir = "C:\Windows\system32"
-                  $install_path = "$install_dir\ecs-utils-ipv6.exe"
-                  
-                  $Is64Bit = [Environment]::Is64BitOperatingSystem
-                  Write-Output "Is64BitOperatingSystem: $Is64Bit"
-                  
-                  if(-not (Test-Path -Path $install_path)){
-                      # download the tool
-                      if ([Environment]::Is64BitOperatingSystem) {
-                          $tool_url = 'https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/win/64/ecs-utils-ipv6.exe' 
-                      } else {
-                          $tool_url = 'https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/win/32/ecs-utils-ipv6.exe' 
-                      }
-                      Write-Output "Download ecs-utils-ipv6.exe form url $tool_url"
-                      Invoke-WebRequest -uri $tool_url -OutFile $install_path
-                      Unblock-File $install_path
-                  }
-                  
-                  # run the tool
-                  Write-Output "Run ecs-utils-ipv6.exe"
-                  $maxRetries = 10 
-                  $retryInterval = 10 
-                  $retryCount = 0 
-                  
-                  while ($retryCount -lt $maxRetries) {
-                      try {
-                          Start-Process -FilePath "$install_path" -ArgumentList "--noenterkey" -NoNewWindow
-                          Write-Output "Successfully!"
-                          break
-                      } catch {
-                          Write-Error "run failed: $($_.Exception.Message). Start retry $($retryCount + 1)"
-                          Start-Sleep -Seconds $retryInterval
-                          $retryCount++  
-                      }
-                  }
-                  
-                  if ($retryCount -eq $maxRetries) {
-                      Write-Error "Failed!"
-                  }
-          LinuxCommand:
-            Type: 'ALIYUN::ECS::RunCommand'
-            Condition: Linux
-            Properties:
-              InstanceIds:
-                - Ref: InstanceId
-              Type: RunShellScript
-              Sync: true
-              Timeout: 3600
-              CommandContent:
-                Fn::Sub: |-
-                  #!/bin/bash
-                  
-                  # script exit code:
-                  # 0 - success
-                  # 1 - unsupported system
-                  # 2 - network not available
-                  # 3 - failed to run ecs-utils-ipv6 tool
-                  # 4 - failed to modify /etc/eni_utils/eni-function
-                  
-                  function unsupported_system() {
-                      log_fatal 1 "Unsupported System: $1"
-                  }
-                  
-                  function log_info() {
-                      printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
-                  }
-                  
-                  function log_error() {
-                      printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
-                  }
-                  
-                  function log_fatal() {
-                      printf "\n========================================================================\n"
-                      printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
-                      printf "\n========================================================================\n"
-                      exit $1
-                  }
-                  
-                  function debug_exec(){
-                      local cmd="$@"
-                      log_info "$cmd"
-                      eval "$cmd"
-                      ret=$?
-                      echo ""
-                      log_info "$cmd, exit code: $ret"
-                      return $ret
-                  }
-                  
-                  function check_network_available() {
-                      log_info "ping ecs-image-utils.oss-cn-hangzhou.aliyuncs.com ..."
-                      if ! debug_exec ping -c 4 ecs-image-utils.oss-cn-hangzhou.aliyuncs.com; then
-                          log_fatal 2 "Could not connect to https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com"
-                      fi
-                  }
-                  
-                  function run_ipv6_tool() {
-                      log_info "run ecs-utils-ipv6 tool"
-                      debug_exec chmod +x ./ecs-utils-ipv6
-                      
-                      if ! debug_exec ./ecs-utils-ipv6; then
-                          log_fatal 3 "Failed to run ecs-utils-ipv6 tool"
-                      fi
-                  }
-                  
-                  function check_multi_eni_util() {
-                      log_info "check multi-nic-util config"
-                      if test -f /sbin/eni-ifscan; then
-                          
-                          if ! debug_exec "sed -i 's/IPV6INIT=no/IPV6INIT=yes\n        DHCPV6C=yes/g' /etc/eni_utils/eni-function"; then
-                              log_fatal 4 "Failed to modify /etc/eni_utils/eni-function"
-                          fi
-                      fi
-                  }
-                  
-                  log_info "System Information:"
-                  if ! lsb_release -a; then
-                      unsupported_system
-                  fi;
-                  echo ""
-                  check_network_available
-                  
-                  RHEL=https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/rhel/ecs-utils-ipv6
-                  Debian=https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/debian/ecs-utils-ipv6
-                  SLES=https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/sles/ecs-utils-ipv6
-                  FreeBSD=https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/freebsd/ecs-utils-ipv6
-                  
-                  linux=$(lsb_release -a | grep "Distributor ID:" | cut -d':' -f2 | cut -d '(' -f1 | xargs echo -n)
-                  case $linux in
-                      CentOS|RedHat|Fedora|Aliyun|AlibabaCloud|Fedora|AnolisOS) wget --timeout=10 -q -O ecs-utils-ipv6 $RHEL ;;
-                      Debian|Ubuntu) wget --timeout=10 -q -O ecs-utils-ipv6 $Debian ;; 
-                      SUSE|OpenSUSE) wget --timeout=10 -q -O ecs-utils-ipv6 $SLES ;;
-                      FreeBSD) wget --timeout=10 -q  -O ecs-utils-ipv6 $FreeBSD ;;
-                      *) unsupported_system $linux ;;
-                  esac
-                  
-                  run_ipv6_tool
-                  check_multi_eni_util
+      PortRange: -1/-1
   AssignIpv6Address:
-    Type: 'ALIYUN::ROS::Stack'
+    Type: ALIYUN::ROS::Stack
     Condition: UseExistedInstance
     Properties:
       Parameters:
         VpcId:
           Fn::Jq:
-            - First
-            - .[0].VpcId
-            - Fn::GetAtt:
-                - DsEcs
-                - Instances
+          - First
+          - .[0].VpcId
+          - Fn::GetAtt:
+            - DsEcs
+            - Instances
         VswId:
           Fn::Jq:
-            - First
-            - .[0].VswitchId
-            - Fn::GetAtt:
-                - DsEcs
-                - Instances
+          - First
+          - .[0].VswitchId
+          - Fn::GetAtt:
+            - DsEcs
+            - Instances
         NetworkInterfaceId:
           Fn::Select:
-            - 0
-            - Fn::GetAtt:
-                - DsEni
-                - NetworkInterfaceIds
+          - 0
+          - Fn::GetAtt:
+            - DsEni
+            - NetworkInterfaceIds
         Ipv6AddressId:
           Fn::Jq:
-            - First
-            - .[0].Ipv6Addresses.Ipv6Address[0].Ipv6AddressId
-            - Fn::GetAtt:
-                - DsIpv6Addresses
-                - Output
+          - First
+          - .[0].Ipv6Addresses.Ipv6Address[0].Ipv6AddressId
+          - Fn::GetAtt:
+            - DsIpv6Addresses
+            - Output
         Ipv6InternetBandwidthId:
           Fn::Jq:
-            - First
-            - .[0].Ipv6Addresses.Ipv6Address[0].Ipv6InternetBandwidth.Ipv6InternetBandwidthId
-            - Fn::GetAtt:
-                - DsIpv6Addresses
-                - Output
+          - First
+          - .[0].Ipv6Addresses.Ipv6Address[0].Ipv6InternetBandwidth.Ipv6InternetBandwidthId
+          - Fn::GetAtt:
+            - DsIpv6Addresses
+            - Output
         Ipv6GatewayId:
           Fn::Jq:
-            - First
-            - .[0].Ipv6Gateways.Ipv6Gateway[0].Ipv6GatewayId
-            - Fn::GetAtt:
-                - DsIpv6Gateway
-                - Output
+          - First
+          - .[0].Ipv6Gateways.Ipv6Gateway[0].Ipv6GatewayId
+          - Fn::GetAtt:
+            - DsIpv6Gateway
+            - Output
         VswIpv6Address:
           Fn::GetAtt:
-            - DsVsw
-            - Ipv6CidrBlock
+          - DsVsw
+          - Ipv6CidrBlock
         Ipv6CidrBlockNumber:
           Ref: Ipv6CidrBlockNumber
         PublicIpv6Address:
@@ -595,34 +395,34 @@ Resources:
         Conditions:
           EnableIpv6ForVpc:
             Fn::Equals:
-              - null
-              - Ref: Ipv6GatewayId
+            - null
+            - Ref: Ipv6GatewayId
           EnableIpv6ForVsw:
             Fn::Equals:
-              - true
-              - Fn::Contains:
-                - - null
-                  - ''
-                - Ref: VswIpv6Address
+            - true
+            - Fn::Contains:
+              - - null
+                - ''
+              - Ref: VswIpv6Address
           AssignIpv6Addresses:
             Fn::Equals:
-              - null
-              - Ref: Ipv6AddressId
+            - null
+            - Ref: Ipv6AddressId
           Ipv6InternetBandwidth:
             Fn::And:
-              - Fn::Equals:
-                  - Fn::If:
-                      - AssignIpv6Addresses
-                      - null
-                      - ""
-                  - Ref: Ipv6InternetBandwidthId
-              - Fn::Equals:
-                  - Ref: PublicIpv6Address
-                  - Enable
+            - Fn::Equals:
+              - Fn::If:
+                - AssignIpv6Addresses
+                - null
+                - ''
+              - Ref: Ipv6InternetBandwidthId
+            - Fn::Equals:
+              - Ref: PublicIpv6Address
+              - Enable
         Resources:
           OpenIPv6ForVpc:
             Condition: EnableIpv6ForVpc
-            Type: 'MODULE::ACS::OOS::ExecuteAPI'
+            Type: MODULE::ACS::OOS::ExecuteAPI
             Version: default
             Properties:
               Service: VPC
@@ -634,14 +434,14 @@ Resources:
                   Ref: VpcId
                 EnableIPv6: true
           Ipv6Gateway:
-            Type: 'ALIYUN::VPC::Ipv6Gateway'
+            Type: ALIYUN::VPC::Ipv6Gateway
             Condition: EnableIpv6ForVpc
             DependsOn: OpenIPv6ForVpc
             Properties:
               VpcId:
                 Ref: VpcId
           OpenIPv6ForVsw:
-            Type: 'MODULE::ACS::OOS::ExecuteAPI'
+            Type: MODULE::ACS::OOS::ExecuteAPI
             Condition: EnableIpv6ForVsw
             DependsOn: Ipv6Gateway
             Version: default
@@ -657,40 +457,159 @@ Resources:
                   Ref: VswId
                 EnableIPv6: true
           Ipv6InternetBandwidth:
-            Type: 'ALIYUN::VPC::Ipv6InternetBandwidth'
+            Type: ALIYUN::VPC::Ipv6InternetBandwidth
             Condition: Ipv6InternetBandwidth
             DependsOn: Sleep
             Properties:
               Bandwidth: 1
               Ipv6AddressId:
                 Fn::If:
-                  - AssignIpv6Addresses
-                  - Fn::Select:
-                      - 0
-                      - Fn::GetAtt:
-                          - IpV6Address
-                          - Ipv6AddressIds
-                  - Ref: Ipv6AddressId
+                - AssignIpv6Addresses
+                - Fn::Select:
+                  - 0
+                  - Fn::GetAtt:
+                    - IpV6Address
+                    - Ipv6AddressIds
+                - Ref: Ipv6AddressId
               Ipv6GatewayId:
                 Fn::If:
-                  - EnableIpv6ForVpc
-                  - Ref: Ipv6Gateway
-                  - Ref: Ipv6GatewayId
+                - EnableIpv6ForVpc
+                - Ref: Ipv6Gateway
+                - Ref: Ipv6GatewayId
               InternetChargeType: PayByTraffic
           Sleep:
-            Type: 'ALIYUN::ROS::Sleep'
+            Type: ALIYUN::ROS::Sleep
             DependsOn: IpV6Address
             Condition: AssignIpv6Addresses
             Properties:
               CreateDuration: 60
           IpV6Address:
-            Type: 'ALIYUN::ECS::AssignIpv6Addresses'
+            Type: ALIYUN::ECS::AssignIpv6Addresses
             DependsOn: OpenIPv6ForVsw
             Condition: AssignIpv6Addresses
             Properties:
               Ipv6AddressCount: 1
               NetworkInterfaceId:
                 Ref: NetworkInterfaceId
+  ConfigureIPv6Address:
+    Type: ALIYUN::ROS::Stack
+    Properties:
+      Parameters:
+        OsType:
+          Fn::Jq:
+          - First
+          - .[0].OSType
+          - Fn::GetAtt:
+            - DsEcs
+            - Instances
+        InstanceId:
+          Fn::If:
+          - UseExistedInstance
+          - Ref: EcsInstanceId
+          - Ref: EcsInstance
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Parameters:
+          OsType:
+            Type: String
+            Default: null
+          InstanceId:
+            Type: String
+        Conditions:
+          Linux:
+            Fn::Equals:
+            - linux
+            - Ref: OsType
+          Windows:
+            Fn::Equals:
+            - windows
+            - Ref: OsType
+        Resources:
+          WaiteWindowsReady:
+            Type: ALIYUN::ROS::Sleep
+            Condition: Windows
+            Properties:
+              CreateDuration: 300
+          WindowsCommand:
+            Type: ALIYUN::ECS::RunCommand
+            DependsOn: WaiteWindowsReady
+            Condition: Windows
+            Properties:
+              InstanceIds:
+              - Ref: InstanceId
+              Type: RunPowerShellScript
+              Sync: true
+              Timeout: 3600
+              CommandContent:
+                Fn::Sub: "# powershell\nWrite-Output \"Start\"\n$install_dir = \"\
+                  C:\\Windows\\system32\"\n$install_path = \"$install_dir\\ecs-utils-ipv6.exe\"\
+                  \n\n$Is64Bit = [Environment]::Is64BitOperatingSystem\nWrite-Output\
+                  \ \"Is64BitOperatingSystem: $Is64Bit\"\n\nif(-not (Test-Path -Path\
+                  \ $install_path)){\n    # download the tool\n    if ([Environment]::Is64BitOperatingSystem)\
+                  \ {\n        $tool_url = 'https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/win/64/ecs-utils-ipv6.exe'\
+                  \ \n    } else {\n        $tool_url = 'https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/win/32/ecs-utils-ipv6.exe'\
+                  \ \n    }\n    Write-Output \"Download ecs-utils-ipv6.exe form url\
+                  \ $tool_url\"\n    Invoke-WebRequest -uri $tool_url -OutFile $install_path\n\
+                  \    Unblock-File $install_path\n}\n\n# run the tool\nWrite-Output\
+                  \ \"Run ecs-utils-ipv6.exe\"\n$maxRetries = 10 \n$retryInterval\
+                  \ = 10 \n$retryCount = 0 \n\nwhile ($retryCount -lt $maxRetries)\
+                  \ {\n    try {\n        Start-Process -FilePath \"$install_path\"\
+                  \ -ArgumentList \"--noenterkey\" -NoNewWindow\n        Write-Output\
+                  \ \"Successfully!\"\n        break\n    } catch {\n        Write-Error\
+                  \ \"run failed: $($_.Exception.Message). Start retry $($retryCount\
+                  \ + 1)\"\n        Start-Sleep -Seconds $retryInterval\n        $retryCount++\
+                  \  \n    }\n}\n\nif ($retryCount -eq $maxRetries) {\n    Write-Error\
+                  \ \"Failed!\"\n}"
+          LinuxCommand:
+            Type: ALIYUN::ECS::RunCommand
+            Condition: Linux
+            Properties:
+              InstanceIds:
+              - Ref: InstanceId
+              Type: RunShellScript
+              Sync: true
+              Timeout: 3600
+              CommandContent:
+                Fn::Sub: "#!/bin/bash\n\n# script exit code:\n# 0 - success\n# 1 -\
+                  \ unsupported system\n# 2 - network not available\n# 3 - failed\
+                  \ to run ecs-utils-ipv6 tool\n# 4 - failed to modify /etc/eni_utils/eni-function\n\
+                  \nfunction unsupported_system() {\n    log_fatal 1 \"Unsupported\
+                  \ System: $1\"\n}\n\nfunction log_info() {\n    printf \"%s [INFO]\
+                  \ %s\\n\" \"$(date '+%Y-%m-%d %H:%M:%S')\" \"$1\"\n}\n\nfunction\
+                  \ log_error() {\n    printf \"%s [ERROR] %s\\n\" \"$(date '+%Y-%m-%d\
+                  \ %H:%M:%S')\" \"$1\"\n}\n\nfunction log_fatal() {\n    printf \"\
+                  \\n========================================================================\\\
+                  n\"\n    printf \"%s [FATAL] %s\\n\" \"$(date '+%Y-%m-%d %H:%M:%S')\"\
+                  \ \"$1\"\n    printf \"\\n========================================================================\\\
+                  n\"\n    exit $1\n}\n\nfunction debug_exec(){\n    local cmd=\"\
+                  $@\"\n    log_info \"$cmd\"\n    eval \"$cmd\"\n    ret=$?\n   \
+                  \ echo \"\"\n    log_info \"$cmd, exit code: $ret\"\n    return\
+                  \ $ret\n}\n\nfunction check_network_available() {\n    log_info\
+                  \ \"ping ecs-image-utils.oss-cn-hangzhou.aliyuncs.com ...\"\n  \
+                  \  if ! debug_exec ping -c 4 ecs-image-utils.oss-cn-hangzhou.aliyuncs.com;\
+                  \ then\n        log_fatal 2 \"Could not connect to https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com\"\
+                  \n    fi\n}\n\nfunction run_ipv6_tool() {\n    log_info \"run ecs-utils-ipv6\
+                  \ tool\"\n    debug_exec chmod +x ./ecs-utils-ipv6\n    \n    if\
+                  \ ! debug_exec ./ecs-utils-ipv6; then\n        log_fatal 3 \"Failed\
+                  \ to run ecs-utils-ipv6 tool\"\n    fi\n}\n\nfunction check_multi_eni_util()\
+                  \ {\n    log_info \"check multi-nic-util config\"\n    if test -f\
+                  \ /sbin/eni-ifscan; then\n        \n        if ! debug_exec \"sed\
+                  \ -i 's/IPV6INIT=no/IPV6INIT=yes\\n        DHCPV6C=yes/g' /etc/eni_utils/eni-function\"\
+                  ; then\n            log_fatal 4 \"Failed to modify /etc/eni_utils/eni-function\"\
+                  \n        fi\n    fi\n}\n\nlog_info \"System Information:\"\nif\
+                  \ ! lsb_release -a; then\n    unsupported_system\nfi;\necho \"\"\
+                  \ncheck_network_available\n\nRHEL=https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/rhel/ecs-utils-ipv6\n\
+                  Debian=https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/debian/ecs-utils-ipv6\n\
+                  SLES=https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/sles/ecs-utils-ipv6\n\
+                  FreeBSD=https://ecs-image-utils.oss-cn-hangzhou.aliyuncs.com/ipv6/freebsd/ecs-utils-ipv6\n\
+                  \nlinux=$(lsb_release -a | grep \"Distributor ID:\" | cut -d':'\
+                  \ -f2 | cut -d '(' -f1 | xargs echo -n)\ncase $linux in\n    CentOS|RedHat|Fedora|Aliyun|AlibabaCloud|Fedora|AnolisOS)\
+                  \ wget --timeout=10 -q -O ecs-utils-ipv6 $RHEL ;;\n    Debian|Ubuntu)\
+                  \ wget --timeout=10 -q -O ecs-utils-ipv6 $Debian ;; \n    SUSE|OpenSUSE)\
+                  \ wget --timeout=10 -q -O ecs-utils-ipv6 $SLES ;;\n    FreeBSD)\
+                  \ wget --timeout=10 -q  -O ecs-utils-ipv6 $FreeBSD ;;\n    *) unsupported_system\
+                  \ $linux ;;\nesac\n\nrun_ipv6_tool\ncheck_multi_eni_util"
+    DependsOn: AssignIpv6Address
 Outputs:
   EcsLoginAddress:
     Description:
@@ -698,25 +617,25 @@ Outputs:
       zh-cn: ECS登录地址。
     Value:
       Fn::Sub:
-        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${InstanceId}
-        - InstanceId:
-            Fn::If:
-              - UseExistedInstance
-              - Ref: EcsInstanceId
-              - Ref: EcsInstance
+      - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${InstanceId}
+      - InstanceId:
+          Fn::If:
+          - UseExistedInstance
+          - Ref: EcsInstanceId
+          - Ref: EcsInstance
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - InstanceSource
-          - ZoneId
-          - ImageId
-          - InstanceType
-          - InstancePassword
-          - EcsInstanceId
-          - PublicIpv6Address
-    Hidden:
-      - CommonName
-      - Ipv6CidrBlockNumber
+    - Parameters:
+      - InstanceSource
+      - ZoneId
+      - ImageId
+      - InstanceType
+      - InstancePassword
+      - EcsInstanceId
+      - PublicIpv6Address
     TemplateTags:
-      - acs:document-help:ecs:配置ECS实例的IPv6地址
+    - acs:document-help:ecs:配置ECS实例的IPv6地址
+    Hidden:
+    - CommonName
+    - Ipv6CidrBlockNumber

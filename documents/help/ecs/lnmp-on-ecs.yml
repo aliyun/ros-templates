@@ -1,17 +1,24 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 部署LNMP环境。
-  en: Deploy the LNMP environment.
+  zh-cn: 创建可选新或用已有ECS实例，配置VPC、安全组及云盘，自动安装LNMP环境，提供外部访问URL。
+  en: Create a new or optional existing Elastic Compute Service (ECS) instance, configure
+    Virtual Private Cloud (VPC), security groups, and cloud disks, automatically install
+    the LNMP stack, and provide an external access URL.
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+    - Ref: InstanceSource
+    - CreateNew
+  UseExistedInstance:
+    Fn::Equals:
+    - Ref: InstanceSource
+    - UseExisted
 Parameters:
   InstanceSource:
     Type: String
-    Default: CreateNew
     Label:
       zh-cn: 实例来源
       en: Instance Source
-    AllowedValues:
-      - CreateNew
-      - UseExisted
     AssociationPropertyMetadata:
       ValueLabelMapping:
         CreateNew:
@@ -20,10 +27,12 @@ Parameters:
         UseExisted:
           zh-cn: 选择已有实例
           en: Select Existed Instance
+    Default: CreateNew
+    AllowedValues:
+    - CreateNew
+    - UseExisted
   ZoneId:
     Type: String
-    Default: null
-    Required: true
     Label:
       en: Availability Zone
       zh-cn: 可用区
@@ -33,29 +42,27 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${InstanceSource}
-            - CreateNew
+          - ${InstanceSource}
+          - CreateNew
+    Default: null
   ImageId:
     Type: String
-    Default: aliyun_3_9_x64_20G_alibase_20231219.vhd
-    Required: true
     Label:
       en: Image of Instance
       zh-cn: 实例镜像
     AssociationProperty: ALIYUN::ECS::Image::ImageId
     AssociationPropertyMetadata:
       SupportedImageOwnerAlias:
-        - system
+      - system
       IsSupportCloudinit: true
       Visible:
         Condition:
           Fn::Equals:
-            - ${InstanceSource}
-            - CreateNew
+          - ${InstanceSource}
+          - CreateNew
+    Default: aliyun_3_9_x64_20G_alibase_20231219.vhd
   InstanceType:
     Type: String
-    Default: null
-    Required: true
     Label:
       en: Instance Type
       zh-cn: 实例类型
@@ -68,39 +75,35 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${InstanceSource}
-            - CreateNew
+          - ${InstanceSource}
+          - CreateNew
+    Default: null
   InstancePassword:
     Type: String
-    NoEcho: true
-    Default: null
-    Confirm: true
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Equals:
-            - ${InstanceSource}
-            - CreateNew
+          - ${InstanceSource}
+          - CreateNew
+    Default: null
+    NoEcho: true
+    Confirm: true
   EcsInstanceId:
     Type: String
-    Default: null
     Label:
       en: ECS Instance ID
       zh-cn: ECS实例ID
@@ -110,41 +113,33 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${InstanceSource}
-            - UseExisted
+          - ${InstanceSource}
+          - UseExisted
+    Default: null
   CommonName:
     Type: String
     Default: lnmp
-Conditions:
-  CreateInstance:
-    Fn::Equals:
-      - Ref: InstanceSource
-      - CreateNew
-  UseExistedInstance:
-    Fn::Equals:
-      - Ref: InstanceSource
-      - UseExisted
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Condition: CreateInstance
     Properties:
       CidrBlock: 192.168.0.0/16
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Condition: CreateInstance
     Properties:
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.0.0/24
-      ZoneId:
-        Ref: ZoneId
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Condition: CreateInstance
     Properties:
       VpcId:
@@ -152,26 +147,26 @@ Resources:
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 3389/3389
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: '-1/-1'
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: icmp
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 3389/3389
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: -1/-1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
   EcsInstance:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Condition: CreateInstance
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch
       SecurityGroupId:
@@ -189,23 +184,23 @@ Resources:
       Password:
         Ref: InstancePassword
   ModuleInstallLNMP:
-    Version: default
-    Type: 'MODULE::ACS::OOS::Extension'
+    Type: MODULE::ACS::OOS::Extension
     Properties:
       EcsInstanceIds:
-        - Fn::If:
-            - UseExistedInstance
-            - Ref: EcsInstanceId
-            - Ref: EcsInstance
+      - Fn::If:
+        - UseExistedInstance
+        - Ref: EcsInstanceId
+        - Ref: EcsInstance
       PackageName: ACS-Extension-LNMP-One-Click-1853370294850618
+    Version: default
   DsEcs:
-    Type: 'DATASOURCE::ECS::Instances'
+    Type: DATASOURCE::ECS::Instances
     Properties:
       InstanceIds:
-        - Fn::If:
-            - UseExistedInstance
-            - Ref: EcsInstanceId
-            - Ref: EcsInstance
+      - Fn::If:
+        - UseExistedInstance
+        - Ref: EcsInstanceId
+        - Ref: EcsInstance
 Outputs:
   EcsLoginAddress:
     Description:
@@ -213,26 +208,27 @@ Outputs:
       zh-cn: ECS登录地址。
     Value:
       Fn::Sub:
-        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${InstanceId}
-        - InstanceId:
-            Fn::If:
-              - UseExistedInstance
-              - Ref: EcsInstanceId
-              - Ref: EcsInstance
+      - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${InstanceId}
+      - InstanceId:
+          Fn::If:
+          - UseExistedInstance
+          - Ref: EcsInstanceId
+          - Ref: EcsInstance
   NginxUrl:
     Description:
       en: Nginx Info Page.
       zh-cn: Nginx信息页面。
     Value:
       Fn::Sub:
-        - http://${PublicIp}
-        - PublicIp:
-            Fn::Jq:
-              - First
-              - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress end
-              - Fn::GetAtt:
-                  - DsEcs
-                  - Instances
+      - http://${PublicIp}
+      - PublicIp:
+          Fn::Jq:
+          - First
+          - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+            end
+          - Fn::GetAtt:
+            - DsEcs
+            - Instances
   PhpUrl:
     Description:
       en: PHP Info Page.
@@ -251,14 +247,14 @@ Outputs:
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - InstanceSource
-          - ZoneId
-          - ImageId
-          - InstanceType
-          - InstancePassword
-          - EcsInstanceId
-    Hidden:
-      - CommonName
+    - Parameters:
+      - InstanceSource
+      - ZoneId
+      - ImageId
+      - InstanceType
+      - InstancePassword
+      - EcsInstanceId
     TemplateTags:
-      - acs:document-help:ecs:部署LNMP环境
+    - acs:document-help:ecs:部署LNMP环境
+    Hidden:
+    - CommonName

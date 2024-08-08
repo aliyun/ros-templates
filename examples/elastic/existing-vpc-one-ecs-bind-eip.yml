@@ -1,7 +1,8 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Create a VPC type ECS and bind EIP (existing VPC).
-  zh-cn: 创建VPC类型ECS，并绑定EIP(已有VPC)。
+  zh-cn: 创建VPC内ECS实例，配置ECS属性，分配并绑定EIP至ECS实例，基于已有VPC环境。
+  en: Create an ECS instance within the VPC, configure the ECS attributes, allocate
+    and bind an EIP to the ECS instance, based on an existing VPC environment.
 Parameters:
   VPC:
     Type: String
@@ -13,6 +14,21 @@ Parameters:
         Cloud
       zh-cn: 现有虚拟专有网络的实例ID,控制台-VPC-专有网络下查询
     AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  ECSZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: 'Availability zone ID.<br><b>Note: <font color=''blue''>Before selecting,
+        please confirm whether the availability zone supports the specification of
+        creating ECS resources. It is recommended to be different from other switch
+        availability zones</font></b ><br><font color=''red''>The switch availability
+        zone and the selected switch instance ID must be in the same availability
+        zone.</font>'
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b><br><font
+        color='red'>交换机可用区和已选择的交换机实例ID必须在同一个可用区。</font>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
   VSwitch:
     Type: String
     Label:
@@ -63,39 +79,59 @@ Parameters:
     AllowedValues:
     - PayByBandwidth
     - PayByTraffic
-  ECSZoneId:
+  PayType:
     Type: String
     Label:
-      en: VSwitch Availability Zone
-      zh-cn: 交换机可用区
-    Description:
-      en: 'Availability zone ID.<br><b>Note: <font color=''blue''>Before selecting,
-        please confirm whether the availability zone supports the specification of
-        creating ECS resources. It is recommended to be different from other switch
-        availability zones</font></b ><br><font color=''red''>The switch availability
-        zone and the selected switch instance ID must be in the same availability
-        zone.</font>'
-      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b><br><font
-        color='red'>交换机可用区和已选择的交换机实例ID必须在同一个可用区。</font>
-    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
-  ECSImageId:
-    Type: String
-    Label:
-      en: Image
-      zh-cn: 镜像
-    Description:
-      en: Image ID，Please use Centos7, see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
-        target='_blank'><font color='blue'>Find the mirror</font></a></b>
-      zh-cn: 镜像ID, 请使用Centos7, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
-        target='_blank'><font color='blue'>查找镜像</font></a></b>
-    AssociationProperty: ALIYUN::ECS::Image::ImageId
+      en: ECS Instance Charge Type
+      zh-cn: ECS付费类型
+    AssociationProperty: ChargeType
     AssociationPropertyMetadata:
-      InstanceType: ${ECSInstanceType}
-      SupportedImageOwnerAlias:
-        - system
-        - self
-        - others
-    Default: centos_7_04_64_20G_alibase_201701015.vhd
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
   ECSInstanceType:
     Type: String
     Label:
@@ -119,6 +155,24 @@ Parameters:
     AssociationPropertyMetadata:
       InstanceChargeType: PayType
       ZoneId: ECSZoneId
+  ECSImageId:
+    Type: String
+    Label:
+      en: Image
+      zh-cn: 镜像
+    Description:
+      en: Image ID，Please use Centos7, see detail：<b><a href='https://www.alibabacloud.com/help/en/doc-detail/112977.html'
+        target='_blank'><font color='blue'>Find the mirror</font></a></b>
+      zh-cn: 镜像ID, 请使用Centos7, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html'
+        target='_blank'><font color='blue'>查找镜像</font></a></b>
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: ${ECSInstanceType}
+      SupportedImageOwnerAlias:
+      - system
+      - self
+      - others
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
   ECSDiskCategory:
     Type: String
     Label:
@@ -149,59 +203,6 @@ Parameters:
     Default: 20
     MinValue: 20
     MaxValue: 500
-  PayType:
-    Type: String
-    Label:
-      en: ECS Instance Charge Type
-      zh-cn: ECS付费类型
-    AssociationProperty: ChargeType
-    AssociationPropertyMetadata:
-      LocaleKey: InstanceChargeType
-    Default: PostPaid
-    AllowedValues:
-      - PostPaid
-      - PrePaid
-  PayPeriodUnit:
-    Type: String
-    Label:
-      en: Pay Period Unit
-      zh-cn: 购买资源时长周期
-    AssociationProperty: PayPeriodUnit
-    AssociationPropertyMetadata:
-      Visible:
-        Condition:
-          Fn::Not:
-            Fn::Equals:
-              - ${PayType}
-              - PostPaid
-    Default: Month
-    AllowedValues:
-      - Month
-      - Year
-  PayPeriod:
-    Type: Number
-    Label:
-      en: Period
-      zh-cn: 购买资源时长
-    AssociationProperty: PayPeriod
-    AssociationPropertyMetadata:
-      Visible:
-        Condition:
-          Fn::Not:
-            Fn::Equals:
-              - ${PayType}
-              - PostPaid
-    Default: 1
-    AllowedValues:
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
   ECSPassword:
     Type: String
     Label:
@@ -323,9 +324,9 @@ Metadata:
       Label:
         default: EIP
     - Parameters:
-        - PayType
-        - PayPeriodUnit
-        - PayPeriod
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
       Label:
         default:
           en: ECS PayType Configuration

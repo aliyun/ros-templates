@@ -1,98 +1,95 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Migrate RocketMQ to Cloud.
-  zh-cn: 自建RocketMQ集群迁移至云消息队列RocketMQ版。
+  zh-cn: 迁移自建RocketMQ到云RocketMQ，含VPC、安全组、ECS实例及RocketMQ实例配置。
+  en: Migrate self-built RocketMQ to Cloud RocketMQ, encompassing VPC setup, security
+    group configuration, ECS instance deployment, and RocketMQ instance configuration.
 Parameters:
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Default: ecs.c7.large
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Default: null
+    NoEcho: true
   CommonName:
     Type: String
     Default: migrate-rocketmq
   ZoneId:
     Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    AssociationPropertyMetadata:
-      AutoSelectFirst: true
     Label:
       en: Availability Zone
       zh-cn: 可用区
-  InstanceType:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     AssociationPropertyMetadata:
-      InstanceChargeType: PostPaid
-      SystemDiskCategory: cloud_essd
-      ZoneId: ${ZoneId}
-    Label:
-      en: Instance Type
-      zh-cn: 实例规格
-    Default: ecs.c7.large
-  InstancePassword:
-    NoEcho: true
-    Type: String
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
-    Label:
-      en: Instance Password
-      zh-cn: 实例密码
-    ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
-    Default: null
+      AutoSelectFirst: true
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.0.0/24
-      ZoneId:
-        Ref: ZoneId
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 443/443
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 8080/8080
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 9876/9876
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 443/443
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 8080/8080
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 9876/9876
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
   EcsInstance:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch
       SecurityGroupId:
@@ -108,35 +105,40 @@ Resources:
       Password:
         Ref: InstancePassword
   DownloadRocketMQ:
-    Type: 'ALIYUN::ECS::RunCommand'
+    Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
         Fn::GetAtt:
-          - EcsInstance
-          - InstanceIds
+        - EcsInstance
+        - InstanceIds
       Type: RunShellScript
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |-
-          #!/bin/bash
+        Fn::Sub: '#!/bin/bash
+
           export PATH=/usr/local/bin:$PATH
-          
+
+
           wget -O credit_demo.jar https://labfileapp.oss-cn-hangzhou.aliyuncs.com/database/credit_demo.jar
+
           wget -O init_demo.jar https://labfileapp.oss-cn-hangzhou.aliyuncs.com/database/init_demo.jar
+
           wget -O csv2lindorm.jar https://labfileapp.oss-cn-hangzhou.aliyuncs.com/database/csv2lindorm.jar
+
           wget -O lindorm-sqlline-0.1.4.tar.gz https://labfileapp.oss-cn-hangzhou.aliyuncs.com/database/lindorm-sqlline-0.1.4.tar.gz
-          wget -O ldspark-3.2.1-current.tgz https://labfileapp.oss-cn-hangzhou.aliyuncs.com/database/ldspark-3.2.1-current.tgz
+
+          wget -O ldspark-3.2.1-current.tgz https://labfileapp.oss-cn-hangzhou.aliyuncs.com/database/ldspark-3.2.1-current.tgz'
   RocketMQ:
-    Type: 'ALIYUN::ROCKETMQ5::Instance'
+    Type: ALIYUN::ROCKETMQ5::Instance
     Properties:
       ProductInfo:
-        MsgProcessSpec: 'rmq.s1.micro'
+        MsgProcessSpec: rmq.s1.micro
       InternetInfo:
         InternetSpec: disable
       SubSeriesCode: single_node
       InstanceName:
-        Fn::Sub:  ${CommonName}-mq
+        Fn::Sub: ${CommonName}-mq
       SeriesCode: standard
       PaymentType: PayAsYouGo
       VpcInfo:
@@ -150,14 +152,14 @@ Outputs:
       zh-cn: ECS登录地址。
       en: Ecs login address.
     Value:
-      'Fn::Sub': https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
+      Fn::Sub: https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - InstanceType
-          - InstancePassword
+    - Parameters:
+      - InstanceType
+      - InstancePassword
     TemplateTags:
-      - acs:technical-solution:cloud-migration:自建RocketMQ集群迁移至云消息队列RocketMQ版-tech_solu_121
+    - acs:technical-solution:cloud-migration:自建RocketMQ集群迁移至云消息队列RocketMQ版-tech_solu_121
     Hidden:
-      - CommonName
+    - CommonName
