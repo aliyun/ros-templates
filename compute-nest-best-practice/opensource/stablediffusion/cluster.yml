@@ -504,35 +504,47 @@ Resources:
       AllocatePublicIP: false
       UserData:
         Fn::Sub:
-        - "#!/bin/bash\n#挂载nas\nyum install nfs-utils -y\nif (lsmod | grep sunrpc);\
-          \ then\n(modinfo sunrpc | grep tcp_max_slot_table_entries) && sysctl -w\
-          \ sunrpc.tcp_max_slot_table_entries=128\n(modinfo sunrpc | grep tcp_slot_table_entries)\
-          \ && sysctl -w sunrpc.tcp_slot_table_entries=128\nfi\n(modinfo sunrpc |\
-          \ grep tcp_max_slot_table_entries) && echo \"options sunrpc tcp_max_slot_table_entries=128\"\
-          \ >> /etc/modprobe.d/sunrpc.conf\n(modinfo sunrpc | grep tcp_slot_table_entries)\
-          \ && echo \"options sunrpc tcp_slot_table_entries=128\" >> /etc/modprobe.d/sunrpc.conf\n\
-          \nsudo mount -t nfs -o vers=4,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport\
-          \ ${MountTargetDomain}:/ /mnt\n\ntest -e /mnt/stable-diffusion-webui ||\
-          \ ( mv /home/stable-diffusion-webui /mnt/ && touch /mnt/mount_finish)\n\n\
-          for ((i=0;i<2400;i++))\ndo\n   test -e /mnt/mount_finish\n   if [ \"$?\"\
-          \ == 0 ]\n   then\n     break\n   fi\n   sleep 1\ndone\n\nls -lrt\nrm -rf\
-          \ /home/stable-diffusion-webui && ln -s /mnt/stable-diffusion-webui /home/stable-diffusion-webui\n\
-          \ndocker stop `docker ps |grep aigc|awk -F' ' '{print $1}'`\necho \"docker\
-          \ run -d --gpus all -p8081:7860 -v /home/models:/workspace/stable-diffusion-webui/models\
-          \ -v /home/extensions:/workspace/stable-diffusion-webui/extensions -v /home/embeddings:/workspace/stable-diffusion-webui/embeddings\
-          \ -v /home/aesthetic_embeddings:/workspace/stable-diffusion-webui/aesthetic_embeddings\
-          \ -e DB_HOST=${DBConnectString} -e DB_USER=${DBMasterUsername} -e DB_PASSWORD='${DBMasterPassword}'\
-          \ -e DB_PORT=3306 registry.cn-shanghai.aliyuncs.com/tcc_public/aigc:stable-diffusion-v9\
-          \ sh -c '/opt/conda/bin/python /opt/conda/bin/conda run --no-capture-output\
-          \ -n stabel python3 launch.py --listen --api --enable-insecure-extension-access'\
-          \ \"> /etc/init.d/start_sd_docker.sh\n/etc/init.d/start_sd_docker.sh\nfor\
-          \ ((i=0;i<100;i++))\ndo\n   curl 127.0.0.1:8081\n   if [ \"$?\" == 0 ]\n\
-          \   then\n     break\n   fi\n   sleep 1\ndone\nhtpasswd -bc /etc/nginx/password\
-          \ ${UserName} '${Password}'\nsystemctl start nginx\nsystemctl status nginx\n\
-          systemctl enable nginx\n# 执行成功回调WaitCondition结束waitCondition的等待\n${CurlCli}\
-          \ -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"status\\\" : \\\"SUCCESS\\\"\
-          }\"\n"
-        - DBMasterUsername:
+        - |
+          #!/bin/bash
+          #挂载nas
+          yum install nfs-utils -y
+          if (lsmod | grep sunrpc); then
+          (modinfo sunrpc | grep tcp_max_slot_table_entries) && sysctl -w sunrpc.tcp_max_slot_table_entries=128
+          (modinfo sunrpc | grep tcp_slot_table_entries) && sysctl -w sunrpc.tcp_slot_table_entries=128
+          fi
+          (modinfo sunrpc | grep tcp_max_slot_table_entries) && echo "options sunrpc tcp_max_slot_table_entries=128" >> /etc/modprobe.d/sunrpc.conf
+          (modinfo sunrpc | grep tcp_slot_table_entries) && echo "options sunrpc tcp_slot_table_entries=128" >> /etc/modprobe.d/sunrpc.conf
+          sudo mount -t nfs -o vers=4,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${MountTargetDomain}:/ /mnt
+          test -e /mnt/stable-diffusion-webui || ( mv /home/stable-diffusion-webui /mnt/ && touch /mnt/mount_finish)
+          for ((i=0;i<2400;i++))
+          do
+             test -e /mnt/mount_finish
+             if [ "$?" == 0 ]
+             then
+               break
+             fi
+             sleep 1
+          done
+          ls -lrt
+          rm -rf /home/stable-diffusion-webui && ln -s /mnt/stable-diffusion-webui /home/stable-diffusion-webui
+          docker stop `docker ps |grep aigc|awk -F' ' '{print $1}'`
+          echo "docker run -d --gpus all -p8081:7860 -v /home/models:/workspace/stable-diffusion-webui/models -v /home/extensions:/workspace/stable-diffusion-webui/extensions -v /home/embeddings:/workspace/stable-diffusion-webui/embeddings -v /home/aesthetic_embeddings:/workspace/stable-diffusion-webui/aesthetic_embeddings -e DB_HOST=${DBConnectString} -e DB_USER=${DBMasterUsername} -e DB_PASSWORD='${DBMasterPassword}' -e DB_PORT=3306 registry.cn-shanghai.aliyuncs.com/tcc_public/aigc:stable-diffusion-v9 sh -c '/opt/conda/bin/python /opt/conda/bin/conda run --no-capture-output -n stabel python3 launch.py --listen --api --enable-insecure-extension-access' "> /etc/init.d/start_sd_docker.sh
+          /etc/init.d/start_sd_docker.sh
+          for ((i=0;i<100;i++))
+          do
+             curl 127.0.0.1:8081
+             if [ "$?" == 0 ]
+             then
+               break
+             fi
+             sleep 1
+          done
+          htpasswd -bc /etc/nginx/password ${UserName} '${Password}'
+          systemctl start nginx
+          systemctl status nginx
+          systemctl enable nginx
+          # 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"        - DBMasterUsername:
             Ref: DBMasterUsername
           DBMasterPassword:
             Ref: DBMasterPassword
@@ -683,32 +695,37 @@ Resources:
           - '[1,4]'
       UserData:
         Fn::Sub:
-        - "#!/bin/bash\n\n#挂载nas\nyum install nfs-utils -y\nif (lsmod | grep sunrpc);\
-          \ then\n(modinfo sunrpc | grep tcp_max_slot_table_entries) && sysctl -w\
-          \ sunrpc.tcp_max_slot_table_entries=128\n(modinfo sunrpc | grep tcp_slot_table_entries)\
-          \ && sysctl -w sunrpc.tcp_slot_table_entries=128\nfi\n(modinfo sunrpc |\
-          \ grep tcp_max_slot_table_entries) && echo \"options sunrpc tcp_max_slot_table_entries=128\"\
-          \ >> /etc/modprobe.d/sunrpc.conf\n(modinfo sunrpc | grep tcp_slot_table_entries)\
-          \ && echo \"options sunrpc tcp_slot_table_entries=128\" >> /etc/modprobe.d/sunrpc.conf\n\
-          \nsudo mount -t nfs -o vers=4,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport\
-          \ ${MountTargetDomain}:/ /mnt\n\ntest -e /mnt/stable-diffusion-webui ||\
-          \  mv /home/stable-diffusion-webui /mnt/\nrm -rf /home/stable-diffusion-webui\
-          \ && ln -s /mnt/stable-diffusion-webui /home/stable-diffusion-webui\n\n\
-          docker stop `docker ps |grep aigc|awk -F' ' '{print $1}'`\necho \"docker\
-          \ run -d --gpus all -p8081:7860 -v /home/models:/workspace/stable-diffusion-webui/models\
-          \ -v /home/extensions:/workspace/stable-diffusion-webui/extensions -v /home/embeddings:/workspace/stable-diffusion-webui/embeddings\
-          \ -v /home/aesthetic_embeddings:/workspace/stable-diffusion-webui/aesthetic_embeddings\
-          \ -e DB_HOST=${DBConnectString} -e DB_USER=${DBMasterUsername} -e DB_PASSWORD='${DBMasterPassword}'\
-          \ -e DB_PORT=3306 registry.cn-shanghai.aliyuncs.com/tcc_public/aigc:stable-diffusion-v9\
-          \ sh -c '/opt/conda/bin/python /opt/conda/bin/conda run --no-capture-output\
-          \ -n stabel python3 launch.py --listen --api --enable-insecure-extension-access'\
-          \ \"> /etc/init.d/start_sd_docker.sh\n/etc/init.d/start_sd_docker.sh\nfor\
-          \ ((i=0;i<100;i++))\ndo\n   curl 127.0.0.1:8081\n   if [ \"$?\" == 0 ]\n\
-          \   then\n     break\n   fi\n   sleep 1\ndone\nARGUS_VERSION=3.5.7 /bin/bash\
-          \ -c \"$(curl -s https://cms-agent-${RegionId}.oss-${RegionId}-internal.aliyuncs.com/Argus/agent_install_ecs-1.7.sh)\"\
-          \ >> /root/install_cms_agent.log\nhtpasswd -bc /etc/nginx/password ${UserName}\
-          \ '${Password}'\nsystemctl start nginx\nsystemctl status nginx\nsystemctl\
-          \ enable nginx\n# 执行成功回调WaitCondition结束waitCondition的等待\n"
+        - |
+          #!/bin/bash
+          #挂载nas
+          yum install nfs-utils -y
+          if (lsmod | grep sunrpc); then
+          (modinfo sunrpc | grep tcp_max_slot_table_entries) && sysctl -w sunrpc.tcp_max_slot_table_entries=128
+          (modinfo sunrpc | grep tcp_slot_table_entries) && sysctl -w sunrpc.tcp_slot_table_entries=128
+          fi
+          (modinfo sunrpc | grep tcp_max_slot_table_entries) && echo "options sunrpc tcp_max_slot_table_entries=128" >> /etc/modprobe.d/sunrpc.conf
+          (modinfo sunrpc | grep tcp_slot_table_entries) && echo "options sunrpc tcp_slot_table_entries=128" >> /etc/modprobe.d/sunrpc.conf
+          sudo mount -t nfs -o vers=4,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${MountTargetDomain}:/ /mnt
+          test -e /mnt/stable-diffusion-webui ||  mv /home/stable-diffusion-webui /mnt/
+          rm -rf /home/stable-diffusion-webui && ln -s /mnt/stable-diffusion-webui /home/stable-diffusion-webui
+          docker stop `docker ps |grep aigc|awk -F' ' '{print $1}'`
+          echo "docker run -d --gpus all -p8081:7860 -v /home/models:/workspace/stable-diffusion-webui/models -v /home/extensions:/workspace/stable-diffusion-webui/extensions -v /home/embeddings:/workspace/stable-diffusion-webui/embeddings -v /home/aesthetic_embeddings:/workspace/stable-diffusion-webui/aesthetic_embeddings -e DB_HOST=${DBConnectString} -e DB_USER=${DBMasterUsername} -e DB_PASSWORD='${DBMasterPassword}' -e DB_PORT=3306 registry.cn-shanghai.aliyuncs.com/tcc_public/aigc:stable-diffusion-v9 sh -c '/opt/conda/bin/python /opt/conda/bin/conda run --no-capture-output -n stabel python3 launch.py --listen --api --enable-insecure-extension-access' "> /etc/init.d/start_sd_docker.sh
+          /etc/init.d/start_sd_docker.sh
+          for ((i=0;i<100;i++))
+          do
+             curl 127.0.0.1:8081
+             if [ "$?" == 0 ]
+             then
+               break
+             fi
+             sleep 1
+          done
+          ARGUS_VERSION=3.5.7 /bin/bash -c "$(curl -s https://cms-agent-${RegionId}.oss-${RegionId}-internal.aliyuncs.com/Argus/agent_install_ecs-1.7.sh)" >> /root/install_cms_agent.log
+          htpasswd -bc /etc/nginx/password ${UserName} '${Password}'
+          systemctl start nginx
+          systemctl status nginx
+          systemctl enable nginx
+          # 执行成功回调WaitCondition结束waitCondition的等待
         - DBMasterUsername:
             Ref: DBMasterUsername
           DBMasterPassword:
