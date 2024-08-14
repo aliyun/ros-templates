@@ -1,8 +1,19 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 加速资源请求场景实践。
-  en: Accelerate resource request scenario practices.
+  zh-cn: 创建VPC环境，部署ECS实例运行Nginx，配置DCDN加速，实现资源请求加速，支持自定义加速区域、实例规格及系统盘类型。
+  en: Create a Virtual Private Cloud (VPC) environment, deploy Elastic Compute Service
+    (ECS) instances running Nginx, configure Dynamic Route for CDN (DCDN) acceleration
+    to achieve resource request acceleration, supporting customization of acceleration
+    regions, instance specifications, and system disk types.
 Parameters:
+  DomainName:
+    Type: String
+    Label:
+      zh-cn: 加速域名
+      en: Accelerated domain name
+    Description:
+      zh-cn: 需要加速的源站域名。
+      en: The source domain name that needs to be accelerated.
   Scope:
     Type: String
     Label:
@@ -14,17 +25,9 @@ Parameters:
         China and the world, the service domain name must be filed.
     Default: domestic
     AllowedValues:
-      - domestic
-      - overseas
-      - global
-  DomainName:
-    Type: String
-    Label:
-      zh-cn: 加速域名
-      en: Accelerated domain name
-    Description:
-      zh-cn: 需要加速的源站域名。
-      en: The source domain name that needs to be accelerated.
+    - domestic
+    - overseas
+    - global
   ZoneId:
     Type: String
     Label:
@@ -32,7 +35,8 @@ Parameters:
       zh-cn: 主可用区
     Description:
       en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
-        confirm that the Availability Zone supports the specification of creating ECS resources.</font></b>
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources.</font></b>
       zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格。</font></b>
     AssociationProperty: ALIYUN::ECS::Instance:ZoneId
   InstanceType:
@@ -58,8 +62,15 @@ Parameters:
       en: System Disk Type
       zh-cn: 系统盘类型
     Description:
-      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
-      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
+        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
+        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
+        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
+        SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
+        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
+        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
+        <font color=''green''>本地SSD盘</font>]'
     AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
     AssociationPropertyMetadata:
       LocaleKey: DiskCategory
@@ -85,12 +96,16 @@ Parameters:
     MaxLength: 30
     NoEcho: true
 Resources:
+  AutoEnableDCDN:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: DCDN
   Vpc:
     Type: ALIYUN::ECS::VPC
-    DependsOn:
-      - AutoEnableDCDN
     Properties:
       CidrBlock: 192.168.0.0/16
+    DependsOn:
+    - AutoEnableDCDN
   VSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -131,32 +146,31 @@ Resources:
         Ref: InstancePassword
       IoOptimized: optimized
       UserData:
-        Fn::Sub: |-
-          #!/bin/bash
+        Fn::Sub: '#!/bin/bash
+
           # 这里配置安装脚本
+
           yum install -y nginx
+
           # 配置启动脚本
-          sudo systemctl start nginx
+
+          sudo systemctl start nginx'
   Domain:
     Type: ALIYUN::DCDN::Domain
     Properties:
       Sources:
-        - Type: ipaddr
-          Content:
-            Fn::GetAtt:
-              - EcsInstance
-              - PublicIp
-          Weight: 100
-          Port: 80
-          Priority: 20
+      - Type: ipaddr
+        Content:
+          Fn::GetAtt:
+          - EcsInstance
+          - PublicIp
+        Weight: 100
+        Port: 80
+        Priority: 20
       DomainName:
         Ref: DomainName
       Scope:
         Ref: Scope
-  AutoEnableDCDN:
-    Type: ALIYUN::ROS::AutoEnableService
-    Properties:
-      ServiceName: DCDN
 Outputs:
   Cname:
     Description: CNAME
@@ -172,15 +186,15 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
     - Parameters:
-        - DomainName
-        - Scope
+      - DomainName
+      - Scope
       Label:
         default: DCDN
     - Parameters:
-        - ZoneId
-        - InstanceType
-        - SystemDiskCategory
-        - InstancePassword
+      - ZoneId
+      - InstanceType
+      - SystemDiskCategory
+      - InstancePassword
       Label:
         default: ECS
     TemplateTags:

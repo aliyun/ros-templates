@@ -1,8 +1,17 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Deploy LNMP(Linux+Nginx+MySQL+PHP) stack on 1 ECS instance. *** WARNING ***
-    Only support CentOS-7.
-  zh-cn: 在1个ECS实例上部署 LNMP（Linux+Nginx+MySQL+PHP）堆栈；模板仅支持 CentOS-7。
+  zh-cn: 一键部署LNMP环境于CentOS-7 ECS，含VPC、安全组、Nginx、MySQL、PHP配置。
+  en: One-click deployment of LNMP stack on CentOS-7 ECS, encompassing VPC setup,
+    security group configuration, Nginx, MySQL, and PHP setup.
+Conditions:
+  IsSelectExistECS:
+    Fn::Equals:
+    - Ref: SelectExistECS
+    - false
+  NotSelectExistECS:
+    Fn::Equals:
+    - Ref: SelectExistECS
+    - true
 Parameters:
   SelectExistECS:
     Type: Boolean
@@ -10,7 +19,8 @@ Parameters:
       en: Whether to select an existing instance
       zh-cn: 是否选择已有实例
     Description:
-      en: Whether to select an existing Centos7 system instance. The Centos7 system instance must be connected to a public network.
+      en: Whether to select an existing Centos7 system instance. The Centos7 system
+        instance must be connected to a public network.
       zh-cn: 是否选择已有Centos7系统实例，实例需要开通公网。
     Default: false
   ZoneId:
@@ -29,8 +39,8 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${SelectExistECS}
-            - false
+          - ${SelectExistECS}
+          - false
     Default: null
   ECSInstanceId:
     Type: String
@@ -38,7 +48,7 @@ Parameters:
       en: Existing ECS Instance
       zh-cn: 已创建ECS实例
     Description:
-      en: Select an ECS instance with the CentOS 7.9 64-bit operating system. 
+      en: Select an ECS instance with the CentOS 7.9 64-bit operating system.
       zh-cn: 选择已存在操作系统为CentOS 7.9 64位的ECS实例。
     AssociationProperty: ALIYUN::ECS::Instance::InstanceId
     AssociationPropertyMetadata:
@@ -46,8 +56,8 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${SelectExistECS}
-            - true
+          - ${SelectExistECS}
+          - true
     Default: null
   InstanceType:
     Type: String
@@ -68,8 +78,8 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${SelectExistECS}
-            - false
+          - ${SelectExistECS}
+          - false
     Default: ecs.c5.large
   SystemDiskCategory:
     Type: String
@@ -84,8 +94,8 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${SelectExistECS}
-            - false
+          - ${SelectExistECS}
+          - false
     Default: cloud_efficiency
   InstancePassword:
     Type: String
@@ -100,17 +110,17 @@ Parameters:
       en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
         special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
       zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
-    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Equals:
-            - ${SelectExistECS}
-            - false
+          - ${SelectExistECS}
+          - false
+    Default: null
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
     MinLength: '8'
     MaxLength: '30'
     NoEcho: true
-    Default: null
   DBName:
     Type: String
     Label:
@@ -183,15 +193,6 @@ Parameters:
       en: nginx-.rpm source download path.
       zh-cn: nginx-*.rpm源下载路径
     Default: http://nginx.org/packages/centos/7/noarch/RPMS/nginx-release-centos-7-0.el7.ngx.noarch.rpm
-Conditions:
-  IsSelectExistECS:
-    Fn::Equals:
-      - Ref: SelectExistECS
-      - false
-  NotSelectExistECS:
-    Fn::Equals:
-      - Ref: SelectExistECS
-      - true
 Resources:
   EcsVpc:
     Type: ALIYUN::ECS::VPC
@@ -264,6 +265,12 @@ Resources:
     Properties:
       InstanceId:
         Ref: ECSInstanceId
+  WebServerConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ec1625d7-b79b-496d-ba3a-5c46be0c1181
   Command:
     Type: ALIYUN::ECS::Command
     Properties:
@@ -343,25 +350,19 @@ Resources:
       Name:
         Ref: ALIYUN::StackId
     DependsOn:
-      - WebServerConditionHandle
+    - WebServerConditionHandle
   Invocation:
     Type: ALIYUN::ECS::Invocation
     Properties:
       InstanceIds:
-        - Fn::If:
-            - IsSelectExistECS
-            - Fn::GetAtt:
-                - WebServer
-                - InstanceId
-            - Ref: ECSInstanceId
+      - Fn::If:
+        - IsSelectExistECS
+        - Fn::GetAtt:
+          - WebServer
+          - InstanceId
+        - Ref: ECSInstanceId
       CommandId:
         Ref: Command
-  WebServerConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: {}
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: ec1625d7-b79b-496d-ba3a-5c46be0c1181
   WebServerWaitCondition:
     Type: ALIYUN::ROS::WaitCondition
     Properties:
@@ -378,21 +379,20 @@ Outputs:
     Description: URL for newly created Nginx home page.
     Value:
       Fn::Sub:
-        - 'http://${IP}:80/test.php'
-        - IP:
-            'Fn::If':
-              - IsSelectExistECS
-              - 'Fn::GetAtt':
-                  - WebServer
-                  - PublicIp
-              - 'Fn::Jq':
-                  - First
-                  - >-
-                    if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0]
-                    else .[0].EipAddress.IpAddress end
-                  - 'Fn::GetAtt':
-                      - ExistWebServer
-                      - Instances
+      - http://${IP}:80/test.php
+      - IP:
+          Fn::If:
+          - IsSelectExistECS
+          - Fn::GetAtt:
+            - WebServer
+            - PublicIp
+          - Fn::Jq:
+            - First
+            - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+              end
+            - Fn::GetAtt:
+              - ExistWebServer
+              - Instances
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:

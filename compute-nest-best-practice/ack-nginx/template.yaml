@@ -1,89 +1,88 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: 新建ack部署nginx
-  zh-cn: new ack deploy nginx
-# 定义参数
+  zh-cn: 创建ACK集群，配置ECS、VPC、SLB及安全组，自动部署Nginx应用，支持付费方式和资源时长选择。
+  en: Create an ACK (Alibaba Cloud Container Service for Kubernetes) cluster, configure
+    ECS (Elastic Compute Service), VPC (Virtual Private Cloud), SLB (Server Load Balancer),
+    and security groups. Automate the deployment of the Nginx application, with support
+    for selecting payment options and resource duration.
 Parameters:
-  # 付费类型
   PayType:
     Type: String
     Label:
       en: ECS Instance Charge Type
       zh-cn: 付费类型
-    Default: PostPaid
-    AllowedValues:
-      # 按量
-      - PostPaid
-      # 包年包月
-      - PrePaid
     AssociationProperty: ChargeType
     AssociationPropertyMetadata:
       LocaleKey: InstanceChargeType
-  # 如果是包年包月 周期单位
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
   PayPeriodUnit:
     Type: String
     Label:
       en: Pay Period Unit
       zh-cn: 购买资源时长周期
-    Default: Month
-    AllowedValues:
-      - Month
-      - Year
     AssociationProperty: PayPeriodUnit
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Not:
             Fn::Equals:
-              - ${PayType}
-              - PostPaid
-  # 如果是包年包月 周期
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
   PayPeriod:
     Type: Number
-    Description:
-      en: When the resource purchase duration is Month, the value of Period ranges from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance types are PrePaid valid </b></font>
-      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
     Label:
       en: Period
       zh-cn: 购买资源时长
-    Default: 1
-    AllowedValues:
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
+    Description:
+      en: When the resource purchase duration is Month, the value of Period ranges
+        from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance
+        types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
     AssociationProperty: PayPeriod
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Not:
             Fn::Equals:
-              - ${PayType}
-              - PostPaid
-  # 可用区
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
   ZoneId:
     Type: String
-    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
     Label:
       en: Zone ID
       zh-cn: 可用区
-  # 新建ack所在的vpc的网段
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
   VpcCidrBlock:
     Type: String
     Label:
       en: VPC CIDR IPv4 Block
       zh-cn: 专有网络IPv4网段
     Description:
-      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
-      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
-    Default: 192.168.0.0/16
+      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use
+        the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
     AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
-  # 新建ack所在的交换机的网段
+    Default: 192.168.0.0/16
   VSwitchCidrBlock:
     Type: String
     Label:
@@ -92,28 +91,28 @@ Parameters:
     Description:
       zh-cn: 必须属于VPC的子网段。
       en: Must belong to the subnet segment of VPC.
-    Default: 192.168.1.0/24
     AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
     AssociationPropertyMetadata:
       VpcCidrBlock: VpcCidrBlock
-  # 定义ack和ecs对应的登录密码
+    Default: 192.168.1.0/24
   LoginPassword:
-    NoEcho: true
     Type: String
-    Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
-      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
       zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
     AssociationProperty: ALIYUN::ECS::Instance::Password
-    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
     MinLength: 8
     MaxLength: 30
-  # ack worker的实例类型
+    NoEcho: true
   WorkerInstanceType:
     Type: String
     Label:
@@ -125,48 +124,51 @@ Parameters:
     Default: ecs.g6.large
   WorkerSystemDiskCategory:
     Type: String
-    # ack worker的磁盘类型
-    AllowedValues:
-      - cloud_efficiency
-      - cloud_ssd
-      - cloud_essd
-    AssociationPropertyMetadata:
-      LocaleKey: DiskCategory
-      InstanceType: ${WorkerInstanceType}
     Label:
       en: Worker System Disk Category
       zh-cn: Worker 系统盘磁盘类型
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${WorkerInstanceType}
     Default: cloud_essd
-  # ack worker的系统盘大小
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
   WorkerSystemDiskSize:
     Type: Number
     Label:
       en: Worker System Disk Size(GB)
       zh-cn: Worker节点系统盘大小(GB)
-    MinValue: 1
     Default: 120
-  # ack Pod网络CIDR,仅网络模式为flannel时需要该参数
-  PodCidr:
-    Type: String
-    Description:
-      zh-cn: 请填写有效的私有网段，即以下网段及其子网：10.0.0.0/8，172.16-31.0.0/12-16，192.168.0.0/16<br>不能与 VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
-      en: 'Please fill in a valid private segment, i.e. the following segments and their subnets: 10.0.0.0/8, 172.16-31.0.0/12-16, 192.168.0.0/16<br> which cannot duplicate the network segments already used by clusters in VPC and VPC Kunetberes. <font color=''blue''><b>Cannot be modified after successful creation</b></font>'
-    Label:
-      zh-cn: Pod 网络 CIDR
-      en: Pod Network CIDR
-    AssociationProperty: ALIYUN::CS::ManagedKubernetesCluster::PodCidr
-    Default: 10.0.0.0/16
-  # ServiceCIDR
+    MinValue: 1
   ServiceCidr:
     Type: String
-    Description:
-      zh-cn: 可选范围：10.0.0.0/16-24，172.16-31.0.0/16-24，192.168.0.0/16-24<br>不能与 VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
-      en: 'Optional range: 10.0.0.0/16-24, 172.16-31.0.0/16-24, 192.168.0.0/16-24<br> cannot duplicate segments already used by existing Kubernetes clusters in VPC and VPC.<font color=''blue''><b>Cannot be modified after successful creation</b></font>'
     Label:
       zh-cn: Service CIDR
       en: Service CIDR
+    Description:
+      zh-cn: 可选范围：10.0.0.0/16-24，172.16-31.0.0/16-24，192.168.0.0/16-24<br>不能与 VPC
+        及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
+      en: 'Optional range: 10.0.0.0/16-24, 172.16-31.0.0/16-24, 192.168.0.0/16-24<br>
+        cannot duplicate segments already used by existing Kubernetes clusters in
+        VPC and VPC.<font color=''blue''><b>Cannot be modified after successful creation</b></font>'
     AssociationProperty: ALIYUN::CS::ManagedKubernetesCluster::ServiceCidr
     Default: 172.16.0.0/16
+  PodCidr:
+    Type: String
+    Label:
+      zh-cn: Pod 网络 CIDR
+      en: Pod Network CIDR
+    Description:
+      zh-cn: 请填写有效的私有网段，即以下网段及其子网：10.0.0.0/8，172.16-31.0.0/12-16，192.168.0.0/16<br>不能与
+        VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
+      en: 'Please fill in a valid private segment, i.e. the following segments and
+        their subnets: 10.0.0.0/8, 172.16-31.0.0/12-16, 192.168.0.0/16<br> which cannot
+        duplicate the network segments already used by clusters in VPC and VPC Kunetberes.
+        <font color=''blue''><b>Cannot be modified after successful creation</b></font>'
+    AssociationProperty: ALIYUN::CS::ManagedKubernetesCluster::PodCidr
+    Default: 10.0.0.0/16
   EcsInstanceType:
     Type: String
     Label:
@@ -176,12 +178,14 @@ Parameters:
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
     Default: ecs.g6.large
+  SystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间 (GB)
+      en: System Disk Space (GB)
+    Default: 40
   SystemDiskCategory:
     Type: String
-    AllowedValues:
-      - cloud_efficiency
-      - cloud_ssd
-      - cloud_essd
     Label:
       en: System Disk Category
       zh-cn: 系统盘类型
@@ -190,22 +194,18 @@ Parameters:
       LocaleKey: DiskCategory
       InstanceType: ${EcsInstanceType}
     Default: cloud_essd
-  SystemDiskSize:
-    Default: 40
-    Type: Number
-    Label:
-      zh-cn: 系统盘空间 (GB)
-      en: System Disk Space (GB)
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
   LoadBalancerSpec:
     Type: String
-    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
     Label:
       en: Specifications
       zh-cn: 规格
+    AssociationProperty: ALIYUN::SLB::Instance::InstanceType
     Default: slb.s1.small
-# 定义资源
 Resources:
-  # 新建vpc
   EcsVpc:
     Type: ALIYUN::ECS::VPC
     Properties:
@@ -213,37 +213,39 @@ Resources:
         Ref: ALIYUN::StackName
       CidrBlock:
         Ref: VpcCidrBlock
-  # 新建vswitch
   EcsVSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
-      VSwitchName:
-        Ref: ALIYUN::StackName
-      VpcId:
-        Ref: EcsVpc
       ZoneId:
         Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchName:
+        Ref: ALIYUN::StackName
       CidrBlock:
         Ref: VSwitchCidrBlock
-  # 新建安全组
   EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
-      SecurityGroupName:
-        Ref: ALIYUN::StackName
       VpcId:
         Ref: EcsVpc
-      # 只开放访问外网的规则
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
       SecurityGroupEgress:
-        - PortRange: '-1/-1'
-          Priority: 1
-          IpProtocol: all
-          DestCidrIp: 0.0.0.0/0
-          NicType: intranet
-  # 新建托管版ack
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
   ManagedKubernetesCluster:
     Type: ALIYUN::CS::ManagedKubernetesCluster
     Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchIds:
+      - Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
       Name:
         Ref: ALIYUN::StackName
       ChargeType:
@@ -252,27 +254,16 @@ Resources:
         Ref: PayPeriod
       PeriodUnit:
         Ref: PayPeriodUnit
-      VSwitchIds:
-        - Ref: EcsVSwitch
-      VpcId:
-        Ref: EcsVpc
       WorkerInstanceTypes:
-        - Ref: WorkerInstanceType
-      # 定义ack节点数
+      - Ref: WorkerInstanceType
       NumOfNodes: 3
       ClusterSpec: ack.pro.small
-      # flannel 模式指定
       ContainerCidr:
         Ref: PodCidr
-      # terway 模式指定
-      # PodVswitchIds:
-      #  - Ref: EcsVSwitch
       ServiceCidr:
         Ref: ServiceCidr
       ZoneIds:
-        - Ref: ZoneId
-      SecurityGroupId:
-        Ref: EcsSecurityGroup
+      - Ref: ZoneId
       WorkerSystemDiskCategory:
         Ref: WorkerSystemDiskCategory
       WorkerSystemDiskSize:
@@ -280,27 +271,16 @@ Resources:
       LoginPassword:
         Ref: LoginPassword
       SnatEntry: true
-      # 指定插件
       Addons:
-        # 网络插件
-        - Name: flannel
-          Config: ''
-        # - Name: terway-eniip
-        #   Config: ''
-        # 存储插件
-        # - Name: csi-plugin
-        #   Config: ''
-        # - Name: csi-provisioner
-        #   Config: ''
-        # - Name: storage-operator
-        #   Config: '{"CnfsOssEnable":"false","CnfsNasEnable":"true"}'
-        # ingres插件
-        # - Name: nginx-ingress-controller
-        #   Config: '{"IngressSlbNetworkType":"intranet","IngressSlbSpec":"slb.s2.small"}'
-  # 新建负载均衡
+      - Name: flannel
+        Config: ''
   Slb:
     Type: ALIYUN::SLB::LoadBalancer
     Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
       LoadBalancerName:
         Ref: ALIYUN::StackName
       PayType:
@@ -309,14 +289,9 @@ Resources:
         Ref: PayPeriodUnit
       Duration:
         Ref: PayPeriod
-      VpcId:
-        Ref: EcsVpc
-      VSwitchId:
-        Ref: EcsVSwitch
       LoadBalancerSpec:
         Ref: LoadBalancerSpec
       AddressType: intranet
-  # 新建eip
   EipSlbAddress:
     Type: ALIYUN::VPC::EIP
     Properties:
@@ -324,7 +299,6 @@ Resources:
         Ref: ALIYUN::StackName
       InternetChargeType: PayByTraffic
       Bandwidth: 100
-  # 绑定eip到负载均衡
   EipSlbAddressAssociation:
     Type: ALIYUN::VPC::EIPAssociation
     Properties:
@@ -332,26 +306,30 @@ Resources:
         Ref: Slb
       AllocationId:
         Ref: EipSlbAddress
-  # 定义waitCondition和waitConditionHandle来等待跳板机命令执行完毕部署成功
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
   WaitCondition:
     Type: ALIYUN::ROS::WaitCondition
-    DependsOn:
-      - ManagedKubernetesCluster
     Properties:
       Count: 1
       Handle:
         Ref: WaitConditionHandle
-      # 等待300s
       Timeout: 300
-  WaitConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
-  # 新建ecs跳板集用于后续的部署运维
+    DependsOn:
+    - ManagedKubernetesCluster
   EcsInstanceJumpBox:
     Type: ALIYUN::ECS::InstanceGroup
-    DependsOn:
-      - ManagedKubernetesCluster
-      - Slb
     Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
       InstanceName:
         Ref: ALIYUN::StackName
       InstanceChargeType:
@@ -360,17 +338,8 @@ Resources:
         Ref: PayPeriod
       PeriodUnit:
         Ref: PayPeriodUnit
-      ImageId: centos_7
       InstanceType:
         Ref: EcsInstanceType
-      VpcId:
-        Ref: EcsVpc
-      ZoneId:
-        Ref: ZoneId
-      VSwitchId:
-        Ref: EcsVSwitch
-      SecurityGroupId:
-        Ref: EcsSecurityGroup
       AllocatePublicIP: false
       Password:
         Ref: LoginPassword
@@ -379,11 +348,7 @@ Resources:
         Ref: SystemDiskSize
       SystemDiskCategory:
         Ref: SystemDiskCategory
-      # cloud-init执行用户命令
-      # /var/log/cloud-init.log /var/log/cloud-init-output.log 可以看到执行日志
-      # /var/lib/cloud/instance/scripts/part-001 为具体的脚本 可以sh 执行来排查问题
       UserData:
-        # Fn::Sub 会对 ${xxx} 定义的变量做替换
         Fn::Sub:
           - |
             #!/bin/bash
@@ -462,56 +427,54 @@ Resources:
                       - LoadBalancerId
 # 定义输出
 Outputs:
-  # 将公网ip做为http返回的地址显示在控制台
   Endpoint:
     Description:
       zh-cn: 对外暴露的公网IP地址
       en: Public IP Addresses
     Value:
       Fn::Sub:
-        - http://${ServerAddress}
-        - ServerAddress:
-            Fn::GetAtt:
-              - EipSlbAddress
-              - EipAddress
+      - http://${ServerAddress}
+      - ServerAddress:
+          Fn::GetAtt:
+          - EipSlbAddress
+          - EipAddress
 Metadata:
   ALIYUN::ROS::Interface:
-    # 定义参数分组
     ParameterGroups:
-      - Parameters:
-          - PayType
-          - PayPeriodUnit
-          - PayPeriod
-        Label:
-          default:
-            en: PayType Configuration
-            zh-cn: 付费类型配置
-      - Parameters:
-          - ZoneId
-          - VpcCidrBlock
-          - VSwitchCidrBlock
-          - LoginPassword
-        Label:
-          en: Basic Configuration
-          zh-cn: 基础配置
-      - Parameters:
-          - WorkerInstanceType
-          - WorkerSystemDiskCategory
-          - WorkerSystemDiskSize
-          - ServiceCidr
-          - PodCidr
-        Label:
-          en: Kubernetes配置
-          zh-cn: KUBERNETES
-      - Parameters:
-          - EcsInstanceType
-          - SystemDiskSize
-          - SystemDiskCategory
-        Label:
-          en: ECS跳板机配置
-          zh-cn: ECS跳板机配置
-      - Parameters:
-          - LoadBalancerSpec
-        Label:
-          en: 负载均衡配置
-          zh-cn: 负载均衡配置
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        default:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+    - Parameters:
+      - ZoneId
+      - VpcCidrBlock
+      - VSwitchCidrBlock
+      - LoginPassword
+      Label:
+        en: Basic Configuration
+        zh-cn: 基础配置
+    - Parameters:
+      - WorkerInstanceType
+      - WorkerSystemDiskCategory
+      - WorkerSystemDiskSize
+      - ServiceCidr
+      - PodCidr
+      Label:
+        en: Kubernetes配置
+        zh-cn: KUBERNETES
+    - Parameters:
+      - EcsInstanceType
+      - SystemDiskSize
+      - SystemDiskCategory
+      Label:
+        en: ECS跳板机配置
+        zh-cn: ECS跳板机配置
+    - Parameters:
+      - LoadBalancerSpec
+      Label:
+        en: 负载均衡配置
+        zh-cn: 负载均衡配置

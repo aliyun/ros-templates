@@ -1,145 +1,144 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Improve application availability through ALB+ESS.
-  zh-cn: 通过ALB+ESS提升应用的可用性。
+  zh-cn: 创建双可用区ALB负载均衡，搭配ESS自动扩缩容，确保应用高可用性，含安全组与自动安装nginx配置。
+  en: Create a dual-Availability-Zone ALB (Application Load Balancer) along with ESS
+    (Elastic Scale Service) for automatic scaling, ensuring high application availability,
+    inclusive of security groups and automated installation of nginx configurations.
 Parameters:
-  CommonName:
-    Type: String
-    Default: elastic-app
   ZoneId1:
     Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    AssociationPropertyMetadata:
-      ExclusiveTo:
-        - ZoneId2
     Label:
       en: Availability Zone
       zh-cn: 可用区1
-  ZoneId2:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     AssociationPropertyMetadata:
       ExclusiveTo:
-        - ZoneId1
+      - ZoneId2
+  ZoneId2:
+    Type: String
     Label:
       en: Availability Zone
       zh-cn: 可用区2
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - ZoneId1
   InstanceType1:
     Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
-    AssociationPropertyMetadata:
-      InstanceChargeType: PostPaid
-      SystemDiskCategory: cloud_essd
-      ZoneId: ${ZoneId}
     Label:
       en: Instance Type
       zh-cn: 实例规格1
-  InstanceType2:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
       ZoneId: ${ZoneId}
+  InstanceType2:
+    Type: String
     Label:
       en: Instance Type
       zh-cn: 实例规格2
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
   InstancePassword:
-    NoEcho: true
     Type: String
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
     Default: null
+    NoEcho: true
   ScalingTime:
     Type: String
     Label:
       en: Automatic expansion execution time
       zh-cn: 自动扩容执行时间
-    AssociationProperty: DateTime
-    AssociationPropertyMetadata:
-      Format: 'YYYY-MM-DDThh:mmZ'
     Description:
       zh-cn: 本方案创建完成预计需要 3-5 分钟，建议选择 5 分钟之后的时间观察扩容效果。
-      en: >-
-        It is estimated that it will take 3-5 minutes to complete the creation of this solution. 
-        It is recommended to choose a time after 5 minutes to observe the expansion effect.
+      en: It is estimated that it will take 3-5 minutes to complete the creation of
+        this solution.  It is recommended to choose a time after 5 minutes to observe
+        the expansion effect.
+    AssociationProperty: DateTime
+    AssociationPropertyMetadata:
+      Format: YYYY-MM-DDThh:mmZ
   ScalingTime2:
     Type: String
     Label:
       en: Automatic scaling execution time
       zh-cn: 自动缩容执行时间
-    AssociationProperty: DateTime
-    AssociationPropertyMetadata:
-      Format: 'YYYY-MM-DDThh:mmZ'
     Description:
       zh-cn: 建议选择扩容时间之后的 5-10 分钟观察缩容效果。
-      en: It is recommended to observe the shrinkage effect 5-10 minutes after the expansion time.
+      en: It is recommended to observe the shrinkage effect 5-10 minutes after the
+        expansion time.
+    AssociationProperty: DateTime
+    AssociationPropertyMetadata:
+      Format: YYYY-MM-DDThh:mmZ
+  CommonName:
+    Type: String
+    Default: elastic-app
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch1:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId1
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.1.0/24
-      ZoneId:
-        Ref: ZoneId1
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   VSwitch2:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId2
       VpcId:
         Ref: Vpc
       CidrBlock: 192.168.2.0/24
-      ZoneId:
-        Ref: ZoneId2
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 443/443
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 443/443
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
   EcsInstance1:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId1
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch1
       SecurityGroupId:
@@ -163,12 +162,12 @@ Resources:
           systemctl start nginx 
           systemctl enable nginx
   EcsInstance2:
-    Type: 'ALIYUN::ECS::InstanceGroup'
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      VpcId:
-        Ref: Vpc
       ZoneId:
         Ref: ZoneId2
+      VpcId:
+        Ref: Vpc
       VSwitchId:
         Ref: VSwitch2
       SecurityGroupId:
@@ -192,27 +191,27 @@ Resources:
           systemctl start nginx 
           systemctl enable nginx
   Alb:
-    Type: 'ALIYUN::ALB::LoadBalancer'
+    Type: ALIYUN::ALB::LoadBalancer
     Properties:
+      VpcId:
+        Ref: Vpc
       LoadBalancerName:
         Fn::Sub: ${CommonName}-alb
       LoadBalancerEdition: Basic
-      VpcId:
-        Ref: Vpc
       LoadBalancerBillingConfig:
         PayType: PostPay
       AddressType: Internet
       ZoneMappings:
-        - ZoneId:
-            Ref: ZoneId1
-          VSwitchId:
-            Ref: VSwitch1
-        - ZoneId:
-            Ref: ZoneId2
-          VSwitchId:
-            Ref: VSwitch2
+      - ZoneId:
+          Ref: ZoneId1
+        VSwitchId:
+          Ref: VSwitch1
+      - ZoneId:
+          Ref: ZoneId2
+        VSwitchId:
+          Ref: VSwitch2
   AlbServerGroup:
-    Type: 'ALIYUN::ALB::ServerGroup'
+    Type: ALIYUN::ALB::ServerGroup
     Properties:
       VpcId:
         Ref: Vpc
@@ -222,71 +221,58 @@ Resources:
       HealthCheckConfig:
         HealthCheckConnectPort: 80
         HealthCheckCodes:
-          - http_2xx
-          - http_3xx
+        - http_2xx
+        - http_3xx
         HealthCheckProtocol: HTTP
         HealthCheckEnabled: true
         HealthCheckPath: /
       StickySessionConfig:
         StickySessionEnabled: false
   AlbBackendServerAttachment:
-    Type: 'ALIYUN::ALB::BackendServerAttachment'
+    Type: ALIYUN::ALB::BackendServerAttachment
     Properties:
       ServerGroupId:
         Ref: AlbServerGroup
       Servers:
-        - ServerType: Ecs
-          ServerId:
-            Ref: EcsInstance1
-          Port: 80
-        - ServerType: Ecs
-          ServerId:
-            Ref: EcsInstance2
-          Port: 80
+      - ServerType: Ecs
+        ServerId:
+          Ref: EcsInstance1
+        Port: 80
+      - ServerType: Ecs
+        ServerId:
+          Ref: EcsInstance2
+        Port: 80
   AlbListener:
-    Type: 'ALIYUN::ALB::Listener'
+    Type: ALIYUN::ALB::Listener
     Properties:
       ListenerPort: 80
       DefaultActions:
-        - Type: ForwardGroup
-          ForwardGroupConfig:
-            ServerGroupTuples:
-              - ServerGroupId:
-                  Ref: AlbServerGroup
+      - Type: ForwardGroup
+        ForwardGroupConfig:
+          ServerGroupTuples:
+          - ServerGroupId:
+              Ref: AlbServerGroup
       LoadBalancerId:
         Ref: Alb
       ListenerProtocol: HTTP
   EssScalingGroup:
-    Type: 'ALIYUN::ESS::ScalingGroup'
+    Type: ALIYUN::ESS::ScalingGroup
     Properties:
       VSwitchIds:
-        - Ref: VSwitch1
-        - Ref: VSwitch2
+      - Ref: VSwitch1
+      - Ref: VSwitch2
       ScalingGroupName:
         Fn::Sub: ${CommonName}-${ALIYUN::StackId}
       RemovalPolicys:
-        - NewestInstance
+      - NewestInstance
       MinSize: 0
       MaxSize: 4
       DefaultCooldown: 300
       MultiAZPolicy: COMPOSABLE
       AzBalance: true
     DependsOn: SecurityGroup
-  EssServerGroupAttachment:
-    Type: 'ALIYUN::ESS::ServerGroupAttachment'
-    DependsOn: EssScalingGroupEnable
-    Properties:
-      ScalingGroupId:
-        Ref: EssScalingGroup
-      ForceAttach: true
-      ServerGroups:
-        - Type: ALB
-          Port: 80
-          ServerGroupId:
-            Ref: AlbServerGroup
-          Weight: 100
   EssScalingConfiguration:
-    Type: 'ALIYUN::ESS::ScalingConfiguration'
+    Type: ALIYUN::ESS::ScalingConfiguration
     Properties:
       SecurityGroupId:
         Ref: SecurityGroup
@@ -296,8 +282,8 @@ Resources:
       ScalingGroupId:
         Ref: EssScalingGroup
       InstanceTypes:
-        - Ref: InstanceType1
-        - Ref: InstanceType2
+      - Ref: InstanceType1
+      - Ref: InstanceType2
       SystemDiskCategory: cloud_essd
       SystemDiskSize: 40
       Password:
@@ -305,22 +291,31 @@ Resources:
       InstanceName:
         Fn::Sub: ${CommonName}-ess
       UserData:
-        Fn::Sub: |-
-          #!/bin/bash
-          yum -y install nginx-1.20.1
-          instanceId=`curl http://100.100.100.200/latest/meta-data/instance-id`
-          echo "This instance from ess, the instance id is $instanceId" > /usr/share/nginx/html/index.html 
-          systemctl start nginx 
-          systemctl enable nginx
+        Fn::Sub: "#!/bin/bash\nyum -y install nginx-1.20.1\ninstanceId=`curl http://100.100.100.200/latest/meta-data/instance-id`\n\
+          echo \"This instance from ess, the instance id is $instanceId\" > /usr/share/nginx/html/index.html\
+          \ \nsystemctl start nginx \nsystemctl enable nginx"
   EssScalingGroupEnable:
-    Type: 'ALIYUN::ESS::ScalingGroupEnable'
+    Type: ALIYUN::ESS::ScalingGroupEnable
     Properties:
       ScalingGroupId:
         Ref: EssScalingGroup
       ScalingConfigurationId:
         Ref: EssScalingConfiguration
+  EssServerGroupAttachment:
+    Type: ALIYUN::ESS::ServerGroupAttachment
+    Properties:
+      ScalingGroupId:
+        Ref: EssScalingGroup
+      ForceAttach: true
+      ServerGroups:
+      - Type: ALB
+        Port: 80
+        ServerGroupId:
+          Ref: AlbServerGroup
+        Weight: 100
+    DependsOn: EssScalingGroupEnable
   EssScalingRule:
-    Type: 'ALIYUN::ESS::ScalingRule'
+    Type: ALIYUN::ESS::ScalingRule
     Properties:
       ScalingRuleName:
         Fn::Sub: ${CommonName}-asr-rule
@@ -331,7 +326,7 @@ Resources:
       AdjustmentValue: 1
       Cooldown: 60
   EssScalingRule2:
-    Type: 'ALIYUN::ESS::ScalingRule'
+    Type: ALIYUN::ESS::ScalingRule
     Properties:
       ScalingRuleName:
         Fn::Sub: ${CommonName}-asr-rule2
@@ -342,24 +337,24 @@ Resources:
       AdjustmentValue: -1
       Cooldown: 60
   EssScheduledTask:
-    Type: 'ALIYUN::ESS::ScheduledTask'
+    Type: ALIYUN::ESS::ScheduledTask
     Properties:
       ScheduledTaskName:
         Fn::Sub: ${CommonName}-task1-${ALIYUN::StackId}
       LaunchTime:
         Ref: ScalingTime
       ScheduledAction:
-        Fn::Sub: '${EssScalingRule.ScalingRuleAri}'
+        Fn::Sub: ${EssScalingRule.ScalingRuleAri}
       LaunchExpirationTime: 10
   EssScheduledTask2:
-    Type: 'ALIYUN::ESS::ScheduledTask'
+    Type: ALIYUN::ESS::ScheduledTask
     Properties:
       ScheduledTaskName:
         Fn::Sub: ${CommonName}-task2-${ALIYUN::StackId}
       LaunchTime:
         Ref: ScalingTime2
       ScheduledAction:
-        Fn::Sub: '${EssScalingRule2.ScalingRuleAri}'
+        Fn::Sub: ${EssScalingRule2.ScalingRuleAri}
       LaunchExpirationTime: 10
 Outputs:
   WebUrl:
@@ -367,19 +362,19 @@ Outputs:
       zh-cn: Web 访问地址。
       en: The Addresses of Web.
     Value:
-      'Fn::Sub': 'http://${Alb.DNSName}'
+      Fn::Sub: http://${Alb.DNSName}
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - ZoneId1
-          - ZoneId2
-          - InstanceType1
-          - InstanceType2
-          - InstancePassword
-          - ScalingTime
-          - ScalingTime2
+    - Parameters:
+      - ZoneId1
+      - ZoneId2
+      - InstanceType1
+      - InstanceType2
+      - InstancePassword
+      - ScalingTime
+      - ScalingTime2
     TemplateTags:
-      - acs:technical-solution:high-availability-architecture:通过ALB+ESS提升应用的可用性-tech_solu_117
+    - acs:technical-solution:high-availability-architecture:通过ALB+ESS提升应用的可用性-tech_solu_117
     Hidden:
-      - CommonName
+    - CommonName

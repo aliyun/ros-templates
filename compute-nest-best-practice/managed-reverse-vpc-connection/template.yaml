@@ -1,14 +1,67 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: the best practice of managed reverse VPC connection
-  zh-cn: 托管版VPC私网反向访问最佳实践
-# 定义参数
+  zh-cn: 创建托管VPC环境，配置私网反向访问，包括ECS实例、NatIp及安全设置，支持多域名映射，优化实例部署与访问控制。
+  en: Establish a managed VPC environment, configure private network reverse access,
+    encompassing ECS instances, Nat IPs, and security settings, facilitating multi-domain
+    mapping, and optimizing instance deployment alongside access control mechanisms.
 Parameters:
-  # 用户服务信息列表，包括用户服务域名、用户服务IP和用户服务端口
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Available Zone
+      zh-cn: 可用区
+    Description:
+      en: Availability zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources</font></b>
+      zh-cn: 可用区ID
+    AssociationPropertyMetadata:
+      ComputeNestNetworkConfigZone: true
+  DataDiskCategory:
+    Type: String
+    Label:
+      en: Disk Type
+      zh-cn: 数据盘类型
+    Default: cloud_efficiency
+    AllowedValues:
+    - cloud_efficiency
+    - cloud_ssd
+    - cloud_essd
+  DataDiskSize:
+    Type: Number
+    Label:
+      en: Data Disk Space
+      zh-cn: 数据盘空间
+    Default: 40
+    MinValue: 20
+    MaxValue: 500
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  SecurityGroupId:
+    Type: String
+    Label:
+      zh-cn: 安全组ID
+      en: Security Group ID
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+    Default: sg-2zeip0loevltubwfzrtm
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
   VpcReverseParameters:
     Type: Json
     AssociationProperty: List[Parameters]
-    Default: []
     AssociationPropertyMetadata:
       Parameters:
         AccessDomain:
@@ -23,85 +76,25 @@ Parameters:
           Type: String
           Label:
             zh-cn: 用户服务端口
-  # 可用区
-  ZoneId:
-    Type: String
-    AssociationPropertyMetadata:
-      ComputeNestNetworkConfigZone: true
-    Description:
-      en: Availability zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
-      zh-cn: 可用区ID
-    Label:
-      en: VSwitch Available Zone
-      zh-cn: 可用区
-  # 数据盘类型
-  DataDiskCategory:
-    Type: String
-    AllowedValues:
-      - cloud_efficiency
-      - cloud_ssd
-      - cloud_essd
-    Default: cloud_efficiency
-    Label:
-      en: Disk Type
-      zh-cn: 数据盘类型
-  # 数据盘空间
-  DataDiskSize:
-    Type: Number
-    Label:
-      en: Data Disk Space
-      zh-cn: 数据盘空间
-    MinValue: 20
-    MaxValue: 500
-    Default: 40
-  # 专有网络VPC实例ID
-  VpcId:
-    AssociationProperty: ALIYUN::ECS::VPC::VPCId
-    Type: String
-    Label:
-      en: VPC ID
-      zh-cn: 专有网络VPC实例ID
-  # 安全组ID
-  SecurityGroupId:
-    AssociationPropertyMetadata:
-      VpcId: VpcId
-    Default: sg-2zeip0loevltubwfzrtm
-    Label:
-      zh-cn: 安全组ID
-      en: Security Group ID
-    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
-    Type: String
-  # 交换机实例ID
-  VSwitchId:
-    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
-    AssociationPropertyMetadata:
-      VpcId: ${VpcId}
-      ZoneId: ${ZoneId}
-    Type: String
-    Label:
-      en: VSwitch ID
-      zh-cn: 交换机实例ID
-  # Ecs实例类型
+    Default: []
   EcsInstanceType:
     Type: String
     Label:
       en: Instance Type
       zh-cn: 实例类型
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
-  # FullNat表ID，可在VPC NAT网关页面查询
   FullNatTableId:
     Type: String
     AssociationProperty: ALIYUN::VPC::NatGateway::ForwardTableId
-  # Nat网关ID，可在VPC NAT网关页面查询
   NatGatewayId:
     Type: String
     AssociationProperty: ALIYUN::VPC::NatGateway::NatGatewayId
-  # NatIp网段
   NatIpCidr:
     Type: String
 Resources:
   WaitConditionHandle:
     Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
   WaitCondition:
     Type: ALIYUN::ROS::WaitCondition
     Properties:
@@ -109,25 +102,42 @@ Resources:
       Handle:
         Ref: WaitConditionHandle
       Timeout: 1800
+  VPCNatIp:
+    Type: ALIYUN::VPC::NatIp
+    Properties:
+      NatIpCidr:
+        Ref: NatIpCidr
+      NatIpDescription: test
+      NatIpName: test
+      NatGatewayId:
+        Ref: NatGatewayId
+    Count:
+      Fn::Length:
+        Ref: VpcReverseParameters
   EcsInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
-    DependsOn:
-      - VPCNatIp
     Properties:
-      InstanceName:
-        Fn::Join:
-          - '-'
-          - - Ref: ALIYUN::StackName
-            - '[1,4]'
-      IoOptimized: optimized
       ZoneId:
         Ref: ZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId: m-2zefr7ixarlg8coevwzl
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
+      IoOptimized: optimized
       DiskMappings:
-        - Category:
-            Ref: DataDiskCategory
-          Device: /dev/xvdb
-          Size:
-            Ref: DataDiskSize
+      - Category:
+          Ref: DataDiskCategory
+        Device: /dev/xvdb
+        Size:
+          Ref: DataDiskSize
       SystemDiskSize: 40
       UserData:
         Fn::Sub:
@@ -159,57 +169,39 @@ Resources:
       InstanceChargeType: PrePaid
       PeriodUnit: Month
       Period: 1
-      SecurityGroupId:
-        Ref: SecurityGroupId
-      VSwitchId:
-        Ref: VSwitchId
       MaxAmount: 1
       SystemDiskCategory: cloud_efficiency
-      VpcId:
-        Ref: VpcId
-      ImageId: m-2zefr7ixarlg8coevwzl
       InstanceType:
         Ref: EcsInstanceType
       HostName: reverse-vpc
       Password: passw0RD
       AllocatePublicIP: false
-  # 创建NatIP，用于跨VPC的转发
-  VPCNatIp:
-    Type: ALIYUN::VPC::NatIp
-    Count:
-      Fn::Length:
-        Ref: VpcReverseParameters
-    Properties:
-      NatIpCidr:
-        Ref: NatIpCidr
-      NatIpDescription: test
-      NatIpName: test
-      NatGatewayId:
-        Ref: NatGatewayId
+    DependsOn:
+    - VPCNatIp
 Outputs:
   NatIp:
     Value:
       Fn::GetAtt:
-        - VPCNatIp
-        - NatIp
+      - VPCNatIp
+      - NatIp
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - ZoneId
-          - InstanceType
-          - DataDiskCategory
-          - DataDiskSize
-          - VpcId
-          - SecurityGroupId
-          - VSwitchId
-        Label:
-          default:
-            en: instance
-            zh-cn: 实例规格
-      - Parameters:
-          - VpcReverseParameters
-        Label:
-          default:
-            en: Vpc Reverse Connection
-            zh-cn: 反向访问参数
+    - Parameters:
+      - ZoneId
+      - InstanceType
+      - DataDiskCategory
+      - DataDiskSize
+      - VpcId
+      - SecurityGroupId
+      - VSwitchId
+      Label:
+        default:
+          en: instance
+          zh-cn: 实例规格
+    - Parameters:
+      - VpcReverseParameters
+      Label:
+        default:
+          en: Vpc Reverse Connection
+          zh-cn: 反向访问参数

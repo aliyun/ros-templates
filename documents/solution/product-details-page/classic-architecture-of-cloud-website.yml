@@ -1,7 +1,11 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Classic architecture of cloud website.
-  zh-cn: 云上网站经典架构。
+  zh-cn: 创建VPC网络、双可用区SLB、ECS应用服务器、区域ECS服务器、RDS数据库，配置安全组和EIP，自动化部署HTTP服务与phpMyAdmin，实现云上经典网站架构。
+  en: Create a Virtual Private Cloud (VPC) network, dual Availability Zone (AZ) Load
+    Balancer, Elastic Compute Service (ECS) application servers, zonal ECS servers,
+    Relational Database Service (RDS) instances, configure Security Groups and Elastic
+    IP (EIP), automate the deployment of HTTP services along with phpMyAdmin, realizing
+    a classic website architecture on the cloud.
 Parameters:
   LoadBalancerSpec:
     Type: String
@@ -31,18 +35,6 @@ Parameters:
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
       ZoneId: ${Zone2}
-  DBInstanceClass:
-    Type: String
-    Label:
-      en: Rds instance type
-      zh-cn: RDS实例类型
-    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
-    AssociationPropertyMetadata:
-      ZoneId: ${Zone1}
-      Engine: MySQL
-      EngineVersion: "5.7"
-      Category: HighAvailability
-      DBInstanceStorageType: local_ssd
   ECSInstancePassword:
     Type: String
     Label:
@@ -62,6 +54,18 @@ Parameters:
     MinLength: 8
     MaxLength: 30
     NoEcho: true
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Rds instance type
+      zh-cn: RDS实例类型
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${Zone1}
+      Engine: MySQL
+      EngineVersion: '5.7'
+      Category: HighAvailability
+      DBInstanceStorageType: local_ssd
   RDSUserPassword:
     Type: String
     Label:
@@ -93,7 +97,8 @@ Parameters:
       en: VSwitch Availability Zone2
       zh-cn: 交换机可用区2
     Description:
-      en: Please make sure that <font color='red'><b>VSwitch Availability Zone2 is different from VSwitch Availability Zone1</b></font>.
+      en: Please make sure that <font color='red'><b>VSwitch Availability Zone2 is
+        different from VSwitch Availability Zone1</b></font>.
       zh-cn: 请确保<font color='red'><b>交换机可用区2与交换机可用区1不相同</b></font>。
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
 Resources:
@@ -165,34 +170,61 @@ Resources:
     Properties:
       Name: eip002
       InternetChargeType: PayByTraffic
-  Eip001Association:
-    Type: ALIYUN::VPC::EIPAssociation
-    Properties:
-      AllocationId: 
-        Ref: Eip001
-      InstanceId:
-        Ref: Slb
-  Eip002Assocaition:
-    Type: ALIYUN::VPC::EIPAssociation
-    Properties:
-      AllocationId:
-        Ref: Eip002
-      InstanceId:
-        Ref: EcsInstance
   Slb:
     Type: ALIYUN::SLB::LoadBalancer
     Properties:
-      LoadBalancerName: slb_app
-      PayType: PayOnDemand
-      InstanceChargeType: PayByCLCU
-      AddressIPVersion: ipv4
       VpcId:
         Ref: Vpc
       VSwitchId:
         Ref: VSwitch001
+      LoadBalancerName: slb_app
+      PayType: PayOnDemand
+      InstanceChargeType: PayByCLCU
+      AddressIPVersion: ipv4
       AddressType: intranet
       LoadBalancerSpec:
         Ref: LoadBalancerSpec
+  Eip001Association:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: Slb
+      AllocationId:
+        Ref: Eip001
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      ZoneId:
+        Ref: Zone2
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch002
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_7
+      InstanceChargeType: PostPaid
+      IoOptimized: optimized
+      SystemDiskCategory: cloud_essd
+      SystemDiskPerformanceLevel: PL0
+      SystemDiskSize: 40
+      DiskMappings:
+      - Size: 100
+        Category: cloud_essd
+      InstanceType:
+        Ref: RegionEcsInstanceType
+      Password:
+        Ref: ECSInstancePassword
+      InstanceName: region001
+      HostName: region001
+      AllocatePublicIP: false
+  Eip002Assocaition:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: EcsInstance
+      AllocationId:
+        Ref: Eip002
   SlbBackend:
     Type: ALIYUN::SLB::BackendServerAttachment
     Properties:
@@ -208,10 +240,10 @@ Resources:
         Weight: 100
       - ServerId:
           Fn::Select:
-            - '1'
-            - Fn::GetAtt:
-              - EcsInstanceGroup
-              - InstanceIds 
+          - '1'
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - InstanceIds
         Weight: 100
   SlbListner:
     Type: ALIYUN::SLB::Listener
@@ -219,7 +251,7 @@ Resources:
       Protocol: tcp
       ListenerPort: 80
       BackendServerPort: 80
-      AclStatus: "off"
+      AclStatus: 'off'
       LoadBalancerId:
         Ref: Slb
       Scheduler: wrr
@@ -227,7 +259,6 @@ Resources:
   EcsInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      InstanceChargeType: PostPaid
       ZoneId:
         Ref: Zone1
       VpcId:
@@ -237,6 +268,7 @@ Resources:
       SecurityGroupId:
         Ref: SecurityGroup
       ImageId: centos_7
+      InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
       SystemDiskSize: 40
       MaxAmount: 2
@@ -269,38 +301,11 @@ Resources:
           hostname:`hostname`
           </html>
           EOF
-  EcsInstance:
-    Type: ALIYUN::ECS::Instance
-    Properties:
-      InstanceChargeType: PostPaid
-      ZoneId:
-        Ref: Zone2
-      VpcId:
-        Ref: Vpc
-      VSwitchId:
-        Ref: VSwitch002
-      SecurityGroupId:
-        Ref: SecurityGroup
-      ImageId: centos_7
-      IoOptimized: optimized
-      SystemDiskCategory: cloud_essd
-      SystemDiskPerformanceLevel: PL0
-      SystemDiskSize: 40
-      DiskMappings:
-      - Size: 100
-        Category: cloud_essd
-      InstanceType:
-        Ref: RegionEcsInstanceType
-      Password:
-        Ref: ECSInstancePassword
-      InstanceName: region001
-      HostName: region001
-      AllocatePublicIP: false
   InstallPHP:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
-        - Ref: EcsInstance
+      - Ref: EcsInstance
       Type: RunShellScript
       Sync: true
       Timeout: 3600
@@ -331,15 +336,6 @@ Resources:
   Rds:
     Type: ALIYUN::RDS::DBInstance
     Properties:
-      Engine: MySQL
-      DBInstanceStorage: 100
-      EngineVersion: "5.7"
-      Port: 3306
-      Category: HighAvailability
-      DBInstanceStorageType: local_ssd
-      DBInstanceClass: 
-        Ref: DBInstanceClass
-      SecurityIPList: 192.168.0.0/16
       ZoneId:
         Ref: Zone1
       SlaveZoneIds:
@@ -351,10 +347,19 @@ Resources:
         - ','
         - - Ref: VSwitch001
           - Ref: VSwitch002
+      Engine: MySQL
+      DBInstanceStorage: 100
+      EngineVersion: '5.7'
+      Port: 3306
+      Category: HighAvailability
+      DBInstanceStorageType: local_ssd
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList: 192.168.0.0/16
       PayType: Postpaid
       MasterUserType: Normal
       MasterUsername: appdb_user
-      MasterUserPassword: 
+      MasterUserPassword:
         Ref: RDSUserPassword
   RdsDatabase:
     Type: ALIYUN::RDS::Database
@@ -365,13 +370,13 @@ Resources:
       DBName: appdb
   RdsAccountPrivilege:
     Type: ALIYUN::RDS::AccountPrivilege
-    DependsOn: RdsDatabase
     Properties:
       AccountPrivilege: ReadWrite
       DBInstanceId:
         Ref: Rds
       DBName: appdb
       AccountName: appdb_user
+    DependsOn: RdsDatabase
 Outputs:
   EcsInstances:
     Description:
@@ -397,8 +402,8 @@ Outputs:
             - InstanceIds
         instance3:
           Fn::GetAtt:
-            - EcsInstance
-            - InstanceId
+          - EcsInstance
+          - InstanceId
   SlbLoadBalancer:
     Description:
       en: View the created SLB LoadBalancer
@@ -412,7 +417,7 @@ Outputs:
         LoadBalancerId:
           Ref: Slb
   RdsInstance:
-    Description: 
+    Description:
       en: View the created RDS instacne.
       zh-cn: 查看创建的RDS实例
     Value:
@@ -428,7 +433,7 @@ Outputs:
       en: Rds database name.
       zh-cn: RDS 数据库名称
     Value: appdb
-  RdsUserName: 
+  RdsUserName:
     Description:
       en: RDS user name.
       zh-cn: RDS用户名称。
@@ -439,8 +444,8 @@ Outputs:
       zh-cn: 访问后端服务地址
     Value:
       Fn::Sub:
-      - "http://${app_ip}/local.html"
-      - app_ip:
+      - http://${app_ip}/local.html
+      - app_ip: null
         Fn::GetAtt:
         - Eip001Association
         - EipAddress
@@ -449,12 +454,12 @@ Outputs:
       en: Region server database access
       zh-cn: 区域服务器数据库访问
     Value:
-     Fn::Sub:
-     - "http://${eip}/pma"
-     - eip:
-       Fn::GetAtt:
-       - Eip002Association
-       - EipAddress
+      Fn::Sub:
+      - http://${eip}/pma
+      - eip: null
+        Fn::GetAtt:
+        - Eip002Association
+        - EipAddress
 Rules:
   DifferentZones:
     Assertions:

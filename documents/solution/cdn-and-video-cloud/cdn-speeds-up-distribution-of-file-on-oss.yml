@@ -1,7 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 使用CDN加速OSS上存储的文件资源分发。
-  en: Use a CDN to speed up the distribution of file resources stored on OSS.
+  zh-cn: 创建OSS存储桶并启用CDN加速，配置域名解析与优化文件分发策略，支持全球访问与自定义缓存规则。
+  en: Create an OSS bucket and enable CDN acceleration, configure domain name resolution,
+    and optimize file distribution strategies to support global access and custom
+    caching rules.
 Parameters:
   Scope:
     Type: String
@@ -14,9 +16,9 @@ Parameters:
         China and the world, the service domain name must be filed.
     Default: domestic
     AllowedValues:
-      - domestic
-      - overseas
-      - global
+    - domestic
+    - overseas
+    - global
   DomainName:
     Type: String
     Label:
@@ -24,48 +26,52 @@ Parameters:
       en: Accelerated domain name
     Description:
       zh-cn: 加速域名是指接入CDN，用于加速源站的域名。请填写您账号下的域名。
-      en: Accelerated domain name refers to the domain name of the access CDN used to accelerate the source site. Please fill in the domain name under your account.
+      en: Accelerated domain name refers to the domain name of the access CDN used
+        to accelerate the source site. Please fill in the domain name under your account.
   BucketName:
     Type: String
     Label:
       en: Bucket Name
       zh-cn: 存储空间名称
     Description:
-      en: The name must be 3 to 63 bytes in length, The name must start and end with a lowercase letter or digit.The name can contain only lowercase letters, digits, and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
+      en: The name must be 3 to 63 bytes in length, The name must start and end with
+        a lowercase letter or digit.The name can contain only lowercase letters, digits,
+        and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally
+        unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
       zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
     AssociationProperty: AutoCompleteInput
     AssociationPropertyMetadata:
       Length: 6
       Prefix: image-example-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
+      - Class: lowercase
+        min: 1
 Resources:
-  OssBucket:
-    Type: ALIYUN::OSS::Bucket
-    DependsOn: AutoEnableOSS
-    Properties:
-      BucketName:
-        Ref: BucketName
-      DeletionForce: true
-  AutoEnableCDN:
-    Type: ALIYUN::ROS::AutoEnableService
-    Properties:
-      ServiceName: CDN
   AutoEnableOSS:
     Type: ALIYUN::ROS::AutoEnableService
     Properties:
       ServiceName: OSS
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+      DeletionForce: true
+    DependsOn: AutoEnableOSS
+  AutoEnableCDN:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: CDN
   Domain:
     Type: ALIYUN::CDN::Domain
     Properties:
       Sources:
         Fn::Sub:
-          - '[{"content":"${content}", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
-          - content:
-              Fn::GetAtt:
-                - OssBucket
-                - DomainName
+        - '[{"content":"${content}", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
+        - content:
+            Fn::GetAtt:
+            - OssBucket
+            - DomainName
       CdnType: web
       Scope:
         Ref: Scope
@@ -78,53 +84,53 @@ Resources:
       Type: CNAME
       RR:
         Fn::Select:
-          - 0
-          - Fn::Split:
-              - .
-              - Ref: DomainName
+        - 0
+        - Fn::Split:
+          - .
+          - Ref: DomainName
       Value:
         Fn::GetAtt:
-          - Domain
-          - Cname
+        - Domain
+        - Cname
       DomainName:
         Fn::Join:
-          - .
-          - Fn::Select:
-              - '1:'
-              - Fn::Split:
-                  - .
-                  - Ref: DomainName
+        - .
+        - Fn::Select:
+          - '1:'
+          - Fn::Split:
+            - .
+            - Ref: DomainName
     DependsOn: Domain
   DomainConfig:
     Type: ALIYUN::CDN::DomainConfig
     Properties:
       FunctionList:
-        - functionArgs:
-            - argName: file_type
-              argValue: jpg,png,jpeg
-            - argName: weight
-              argValue: '99'
-            - argName: ttl
-              argValue: '7776000'
-          functionName: filetype_based_ttl_set
-        - functionArgs:
-            - argName: private_oss_auth
-              argValue: 'on'
-            - argName: perm_private_oss_tbl
-              argValue: ''
-          functionName: l2_oss_key
-        - functionArgs:
-            - argName: filetype
-              argValue: jpeg
-            - argName: webp
-              argValue: 'off'
-            - argName: orient
-              argValue: 'off'
-            - argName: slim
-              argValue: 90
-            - argName: enable
-              argValue: 'on'
-          functionName: image_transform
+      - functionArgs:
+        - argName: file_type
+          argValue: jpg,png,jpeg
+        - argName: weight
+          argValue: '99'
+        - argName: ttl
+          argValue: '7776000'
+        functionName: filetype_based_ttl_set
+      - functionArgs:
+        - argName: private_oss_auth
+          argValue: 'on'
+        - argName: perm_private_oss_tbl
+          argValue: ''
+        functionName: l2_oss_key
+      - functionArgs:
+        - argName: filetype
+          argValue: jpeg
+        - argName: webp
+          argValue: 'off'
+        - argName: orient
+          argValue: 'off'
+        - argName: slim
+          argValue: 90
+        - argName: enable
+          argValue: 'on'
+        functionName: image_transform
       DomainNames:
         Ref: Domain
     DependsOn: DomainRecord
@@ -133,8 +139,8 @@ Outputs:
     Description: CNAME
     Value:
       Fn::GetAtt:
-        - Domain
-        - Cname
+      - Domain
+      - Cname
   DomainName:
     Description: DomainName
     Value:
@@ -142,9 +148,9 @@ Outputs:
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - Scope
-          - DomainName
-          - BucketName
+    - Parameters:
+      - Scope
+      - DomainName
+      - BucketName
     TemplateTags:
-      - acs:technical-solution:cdn-and-video-cloud:文件下载加速及成本优化-tech_solu_38
+    - acs:technical-solution:cdn-and-video-cloud:文件下载加速及成本优化-tech_solu_38

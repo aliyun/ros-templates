@@ -1,133 +1,119 @@
 ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建ECS实例与安全组，配置VPC及VSwitch，启用ARMS服务并配置环境，实现Prometheus迁移至云端托管服务。
+  en: Create ECS instances and security groups, configure VPC and VSwitch, enable
+    ARMS service and set up the environment, facilitating the migration of Prometheus
+    to a cloud-managed service.
 Parameters:
-  CommonName:
+  ZoneId:
     Type: String
-    Default: prometheus
-  InstancePassword:
-    NoEcho: true
-    Type: String
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
     Label:
-      en: Instance Password
-      zh-cn: 实例密码
-    ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
-  InstanceType:
-    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+      zh-cn: 可用区ID
+      en: Available Zone ID
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        ECS resources</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     AssociationPropertyMetadata:
-      ZoneId: ${ZoneId}
+      AutoSelectFirst: true
+  InstanceType:
     Type: String
     Label:
       zh-cn: 实例类型
       en: Instance Type
-  ZoneId:
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
-      AutoSelectFirst: true
+      ZoneId: ${ZoneId}
+  InstancePassword:
     Type: String
-    Description:
-      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
-      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
     Label:
-      zh-cn: 可用区ID
-      en: Available Zone ID
-Metadata:
-  ALIYUN::ROS::Interface:
-    ParameterGroups:
-      - Parameters:
-          - ZoneId
-          - InstanceType
-          - InstancePassword
-        Label:
-          default: ECS
-    TemplateTags:
-      - acs:technical-solution:cloud-migration:自建Prometheus迁移云上Prometheus托管服务-tech_solu_149
-    Hidden:
-      - CommonName
-Outputs: {}
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: prometheus
 Resources:
-  EcsSecurityGroup:
-    Type: ALIYUN::ECS::SecurityGroup
-    Properties:
-      SecurityGroupIngress:
-        - Priority: 100
-          PortRange: 22/22
-          NicType: internet
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - Priority: 100
-          PortRange: 9100/9100
-          NicType: internet
-          SourceCidrIp: 100.64.0.0/10
-          IpProtocol: tcp
-        - Priority: 100
-          PortRange: 9256/9256
-          NicType: internet
-          SourceCidrIp: 192.168.0.0/18
-          IpProtocol: tcp
-      VpcId:
-        Ref: EcsVpc
-      SecurityGroupName:
-        Fn::Sub: ${CommonName}-sg
-  EcsVSwitch:
-    Type: ALIYUN::ECS::VSwitch
-    Properties:
-      VpcId:
-        Ref: EcsVpc
-      CidrBlock: 192.168.1.0/24
-      ZoneId:
-        Ref: ZoneId
-      VSwitchName:
-        Fn::Sub: ${CommonName}-vsw
-  EcsInstance:
-    Type: ALIYUN::ECS::InstanceGroup
-    Properties:
-      InstanceName:
-        Fn::Sub: ${CommonName}-ecs
-      MaxAmount: 1
-      SystemDiskCategory: cloud_essd
-      VpcId:
-        Fn::GetAtt:
-          - EcsVpc
-          - VpcId
-      SecurityGroupId:
-        Ref: EcsSecurityGroup
-      ImageId: aliyun_3_9_x64_20G_alibase_
-      VSwitchId:
-        Ref: EcsVSwitch
-      Password:
-        Ref: InstancePassword
-      InstanceType:
-        Ref: InstanceType
-      InternetMaxBandwidthOut: 5
-      ZoneId:
-        Ref: ZoneId
   EcsVpc:
     Type: ALIYUN::ECS::VPC
     Properties:
       VpcName:
         Fn::Sub: ${CommonName}-vpc
       CidrBlock: 192.168.0.0/16
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupIngress:
+      - Priority: 100
+        PortRange: 22/22
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - Priority: 100
+        PortRange: 9100/9100
+        NicType: internet
+        SourceCidrIp: 100.64.0.0/10
+        IpProtocol: tcp
+      - Priority: 100
+        PortRange: 9256/9256
+        NicType: internet
+        SourceCidrIp: 192.168.0.0/18
+        IpProtocol: tcp
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  EcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Fn::GetAtt:
+        - EcsVpc
+        - VpcId
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthOut: 5
   AutoEnableARMSService:
     Type: ALIYUN::ROS::AutoEnableService
     Properties:
       ServiceName: ARMS
   Environment:
     Type: ALIYUN::ARMS::Environment
-    DependsOn:
-      - EcsInstance
-      - AutoEnableARMSService
     Properties:
       ManagedType: agent-exporter
       EnvironmentName:
@@ -136,12 +122,28 @@ Resources:
       EnvironmentType: ECS
       BindResourceId:
         Ref: EcsVpc
+    DependsOn:
+    - AutoEnableARMSService
+    - EcsInstance
   EnvironmentFeature:
     Type: ALIYUN::ARMS::EnvironmentFeature
     Properties:
       FeatureVersion: '*'
       EnvironmentId:
         Fn::GetAtt:
-          - Environment
-          - EnvironmentId
+        - Environment
+        - EnvironmentId
       FeatureName: metric-agent
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - InstanceType
+      - InstancePassword
+      Label:
+        default: ECS
+    TemplateTags:
+    - acs:technical-solution:cloud-migration:自建Prometheus迁移云上Prometheus托管服务-tech_solu_149
+    Hidden:
+    - CommonName

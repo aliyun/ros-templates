@@ -1,7 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 网站静态资源跨地域访问加速。
-  en: Accelerate cross-regional access to website static resources.
+  zh-cn: 创建OSS存储桶、CDN加速域名，配置跨域访问与图片优化，实现网站静态资源全球加速。
+  en: Create OSS buckets, CDN acceleration domains, configure cross-origin resource
+    sharing (CORS) for access and image optimization, thereby realizing global acceleration
+    of website static resources.
 Parameters:
   Scope:
     Type: String
@@ -10,12 +12,13 @@ Parameters:
       en: Acceleration area
     Description:
       zh-cn: 选择加速区域。加速区域为仅中国内地和全球时，服务域名必须备案。
-      en: Select the acceleration area. When the acceleration region is only in mainland China and the world, the service domain name must be filed.
+      en: Select the acceleration area. When the acceleration region is only in mainland
+        China and the world, the service domain name must be filed.
     Default: domestic
     AllowedValues:
-      - domestic
-      - overseas
-      - global
+    - domestic
+    - overseas
+    - global
   DomainName:
     Type: String
     Label:
@@ -23,49 +26,53 @@ Parameters:
       en: Accelerated domain name
     Description:
       zh-cn: 加速域名是指接入CDN，用于加速源站的域名。请填写您账号下的域名。仅支持二级域名，例如 prefix.example.com。
-      en: Accelerated domain name refers to the domain name of the access CDN used to accelerate the source site. Please fill in the domain name under your account.
+      en: Accelerated domain name refers to the domain name of the access CDN used
+        to accelerate the source site. Please fill in the domain name under your account.
   BucketName:
     Type: String
     Label:
       en: Bucket Name
       zh-cn: 存储空间名称
     Description:
-      en: The name must be 3 to 63 bytes in length, The name must start and end with a lowercase letter or digit.The name can contain only lowercase letters, digits, and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
+      en: The name must be 3 to 63 bytes in length, The name must start and end with
+        a lowercase letter or digit.The name can contain only lowercase letters, digits,
+        and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally
+        unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
       zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
     AssociationProperty: AutoCompleteInput
     AssociationPropertyMetadata:
       Length: 6
       Prefix: image-example-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
+      - Class: lowercase
+        min: 1
 Resources:
+  AutoEnableOSS:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: OSS
   OssBucket:
     Type: ALIYUN::OSS::Bucket
-    DependsOn: AutoEnableOSS
     Properties:
       BucketName:
         Ref: BucketName
       DeletionForce: true
       AccessControl: public-read
+    DependsOn: AutoEnableOSS
   AutoEnableCDN:
     Type: ALIYUN::ROS::AutoEnableService
     Properties:
       ServiceName: CDN
-  AutoEnableOSS:
-    Type: ALIYUN::ROS::AutoEnableService
-    Properties:
-      ServiceName: OSS
   Domain:
     Type: ALIYUN::CDN::Domain
     Properties:
       Sources:
         Fn::Sub:
-          - '[{"content":"${content}", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
-          - content:
-              Fn::GetAtt:
-                - OssBucket
-                - DomainName
+        - '[{"content":"${content}", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
+        - content:
+            Fn::GetAtt:
+            - OssBucket
+            - DomainName
       CdnType: web
       Scope:
         Ref: Scope
@@ -78,53 +85,53 @@ Resources:
       Type: CNAME
       RR:
         Fn::Select:
-          - 0
-          - Fn::Split:
-              - .
-              - Ref: DomainName
+        - 0
+        - Fn::Split:
+          - .
+          - Ref: DomainName
       Value:
         Fn::GetAtt:
-          - Domain
-          - Cname
+        - Domain
+        - Cname
       DomainName:
         Fn::Join:
-          - .
-          - Fn::Select:
-              - '1:'
-              - Fn::Split:
-                  - .
-                  - Ref: DomainName
+        - .
+        - Fn::Select:
+          - '1:'
+          - Fn::Split:
+            - .
+            - Ref: DomainName
     DependsOn: Domain
   DomainConfig:
     Type: ALIYUN::CDN::DomainConfig
     Properties:
       FunctionList:
-        - FunctionArgs:
-            - ArgName: file_type
-              ArgValue: jpg,png,jpeg
-            - ArgName: weight
-              ArgValue: '99'
-            - ArgName: ttl
-              ArgValue: '2592000'
-          FunctionName: filetype_based_ttl_set
-        - FunctionArgs:
-            - ArgName: private_oss_auth
-              ArgValue: 'on'
-            - ArgName: perm_private_oss_tbl
-              ArgValue: ''
-          FunctionName: l2_oss_key
-        - FunctionArgs:
-            - ArgName: filetype
-              ArgValue: jpeg
-            - ArgName: webp
-              ArgValue: 'off'
-            - ArgName: orient
-              ArgValue: 'off'
-            - ArgName: slim
-              ArgValue: 90
-            - ArgName: enable
-              ArgValue: 'on'
-          FunctionName: image_transform
+      - FunctionArgs:
+        - ArgName: file_type
+          ArgValue: jpg,png,jpeg
+        - ArgName: weight
+          ArgValue: '99'
+        - ArgName: ttl
+          ArgValue: '2592000'
+        FunctionName: filetype_based_ttl_set
+      - FunctionArgs:
+        - ArgName: private_oss_auth
+          ArgValue: 'on'
+        - ArgName: perm_private_oss_tbl
+          ArgValue: ''
+        FunctionName: l2_oss_key
+      - FunctionArgs:
+        - ArgName: filetype
+          ArgValue: jpeg
+        - ArgName: webp
+          ArgValue: 'off'
+        - ArgName: orient
+          ArgValue: 'off'
+        - ArgName: slim
+          ArgValue: 90
+        - ArgName: enable
+          ArgValue: 'on'
+        FunctionName: image_transform
       DomainNames:
         Ref: Domain
     DependsOn: DomainRecord
@@ -133,8 +140,8 @@ Outputs:
     Description: CNAME
     Value:
       Fn::GetAtt:
-        - Domain
-        - Cname
+      - Domain
+      - Cname
   DomainName:
     Description: DomainName
     Value:
@@ -142,9 +149,9 @@ Outputs:
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - Scope
-          - DomainName
-          - BucketName
+    - Parameters:
+      - Scope
+      - DomainName
+      - BucketName
     TemplateTags:
-      - acs:technical-solution:cdn-and-video-cloud:网站静态资源跨地域访问加速-tech_solu_108
+    - acs:technical-solution:cdn-and-video-cloud:网站静态资源跨地域访问加速-tech_solu_108

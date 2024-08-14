@@ -1,7 +1,10 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh: 基于Flink+Hologres搭建实时数仓。
-  en: Build real-time warehouse based on Flink+Hologres.
+  zh-cn: 创建Flink+Hologres实时数仓，含VPC、VSwitch、OSS桶、RDS及资源配置，支持公网访问。
+  en: Establish a real-time data warehouse based on Flink+Hologres, encompassing Virtual
+    Private Cloud (VPC), Virtual Switch (VSwitch), Object Storage Service (OSS) bucket,
+    Relational Database Service (RDS), and resource allocation, with support for public
+    internet access.
 Parameters:
   FlinkZoneId:
     Type: String
@@ -23,6 +26,120 @@ Parameters:
         VSwitch and used for Hologres instance.</font></b>
       zh-cn: 可用区ID。<br><b>注：用于创建VSwitch，并给Hologres实例使用。
     AssociationProperty: ZoneId
+  DBInstanceNetType:
+    Type: String
+    Label:
+      en: Instance Net Type
+      zh-cn: 实例网络类型
+    Description:
+      en: RDS Instance Net Type
+      zh-cn: RDS实例网络类型
+    Default: Intranet
+    AllowedValues:
+    - Intranet
+    - Internet
+  EngineVersion:
+    Type: String
+    Label:
+      en: Engine Version
+      zh-cn: 数据库版本号
+    AssociationProperty: ALIYUN::RDS::Engine::EngineVersion
+    AssociationPropertyMetadata:
+      Engine: MySQL
+    Default: '8.0'
+  DBInstanceStorageType:
+    Type: String
+    Label:
+      zh-cn: 实例存储类型
+      en: Storage Type
+    Description:
+      zh-cn: 实例存储类型；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/69795.html'
+        target='_blank'><b><font color='blue'>存储类型</font></b></a>
+      en: The storage type of DB instance; see detail <a href='https://www.alibabacloud.com/help/en/apsaradb-for-rds/latest/storage-types'
+        target='_blank'><b><font color=''blue''>Storage types</font></b></a>'
+    Default: cloud_essd
+    AllowedValues:
+    - local_ssd
+    - cloud_ssd
+    - cloud_essd
+    - cloud_essd2
+    - cloud_essd3
+  DBInstanceStorage:
+    Type: Number
+    Label:
+      en: Instance Storage
+      zh-cn: 实例存储
+    Description:
+      en: 'Incrementing in every 5G, unit: GB'
+      zh-cn: 每5G递增，单位：GB
+    ConstraintDescription:
+      en: '[5, 2000] Incrementing in every 5G, unit: GB'
+      zh-cn: '[5, 2000] 每 5G 递增，单位：GB'
+    Default: 20
+    MinValue: 5
+    MaxValue: 2000
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${FlinkZoneId}
+      EngineVersion: ${EngineVersion}
+      DBInstanceStorageType: ${DBInstanceStorageType}
+      Engine: MySQL
+      Category: HighAvailability
+  DBName:
+    Type: String
+    Label:
+      zh-cn: 数据库名称
+      en: DB Name
+    Description:
+      zh-cn: 数据库名称，由小写字母、数字及特殊字符（-_）组成，以字母开头，字母或数字结尾，最多64个字符。
+      en: Database name, consisting of lowercase letters, Numbers, and special characters
+        (-_), starting with letters, ending with letters or Numbers, up to 64 characters.
+    Default: demodb
+  RdsUserType:
+    Type: String
+    Label:
+      zh-cn: 账号类型
+      en: RDS Account Type
+    Description:
+      zh-cn: '数据库账号类型，<b><font color=''blue''>可选值：</font></b><br>[Normal: <font color=''green''>普通账号</font>]<br>[Super:
+        <font color=''green''>高权限账号</font>]'
+      en: 'Database account type, <b><font color=''blue''>AllowedValues: </font></b><br>[Normal:
+        <font color=''green''>Ordinary account</font>]<br>[Super: <font color=''green''>High-privilege
+        account</font>]'
+    Default: Super
+    AllowedValues:
+    - Super
+    - Normal
+  RdsAccountName:
+    Type: String
+    Label:
+      zh-cn: 账号
+      en: Account
+    Description:
+      zh-cn: 2~256个字符,以中文、英文字母开头，可以包含可以包含数字、中文、英文、下划线、短横线。
+      en: 2~256 characters, beginning with Chinese and English letters, can contain
+        can contain Numbers, Chinese, English, underline, dash line.
+    Default: demouser
+  RdsAccountPwd:
+    Type: String
+    Label:
+      zh-cn: 帐号密码
+      en: Account Password
+    Description:
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+    ConstraintDescription:
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+      en: '8-32 characters, can contain size letters, Numbers and special symbols
+        (including:!@ # $% ^ & * - + = _).'
+    AllowedPattern: ^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*\-+=_]).{8,32}$
+    NoEcho: true
   BucketName:
     Type: String
     Label:
@@ -39,8 +156,8 @@ Parameters:
       Length: 10
       Prefix: bucket-create-by-ros-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
+      - Class: lowercase
+        min: 1
   FlinkInstanceName:
     Type: String
     Label:
@@ -58,8 +175,8 @@ Parameters:
       Length: 10
       Prefix: instance-create-by-ros-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
+      - Class: lowercase
+        min: 1
   HologresInstanceName:
     Type: String
     Label:
@@ -73,116 +190,8 @@ Parameters:
       Length: 10
       Prefix: instance-create-by-ros-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
-  DBInstanceNetType:
-    Type: String
-    Label:
-      en: Instance Net Type
-      zh-cn: 实例网络类型
-    Description:
-      en: RDS Instance Net Type
-      zh-cn: RDS实例网络类型
-    AllowedValues:
-      - Intranet
-      - Internet
-    Default: Intranet
-  EngineVersion:
-    Type: String
-    Label:
-      en: Engine Version
-      zh-cn: 数据库版本号
-    AssociationProperty: ALIYUN::RDS::Engine::EngineVersion
-    AssociationPropertyMetadata:
-      Engine: MySQL
-    Default: "8.0"
-  DBInstanceStorageType:
-    Type: String
-    Label:
-      zh-cn: 实例存储类型
-      en: Storage Type
-    Description:
-      zh-cn: 实例存储类型；<br>请参见详细信息：<a href='https://help.aliyun.com/document_detail/69795.html'
-        target='_blank'><b><font color='blue'>存储类型</font></b></a>
-      en: The storage type of DB instance; see detail <a href='https://www.alibabacloud.com/help/en/apsaradb-for-rds/latest/storage-types'
-        target='_blank'><b><font color=''blue''>Storage types</font></b></a>'
-    AllowedValues:
-      - local_ssd
-      - cloud_ssd
-      - cloud_essd
-      - cloud_essd2
-      - cloud_essd3
-    Default: cloud_essd
-  DBInstanceClass:
-    Type: String
-    Label:
-      en: Instance Class
-      zh-cn: 实例规格
-    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
-    AssociationPropertyMetadata:
-      ZoneId: ${FlinkZoneId}
-      EngineVersion: ${EngineVersion}
-      DBInstanceStorageType: ${DBInstanceStorageType}
-      Engine: MySQL
-      Category: HighAvailability
-  DBInstanceStorage:
-    Type: Number
-    Label:
-      en: Instance Storage
-      zh-cn: 实例存储
-    Description:
-      en: 'Incrementing in every 5G, unit: GB'
-      zh-cn: 每5G递增，单位：GB
-    ConstraintDescription:
-      en: '[5, 2000] Incrementing in every 5G, unit: GB'
-      zh-cn: '[5, 2000] 每 5G 递增，单位：GB'
-    MinValue: 5
-    MaxValue: 2000
-    Default: 20
-  RdsUserType:
-    Type: String
-    Label:
-      zh-cn: 账号类型
-      en: RDS Account Type
-    Description:
-      zh-cn: '数据库账号类型，<b><font color=''blue''>可选值：</font></b><br>[Normal: <font color=''green''>普通账号</font>]<br>[Super: <font color=''green''>高权限账号</font>]'
-      en: 'Database account type, <b><font color=''blue''>AllowedValues: </font></b><br>[Normal: <font color=''green''>Ordinary account</font>]<br>[Super: <font color=''green''>High-privilege account</font>]'
-    AllowedValues:
-      - Super
-      - Normal
-    Default: Super
-  DBName:
-    Type: String
-    Label:
-      zh-cn: 数据库名称
-      en: DB Name
-    Description:
-      zh-cn: 数据库名称，由小写字母、数字及特殊字符（-_）组成，以字母开头，字母或数字结尾，最多64个字符。
-      en: Database name, consisting of lowercase letters, Numbers, and special characters (-_), starting with letters, ending with letters or Numbers, up to 64 characters.
-    Default: demodb
-  RdsAccountName:
-    Type: String
-    Label:
-      zh-cn: 账号
-      en: Account
-    Description:
-      zh-cn: 2~256个字符,以中文、英文字母开头，可以包含可以包含数字、中文、英文、下划线、短横线。
-      en: 2~256 characters, beginning with Chinese and English letters, can contain can contain Numbers, Chinese, English, underline, dash line.
-    Default: demouser
-  RdsAccountPwd:
-      Type: String
-      Label:
-        zh-cn: 帐号密码
-        en: Account Password
-      Description:
-        zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
-        en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols (including:!@ # $% ^ & * - + = _).'
-      ConstraintDescription:
-        zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
-        en: '8-32 characters, can contain size letters, Numbers and special symbols (including:!@ # $% ^ & * - + = _).'
-      AllowedPattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*\-+=_]).{8,32}$'
-      NoEcho: true
-
+      - Class: lowercase
+        min: 1
 Resources:
   VPC:
     Type: ALIYUN::ECS::VPC
@@ -233,11 +242,11 @@ Resources:
         Ref: HologresZoneId
       ProductCode: hologram_postpay_public_cn
       Endpoints:
-        - VpcId:
-            Ref: VPC
-          VSwitchId:
-            Ref: HologresVSwitch
-          Type: VPCSingleTunnel
+      - VpcId:
+          Ref: VPC
+        VSwitchId:
+          Ref: HologresVSwitch
+        Type: VPCSingleTunnel
       InstanceType: Standard
       PaymentType: PostPaid
       PricingCycle: Hour
@@ -248,6 +257,10 @@ Resources:
   Rds:
     Type: ALIYUN::RDS::DBInstance
     Properties:
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: FlinkVSwitch
       EngineVersion:
         Ref: EngineVersion
       DBInstanceClass:
@@ -261,15 +274,11 @@ Resources:
       DBInstanceStorage:
         Ref: DBInstanceStorage
       Engine: MySQL
-      VpcId:
-        Ref: VPC
-      VSwitchId:
-        Ref: FlinkVSwitch
       AllocatePublicConnection: true
       DBMappings:
-        - CharacterSetName: utf8
-          DBName:
-            Ref: DBName
+      - CharacterSetName: utf8
+        DBName:
+          Ref: DBName
   RdsDatabase:
     Type: ALIYUN::RDS::Database
     Properties:
@@ -278,20 +287,76 @@ Resources:
         Ref: Rds
       DBName: order_dw
   RdsAccount:
-      DependsOn:
-        - Rds
-      Type: ALIYUN::RDS::Account
-      Properties:
-        DBInstanceId:
-          Ref: Rds
-        AccountPassword:
-          Ref: RdsAccountPwd
-        AccountType:
-          Ref: RdsUserType
-        AccountName:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: Rds
+      AccountPassword:
+        Ref: RdsAccountPwd
+      AccountType:
+        Ref: RdsUserType
+      AccountName:
+        Ref: RdsAccountName
+    DependsOn:
+    - Rds
+Outputs:
+  PublicConnectionString:
+    Description:
+      zh-cn: 公网连接命令行。
+      en: Rds Public Connection command line.
+    Value:
+      Fn::Sub:
+      - mysql -h${PublicConnectionString} -u${RdsAccountName} -P${RdsPublicPort} -p
+      - PublicConnectionString:
+          Fn::GetAtt:
+          - Rds
+          - PublicConnectionString
+        RdsAccountName:
           Ref: RdsAccountName
+        RdsPublicPort:
+          Fn::GetAtt:
+          - Rds
+          - PublicPort
+  RdsPublicConnectionString:
+    Description:
+      zh-cn: 公网连接地址。
+      en: Rds Public Connection address.
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - PublicConnectionString
+  RdsPublicPort:
+    Description:
+      zh-cn: 数据库实例公网端口
+      en: Public network port of the database instance
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - PublicPort
+  RdsInnerConnectionString:
+    Description:
+      zh-cn: 内网连接地址。
+      en: Rds Inner Connection address.
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - InnerConnectionString
+  RdsInnerPort:
+    Description:
+      zh-cn: 数据库实例内网端口
+      en: Inner network port of the database instance
+    Value:
+      Fn::GetAtt:
+      - Rds
+      - InnerPort
+  RdsAccountName:
+    Description:
+      zh-cn: 账号
+      en: Account
+    Value:
+      Ref: RdsAccountName
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     ParameterGroups:
     - Parameters:
       - FlinkZoneId
@@ -301,15 +366,15 @@ Metadata:
           en: Availability Zone
           zh-cn: 可用区配置
     - Parameters:
-        - DBInstanceNetType
-        - EngineVersion
-        - DBInstanceStorageType
-        - DBInstanceStorage
-        - DBInstanceClass
-        - DBName
-        - RdsUserType
-        - RdsAccountName
-        - RdsAccountPwd
+      - DBInstanceNetType
+      - EngineVersion
+      - DBInstanceStorageType
+      - DBInstanceStorage
+      - DBInstanceClass
+      - DBName
+      - RdsUserType
+      - RdsAccountName
+      - RdsAccountPwd
       Label:
         en: RDS Configuration
         zh-cn: RDS配置
@@ -326,67 +391,10 @@ Metadata:
           en: Flink
           zh-cn: Flink配置
     - Parameters:
-        - HologresInstanceName
+      - HologresInstanceName
       Label:
         default:
           en: Hologres
           zh-cn: Hologres配置
     TemplateTags:
-    - 'acs:technical-solution:data-analysis:Flink+Hologres搭建实时数仓-tech_solu_15'
-
-Outputs:
-  PublicConnectionString:
-    Description:
-      zh-cn: 公网连接命令行。
-      en: Rds Public Connection command line.
-    Value:
-      Fn::Sub:
-        - mysql -h${PublicConnectionString} -u${RdsAccountName} -P${RdsPublicPort} -p
-        - PublicConnectionString:
-            Fn::GetAtt:
-              - Rds
-              - PublicConnectionString
-          RdsAccountName:
-            Ref: RdsAccountName
-          RdsPublicPort:
-            Fn::GetAtt:
-              - Rds
-              - PublicPort
-  RdsPublicConnectionString:
-    Description:
-      zh-cn: 公网连接地址。
-      en: Rds Public Connection address.
-    Value:
-      Fn::GetAtt:
-        - Rds
-        - PublicConnectionString
-  RdsPublicPort:
-    Description:
-      zh-cn: 数据库实例公网端口
-      en: Public network port of the database instance
-    Value:
-      Fn::GetAtt:
-        - Rds
-        - PublicPort
-  RdsInnerConnectionString:
-    Description:
-      zh-cn: 内网连接地址。
-      en: Rds Inner Connection address.
-    Value:
-      Fn::GetAtt:
-        - Rds
-        - InnerConnectionString
-  RdsInnerPort:
-    Description:
-      zh-cn: 数据库实例内网端口
-      en: Inner network port of the database instance
-    Value:
-      Fn::GetAtt:
-        - Rds
-        - InnerPort
-  RdsAccountName:
-    Description:
-      zh-cn: 账号
-      en: Account
-    Value:
-      Ref: RdsAccountName
+    - acs:technical-solution:data-analysis:Flink+Hologres搭建实时数仓-tech_solu_15

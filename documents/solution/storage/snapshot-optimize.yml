@@ -1,165 +1,113 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 无代理ECS备份高效环境搭建
-  en: Deploy high-performance MySQL services based on EBS ESSD.
+  zh-cn: 搭建基于ECS和ESSD盘的高效率MySQL环境，含安全组、VPC配置，自动快照策略，及克隆实例功能。
+  en: Establish a high-performance MySQL environment based on ECS instances and ESSD
+    disks, encompassing Security Group configurations, VPC setups, automated snapshot
+    policies, and instance cloning functionality.
 Parameters:
-  ecsType:
-    Default: ecs.g6.large
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
-    AssociationPropertyMetadata:
-      SystemDiskCategory: cloud_essd
-      InstanceChargeType: PostPaid
-      ZoneId: '${zoneId}'
-    Type: String
-    Label:
-      zh-cn: ECS 实例规格
-      en: InstanceType
-  ecsPassword:
-    Type: String
-    Description:
-      zh-cn: >-
-        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-    Default: null
-    MinLength: 8
-    Label:
-      zh-cn: 实例密码
-      en: Instance Password
-    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
-    MaxLength: 30
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
-    ConstraintDescription:
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
   zoneId:
-    Default: ''
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
     Type: String
     Label:
       zh-cn: 可用区
       en: Availability Zone
-Outputs:
-  EcsLoginAddress:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Default: ''
+  ecsType:
+    Type: String
+    Label:
+      zh-cn: ECS 实例规格
+      en: InstanceType
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: ${zoneId}
+    Default: ecs.g6.large
+  ecsPassword:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
     Description:
-      zh-cn: Ecs登录地址。
-      en: Ecs login address.
-    Value:
-      'Fn::Sub':
-        - >-
-          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
-        - InstanceId:
-            Ref: EcsInstance
-          Region:
-            Ref: 'ALIYUN::Region'
-  EcsCloneLoginAddress:
-    Description:
-      zh-cn: Ecs(克隆)登录地址。
-      en: Ecs clone login address.
-    Value:
-      'Fn::Sub':
-        - >-
-          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
-        - InstanceId:
-            Ref: EcsInstanceClone
-          Region:
-            Ref: 'ALIYUN::Region'
-  EcsInstanceId:
-    Description: ECS实例ID
-    Value:
-      'Fn::GetAtt':
-        - EcsInstance
-        - InstanceId
-  EcsInstanceUser:
-    Description: ECS实例初始用户
-    Value: root
-  EcsInstancePublicIp:
-    Description: ECS实例公网IP
-    Value:
-      'Fn::GetAtt':
-        - EcsInstance
-        - PublicIp
-  MysqlUser:
-    Description: MySQL初始用户
-    Value: root
-  MysqlPassword:
-    Description: MySQL初始密码
-    Value: 请登录ECS执行以下命令获取初始密码：sudo grep 'temporary password' /var/log/mysqld.log
-  SystemDiskId:
-    Description: 系统盘ID
-    Value:
-      'Fn::GetAtt':
-        - SysTemDisk
-        - DiskIds
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Default: null
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
 Resources:
-  SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
-    Properties:
-      SecurityGroupIngress:
-        - Priority: 1
-          PortRange: '-1/-1'
-          NicType: intranet
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: all
-      VpcId:
-        Ref: VPC
-      SecurityGroupEgress:
-        - Priority: 1
-          PortRange: '-1/-1'
-          DestCidrIp: 0.0.0.0/0
-          NicType: intranet
-          IpProtocol: all
   VPC:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       VpcName:
-        'Fn::Join':
-          - '-'
-          - - StackId
-            - Ref: 'ALIYUN::StackId'
+        Fn::Join:
+        - '-'
+        - - StackId
+          - Ref: ALIYUN::StackId
       CidrBlock: 192.168.0.0/16
-  VSwitch:
-    Type: 'ALIYUN::ECS::VSwitch'
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
-      VSwitchName:
-        Ref: 'ALIYUN::StackName'
       VpcId:
         Ref: VPC
-      CidrBlock: 192.168.0.0/24
+      SecurityGroupIngress:
+      - Priority: 1
+        PortRange: -1/-1
+        NicType: intranet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: all
+      SecurityGroupEgress:
+      - Priority: 1
+        PortRange: -1/-1
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+        IpProtocol: all
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
       ZoneId:
         Ref: zoneId
-  EcsInstance:
-    Type: 'ALIYUN::ECS::Instance'
-    Properties:
-      SystemDiskCategory: cloud_essd
       VpcId:
         Ref: VPC
-      InternetMaxBandwidthOut: 100
+      VSwitchName:
+        Ref: ALIYUN::StackName
+      CidrBlock: 192.168.0.0/24
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      ZoneId:
+        Ref: zoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
       SecurityGroupId:
         Ref: SecurityGroup
-      SystemDiskSize: 40
       ImageId: centos_7_9_x64_20G_alibase_
+      SystemDiskCategory: cloud_essd
+      InternetMaxBandwidthOut: 100
+      SystemDiskSize: 40
       AllocatePublicIP: true
       IoOptimized: optimized
       InternetChargeType: PayByTraffic
-      VSwitchId:
-        Ref: VSwitch
       Password:
         Ref: ecsPassword
       InstanceType:
         Ref: ecsType
-      ZoneId:
-        Ref: zoneId
       InstanceName:
-        'Fn::Sub': 'ECS_Instance-${ALIYUN::StackId}'
+        Fn::Sub: ECS_Instance-${ALIYUN::StackId}
   RunCommand:
-    Type: 'ALIYUN::ECS::RunCommand'
+    Type: ALIYUN::ECS::RunCommand
     Properties:
+      InstanceIds:
+      - Ref: EcsInstance
       Type: RunShellScript
       CommandContent:
         'Fn::Sub':
@@ -219,87 +167,135 @@ Resources:
             sync
           - {}
       Sync: true
-      InstanceIds:
-        - Ref: EcsInstance
       Timeout: 600
     DependsOn:
-      - EcsInstance
+    - EcsInstance
   SysTemDisk:
-    Type: 'DATASOURCE::ECS::Disks'
+    Type: DATASOURCE::ECS::Disks
     Properties:
       InstanceId:
         Ref: EcsInstance
       DiskType: system
     DependsOn:
-      - RunCommand
+    - RunCommand
   SnaptshotPolicy:
-    Type: 'ALIYUN::ECS::AutoSnapshotPolicy'
+    Type: ALIYUN::ECS::AutoSnapshotPolicy
     Properties:
       TimePoints:
-        - 20
-        - 23
+      - 20
+      - 23
       RetentionDays: 1
       RepeatWeekdays:
-        - 1
-        - 2
+      - 1
+      - 2
       DiskIds:
-        'Fn::GetAtt':
-          - SysTemDisk
-          - DiskIds
+        Fn::GetAtt:
+        - SysTemDisk
+        - DiskIds
       AutoSnapshotPolicyName:
-        'Fn::Sub': 'AutoSnapshotPolicy-${ALIYUN::StackId}'
+        Fn::Sub: AutoSnapshotPolicy-${ALIYUN::StackId}
   MysqlImage:
-    Type: 'ALIYUN::ECS::CustomImage'
+    Type: ALIYUN::ECS::CustomImage
     Properties:
-      Description: MySQL实例镜像
       InstanceId:
         Ref: EcsInstance
+      Description: MySQL实例镜像
       ImageName:
-        'Fn::Sub': 'MySQLImage-${ALIYUN::StackId}'
+        Fn::Sub: MySQLImage-${ALIYUN::StackId}
       Platform: CentOS
       Architecture: x86_64
     DependsOn:
-      - SnaptshotPolicy
-      - RunCommand
+    - RunCommand
+    - SnaptshotPolicy
   EcsInstanceClone:
-    Type: 'ALIYUN::ECS::Instance'
+    Type: ALIYUN::ECS::Instance
     Properties:
-      SystemDiskCategory: cloud_essd
+      ZoneId:
+        Ref: zoneId
       VpcId:
         Ref: VPC
-      InternetMaxBandwidthOut: 100
+      VSwitchId:
+        Ref: VSwitch
       SecurityGroupId:
         Ref: SecurityGroup
-      SystemDiskSize: 40
       ImageId:
-        'Fn::GetAtt':
-          - MysqlImage
-          - ImageId
+        Fn::GetAtt:
+        - MysqlImage
+        - ImageId
+      SystemDiskCategory: cloud_essd
+      InternetMaxBandwidthOut: 100
+      SystemDiskSize: 40
       AllocatePublicIP: true
       IoOptimized: optimized
       InternetChargeType: PayByTraffic
-      VSwitchId:
-        Ref: VSwitch
       Password:
         Ref: ecsPassword
       InstanceType:
         Ref: ecsType
-      ZoneId:
-        Ref: zoneId
       InstanceName:
-        'Fn::Sub': 'ECS_Instance_Clone-${ALIYUN::StackId}'
+        Fn::Sub: ECS_Instance_Clone-${ALIYUN::StackId}
     DependsOn:
-      - MysqlImage
+    - MysqlImage
+Outputs:
+  EcsLoginAddress:
+    Description:
+      zh-cn: Ecs登录地址。
+      en: Ecs login address.
+    Value:
+      Fn::Sub:
+      - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+      - InstanceId:
+          Ref: EcsInstance
+        Region:
+          Ref: ALIYUN::Region
+  EcsCloneLoginAddress:
+    Description:
+      zh-cn: Ecs(克隆)登录地址。
+      en: Ecs clone login address.
+    Value:
+      Fn::Sub:
+      - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+      - InstanceId:
+          Ref: EcsInstanceClone
+        Region:
+          Ref: ALIYUN::Region
+  EcsInstanceId:
+    Description: ECS实例ID
+    Value:
+      Fn::GetAtt:
+      - EcsInstance
+      - InstanceId
+  EcsInstanceUser:
+    Description: ECS实例初始用户
+    Value: root
+  EcsInstancePublicIp:
+    Description: ECS实例公网IP
+    Value:
+      Fn::GetAtt:
+      - EcsInstance
+      - PublicIp
+  MysqlUser:
+    Description: MySQL初始用户
+    Value: root
+  MysqlPassword:
+    Description: MySQL初始密码
+    Value: 请登录ECS执行以下命令获取初始密码：sudo grep 'temporary password' /var/log/mysqld.log
+  SystemDiskId:
+    Description: 系统盘ID
+    Value:
+      Fn::GetAtt:
+      - SysTemDisk
+      - DiskIds
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - zoneId
-          - ecsType
-          - ecsPassword
-          - ecsImageId
-        Label:
-          zh-cn: 基础配置
-          en: Basic Configuration
+    - Parameters:
+      - zoneId
+      - ecsType
+      - ecsPassword
+      - ecsImageId
+      Label:
+        zh-cn: 基础配置
+        en: Basic Configuration
     TemplateTags:
-      - 'acs:technical-solution:ebs:EBS部署高性能的MySQL服务-tech_solu_96'
+    - acs:technical-solution:ebs:EBS部署高性能的MySQL服务-tech_solu_96

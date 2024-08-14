@@ -1,11 +1,11 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Quickly use ACK to build microservices.
-  zh-cn: 快速使用ACK搭建微服务。
+  zh-cn: 创建ACK集群，配置VPC、安全组，部署微服务应用，自动伸缩节点池，设置ALB ingress，输出服务访问URL。
+  en: Create an ACK (Alibaba Cloud Container Service for Kubernetes) cluster, configure
+    VPC (Virtual Private Cloud) and security groups, deploy microservices applications,
+    automatically scale node pools, set up ALB (Application Load Balancer) ingress,
+    and output the service access URL.
 Parameters:
-  CommonName:
-    Type: String
-    Default: microservices-on-ack
   ManagedKubernetesClusterName:
     Type: String
     Label:
@@ -16,113 +16,112 @@ Parameters:
       Length: 5
       Prefix: k8s-hpa-cluster-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
+      - Class: lowercase
+        min: 1
   ZoneId1:
     Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
-    AssociationPropertyMetadata:
-      ExclusiveTo:
-        - ZoneId2
     Label:
       en: Availability Zone
       zh-cn: 可用区1
-  ZoneId2:
-    Type: String
-    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     AssociationPropertyMetadata:
       ExclusiveTo:
-        - ZoneId1
+      - ZoneId2
+  ZoneId2:
+    Type: String
     Label:
       en: Availability Zone
       zh-cn: 可用区2
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - ZoneId1
   InstanceType:
     Type: CommaDelimitedList
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
       CreateACKClusterParams:
         NetworkPlugin: terway-eniip
-    Label:
-      en: Instance Type
-      zh-cn: 实例规格
   InstancePassword:
-    NoEcho: true
     Type: String
-    Description:
-      en: >-
-        Server login password, Length 8-30, must contain three(Capital letters,
-        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
-        symbol in)
-      zh-cn: >-
-        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
-        中的特殊符号）
     Label:
       en: Instance Password
       zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     ConstraintDescription:
-      en: >-
-        Length 8-30, must contain three(Capital letters, lowercase letters,
-        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
-    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
     Default: null
+    NoEcho: true
+  CommonName:
+    Type: String
+    Default: microservices-on-ack
 Resources:
   Vpc:
-    Type: 'ALIYUN::ECS::VPC'
+    Type: ALIYUN::ECS::VPC
     Properties:
       CidrBlock: 10.0.0.0/8
       VpcName:
         Fn::Sub: ${CommonName}-vpc
   VSwitch1:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId1
       VpcId:
         Ref: Vpc
       CidrBlock: 10.0.0.0/24
-      ZoneId:
-        Ref: ZoneId1
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   VSwitch2:
-    Type: 'ALIYUN::ECS::VSwitch'
+    Type: ALIYUN::ECS::VSwitch
     Properties:
+      ZoneId:
+        Ref: ZoneId2
       VpcId:
         Ref: Vpc
       CidrBlock: 10.0.1.0/24
-      ZoneId:
-        Ref: ZoneId2
       VSwitchName:
         Fn::Sub: ${CommonName}-vsw
   SecurityGroup:
-    Type: 'ALIYUN::ECS::SecurityGroup'
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName:
         Fn::Sub: ${CommonName}-sg
       SecurityGroupIngress:
-        - PortRange: 22/22
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 8080/8080
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 8080/8080
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 80/80
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
   AckCluster:
-    Type: 'ALIYUN::CS::ManagedKubernetesCluster'
+    Type: ALIYUN::CS::ManagedKubernetesCluster
     Properties:
       VpcId:
         Ref: Vpc
       VSwitchIds:
-        - Ref: VSwitch1
-        - Ref: VSwitch2
+      - Ref: VSwitch1
+      - Ref: VSwitch2
       PodVswitchIds:
-        - Ref: VSwitch1
-        - Ref: VSwitch1
+      - Ref: VSwitch1
+      - Ref: VSwitch1
       Name:
         Ref: ManagedKubernetesClusterName
       KubernetesVersion: 1.28.9-aliyun.1
@@ -165,19 +164,19 @@ Resources:
         - ResourceType: PrivateZone
           DeleteMode: delete
   NodePools:
-    Type: 'ALIYUN::CS::ClusterNodePool'
+    Type: ALIYUN::CS::ClusterNodePool
     Properties:
       ClusterId:
         Ref: AckCluster
       NodePoolInfo:
-          Name: default-nodepool
+        Name: default-nodepool
       ScalingGroup:
         VSwitchIds:
-          - Ref: VSwitch1
-          - Ref: VSwitch2
+        - Ref: VSwitch1
+        - Ref: VSwitch2
         ZoneIds:
-          - Ref: ZoneId1
-          - Ref: ZoneId2
+        - Ref: ZoneId1
+        - Ref: ZoneId2
         SystemDiskCategory: cloud_essd
         SystemDiskPerformanceLevel: PL0
         SystemDiskSize: 120
@@ -192,8 +191,7 @@ Resources:
         RuntimeVersion: 1.6.28
       Count: 3
   InstallBackendApp:
-    Type: 'ALIYUN::CS::ClusterApplication'
-    DependsOn: NodePools
+    Type: ALIYUN::CS::ClusterApplication
     Properties:
       ClusterId:
         Ref: AckCluster
@@ -335,8 +333,7 @@ Resources:
                 port: 8080
                 targetPort: 8080
   AlbConfig:
-    Type: 'ALIYUN::CS::ClusterApplication'
-    DependsOn: InstallBackendApp
+    Type: ALIYUN::CS::ClusterApplication
     Properties:
       ClusterId:
         Ref: AckCluster
@@ -393,12 +390,11 @@ Resources:
                         number: 8080
   WaitAlbIngress:
     Type: ALIYUN::ROS::Sleep
-    DependsOn: AlbConfig
     Properties:
       CreateDuration: 120
+    DependsOn: AlbConfig
   IngressInfo:
-    Type: 'DATASOURCE::CS::ClusterApplicationResources'
-    DependsOn: WaitAlbIngress
+    Type: DATASOURCE::CS::ClusterApplicationResources
     Properties:
       ClusterId:
         Ref: AckCluster
@@ -406,30 +402,31 @@ Resources:
       Namespace: default
       JsonPath: $.items.[0].status.loadBalancer.ingress.[0].hostname
       FirstMatch: true
+    DependsOn: WaitAlbIngress
 Outputs:
   UrlServiceA:
     Description:
       zh-cn: A服务访问地址。
       en: The addresses of A service.
     Value:
-      'Fn::Sub': http://${IngressInfo}/a
+      Fn::Sub: http://${IngressInfo}/a
   UrlServiceB:
     Description:
       zh-cn: B服务访问地址。
       en: The addresses of B service.
     Value:
-      'Fn::Sub': http://${IngressInfo}/b
+      Fn::Sub: http://${IngressInfo}/b
 Metadata:
-  'ALIYUN::ROS::Interface':
+  ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-          - SlsProjectName
-          - ManagedKubernetesClusterName
-          - ZoneId1
-          - ZoneId2
-          - InstanceType
-          - InstancePassword
+    - Parameters:
+      - SlsProjectName
+      - ManagedKubernetesClusterName
+      - ZoneId1
+      - ZoneId2
+      - InstanceType
+      - InstancePassword
     TemplateTags:
-      - acs:technical-solution:micro:如何快速使用ACK搭建微服务-tech_solu_124
+    - acs:technical-solution:micro:如何快速使用ACK搭建微服务-tech_solu_124
     Hidden:
-      - CommonName
+    - CommonName

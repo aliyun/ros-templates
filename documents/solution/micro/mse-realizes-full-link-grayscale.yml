@@ -1,7 +1,11 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: MSE end-to-end canary release for ACK application.
-  zh-cn: 基于MSE实现ACK应用的全链路灰度。
+  zh-cn: 创建ACK集群与MSE全链路灰度发布，含VPC、VSwitch、MSE网关、注册配置中心实例及灰度服务源配置。
+  en: Creating an ACK (Alibaba Cloud Container Service for Kubernetes) cluster along
+    with MSE (Microservice Engine) end-to-end gray release setup, encompassing VPC
+    (Virtual Private Cloud), VSwitch (Virtual Switch), MSE Gateway deployment, configuration
+    of the service registry center instance, and configuration of the gray service
+    source.
 Parameters:
   ZoneId:
     Type: String
@@ -23,33 +27,21 @@ Parameters:
         a backup VSwitch and used for the MSE gateway.</font></b>
       zh-cn: 可用区ID。<br><b>注：用于创建备VSwitch，并给MSE网关使用。<font color='blue'>需要和ZoneId不在同一个可用区。</font></b>
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
-  ManagedKubernetesClusterName:
-    Type: String
-    Label:
-      en: Managed Kubernetes Cluster Name
-      zh-cn: ACK托管版集群名称
-    AssociationProperty: AutoCompleteInput
-    AssociationPropertyMetadata:
-      Length: 5
-      Prefix: cluster-for-mse-
-      CharacterClasses:
-        - Class: lowercase
-          min: 1
   WorkerInstanceType:
     Type: String
     Label:
       en: Worker Nodes Type
       zh-cn: Worker节点规格
+    Description:
+      en: It is recommended to use a new generation of ecs instances. If the instance
+        specification cannot be selected, please change the availability zone again.
+      zh-cn: 建议使用新一代的 ecs 实例，如果选择不到实例规格，请重新更换可用区。
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
       SystemDiskCategory: cloud_essd
       CreateACKClusterParams:
         NetworkPlugin: terway-eniip
-    Description:
-      en: It is recommended to use a new generation of ecs instances. If the instance
-        specification cannot be selected, please change the availability zone again.
-      zh-cn: 建议使用新一代的 ecs 实例，如果选择不到实例规格，请重新更换可用区。
   WorkerSystemDiskSize:
     Type: Number
     Label:
@@ -63,9 +55,22 @@ Parameters:
       en: Microservices Registry Instance Name
       zh-cn: 注册配置中心实例名称
     Default: test
+  ManagedKubernetesClusterName:
+    Type: String
+    Label:
+      en: Managed Kubernetes Cluster Name
+      zh-cn: ACK托管版集群名称
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: cluster-for-mse-
+      CharacterClasses:
+      - Class: lowercase
+        min: 1
 Resources:
   ModuleAcsCsProvision:
     Type: MODULE::ACS::CS::Provision
+    Properties: {}
     Version: default
   Vpc:
     Type: ALIYUN::ECS::VPC
@@ -73,7 +78,7 @@ Resources:
       CidrBlock: 192.168.0.0/16
       VpcName: testvpc
     DependsOn:
-      - ModuleAcsCsProvision
+    - ModuleAcsCsProvision
   VSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -124,11 +129,11 @@ Resources:
       PubNetworkFlow: 0
   WaitForAddressReady:
     Type: ALIYUN::ROS::Sleep
-    DependsOn:
-      - MseGateway
-      - MseMicroRegistryInstance
     Properties:
       CreateDuration: 120
+    DependsOn:
+    - MseGateway
+    - MseMicroRegistryInstance
   MseServiceSource:
     Type: ALIYUN::MSE::ServiceSource
     Properties:
@@ -148,7 +153,6 @@ Resources:
         Ref: VSwitch
   ManagedKubernetesCluster:
     Type: ALIYUN::CS::ManagedKubernetesCluster
-    DependsOn: NatGateway
     Properties:
       VpcId:
         Ref: Vpc
@@ -196,6 +200,7 @@ Resources:
           Runtime: containerd
           RuntimeVersion: 1.6.20
         Count: 3
+    DependsOn: NatGateway
 Outputs:
   MseNacosAddress:
     Value:
@@ -219,9 +224,9 @@ Metadata:
         en: ACK Configuration
         zh-cn: ACK配置
     - Parameters:
-        - MseMicroRegistryInstanceName
+      - MseMicroRegistryInstanceName
       Label:
         en: MSE Configuration
         zh-cn: MSE配置
     TemplateTags:
-      - acs:technical-solution:micro:MSE实现全链路灰度
+    - acs:technical-solution:micro:MSE实现全链路灰度

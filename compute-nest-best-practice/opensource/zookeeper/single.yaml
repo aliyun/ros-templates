@@ -1,115 +1,130 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: zookeeper deploy
-  zh-cn: zookeeper部署
-# 参数配置
+  zh-cn: 一键部署Zookeeper集群，含实例类型选择、存储配置与网络设置，支持自动安全组与公网访问控制。
+  en: One-click deployment of Zookeeper cluster, including instance type selection,
+    storage configuration, and network setup, with support for automatic security
+    group creation and public access control.
+Conditions:
+  IfAllocatePublicIp:
+    Fn::Equals:
+    - Ref: AllocatePublicIp
+    - true
+  IfAutoCreateSecurityGroup:
+    Fn::Equals:
+    - Ref: AutoCreateSecurityGroup
+    - true
 Parameters:
   PayType:
     Type: String
     Label:
       en: ECS Instance Charge Type
       zh-cn: 付费类型
-    Default: PostPaid
-    AllowedValues:
-      - PostPaid
-      - PrePaid
     AssociationProperty: ChargeType
     AssociationPropertyMetadata:
       LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+    - PostPaid
+    - PrePaid
   PayPeriodUnit:
     Type: String
     Label:
       en: Pay Period Unit
       zh-cn: 购买资源时长周期
-    Default: Month
-    AllowedValues:
-      - Month
-      - Year
     AssociationProperty: PayPeriodUnit
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Not:
             Fn::Equals:
-              - ${PayType}
-              - PostPaid
+            - ${PayType}
+            - PostPaid
+    Default: Month
+    AllowedValues:
+    - Month
+    - Year
   PayPeriod:
     Type: Number
-    Description:
-      en: When the resource purchase duration is Month, the value of Period ranges from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance types are PrePaid valid </b></font>
-      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
     Label:
       en: Period
       zh-cn: 购买资源时长
-    Default: 1
-    AllowedValues:
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
+    Description:
+      en: When the resource purchase duration is Month, the value of Period ranges
+        from 1 to 9, 12, 24, 36, 48, or 60. <br><b><font color='red'> When ECS instance
+        types are PrePaid valid </b></font>
+      zh-cn: 当购买资源时长为Month时，Period取值：1~9 <br><b><font color='red'>当ECS实例类型为PrePaid有效</b></font>
     AssociationProperty: PayPeriod
     AssociationPropertyMetadata:
       Visible:
         Condition:
           Fn::Not:
             Fn::Equals:
-              - ${PayType}
-              - PostPaid
+            - ${PayType}
+            - PostPaid
+    Default: 1
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
   ZoneId:
     Type: String
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
     Label:
       en: VSwitch Availability Zone
       zh-cn: 交换机可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
   VpcId:
-    AssociationProperty: ALIYUN::ECS::VPC::VPCId
     Type: String
-    Description:
-      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
-      zh-cn: 现有虚拟专有网络的实例ID
     Label:
       en: VPC ID
       zh-cn: 专有网络VPC实例ID
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private
+        Cloud
+      zh-cn: 现有虚拟专有网络的实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
   VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private
+        Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
     AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
     AssociationPropertyMetadata:
       VpcId: ${VpcId}
       ZoneId: ${ZoneId}
-    Type: String
-    Description:
-      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
-      zh-cn: 现有业务网络交换机的实例ID
-    Label:
-      en: VSwitch ID
-      zh-cn: 交换机实例ID
   AutoCreateSecurityGroup:
     Type: Boolean
-    Default: true
     Label:
       zh-cn: 自动创建安全组
       en: auto create security group
+    Default: true
   SecurityGroupId:
     Type: String
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+    Description:
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network
+        & Security
+      zh-cn: 现有业务安全组的实例ID
     AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
     AssociationPropertyMetadata:
       VpcId: ${VpcId}
       Visible:
         Condition:
           Fn::Equals:
-            - ${AutoCreateSecurityGroup}
-            - false
+          - ${AutoCreateSecurityGroup}
+          - false
     Default: ''
-    Description:
-      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network & Security
-      zh-cn: 现有业务安全组的实例ID
-    Label:
-      en: Business Security Group ID
-      zh-cn: 业务安全组ID
   EcsInstanceType:
     Type: String
     Label:
@@ -120,41 +135,73 @@ Parameters:
       ZoneId: ${ZoneId}
       InstanceChargeType: ${InstanceChargeType}
   SystemDiskSize:
-    Default: 40
     Type: Number
-    Description:
-      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
-      en: 'System disk size of each node, range of values: 40-500, units: GB.'
-    MinValue: 40
-    MaxValue: 500
     Label:
       zh-cn: 系统盘空间
       en: System Disk Space
-  DataDiskSize:
-    Default: 40
-    Type: Number
     Description:
-      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
       en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    Default: 40
     MinValue: 40
     MaxValue: 500
+  DataDiskSize:
+    Type: Number
     Label:
       zh-cn: 数据盘空间
       en: Data Disk Space
+    Description:
+      zh-cn: 数据盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size of each node, range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
   AllocatePublicIp:
-    Default: false
     Type: Boolean
     Label:
       zh-cn: 开启公网IP
       en: allocate public ip
+    Default: false
+  InternetChargeType:
+    Type: String
+    Label:
+      zh-cn: 流量付费类型
+      en: Internet Charge Type
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${AllocatePublicIp}
+          - true
+    Default: PayByTraffic
+    AllowedValues:
+    - PayByBandwidth
+    - PayByTraffic
   InternetMaxBandwidthOut:
-    Default: 0
     Type: Number
     Label:
       zh-cn: 流量公网带宽
       en: Internet Max Bandwidth Out
-    MinValue: 0
-    MaxValue: 100
     Description:
       zh-cn: 取值范围0-100, 0为不开公网ip
       en: no public ip if zero
@@ -162,76 +209,38 @@ Parameters:
       Visible:
         Condition:
           Fn::Equals:
-            - ${AllocatePublicIp}
-            - true
-  InternetChargeType:
-    Default: PayByTraffic
-    Type: String
-    Label:
-      zh-cn: 流量付费类型
-      en: Internet Charge Type
-    AllowedValues:
-      - PayByBandwidth
-      - PayByTraffic
-    AssociationPropertyMetadata:
-      LocaleKey: InternetChargeType
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${AllocatePublicIp}
-            - true
-  InstancePassword:
-    NoEcho: true
-    Type: String
-    Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
-    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
-    Label:
-      en: Instance Password
-      zh-cn: 实例密码
-    ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
-    MinLength: 8
-    MaxLength: 30
-    AssociationProperty: ALIYUN::ECS::Instance::Password
-Conditions:
-  IfAutoCreateSecurityGroup:
-    Fn::Equals:
-      - Ref: AutoCreateSecurityGroup
-      - true
-  IfAllocatePublicIp:
-    Fn::Equals:
-      - Ref: AllocatePublicIp
-      - true
-# 资源配置
+          - ${AllocatePublicIp}
+          - true
+    Default: 0
+    MinValue: 0
+    MaxValue: 100
 Resources:
   EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Condition: IfAutoCreateSecurityGroup
     Properties:
-      SecurityGroupName:
-        Ref: ALIYUN::StackName
       VpcId:
         Ref: VpcId
-      # 只开放访问外网的规则
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
       SecurityGroupEgress:
-        - PortRange: '-1/-1'
-          Priority: 1
-          IpProtocol: all
-          DestCidrIp: 0.0.0.0/0
-          NicType: intranet
+      - PortRange: -1/-1
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
       SecurityGroupIngress:
         Fn::If:
-          - IfAllocatePublicIp
-          - - PortRange: 2181/2181
-              Priority: 1
-              SourceCidrIp: 0.0.0.0/0
-              IpProtocol: tcp
-              NicType: internet
-          - Ref: ALIYUN::NoValue
-  # 定义waitCondition和waitConditionHandle来等待跳板机命令执行完毕部署成功
+        - IfAllocatePublicIp
+        - - PortRange: 2181/2181
+            Priority: 1
+            SourceCidrIp: 0.0.0.0/0
+            IpProtocol: tcp
+            NicType: internet
+        - Ref: ALIYUN::NoValue
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
   WaitCondition:
     Type: ALIYUN::ROS::WaitCondition
     Properties:
@@ -239,49 +248,41 @@ Resources:
       Handle:
         Ref: WaitConditionHandle
       Timeout: 300
-  WaitConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
   EcsInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
       ZoneId:
         Ref: ZoneId
-      # 实例名
-      InstanceName:
-        Fn::Join:
-          - '-'
-          - - Ref: ALIYUN::StackName
-            - '[1,4]'
-      IoOptimized: optimized
-      # 付费类型
-      InstanceChargeType:
-        Ref: PayType
-      PeriodUnit:
-        Ref: PayPeriodUnit
-      Period:
-        Ref: PayPeriod
-      # 网络配置
       VpcId:
         Ref: VpcId
       VSwitchId:
         Ref: VSwitchId
       SecurityGroupId:
         Fn::If:
-          - IfAutoCreateSecurityGroup
-          - Ref: EcsSecurityGroup
-          - Ref: SecurityGroupId
-      # 磁盘类型和大小
+        - IfAutoCreateSecurityGroup
+        - Ref: EcsSecurityGroup
+        - Ref: SecurityGroupId
+      ImageId: centos_7
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
+      IoOptimized: optimized
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
       SystemDiskCategory: cloud_essd
       SystemDiskSize:
         Ref: SystemDiskSize
       DiskMappings:
-        - Category: cloud_essd
-          Size:
-            Ref: DataDiskSize
+      - Category: cloud_essd
+        Size:
+          Ref: DataDiskSize
       MaxAmount: 1
-      # 镜像
-      ImageId: centos_7
-      # 实例类型
       InstanceType:
         Ref: EcsInstanceType
       Password:
@@ -290,15 +291,11 @@ Resources:
         Ref: AllocatePublicIp
       InternetMaxBandwidthOut:
         Fn::If:
-          - IfAllocatePublicIp
-          - Ref: InternetMaxBandwidthOut
-          - 0
+        - IfAllocatePublicIp
+        - Ref: InternetMaxBandwidthOut
+        - 0
       InternetChargeType:
         Ref: InternetChargeType
-      # 启动脚本
-      # cloud-init执行用户命令
-      # /var/log/cloud-init.log /var/log/cloud-init-output.log 可以看到执行日志
-      # /var/lib/cloud/instance/scripts/part-001 为具体的脚本 可以sh 执行来排查问题
       UserData:
         Fn::Sub:
           - |
@@ -380,35 +377,33 @@ Resources:
               Ref: ALIYUN::Region
 # 定义输出
 Outputs:
-  # 将内网ip做为http返回的地址显示在控制台
   PrivateEndpoint:
     Description:
       zh-cn: 内网IP地址
       en: Private IP Addresses
     Value:
       Fn::Sub:
-        - zookeeper://${ServerAddress}:2181
-        - ServerAddress:
-            Fn::Select:
-              - 0
-              - Fn::GetAtt:
-                 - EcsInstanceGroup
-                 - PrivateIps
-  # 将公网ip做为http返回的地址显示在控制台
+      - zookeeper://${ServerAddress}:2181
+      - ServerAddress:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - PrivateIps
   PublicEndpoint:
-    Condition: IfAllocatePublicIp
     Description:
       zh-cn: 对外暴露的公网IP地址
       en: Public IP Addresses
+    Condition: IfAllocatePublicIp
     Value:
       Fn::Sub:
-        - zookeeper://${ServerAddress}:2181
-        - ServerAddress:
-            Fn::Select:
-              - 0
-              - Fn::GetAtt:
-                  - EcsInstanceGroup
-                  - PublicIps
+      - zookeeper://${ServerAddress}:2181
+      - ServerAddress:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - PublicIps
   InstallPath:
     Description:
       zh-cn: 安装路径
@@ -416,45 +411,44 @@ Outputs:
     Value: /opt/zookeeper
 Metadata:
   ALIYUN::ROS::Interface:
-    # 分组信息
     ParameterGroups:
-      - Parameters:
-          - PayType
-          - PayPeriodUnit
-          - PayPeriod
-        Label:
-          default:
-            en: PayType Configuration
-            zh-cn: 付费类型配置
-      - Parameters:
-          - ZoneId
-        Label:
-          default:
-            zh-cn: 可用区配置
-            en: Zone Configuration
-      - Parameters:
-          - VpcId
-          - VSwitchId
-          - AutoCreateSecurityGroup
-          - SecurityGroupId
-        Label:
-          default:
-            zh-cn: 选择已有基础资源配置
-            en: Choose existing Infrastructure Configuration
-      - Parameters:
-          - EcsInstanceType
-          - SystemDiskSize
-          - DataDiskSize
-          - InstancePassword
-        Label:
-          default:
-            en: Instance Configuration
-            zh-cn: ECS实例配置
-      - Parameters:
-          - AllocatePublicIp
-          - InternetChargeType
-          - InternetMaxBandwidthOut
-        Label:
-          default:
-            en: Network Configurate
-            zh-cn: ECS网络配置
+    - Parameters:
+      - PayType
+      - PayPeriodUnit
+      - PayPeriod
+      Label:
+        default:
+          en: PayType Configuration
+          zh-cn: 付费类型配置
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Zone Configuration
+    - Parameters:
+      - VpcId
+      - VSwitchId
+      - AutoCreateSecurityGroup
+      - SecurityGroupId
+      Label:
+        default:
+          zh-cn: 选择已有基础资源配置
+          en: Choose existing Infrastructure Configuration
+    - Parameters:
+      - EcsInstanceType
+      - SystemDiskSize
+      - DataDiskSize
+      - InstancePassword
+      Label:
+        default:
+          en: Instance Configuration
+          zh-cn: ECS实例配置
+    - Parameters:
+      - AllocatePublicIp
+      - InternetChargeType
+      - InternetMaxBandwidthOut
+      Label:
+        default:
+          en: Network Configurate
+          zh-cn: ECS网络配置

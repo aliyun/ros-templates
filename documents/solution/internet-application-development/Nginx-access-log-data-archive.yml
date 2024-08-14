@@ -1,11 +1,10 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: Nginx access log data archive
-  zh-cn: Nginx访问日志数据归档
+  zh-cn: 创建ECS实例与安全组，配置Nginx并生成访问日志，通过Logtail收集日志至SLS项目与日志库，设置索引，并自动归档至OSS存储。
+  en: Create ECS instances and security groups, configure Nginx to generate access
+    logs, collect logs via Logtail into designated SLS projects and log stores, establish
+    indexing, and automate the archiving of these logs to OSS storage.
 Parameters:
-  CommonName:
-    Type: String
-    Default: app01
   VSwitchZoneId:
     Type: String
     Label:
@@ -31,27 +30,29 @@ Parameters:
     Label:
       en: System disk type
       zh-cn: 系统盘类型
-    Default: cloud_ssd
     AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
     AssociationPropertyMetadata:
       LocaleKey: DiskCategory
       InstanceType: ${EcsInstanceType}
       ZoneId: ${VSwitchZoneId}
+    Default: cloud_ssd
   SlsProjectName:
     Type: String
     Label:
       en: Name of sls project
       zh-cn: 日志项目的名称
     Description:
-      en: The name contains 3 to 36 characters. It must start and end with a lowercase letter or number. The value can contain lowercase letters, digits, and hyphens (-).
+      en: The name contains 3 to 36 characters. It must start and end with a lowercase
+        letter or number. The value can contain lowercase letters, digits, and hyphens
+        (-).
       zh-cn: 长度为3~36个字符。必须以小写英文字母或数字开头和结尾。可包含小写英文字母、数字和短划线（-）。
     AssociationProperty: AutoCompleteInput
     AssociationPropertyMetadata:
       Length: 6
       Prefix: sls-project-app01-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
+      - Class: lowercase
+        min: 1
   SlsLogstoreName:
     Type: String
     Label:
@@ -71,15 +72,20 @@ Parameters:
       en: Bucket name
       zh-cn: 存储空间名称
     Description:
-      en: The name contains 3 to 36 characters. It must start and end with a lowercase letter or number. The value can contain lowercase letters, digits, and hyphens (-).
+      en: The name contains 3 to 36 characters. It must start and end with a lowercase
+        letter or number. The value can contain lowercase letters, digits, and hyphens
+        (-).
       zh-cn: 长度为3~36个字符。必须以小写英文字母或数字开头和结尾。可包含小写英文字母、数字和短划线（-）。
     AssociationProperty: AutoCompleteInput
     AssociationPropertyMetadata:
       Length: 6
       Prefix: bucket-app01-
       CharacterClasses:
-        - Class: lowercase
-          min: 1
+      - Class: lowercase
+        min: 1
+  CommonName:
+    Type: String
+    Default: app01
 Resources:
   EcsVpc:
     Type: ALIYUN::ECS::VPC
@@ -103,50 +109,54 @@ Resources:
       VpcId:
         Ref: EcsVpc
       SecurityGroupIngress:
-        - PortRange: 80/80
-          IpProtocol: tcp
-          NicType: intranet
-          SourceCidrIp: 0.0.0.0/0
-        - PortRange: 22/22
-          IpProtocol: tcp
-          NicType: intranet
-          SourceCidrIp: 0.0.0.0/0
-        - PortRange: 3306/3306
-          IpProtocol: tcp
-          NicType: intranet
-          SourceCidrIp: 0.0.0.0/0
+      - PortRange: 80/80
+        IpProtocol: tcp
+        NicType: intranet
+        SourceCidrIp: 0.0.0.0/0
+      - PortRange: 22/22
+        IpProtocol: tcp
+        NicType: intranet
+        SourceCidrIp: 0.0.0.0/0
+      - PortRange: 3306/3306
+        IpProtocol: tcp
+        NicType: intranet
+        SourceCidrIp: 0.0.0.0/0
       SecurityGroupName:
         Fn::Sub: sg_${CommonName}
       SecurityGroupType: normal
   EcsInstance:
     Type: ALIYUN::ECS::Instance
     Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: centos_7
       InstanceName:
         Fn::Sub: ecs_${CommonName}
       InstanceChargeType: PostPaid
       InstanceType:
         Ref: EcsInstanceType
-      ImageId: centos_7
       SystemDiskCategory:
         Ref: EcsDiskCategory
       SystemDiskSize: 40
       AllocatePublicIP: true
       InternetChargeType: PayByTraffic
       InternetMaxBandwidthOut: 1
-      ZoneId:
-        Ref: VSwitchZoneId
-      SecurityGroupId:
-        Ref: EcsSecurityGroup
-      VpcId:
-        Ref: EcsVpc
-      VSwitchId:
-        Ref: EcsVSwitch
+  AutoEnableSLS:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: SLS
   SlsProject:
-    DependsOn: AutoEnableSLS
     Type: ALIYUN::SLS::Project
     Properties:
       Name:
         Ref: SlsProjectName
+    DependsOn: AutoEnableSLS
   SlsLogStore:
     Type: ALIYUN::SLS::Logstore
     Properties:
@@ -166,20 +176,24 @@ Resources:
       LogstoreName:
         Ref: SlsLogstoreName
     DependsOn:
-      - SlsLogStore
+    - SlsLogStore
+  AutoEnableOSS:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: OSS
   OssBucket:
     Type: ALIYUN::OSS::Bucket
-    DependsOn: AutoEnableOSS
     Properties:
       BucketName:
         Ref: OssBucketName
       StorageClass: IA
       DeletionForce: true
+    DependsOn: AutoEnableOSS
   InstallNginx:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
-        - Ref: EcsInstance
+      - Ref: EcsInstance
       Timeout: 600
       Type: RunShellScript
       Sync: true
@@ -192,9 +206,9 @@ Resources:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
-        - Ref: EcsInstance
+      - Ref: EcsInstance
       Type: RunShellScript
-      Frequency: '0 * * * * ?'
+      Frequency: 0 * * * * ?
       Timed: true
       CommandContent: >-
         #!/bin/bash
@@ -206,7 +220,7 @@ Resources:
         AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36\""
         | tee -a /var/log/nginx/access.log
     DependsOn:
-      - InstallNginx
+    - InstallNginx
   InstallLogAgent:
     Type: ALIYUN::OOS::Execution
     Properties:
@@ -218,9 +232,9 @@ Resources:
         OOSAssumeRole: ''
         targets:
           ResourceIds:
-            - Fn::GetAtt:
-              - EcsInstance
-              - InstanceId
+          - Fn::GetAtt:
+            - EcsInstance
+            - InstanceId
           RegionId:
             Ref: ALIYUN::Region
           Type: ResourceIds
@@ -230,8 +244,8 @@ Resources:
           Concurrency: 1
         action: install
     DependsOn:
-      - InstallNginx
-      - SlsIndex
+    - InstallNginx
+    - SlsIndex
   SlsMachineGroup:
     Type: ALIYUN::SLS::MachineGroup
     Properties:
@@ -240,11 +254,11 @@ Resources:
         Ref: SlsProject
       MachineIdentifyType: ip
       MachineList:
-        - Fn::GetAtt:
-          - EcsInstance
-          - PrivateIp
+      - Fn::GetAtt:
+        - EcsInstance
+        - PrivateIp
     DependsOn:
-      - InstallLogAgent
+    - InstallLogAgent
   SlsLogtailConfig:
     Type: ALIYUN::SLS::LogtailConfig
     Properties:
@@ -253,8 +267,8 @@ Resources:
       LogtailConfigName: app01
       LogstoreName:
         Fn::GetAtt:
-          - SlsLogStore
-          - LogstoreName
+        - SlsLogStore
+        - LogstoreName
       RawConfigData:
         configName: app01
         logSample: |-
@@ -267,16 +281,16 @@ Resources:
         outputDetail:
           logstoreName:
             Fn::GetAtt:
-              - SlsLogStore
-              - LogstoreName
+            - SlsLogStore
+            - LogstoreName
         inputDetail:
           discardUnmatch: false
           maxDepth: 10
           advanced:
             tail_size_kb: 1024
-            blacklist: { }
+            blacklist: {}
             k8s:
-              ExternalEnvTag: { }
+              ExternalEnvTag: {}
           logPath: /var/log/nginx
           filePattern: access.log
           enableRawLog: false
@@ -287,24 +301,24 @@ Resources:
           preserve: true
           preserveDepth: 1
           dockerFile: false
-          dockerIncludeLabel: { }
-          dockerExcludeLabel: { }
-          dockerIncludeEnv: { }
-          dockerExcludeEnv: { }
+          dockerIncludeLabel: {}
+          dockerExcludeLabel: {}
+          dockerIncludeEnv: {}
+          dockerExcludeEnv: {}
           logType: common_reg_log
           regex: (\S*)\s*-\s*(\S*)\s*\[(\d+/\S+/\d+:\d+:\d+:\d+)\s+\S+\]\s*"(\S+)\s+(\S+)\s+\S+"\s*(\S*)\s*(\S*)\s*(\S*)\s*(\S*)\s*"([^"]*)"\s*"([^"]*)".*
           key:
-            - remote_addr
-            - remote_user
-            - time_local
-            - request_method
-            - request_uri
-            - request_time
-            - request_length
-            - status
-            - body_bytes_sent
-            - http_referer
-            - http_user_agent
+          - remote_addr
+          - remote_user
+          - time_local
+          - request_method
+          - request_uri
+          - request_time
+          - request_length
+          - status
+          - body_bytes_sent
+          - http_referer
+          - http_user_agent
   ApplyConfigToMachineGroup:
     Type: ALIYUN::SLS::ApplyConfigToMachineGroup
     Properties:
@@ -312,12 +326,12 @@ Resources:
         Ref: SlsProject
       ConfigName:
         Fn::GetAtt:
-          - SlsLogtailConfig
-          - LogtailConfigName
+        - SlsLogtailConfig
+        - LogtailConfigName
       GroupName:
         Fn::GetAtt:
-          - SlsMachineGroup
-          - GroupName
+        - SlsMachineGroup
+        - GroupName
   RoleNameSuffix:
     Type: ALIYUN::RandomString
     Properties:
@@ -338,14 +352,14 @@ Resources:
           Ref: ALIYUN::TenantId
         role_name:
           Fn::Join:
-            - '-'
-            - - 'oss-export'
-              - Fn::GetAtt:
-                - RoleNameSuffix
-                - value
+          - '-'
+          - - oss-export
+            - Fn::GetAtt:
+              - RoleNameSuffix
+              - value
       TemplateBody:
         ROSTemplateFormatVersion: '2015-09-01'
-        Transform: 'Aliyun::Terraform-v1.2'
+        Transform: Aliyun::Terraform-v1.2
         Workspace:
           main.tf: |-
             variable "sls_project_name" {
@@ -433,18 +447,10 @@ Resources:
               ]
             }
     DependsOn:
-      - SlsProject
-      - SlsLogStore
-      - OssBucket
-      - ApplyConfigToMachineGroup
-  AutoEnableSLS:
-    Type: ALIYUN::ROS::AutoEnableService
-    Properties:
-      ServiceName: SLS
-  AutoEnableOSS:
-    Type: ALIYUN::ROS::AutoEnableService
-    Properties:
-      ServiceName: OSS
+    - ApplyConfigToMachineGroup
+    - OssBucket
+    - SlsLogStore
+    - SlsProject
 Outputs:
   VpcId:
     Description: Vpc id.
@@ -462,49 +468,49 @@ Outputs:
     Description: The id of the ecs instance.
     Value:
       Fn::GetAtt:
-        - EcsInstance
-        - InstanceId
+      - EcsInstance
+      - InstanceId
   ProjectName:
     Description: The name of SLS project.
     Value:
       Fn::GetAtt:
-        - SlsProject
-        - Name
+      - SlsProject
+      - Name
   RoleName:
     Description: The name of RAM role.
     Value:
       Fn::Join:
-        - '-'
-        - - 'oss-export'
-          - Fn::GetAtt:
-            - RoleNameSuffix
-            - value
+      - '-'
+      - - oss-export
+        - Fn::GetAtt:
+          - RoleNameSuffix
+          - value
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-      - Parameters:
-        - VSwitchZoneId
-        - EcsInstanceType
-        - EcsImageId
-        - EcsDiskCategory
-        Label:
-          default:
-            en: ECS configure
-            zh-cn: 云服务器ECS配置
-      - Parameters:
-        - SlsProjectName
-        - SlsLogstoreName
-        Label:
-          default:
-            en: SLS
-            zh-cn: 日志服务SLS配置
-      - Parameters:
-        - OssBucketName
-        Label:
-          default:
-            en: OSS bucket
-            zh-cn: 对象存储OSS配置
-    Hidden:
-      - CommonName
+    - Parameters:
+      - VSwitchZoneId
+      - EcsInstanceType
+      - EcsImageId
+      - EcsDiskCategory
+      Label:
+        default:
+          en: ECS configure
+          zh-cn: 云服务器ECS配置
+    - Parameters:
+      - SlsProjectName
+      - SlsLogstoreName
+      Label:
+        default:
+          en: SLS
+          zh-cn: 日志服务SLS配置
+    - Parameters:
+      - OssBucketName
+      Label:
+        default:
+          en: OSS bucket
+          zh-cn: 对象存储OSS配置
     TemplateTags:
-      - acs:technical-solution:internet-application-development:应用日志数据归档-tech_solu_08
+    - acs:technical-solution:internet-application-development:应用日志数据归档-tech_solu_08
+    Hidden:
+    - CommonName
