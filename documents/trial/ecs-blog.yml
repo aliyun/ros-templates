@@ -99,48 +99,71 @@ Resources:
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: "#!/bin/bash\nif [ ! -f .ros.provision ]; then\n  echo \"Name: 搭建云上博客\"\
-          \ > .ros.provision\nfi\n\nname=$(grep \"^Name:\" .ros.provision | awk -F':'\
-          \ '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')\nif\
-          \ [[ \"$name\" != \"搭建云上博客\" ]]; then\n  ${WaitConditionHandle.CurlCli}\
-          \ --data-binary \"{\\\"status\\\": \\\"FAILURE\\\", \\\"reason\\\": \\\"\
-          The current instance has already applied the configuration of the \\\\\\\
-          \"$name\\\\\\\" tutorial, and the configuration of this tutorial can no\
-          \ longer be applied.\\\"}\"\n  exit 0\nfi\n\nif ! grep -q \"^Step1: Install\
-          \ Environment$\" .ros.provision; then\n  echo \"#########################\"\
-          \n  echo \"# Install Environment\"\n  echo \"#########################\"\
-          \n  yum -y install httpd httpd-manual mod_ssl mod_perl mod_auth_mysql\n\
-          \  systemctl start httpd\n  systemctl enable httpd\n  systemctl status httpd\n\
-          \n  wget http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm\n\
-          \  yum install -y mysql57-community-release-el7-10.noarch.rpm\n  yum install\
-          \ -y mysql-community-server --nogpgcheck\n  systemctl start mysqld.service\n\
-          \  systemctl status mysqld.service\n  export MYSQL_PWD=`grep \"temporary\
-          \ password\" /var/log/mysqld.log | awk '{print $NF}'`\n  mysqladmin -uroot\
-          \ password '${DbPassword}'\n  export MYSQL_PWD='${DbPassword}'\n  mysql\
-          \ -uroot -e \"create database wordpress;\"\n\n  yum install -y https://repo.ius.io/ius-release-el7.rpm\
-          \ https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm\n\
-          \  rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm\n \
-          \ yum install -y php70w-devel php70w.x86_64 php70w-cli.x86_64 php70w-common.x86_64\
-          \ php70w-gd.x86_64 php70w-ldap.x86_64 php70w-mbstring.x86_64 php70w-mcrypt.x86_64\
-          \ php70w-pdo.x86_64 php70w-mysqlnd php70w-fpm php70w-opcache php70w-pecl-redis\
-          \ php70w-pecl-mongodb\n  echo \"<?php phpinfo(); ?>\" > /var/www/html/phpinfo.php\n\
-          \  systemctl restart httpd\n  echo \"Step1: Install Environment\" >> .ros.provision\n\
-          else\n  echo \"#########################\"\n  echo \"# Environment has been\
-          \ installed\"\n  echo \"#########################\"\nfi\n\nif ! grep -q\
-          \ \"^Step2: Install and Config WordPress$\" .ros.provision; then\n  echo\
-          \ \"################################\"\n  echo \"# Install and Config WordPress\"\
-          \n  echo \"################################\"\n  wget https://cn.wordpress.org/latest-zh_CN.tar.gz\n\
-          \  tar -xvf latest-zh_CN.tar.gz -C /var/www/html\n  chown -R apache:apache\
-          \ /var/www/html/wordpress\n  chmod -R 755 /var/www/html/wordpress\n  mv\
-          \ /var/www/html/wordpress/wp-config-sample.php /var/www/html/wordpress/wp-config.php\n\
-          \  sed -i 's/database_name_here/wordpress/' /var/www/html/wordpress/wp-config.php\n\
-          \  sed -i 's/username_here/root/' /var/www/html/wordpress/wp-config.php\n\
-          \  sed -i 's/password_here/${DbPassword}/' /var/www/html/wordpress/wp-config.php\n\
-          \  systemctl restart httpd\n  echo \"Step2: Install and Config WordPress\"\
-          \ >> .ros.provision\nelse\n  echo \"#########################\"\n  echo\
-          \ \"# WordPress has been installed and configed\"\n  echo \"#########################\"\
-          \nfi\n\n${WaitConditionHandle.CurlCli} --data-binary '{\"status\": \"SUCCESS\"\
-          }'"
+       Fn::Sub: |-
+          #!/bin/bash
+          if [ ! -f .ros.provision ]; then
+            echo "Name: 搭建云上博客" > .ros.provision
+          fi
+
+          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [[ "$name" != "搭建云上博客" ]]; then
+            ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance has already applied the configuration of the \\\"$name\\\" tutorial, and the configuration of this tutorial can no longer be applied.\"}"
+            exit 0
+          fi
+
+          if ! grep -q "^Step1: Install Environment$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Environment"
+            echo "#########################"
+            yum -y install httpd httpd-manual mod_ssl mod_perl mod_auth_mysql
+            systemctl start httpd
+            systemctl enable httpd
+            systemctl status httpd
+
+            wget http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
+            yum install -y mysql57-community-release-el7-10.noarch.rpm
+            yum install -y mysql-community-server --nogpgcheck
+            systemctl start mysqld.service
+            systemctl status mysqld.service
+            export MYSQL_PWD=`grep "temporary password" /var/log/mysqld.log | awk '{print $NF}'`
+            mysqladmin -uroot password '${DbPassword}'
+            export MYSQL_PWD='${DbPassword}'
+            mysql -uroot -e "create database wordpress;"
+
+            yum install -y https://repo.ius.io/ius-release-el7.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+            rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+            yum install -y php70w-devel php70w.x86_64 php70w-cli.x86_64 php70w-common.x86_64 php70w-gd.x86_64 php70w-ldap.x86_64 php70w-mbstring.x86_64 php70w-mcrypt.x86_64 php70w-pdo.x86_64 php70w-mysqlnd php70w-fpm php70w-opcache php70w-pecl-redis php70w-pecl-mongodb
+            echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php
+            systemctl restart httpd
+            echo "Step1: Install Environment" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Environment has been installed"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step2: Install and Config WordPress$" .ros.provision; then
+            echo "################################"
+            echo "# Install and Config WordPress"
+            echo "################################"
+            wget https://cn.wordpress.org/latest-zh_CN.tar.gz
+            tar -xvf latest-zh_CN.tar.gz -C /var/www/html
+            chown -R apache:apache /var/www/html/wordpress
+            chmod -R 755 /var/www/html/wordpress
+            mv /var/www/html/wordpress/wp-config-sample.php /var/www/html/wordpress/wp-config.php
+            sed -i 's/database_name_here/wordpress/' /var/www/html/wordpress/wp-config.php
+            sed -i 's/username_here/root/' /var/www/html/wordpress/wp-config.php
+            sed -i 's/password_here/${DbPassword}/' /var/www/html/wordpress/wp-config.php
+            systemctl restart httpd
+            echo "Step2: Install and Config WordPress" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# WordPress has been installed and configed"
+            echo "#########################"
+          fi
+
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+
     DependsOn:
     - SecurityGroupIngress_22
     - SecurityGroupIngress_3306
