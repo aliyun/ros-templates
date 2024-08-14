@@ -70,712 +70,220 @@ Metadata:
     TemplateTags:
     - acs:integrate:landing_zone:cen_tr_peer
 Workspace:
-  main.tf: |
-    data "alicloud_account" "current" {
-    }
-    locals {
-      role_name = var.role_name
-      user1_id = var.use_resource_directory && var.user1_id != "" ? var.user1_id : data.alicloud_account.current.id
-      user2_id = var.use_resource_directory ? var.user2_id : var.user2_id_not_from_rd
-      user1_is_admin = local.user1_id == data.alicloud_account.current.id ? true : false
-      user2_is_admin = local.user2_id == data.alicloud_account.current.id ? true : false
-    }
-    # provider
-    provider "alicloud" {
-      alias = "user1"
-      region = var.region
-      assume_role {
-        role_arn = local.user1_is_admin ? null : format("acs:ram::%s:role/%s", local.user1_id, local.role_name)
-        session_name = "AccountLandingZoneSetup"
-        session_expiration = 999
-      }
-    }
-
-    provider "alicloud" {
-      alias = "user2"
-      region = var.region
-      assume_role {
-        role_arn = local.user2_is_admin ? null : format("acs:ram::%s:role/%s", local.user2_id, local.role_name)
-        session_name = "AccountLandingZoneSetup"
-        session_expiration = 999
-      }
-    }
-
-    module "user1_vpc" {
-      count = 2
-      source = "./vpc"
-      providers = {alicloud: alicloud.user1}
-      vpc_cidr = [var.vpc1_cidr, var.vpc2_cidr][count.index]
-      vsw_cidr = [var.vsw1_cidr, var.vsw2_cidr][count.index]
-      zone_id = var.zone_id
-    }
-
-    module "user2_vpc" {
-      count = 2
-      source = "./vpc"
-      providers = {alicloud: alicloud.user2}
-      vpc_cidr = [var.vpc3_cidr, var.vpc4_cidr][count.index]
-      vsw_cidr = [var.vsw3_cidr, var.vsw4_cidr][count.index]
-      zone_id = var.zone_id
-    }
-
-    resource "alicloud_cen_instance" "cen" {
-      provider = alicloud.user2
-      cen_instance_name = "云上企业网络"
-    }
-
-    resource "alicloud_cen_transit_router" "tr" {
-      provider = alicloud.user2
-      cen_id = alicloud_cen_instance.cen.id
-    }
-
-    locals {
-      vpc_ids = concat(module.user1_vpc.*.vpc_id, module.user2_vpc.*.vpc_id)
-      vsw_ids = concat(module.user1_vpc.*.vsw_id, module.user2_vpc.*.vsw_id)
-    }
-
-    resource "alicloud_cen_instance_grant" "grant" {
-      count = 2
-      provider          = alicloud.user1
-      cen_id            = alicloud_cen_instance.cen.id
-      child_instance_id = local.vpc_ids[count.index]
-      cen_owner_id      = local.user2_id
-    }
-
-    resource "alicloud_cen_transit_router_vpc_attachment" "vpc_att" {
-      provider = alicloud.user2
-      count = 4
-      transit_router_attachment_name = format("vpc_attachment_%s", count.index+1)
-      cen_id            = alicloud_cen_instance.cen.id
-      transit_router_id = alicloud_cen_transit_router.tr.transit_router_id
-      vpc_id            = local.vpc_ids[count.index]
-      vpc_owner_id = count.index < 2? local.user1_id : null
-      zone_mappings {
-        zone_id    = var.zone_id
-        vswitch_id = local.vsw_ids[count.index]
-      }
-      depends_on = [alicloud_cen_instance_grant.grant]
-    }
-
-    resource "alicloud_vpc_peer_connection" "peer" {
-      provider = alicloud.user1
-      vpc_id               = module.user1_vpc[1].vpc_id
-      accepting_ali_uid    = local.user2_id
-      accepting_region_id  = var.region
-      accepting_vpc_id     = module.user2_vpc[1].vpc_id
-    }
-
-    resource "alicloud_vpc_peer_connection_accepter" "default" {
-      provider = alicloud.user2
-      instance_id = alicloud_vpc_peer_connection.peer.id
-    }
-
-    module "user1_ecs" {
-      count = 2
-      source = "./ecs"
-      providers = {alicloud: alicloud.user1}
-      create_ecs = var.create_ecs
-      vpc_id = module.user1_vpc[count.index].vpc_id
-      vsw_id = module.user1_vpc[count.index].vsw_id
-      zone_id = var.zone_id
-      instance_type = var.instance_type
-      system_disk_category = var.system_disk_category
-      ecs_password = var.ecs_password
-      instance_name = format("test_ecs%s",count.index+1)
-    }
-
-    module "user2_ecs" {
-      count = 2
-      source = "./ecs"
-      providers = {alicloud: alicloud.user2}
-      create_ecs = var.create_ecs
-      vpc_id = module.user2_vpc[count.index].vpc_id
-      vsw_id = module.user2_vpc[count.index].vsw_id
-      zone_id = var.zone_id
-      instance_type = var.instance_type
-      system_disk_category = var.system_disk_category
-      ecs_password = var.ecs_password
-      instance_name = format("test_ecs%s",count.index+3)
-    }
-
-    locals {
-      tr_attachment_ids = alicloud_cen_transit_router_vpc_attachment.vpc_att.*.transit_router_attachment_id
-    }
-
-    resource "alicloud_route_entry" "route_entry1" {
-      provider = alicloud.user1
-      for_each = toset([var.vpc1_cidr, var.vpc2_cidr, var.vpc3_cidr, var.vpc4_cidr])
-      route_table_id        = module.user1_vpc[0].route_table_id
-      destination_cidrblock = each.key
-      nexthop_type          = "Attachment"
-      nexthop_id            = local.tr_attachment_ids[0]
-    }
-
-    resource "alicloud_route_entry" "route_entry2" {
-      provider = alicloud.user1
-      for_each = toset([var.vpc1_cidr, var.vpc2_cidr, var.vpc3_cidr])
-      route_table_id        = module.user1_vpc[1].route_table_id
-      destination_cidrblock = each.key
-      nexthop_type          = "Attachment"
-      nexthop_id            = local.tr_attachment_ids[1]
-    }
-
-    resource "alicloud_route_entry" "route_entry3" {
-      provider = alicloud.user2
-      for_each = toset([var.vpc1_cidr, var.vpc2_cidr, var.vpc3_cidr, var.vpc4_cidr])
-      route_table_id        = module.user2_vpc[0].route_table_id
-      destination_cidrblock = each.key
-      nexthop_type          = "Attachment"
-      nexthop_id            = local.tr_attachment_ids[2]
-    }
-
-    resource "alicloud_route_entry" "route_entry4" {
-      provider = alicloud.user2
-      for_each = toset([var.vpc1_cidr, var.vpc3_cidr, var.vpc4_cidr])
-      route_table_id        = module.user2_vpc[1].route_table_id
-      destination_cidrblock = each.key
-      nexthop_type          = "Attachment"
-      nexthop_id            = local.tr_attachment_ids[3]
-    }
-
-    resource "alicloud_route_entry" "route_entry_peer2" {
-      provider = alicloud.user1
-      route_table_id        = module.user1_vpc[1].route_table_id
-      destination_cidrblock = var.vpc4_cidr
-      nexthop_type          = "VpcPeer"
-      nexthop_id            = alicloud_vpc_peer_connection.peer.id
-      depends_on = [alicloud_vpc_peer_connection_accepter.default]
-    }
-
-    resource "alicloud_route_entry" "route_entry_peer4" {
-      provider = alicloud.user2
-      route_table_id        = module.user2_vpc[1].route_table_id
-      destination_cidrblock = var.vpc2_cidr
-      nexthop_type          = "VpcPeer"
-      nexthop_id            = alicloud_vpc_peer_connection.peer.id
-      depends_on = [alicloud_vpc_peer_connection_accepter.default]
-    }
-
-    resource "alicloud_cen_transit_router_route_table" "route_table" {
-      provider = alicloud.user2
-      transit_router_id = alicloud_cen_transit_router.tr.transit_router_id
-    }
-
-    resource "alicloud_cen_transit_router_route_entry" "route_entry1" {
-      provider = alicloud.user2
-      count = 4
-      transit_router_route_table_id                     = alicloud_cen_transit_router_route_table.route_table.transit_router_route_table_id
-      transit_router_route_entry_destination_cidr_block = [var.vpc1_cidr, var.vpc2_cidr, var.vpc3_cidr, var.vpc4_cidr][count.index]
-      transit_router_route_entry_next_hop_type          = "Attachment"
-      transit_router_route_entry_next_hop_id            = local.tr_attachment_ids[count.index]
-    }
-
-    resource "alicloud_cen_transit_router_route_table_association" "association" {
-      provider = alicloud.user2
-      count = 4
-      transit_router_route_table_id = alicloud_cen_transit_router_route_table.route_table.transit_router_route_table_id
-      transit_router_attachment_id  = local.tr_attachment_ids[count.index]
-    }
-  .metadata: |-
-    {
-      "ALIYUN::ROS::Interface": {
-        "ParameterGroups": [
-          {
-            "Parameters": [
-              "use_resource_directory"
-            ],
-            "Type": "bool"
-          },
-          {
-            "Parameters": [
-              "user1_id",
-              "user2_id"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "资源目录账号配置（请确保账号具有AliyunServiceRolePolicyForCEN权限）",
-                "en": "Account Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "user2_id_not_from_rd",
-              "role_name"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "账号1为当前账号，请配置账号2相关信息。",
-                "en": "Account Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "region",
-              "zone_id"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "地域和可用区配置",
-                "en": "Region and Zone Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "vpc1_cidr",
-              "vsw1_cidr",
-              "vpc2_cidr",
-              "vsw2_cidr"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "账号1网段配置(注意VPC间配置的网段不可重叠)",
-                "en": "CIDR Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "vpc3_cidr",
-              "vsw3_cidr",
-              "vpc4_cidr",
-              "vsw4_cidr"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "账号2网段配置(注意VPC间配置的网段不可重叠)",
-                "en": "CIDR Configuration"
-              }
-            }
-          },
-          {
-            "Parameters": [
-              "create_ecs"
-            ],
-            "Type": "bool"
-          },
-          {
-            "Parameters": [
-              "instance_type",
-              "system_disk_category",
-              "ecs_password"
-            ],
-            "Label": {
-              "default": {
-                "zh-cn": "Ecs实例类型及密码配置（当选择不创建ECS实例时，无需配置）",
-                "en": "Ecs InstanceType and Password Configuration"
-              }
-            }
-          }
-        ],
-        "TemplateTags": [
-          "acs:integrate:landing_zone:cen_tr"
-        ]
-      }
-    }
-  ecs/main.tf: |+
-    variable "create_ecs" {}
-    variable "vpc_id" {}
-    variable "vsw_id" {}
-    variable "zone_id" {}
-    variable "instance_type" {}
-    variable "system_disk_category" {}
-    variable "ecs_password" {}
-    variable "instance_name" {}
-
-    terraform {
-      required_providers {
-        alicloud = {
-          source  = "hashicorp/alicloud"
-          version = "~> 1.1"
-        }
-      }
-    }
-
-    resource "alicloud_security_group" "group" {
-      count  = var.create_ecs? 1:0
-      vpc_id = var.vpc_id
-    }
-
-    resource "alicloud_security_group_rule" "rule" {
-      count             = var.create_ecs? 1:0
-      type              = "ingress"
-      ip_protocol       = "all"
-      nic_type          = "intranet"
-      policy            = "accept"
-      port_range        = "1/65535"
-      priority          = 1
-      security_group_id = alicloud_security_group.group[0].id
-      cidr_ip           = "0.0.0.0/0"
-    }
-
-    resource "alicloud_instance" "ecs" {
-      count = var.create_ecs? 1:0
-      availability_zone = var.zone_id
-      security_groups   = alicloud_security_group.group[0].*.id
-      instance_type              = var.instance_type
-      system_disk_category       = var.system_disk_category
-      image_id                   = "centos_7_9_x64_20G_alibase_20220824.vhd"
-      instance_name              = var.instance_name
-      vswitch_id                 = var.vsw_id
-      password                   = var.ecs_password
-    }
-
-  variables.tf: |-
-    variable "user1_id" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ResourceManager::Account",
-        "AssociationPropertyMetadata": {
-          "Visible": {
-            "Condition": {
-              "Fn::Equals": [
-                "$${use_resource_directory}",
-                true
-              ]
-            }
-          }
-        },
-        "Label": {
-            "zh-cn": "账号1的ID"
-        }
-      }
-      EOT
-      default = ""
-    }
-
-    variable "user2_id" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ResourceManager::Account",
-        "AssociationPropertyMetadata": {
-          "Visible": {
-            "Condition": {
-              "Fn::Equals": [
-                "$${use_resource_directory}",
-                true
-              ]
-            }
-          }
-        },
-        "Label": {
-            "zh-cn": "账号2的ID"
-        }
-      }
-      EOT
-      default = ""
-    }
-
-    variable "create_ecs" {
-      type = bool
-      description = <<EOT
-      {
-        "Label": {
-            "zh-cn": "是否创建Ecs进行网络连通测试"
-        }
-      }
-      EOT
-      default = false
-    }
-
-    variable "region" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::RegionId",
-        "Description":"企业版转发路由器支持的地域和可用区: https://help.aliyun.com/document_detail/181681.html",
-        "Label": {
-            "zh-cn": "资源部署地域"
-        }
-      }
-      EOT
-      default = "cn-beijing"
-    }
-
-
-    variable "zone_id" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ZoneId",
-        "AssociationPropertyMetadata": {
-            "RegionId": "$${region}"
-        },
-        "Label": {
-            "zh-cn": "可用区ID"
-        }
-      }
-      EOT
-      default = "cn-beijing-k"
-    }
-
-    variable "instance_type" {
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
-        "AssociationPropertyMetadata": {
-          "RegionId": "$${region}",
-          "ZoneId": "$${zone_id}",
-          "Visible": {
-            "Condition": {
-              "Fn::Equals": [
-                "$${create_ecs}",
-                true
-              ]
-            }
-          }
-        },
-        "Label": {
-            "zh-cn": "ECS实例规格"
-        }
-      }
-      EOT
-      default = "ecs.g6.large"
-    }
-
-    variable "system_disk_category" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::Disk::SystemDiskCategory",
-        "AssociationPropertyMetadata": {
-          "RegionId": "$${region}",
-          "ZoneId": "$${zone_id}",
-          "InstanceType": "$${instance_type}",
-          "Visible": {
-            "Condition": {
-              "Fn::Equals": [
-                "$${create_ecs}",
-                true
-              ]
-            }
-          }
-        },
-        "Label": {
-            "zh-cn": "ECS系统盘类型"
-        }
-      }
-      EOT
-      default = "cloud_essd"
-    }
-
-    variable "ecs_password" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::ECS::Instance::Password",
-        "Label": {
-            "zh-cn": "ECS实例密码"
-        },
-        "AssociationPropertyMetadata": {
-          "Visible": {
-            "Condition": {
-              "Fn::Equals": [
-                "$${create_ecs}",
-                true
-              ]
-            }
-          }
-        }
-      }
-      EOT
-      default = "Ros12345"
-    }
-
-    variable "vpc1_cidr" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::VPC::VPC::CidrBlock",
-        "Label": {
-            "zh-cn": "VPC1的CIDR"
-        }
-      }
-      EOT
-      default = "10.0.0.0/19"
-    }
-
-    variable "vsw1_cidr" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::VPC::VSwitch::CidrBlock",
-        "Label": {
-            "zh-cn": "VSW1的CIDR"
-        }
-      }
-      EOT
-      default = "10.0.0.0/24"
-    }
-
-    variable "vpc2_cidr" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::VPC::VPC::CidrBlock",
-        "Label": {
-            "zh-cn": "VPC2的CIDR"
-        }
-      }
-      EOT
-      default = "10.0.32.0/19"
-    }
-
-    variable "vsw2_cidr" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::VPC::VSwitch::CidrBlock",
-        "Label": {
-            "zh-cn": "VSW2的CIDR"
-        }
-      }
-      EOT
-      default = "10.0.32.0/24"
-    }
-
-
-    variable "vpc3_cidr" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::VPC::VPC::CidrBlock",
-        "Label": {
-            "zh-cn": "VPC3的CIDR"
-        }
-      }
-      EOT
-      default = "10.0.64.0/19"
-    }
-
-    variable "vsw3_cidr" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::VPC::VSwitch::CidrBlock",
-        "Label": {
-            "zh-cn": "VSW3的CIDR"
-        }
-      }
-      EOT
-      default = "10.0.64.0/24"
-    }
-
-    variable "vpc4_cidr" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::VPC::VPC::CidrBlock",
-        "Label": {
-            "zh-cn": "VPC4的CIDR"
-        }
-      }
-      EOT
-      default = "10.0.96.0/19"
-    }
-
-    variable "vsw4_cidr" {
-      type = string
-      description = <<EOT
-      {
-        "AssociationProperty": "ALIYUN::VPC::VSwitch::CidrBlock",
-        "Label": {
-            "zh-cn": "VSW4的CIDR"
-        }
-      }
-      EOT
-      default = "10.0.96.0/24"
-    }
-
-
-    variable "use_resource_directory" {
-      type = bool
-      description = <<EOT
-      {
-        "Label": {
-            "zh-cn": "是否使用资源目录的账号进行部署"
-        }
-      }
-      EOT
-      default = true
-    }
-
-    variable "role_name" {
-      description = <<EOT
-      {
-        "AssociationPropertyMetadata": {
-          "Visible": {
-            "Condition": {
-              "Fn::Equals": [
-                "$${use_resource_directory}",
-                false
-              ]
-            }
-          }
-        },
-        "Label": {
-            "zh-cn": "扮演账号2的RAM角色名称"
-        }
-      }
-      EOT
-      default = "ResourceDirectoryAccountAccessRole"
-    }
-
-    variable "user2_id_not_from_rd" {
-      description = <<EOT
-      {
-        "AssociationPropertyMetadata": {
-          "Visible": {
-            "Condition": {
-              "Fn::Equals": [
-                "$${use_resource_directory}",
-                false
-              ]
-            }
-          }
-        },
-        "Label": {
-            "zh-cn": "账号2的ID"
-        }
-      }
-      EOT
-      default = ""
-    }
-  vpc/main.tf: |
-    variable "vpc_cidr" {}
-    variable "vsw_cidr" {}
-    variable "zone_id" {}
-
-    terraform {
-      required_providers {
-        alicloud = {
-          source  = "hashicorp/alicloud"
-          version = "~> 1.1"
-        }
-      }
-    }
-
-    resource "alicloud_vpc" "vpc" {
-      vpc_name = "vpc_test"
-      cidr_block = var.vpc_cidr
-    }
-
-    resource "alicloud_vswitch" "vsw" {
-      vpc_id = alicloud_vpc.vpc.id
-      cidr_block = var.vsw_cidr
-      zone_id = var.zone_id
-    }
-
-    output "vpc_id" {
-      value = alicloud_vpc.vpc.id
-    }
-    output "vsw_id" {
-      value = alicloud_vswitch.vsw.id
-    }
-    output "route_table_id" {
-      value = alicloud_vpc.vpc.route_table_id
-    }
+  main.tf: "data \"alicloud_account\" \"current\" {\n}\nlocals {\n  role_name = var.role_name\n\
+    \  user1_id = var.use_resource_directory && var.user1_id != \"\" ? var.user1_id\
+    \ : data.alicloud_account.current.id\n  user2_id = var.use_resource_directory\
+    \ ? var.user2_id : var.user2_id_not_from_rd\n  user1_is_admin = local.user1_id\
+    \ == data.alicloud_account.current.id ? true : false\n  user2_is_admin = local.user2_id\
+    \ == data.alicloud_account.current.id ? true : false\n}\n# provider\nprovider\
+    \ \"alicloud\" {\n  alias = \"user1\"\n  region = var.region\n  assume_role {\n\
+    \    role_arn = local.user1_is_admin ? null : format(\"acs:ram::%s:role/%s\",\
+    \ local.user1_id, local.role_name)\n    session_name = \"AccountLandingZoneSetup\"\
+    \n    session_expiration = 999\n  }\n}\n\nprovider \"alicloud\" {\n  alias = \"\
+    user2\"\n  region = var.region\n  assume_role {\n    role_arn = local.user2_is_admin\
+    \ ? null : format(\"acs:ram::%s:role/%s\", local.user2_id, local.role_name)\n\
+    \    session_name = \"AccountLandingZoneSetup\"\n    session_expiration = 999\n\
+    \  }\n}\n\nmodule \"user1_vpc\" {\n  count = 2\n  source = \"./vpc\"\n  providers\
+    \ = {alicloud: alicloud.user1}\n  vpc_cidr = [var.vpc1_cidr, var.vpc2_cidr][count.index]\n\
+    \  vsw_cidr = [var.vsw1_cidr, var.vsw2_cidr][count.index]\n  zone_id = var.zone_id\n\
+    }\n\nmodule \"user2_vpc\" {\n  count = 2\n  source = \"./vpc\"\n  providers =\
+    \ {alicloud: alicloud.user2}\n  vpc_cidr = [var.vpc3_cidr, var.vpc4_cidr][count.index]\n\
+    \  vsw_cidr = [var.vsw3_cidr, var.vsw4_cidr][count.index]\n  zone_id = var.zone_id\n\
+    }\n\nresource \"alicloud_cen_instance\" \"cen\" {\n  provider = alicloud.user2\n\
+    \  cen_instance_name = \"云上企业网络\"\n}\n\nresource \"alicloud_cen_transit_router\"\
+    \ \"tr\" {\n  provider = alicloud.user2\n  cen_id = alicloud_cen_instance.cen.id\n\
+    }\n\nlocals {\n  vpc_ids = concat(module.user1_vpc.*.vpc_id, module.user2_vpc.*.vpc_id)\n\
+    \  vsw_ids = concat(module.user1_vpc.*.vsw_id, module.user2_vpc.*.vsw_id)\n}\n\
+    \nresource \"alicloud_cen_instance_grant\" \"grant\" {\n  count = 2\n  provider\
+    \          = alicloud.user1\n  cen_id            = alicloud_cen_instance.cen.id\n\
+    \  child_instance_id = local.vpc_ids[count.index]\n  cen_owner_id      = local.user2_id\n\
+    }\n\nresource \"alicloud_cen_transit_router_vpc_attachment\" \"vpc_att\" {\n \
+    \ provider = alicloud.user2\n  count = 4\n  transit_router_attachment_name = format(\"\
+    vpc_attachment_%s\", count.index+1)\n  cen_id            = alicloud_cen_instance.cen.id\n\
+    \  transit_router_id = alicloud_cen_transit_router.tr.transit_router_id\n  vpc_id\
+    \            = local.vpc_ids[count.index]\n  vpc_owner_id = count.index < 2? local.user1_id\
+    \ : null\n  zone_mappings {\n    zone_id    = var.zone_id\n    vswitch_id = local.vsw_ids[count.index]\n\
+    \  }\n  depends_on = [alicloud_cen_instance_grant.grant]\n}\n\nresource \"alicloud_vpc_peer_connection\"\
+    \ \"peer\" {\n  provider = alicloud.user1\n  vpc_id               = module.user1_vpc[1].vpc_id\n\
+    \  accepting_ali_uid    = local.user2_id\n  accepting_region_id  = var.region\n\
+    \  accepting_vpc_id     = module.user2_vpc[1].vpc_id\n}\n\nresource \"alicloud_vpc_peer_connection_accepter\"\
+    \ \"default\" {\n  provider = alicloud.user2\n  instance_id = alicloud_vpc_peer_connection.peer.id\n\
+    }\n\nmodule \"user1_ecs\" {\n  count = 2\n  source = \"./ecs\"\n  providers =\
+    \ {alicloud: alicloud.user1}\n  create_ecs = var.create_ecs\n  vpc_id = module.user1_vpc[count.index].vpc_id\n\
+    \  vsw_id = module.user1_vpc[count.index].vsw_id\n  zone_id = var.zone_id\n  instance_type\
+    \ = var.instance_type\n  system_disk_category = var.system_disk_category\n  ecs_password\
+    \ = var.ecs_password\n  instance_name = format(\"test_ecs%s\",count.index+1)\n\
+    }\n\nmodule \"user2_ecs\" {\n  count = 2\n  source = \"./ecs\"\n  providers =\
+    \ {alicloud: alicloud.user2}\n  create_ecs = var.create_ecs\n  vpc_id = module.user2_vpc[count.index].vpc_id\n\
+    \  vsw_id = module.user2_vpc[count.index].vsw_id\n  zone_id = var.zone_id\n  instance_type\
+    \ = var.instance_type\n  system_disk_category = var.system_disk_category\n  ecs_password\
+    \ = var.ecs_password\n  instance_name = format(\"test_ecs%s\",count.index+3)\n\
+    }\n\nlocals {\n  tr_attachment_ids = alicloud_cen_transit_router_vpc_attachment.vpc_att.*.transit_router_attachment_id\n\
+    }\n\nresource \"alicloud_route_entry\" \"route_entry1\" {\n  provider = alicloud.user1\n\
+    \  for_each = toset([var.vpc1_cidr, var.vpc2_cidr, var.vpc3_cidr, var.vpc4_cidr])\n\
+    \  route_table_id        = module.user1_vpc[0].route_table_id\n  destination_cidrblock\
+    \ = each.key\n  nexthop_type          = \"Attachment\"\n  nexthop_id         \
+    \   = local.tr_attachment_ids[0]\n}\n\nresource \"alicloud_route_entry\" \"route_entry2\"\
+    \ {\n  provider = alicloud.user1\n  for_each = toset([var.vpc1_cidr, var.vpc2_cidr,\
+    \ var.vpc3_cidr])\n  route_table_id        = module.user1_vpc[1].route_table_id\n\
+    \  destination_cidrblock = each.key\n  nexthop_type          = \"Attachment\"\n\
+    \  nexthop_id            = local.tr_attachment_ids[1]\n}\n\nresource \"alicloud_route_entry\"\
+    \ \"route_entry3\" {\n  provider = alicloud.user2\n  for_each = toset([var.vpc1_cidr,\
+    \ var.vpc2_cidr, var.vpc3_cidr, var.vpc4_cidr])\n  route_table_id        = module.user2_vpc[0].route_table_id\n\
+    \  destination_cidrblock = each.key\n  nexthop_type          = \"Attachment\"\n\
+    \  nexthop_id            = local.tr_attachment_ids[2]\n}\n\nresource \"alicloud_route_entry\"\
+    \ \"route_entry4\" {\n  provider = alicloud.user2\n  for_each = toset([var.vpc1_cidr,\
+    \ var.vpc3_cidr, var.vpc4_cidr])\n  route_table_id        = module.user2_vpc[1].route_table_id\n\
+    \  destination_cidrblock = each.key\n  nexthop_type          = \"Attachment\"\n\
+    \  nexthop_id            = local.tr_attachment_ids[3]\n}\n\nresource \"alicloud_route_entry\"\
+    \ \"route_entry_peer2\" {\n  provider = alicloud.user1\n  route_table_id     \
+    \   = module.user1_vpc[1].route_table_id\n  destination_cidrblock = var.vpc4_cidr\n\
+    \  nexthop_type          = \"VpcPeer\"\n  nexthop_id            = alicloud_vpc_peer_connection.peer.id\n\
+    \  depends_on = [alicloud_vpc_peer_connection_accepter.default]\n}\n\nresource\
+    \ \"alicloud_route_entry\" \"route_entry_peer4\" {\n  provider = alicloud.user2\n\
+    \  route_table_id        = module.user2_vpc[1].route_table_id\n  destination_cidrblock\
+    \ = var.vpc2_cidr\n  nexthop_type          = \"VpcPeer\"\n  nexthop_id       \
+    \     = alicloud_vpc_peer_connection.peer.id\n  depends_on = [alicloud_vpc_peer_connection_accepter.default]\n\
+    }\n\nresource \"alicloud_cen_transit_router_route_table\" \"route_table\" {\n\
+    \  provider = alicloud.user2\n  transit_router_id = alicloud_cen_transit_router.tr.transit_router_id\n\
+    }\n\nresource \"alicloud_cen_transit_router_route_entry\" \"route_entry1\" {\n\
+    \  provider = alicloud.user2\n  count = 4\n  transit_router_route_table_id   \
+    \                  = alicloud_cen_transit_router_route_table.route_table.transit_router_route_table_id\n\
+    \  transit_router_route_entry_destination_cidr_block = [var.vpc1_cidr, var.vpc2_cidr,\
+    \ var.vpc3_cidr, var.vpc4_cidr][count.index]\n  transit_router_route_entry_next_hop_type\
+    \          = \"Attachment\"\n  transit_router_route_entry_next_hop_id        \
+    \    = local.tr_attachment_ids[count.index]\n}\n\nresource \"alicloud_cen_transit_router_route_table_association\"\
+    \ \"association\" {\n  provider = alicloud.user2\n  count = 4\n  transit_router_route_table_id\
+    \ = alicloud_cen_transit_router_route_table.route_table.transit_router_route_table_id\n\
+    \  transit_router_attachment_id  = local.tr_attachment_ids[count.index]\n}\n"
+  .metadata: "{\n  \"ALIYUN::ROS::Interface\": {\n    \"ParameterGroups\": [\n   \
+    \   {\n        \"Parameters\": [\n          \"use_resource_directory\"\n     \
+    \   ],\n        \"Type\": \"bool\"\n      },\n      {\n        \"Parameters\"\
+    : [\n          \"user1_id\",\n          \"user2_id\"\n        ],\n        \"Label\"\
+    : {\n          \"default\": {\n            \"zh-cn\": \"资源目录账号配置（请确保账号具有AliyunServiceRolePolicyForCEN权限）\"\
+    ,\n            \"en\": \"Account Configuration\"\n          }\n        }\n   \
+    \   },\n      {\n        \"Parameters\": [\n          \"user2_id_not_from_rd\"\
+    ,\n          \"role_name\"\n        ],\n        \"Label\": {\n          \"default\"\
+    : {\n            \"zh-cn\": \"账号1为当前账号，请配置账号2相关信息。\",\n            \"en\": \"\
+    Account Configuration\"\n          }\n        }\n      },\n      {\n        \"\
+    Parameters\": [\n          \"region\",\n          \"zone_id\"\n        ],\n  \
+    \      \"Label\": {\n          \"default\": {\n            \"zh-cn\": \"地域和可用区配置\"\
+    ,\n            \"en\": \"Region and Zone Configuration\"\n          }\n      \
+    \  }\n      },\n      {\n        \"Parameters\": [\n          \"vpc1_cidr\",\n\
+    \          \"vsw1_cidr\",\n          \"vpc2_cidr\",\n          \"vsw2_cidr\"\n\
+    \        ],\n        \"Label\": {\n          \"default\": {\n            \"zh-cn\"\
+    : \"账号1网段配置(注意VPC间配置的网段不可重叠)\",\n            \"en\": \"CIDR Configuration\"\n\
+    \          }\n        }\n      },\n      {\n        \"Parameters\": [\n      \
+    \    \"vpc3_cidr\",\n          \"vsw3_cidr\",\n          \"vpc4_cidr\",\n    \
+    \      \"vsw4_cidr\"\n        ],\n        \"Label\": {\n          \"default\"\
+    : {\n            \"zh-cn\": \"账号2网段配置(注意VPC间配置的网段不可重叠)\",\n            \"en\"\
+    : \"CIDR Configuration\"\n          }\n        }\n      },\n      {\n        \"\
+    Parameters\": [\n          \"create_ecs\"\n        ],\n        \"Type\": \"bool\"\
+    \n      },\n      {\n        \"Parameters\": [\n          \"instance_type\",\n\
+    \          \"system_disk_category\",\n          \"ecs_password\"\n        ],\n\
+    \        \"Label\": {\n          \"default\": {\n            \"zh-cn\": \"Ecs实例类型及密码配置（当选择不创建ECS实例时，无需配置）\"\
+    ,\n            \"en\": \"Ecs InstanceType and Password Configuration\"\n     \
+    \     }\n        }\n      }\n    ],\n    \"TemplateTags\": [\n      \"acs:integrate:landing_zone:cen_tr\"\
+    \n    ]\n  }\n}"
+  ecs/main.tf: "variable \"create_ecs\" {}\nvariable \"vpc_id\" {}\nvariable \"vsw_id\"\
+    \ {}\nvariable \"zone_id\" {}\nvariable \"instance_type\" {}\nvariable \"system_disk_category\"\
+    \ {}\nvariable \"ecs_password\" {}\nvariable \"instance_name\" {}\n\nterraform\
+    \ {\n  required_providers {\n    alicloud = {\n      source  = \"hashicorp/alicloud\"\
+    \n      version = \"~> 1.1\"\n    }\n  }\n}\n\nresource \"alicloud_security_group\"\
+    \ \"group\" {\n  count  = var.create_ecs? 1:0\n  vpc_id = var.vpc_id\n}\n\nresource\
+    \ \"alicloud_security_group_rule\" \"rule\" {\n  count             = var.create_ecs?\
+    \ 1:0\n  type              = \"ingress\"\n  ip_protocol       = \"all\"\n  nic_type\
+    \          = \"intranet\"\n  policy            = \"accept\"\n  port_range    \
+    \    = \"1/65535\"\n  priority          = 1\n  security_group_id = alicloud_security_group.group[0].id\n\
+    \  cidr_ip           = \"0.0.0.0/0\"\n}\n\nresource \"alicloud_instance\" \"ecs\"\
+    \ {\n  count = var.create_ecs? 1:0\n  availability_zone = var.zone_id\n  security_groups\
+    \   = alicloud_security_group.group[0].*.id\n  instance_type              = var.instance_type\n\
+    \  system_disk_category       = var.system_disk_category\n  image_id         \
+    \          = \"centos_7_9_x64_20G_alibase_20220824.vhd\"\n  instance_name    \
+    \          = var.instance_name\n  vswitch_id                 = var.vsw_id\n  password\
+    \                   = var.ecs_password\n}\n\n"
+  variables.tf: "variable \"user1_id\" {\n  type = string\n  description = <<EOT\n\
+    \  {\n    \"AssociationProperty\": \"ALIYUN::ResourceManager::Account\",\n   \
+    \ \"AssociationPropertyMetadata\": {\n      \"Visible\": {\n        \"Condition\"\
+    : {\n          \"Fn::Equals\": [\n            \"$${use_resource_directory}\",\n\
+    \            true\n          ]\n        }\n      }\n    },\n    \"Label\": {\n\
+    \        \"zh-cn\": \"账号1的ID\"\n    }\n  }\n  EOT\n  default = \"\"\n}\n\nvariable\
+    \ \"user2_id\" {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::ResourceManager::Account\",\n    \"AssociationPropertyMetadata\":\
+    \ {\n      \"Visible\": {\n        \"Condition\": {\n          \"Fn::Equals\"\
+    : [\n            \"$${use_resource_directory}\",\n            true\n         \
+    \ ]\n        }\n      }\n    },\n    \"Label\": {\n        \"zh-cn\": \"账号2的ID\"\
+    \n    }\n  }\n  EOT\n  default = \"\"\n}\n\nvariable \"create_ecs\" {\n  type\
+    \ = bool\n  description = <<EOT\n  {\n    \"Label\": {\n        \"zh-cn\": \"\
+    是否创建Ecs进行网络连通测试\"\n    }\n  }\n  EOT\n  default = false\n}\n\nvariable \"region\"\
+    \ {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::ECS::RegionId\",\n    \"Description\":\"企业版转发路由器支持的地域和可用区: https://help.aliyun.com/document_detail/181681.html\"\
+    ,\n    \"Label\": {\n        \"zh-cn\": \"资源部署地域\"\n    }\n  }\n  EOT\n  default\
+    \ = \"cn-beijing\"\n}\n\n\nvariable \"zone_id\" {\n  type = string\n  description\
+    \ = <<EOT\n  {\n    \"AssociationProperty\": \"ZoneId\",\n    \"AssociationPropertyMetadata\"\
+    : {\n        \"RegionId\": \"$${region}\"\n    },\n    \"Label\": {\n        \"\
+    zh-cn\": \"可用区ID\"\n    }\n  }\n  EOT\n  default = \"cn-beijing-k\"\n}\n\nvariable\
+    \ \"instance_type\" {\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::ECS::Instance::InstanceType\",\n    \"AssociationPropertyMetadata\"\
+    : {\n      \"RegionId\": \"$${region}\",\n      \"ZoneId\": \"$${zone_id}\",\n\
+    \      \"Visible\": {\n        \"Condition\": {\n          \"Fn::Equals\": [\n\
+    \            \"$${create_ecs}\",\n            true\n          ]\n        }\n \
+    \     }\n    },\n    \"Label\": {\n        \"zh-cn\": \"ECS实例规格\"\n    }\n  }\n\
+    \  EOT\n  default = \"ecs.g6.large\"\n}\n\nvariable \"system_disk_category\" {\n\
+    \  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\": \"\
+    ALIYUN::ECS::Disk::SystemDiskCategory\",\n    \"AssociationPropertyMetadata\"\
+    : {\n      \"RegionId\": \"$${region}\",\n      \"ZoneId\": \"$${zone_id}\",\n\
+    \      \"InstanceType\": \"$${instance_type}\",\n      \"Visible\": {\n      \
+    \  \"Condition\": {\n          \"Fn::Equals\": [\n            \"$${create_ecs}\"\
+    ,\n            true\n          ]\n        }\n      }\n    },\n    \"Label\": {\n\
+    \        \"zh-cn\": \"ECS系统盘类型\"\n    }\n  }\n  EOT\n  default = \"cloud_essd\"\
+    \n}\n\nvariable \"ecs_password\" {\n  type = string\n  description = <<EOT\n \
+    \ {\n    \"AssociationProperty\": \"ALIYUN::ECS::Instance::Password\",\n    \"\
+    Label\": {\n        \"zh-cn\": \"ECS实例密码\"\n    },\n    \"AssociationPropertyMetadata\"\
+    : {\n      \"Visible\": {\n        \"Condition\": {\n          \"Fn::Equals\"\
+    : [\n            \"$${create_ecs}\",\n            true\n          ]\n        }\n\
+    \      }\n    }\n  }\n  EOT\n  default = \"Ros12345\"\n}\n\nvariable \"vpc1_cidr\"\
+    \ {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::VPC::VPC::CidrBlock\",\n    \"Label\": {\n        \"zh-cn\": \"VPC1的CIDR\"\
+    \n    }\n  }\n  EOT\n  default = \"10.0.0.0/19\"\n}\n\nvariable \"vsw1_cidr\"\
+    \ {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::VPC::VSwitch::CidrBlock\",\n    \"Label\": {\n        \"zh-cn\": \"\
+    VSW1的CIDR\"\n    }\n  }\n  EOT\n  default = \"10.0.0.0/24\"\n}\n\nvariable \"\
+    vpc2_cidr\" {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::VPC::VPC::CidrBlock\",\n    \"Label\": {\n        \"zh-cn\": \"VPC2的CIDR\"\
+    \n    }\n  }\n  EOT\n  default = \"10.0.32.0/19\"\n}\n\nvariable \"vsw2_cidr\"\
+    \ {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::VPC::VSwitch::CidrBlock\",\n    \"Label\": {\n        \"zh-cn\": \"\
+    VSW2的CIDR\"\n    }\n  }\n  EOT\n  default = \"10.0.32.0/24\"\n}\n\n\nvariable\
+    \ \"vpc3_cidr\" {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::VPC::VPC::CidrBlock\",\n    \"Label\": {\n        \"zh-cn\": \"VPC3的CIDR\"\
+    \n    }\n  }\n  EOT\n  default = \"10.0.64.0/19\"\n}\n\nvariable \"vsw3_cidr\"\
+    \ {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::VPC::VSwitch::CidrBlock\",\n    \"Label\": {\n        \"zh-cn\": \"\
+    VSW3的CIDR\"\n    }\n  }\n  EOT\n  default = \"10.0.64.0/24\"\n}\n\nvariable \"\
+    vpc4_cidr\" {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::VPC::VPC::CidrBlock\",\n    \"Label\": {\n        \"zh-cn\": \"VPC4的CIDR\"\
+    \n    }\n  }\n  EOT\n  default = \"10.0.96.0/19\"\n}\n\nvariable \"vsw4_cidr\"\
+    \ {\n  type = string\n  description = <<EOT\n  {\n    \"AssociationProperty\"\
+    : \"ALIYUN::VPC::VSwitch::CidrBlock\",\n    \"Label\": {\n        \"zh-cn\": \"\
+    VSW4的CIDR\"\n    }\n  }\n  EOT\n  default = \"10.0.96.0/24\"\n}\n\n\nvariable\
+    \ \"use_resource_directory\" {\n  type = bool\n  description = <<EOT\n  {\n  \
+    \  \"Label\": {\n        \"zh-cn\": \"是否使用资源目录的账号进行部署\"\n    }\n  }\n  EOT\n \
+    \ default = true\n}\n\nvariable \"role_name\" {\n  description = <<EOT\n  {\n\
+    \    \"AssociationPropertyMetadata\": {\n      \"Visible\": {\n        \"Condition\"\
+    : {\n          \"Fn::Equals\": [\n            \"$${use_resource_directory}\",\n\
+    \            false\n          ]\n        }\n      }\n    },\n    \"Label\": {\n\
+    \        \"zh-cn\": \"扮演账号2的RAM角色名称\"\n    }\n  }\n  EOT\n  default = \"ResourceDirectoryAccountAccessRole\"\
+    \n}\n\nvariable \"user2_id_not_from_rd\" {\n  description = <<EOT\n  {\n    \"\
+    AssociationPropertyMetadata\": {\n      \"Visible\": {\n        \"Condition\"\
+    : {\n          \"Fn::Equals\": [\n            \"$${use_resource_directory}\",\n\
+    \            false\n          ]\n        }\n      }\n    },\n    \"Label\": {\n\
+    \        \"zh-cn\": \"账号2的ID\"\n    }\n  }\n  EOT\n  default = \"\"\n}"
+  vpc/main.tf: "variable \"vpc_cidr\" {}\nvariable \"vsw_cidr\" {}\nvariable \"zone_id\"\
+    \ {}\n\nterraform {\n  required_providers {\n    alicloud = {\n      source  =\
+    \ \"hashicorp/alicloud\"\n      version = \"~> 1.1\"\n    }\n  }\n}\n\nresource\
+    \ \"alicloud_vpc\" \"vpc\" {\n  vpc_name = \"vpc_test\"\n  cidr_block = var.vpc_cidr\n\
+    }\n\nresource \"alicloud_vswitch\" \"vsw\" {\n  vpc_id = alicloud_vpc.vpc.id\n\
+    \  cidr_block = var.vsw_cidr\n  zone_id = var.zone_id\n}\n\noutput \"vpc_id\"\
+    \ {\n  value = alicloud_vpc.vpc.id\n}\noutput \"vsw_id\" {\n  value = alicloud_vswitch.vsw.id\n\
+    }\noutput \"route_table_id\" {\n  value = alicloud_vpc.vpc.route_table_id\n}\n"

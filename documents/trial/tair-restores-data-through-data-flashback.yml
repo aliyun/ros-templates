@@ -49,10 +49,11 @@ Parameters:
         \ <br>\nIt must contain at least three of the following character types: uppercase\
         \ letters, lowercase letters, digits, and special characters. <br> \nSpecial\
         \ characters include <span style=\"background:#E7E9EB;\"><b>!@#$%^&*()_+-=</b></span>."
-      zh-cn: |-
-        如果创建Tair实例时已配置密码，设置该参数为重置密码。 <br>
+      zh-cn: '如果创建Tair实例时已配置密码，设置该参数为重置密码。 <br>
+
         如果创建Tair实例时未配置密码，此处需要为Tair实例配置密码。 <br>
-        长度为8~32位，需包含大写字母、小写字母、特殊字符和数字中的至少三种，允许的特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>。
+
+        长度为8~32位，需包含大写字母、小写字母、特殊字符和数字中的至少三种，允许的特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>。'
     Default: ''
     AllowedPattern: ^(?=.*[a-zA-Z])(?=.*[a-z0-9])(?=.*[a-z!@#$%^&*()_+=-])(?=.*[A-Z0-9])(?=.*[A-Z!@#$%^&*()_+=-])(?=.*[0-9!@#$%^&*()_+=-])[a-zA-Z0-9!@#$%^&*()_+=-]{8,32}$|^$
     NoEcho: true
@@ -83,41 +84,23 @@ Resources:
       Timeout: 1200
       CommandContent:
         Fn::Sub:
-        - |-
-          #!/bin/bash
-          echo "#########################"
-          echo "# Install Redis Client"
-          echo "#########################"
-          cd ~
-          if [ -f "redis-${redis_version}/src/redis-cli" ]; then
-            redis-${redis_version}/src/redis-cli -v
-            if [ $? -ne 0 ]; then
-              rm -f redis-${redis_version}.tar.gz
-              rm -rf redis-${redis_version}
-            else
-              ${ros_notify} --data-binary "{\"status\": \"SUCCESS\", \"data\": \"`pwd`/redis-${redis_version}/src/redis-cli\"}"
-              exit 0
-            fi
-          fi
-          ping download.redis.io -w 5 | grep "0 received"
-          if [ $? -eq 0 ]; then
-            ${ros_notify} --data-binary '{"status": "FAILURE", "reason": "unable to connect to download.redis.io"}'
-            exit 0
-          fi
-          wget https://download.redis.io/releases/redis-${redis_version}.tar.gz
-          if [ $? -ne 0 ]; then
-            ${ros_notify} --data-binary '{"status": "FAILURE", "reason": "fail to download redis-${redis_version}.tar.gz"}'
-            exit 0
-          fi
-          tar xzf redis-${redis_version}.tar.gz
-          cd redis-${redis_version}
-          make
-          src/redis-cli -v
-          if [ $? -ne 0 ]; then
-            ${ros_notify} --data-binary '{"status": "FAILURE", "reason": "fail to install redis client"}'
-            exit 0
-          fi
-          ${ros_notify} --data-binary "{\"status\": \"SUCCESS\", \"data\": \"`pwd`/src/redis-cli\"}"
+        - "#!/bin/bash\necho \"#########################\"\necho \"# Install Redis\
+          \ Client\"\necho \"#########################\"\ncd ~\nif [ -f \"redis-${redis_version}/src/redis-cli\"\
+          \ ]; then\n  redis-${redis_version}/src/redis-cli -v\n  if [ $? -ne 0 ];\
+          \ then\n    rm -f redis-${redis_version}.tar.gz\n    rm -rf redis-${redis_version}\n\
+          \  else\n    ${ros_notify} --data-binary \"{\\\"status\\\": \\\"SUCCESS\\\
+          \", \\\"data\\\": \\\"`pwd`/redis-${redis_version}/src/redis-cli\\\"}\"\n\
+          \    exit 0\n  fi\nfi\nping download.redis.io -w 5 | grep \"0 received\"\
+          \nif [ $? -eq 0 ]; then\n  ${ros_notify} --data-binary '{\"status\": \"\
+          FAILURE\", \"reason\": \"unable to connect to download.redis.io\"}'\n  exit\
+          \ 0\nfi\nwget https://download.redis.io/releases/redis-${redis_version}.tar.gz\n\
+          if [ $? -ne 0 ]; then\n  ${ros_notify} --data-binary '{\"status\": \"FAILURE\"\
+          , \"reason\": \"fail to download redis-${redis_version}.tar.gz\"}'\n  exit\
+          \ 0\nfi\ntar xzf redis-${redis_version}.tar.gz\ncd redis-${redis_version}\n\
+          make\nsrc/redis-cli -v\nif [ $? -ne 0 ]; then\n  ${ros_notify} --data-binary\
+          \ '{\"status\": \"FAILURE\", \"reason\": \"fail to install redis client\"\
+          }'\n  exit 0\nfi\n${ros_notify} --data-binary \"{\\\"status\\\": \\\"SUCCESS\\\
+          \", \\\"data\\\": \\\"`pwd`/src/redis-cli\\\"}\""
         - ros_notify:
             Fn::GetAtt:
             - WaitConditionHandle
@@ -149,51 +132,24 @@ Resources:
   Template:
     Type: ALIYUN::OOS::Template
     Properties:
-      Content: |-
-        FormatVersion: OOS-2019-06-01
-        Parameters:
-          InstanceId:
-            Type: String
-        Tasks:
-          - Name: DescribeBackupPolicy
-            Action: ACS::ExecuteAPI
-            Properties:
-              Service: R-kvstore
-              API: DescribeBackupPolicy
-              Parameters:
-                RegionId: '{{ ACS::RegionId }}'
-                InstanceId: '{{ InstanceId }}'
-            Outputs:
-              PreferredBackupTime:
-                ValueSelector: .PreferredBackupTime
-                Type: String
-              PreferredBackupPeriod:
-                ValueSelector: .PreferredBackupPeriod
-                Type: String
-              EnableBackupLog:
-                ValueSelector: .EnableBackupLog
-                Type: Number
-          - Name: Branch
-            Action: 'ACS::Choice'
-            Properties:
-              DefaultTask: ACS::END
-              Choices:
-                - When:
-                    'Fn::Equals':
-                      - 0
-                      - '{{ DescribeBackupPolicy.EnableBackupLog }}'
-                  NextTask: ModifyBackupPolicy
-          - Name: ModifyBackupPolicy
-            Action: ACS::ExecuteAPI
-            Properties:
-              Service: R-kvstore
-              API: ModifyBackupPolicy
-              Parameters:
-                RegionId: '{{ ACS::RegionId }}'
-                InstanceId: '{{ InstanceId }}'
-                PreferredBackupTime: '{{ DescribeBackupPolicy.PreferredBackupTime }}'
-                PreferredBackupPeriod: '{{ DescribeBackupPolicy.PreferredBackupPeriod }}'
-                EnableBackupLog: 1
+      Content: "FormatVersion: OOS-2019-06-01\nParameters:\n  InstanceId:\n    Type:\
+        \ String\nTasks:\n  - Name: DescribeBackupPolicy\n    Action: ACS::ExecuteAPI\n\
+        \    Properties:\n      Service: R-kvstore\n      API: DescribeBackupPolicy\n\
+        \      Parameters:\n        RegionId: '{{ ACS::RegionId }}'\n        InstanceId:\
+        \ '{{ InstanceId }}'\n    Outputs:\n      PreferredBackupTime:\n        ValueSelector:\
+        \ .PreferredBackupTime\n        Type: String\n      PreferredBackupPeriod:\n\
+        \        ValueSelector: .PreferredBackupPeriod\n        Type: String\n   \
+        \   EnableBackupLog:\n        ValueSelector: .EnableBackupLog\n        Type:\
+        \ Number\n  - Name: Branch\n    Action: 'ACS::Choice'\n    Properties:\n \
+        \     DefaultTask: ACS::END\n      Choices:\n        - When:\n           \
+        \ 'Fn::Equals':\n              - 0\n              - '{{ DescribeBackupPolicy.EnableBackupLog\
+        \ }}'\n          NextTask: ModifyBackupPolicy\n  - Name: ModifyBackupPolicy\n\
+        \    Action: ACS::ExecuteAPI\n    Properties:\n      Service: R-kvstore\n\
+        \      API: ModifyBackupPolicy\n      Parameters:\n        RegionId: '{{ ACS::RegionId\
+        \ }}'\n        InstanceId: '{{ InstanceId }}'\n        PreferredBackupTime:\
+        \ '{{ DescribeBackupPolicy.PreferredBackupTime }}'\n        PreferredBackupPeriod:\
+        \ '{{ DescribeBackupPolicy.PreferredBackupPeriod }}'\n        EnableBackupLog:\
+        \ 1"
       TemplateName:
         Fn::Sub: trial-enable-backup-log-${ALIYUN::StackId}
   Execution:
@@ -231,24 +187,12 @@ Resources:
     Type: ALIYUN::OOS::Template
     Condition: WillSetAccountPassword
     Properties:
-      Content: |-
-        FormatVersion: OOS-2019-06-01
-        Parameters:
-          InstanceId:
-            Type: String
-          AccountPassword:
-            Type: String
-        Tasks:
-          - Name: ModifyRedisPassword
-            Action: ACS::ExecuteAPI
-            Properties:
-              Service: R-kvstore
-              API: ResetAccountPassword
-              Parameters:
-                RegionId: '{{ ACS::RegionId }}'
-                InstanceId: '{{ InstanceId }}'
-                AccountName: '{{ InstanceId }}'
-                AccountPassword: '{{ AccountPassword }}'
+      Content: "FormatVersion: OOS-2019-06-01\nParameters:\n  InstanceId:\n    Type:\
+        \ String\n  AccountPassword:\n    Type: String\nTasks:\n  - Name: ModifyRedisPassword\n\
+        \    Action: ACS::ExecuteAPI\n    Properties:\n      Service: R-kvstore\n\
+        \      API: ResetAccountPassword\n      Parameters:\n        RegionId: '{{\
+        \ ACS::RegionId }}'\n        InstanceId: '{{ InstanceId }}'\n        AccountName:\
+        \ '{{ InstanceId }}'\n        AccountPassword: '{{ AccountPassword }}'"
       TemplateName:
         Fn::Sub: trial-modify-tair-pwd-${ALIYUN::StackId}
   ExecutionForPassword:
@@ -284,9 +228,9 @@ Outputs:
     Description:
       en: "Console URL for data flashback. \nPlease confirm in the console, after\
         \ the \"Start Flashbacking\" button can be clicked, continue to step 5."
-      zh-cn: |-
-        数据闪回控制台地址。
-        请在控制台进行确认，待马上闪回按钮可以单击后，继续步骤五。
+      zh-cn: '数据闪回控制台地址。
+
+        请在控制台进行确认，待马上闪回按钮可以单击后，继续步骤五。'
     Value:
       Fn::Sub:
       - <a href="https://kvstore.console.aliyun.com/Redis/instance/${ALIYUN::Region}/${InstanceId}/Normal/VPC/${InstanceClass}/backupRestore"
@@ -300,12 +244,12 @@ Outputs:
             - Instances
   LoginCLI:
     Description:
-      en: |-
-        The command line that is used to login Tair.
-        Please continue to step 5.
-      zh-cn: |-
-        登录Tair的命令行。
-        请继续步骤五。
+      en: 'The command line that is used to login Tair.
+
+        Please continue to step 5.'
+      zh-cn: '登录Tair的命令行。
+
+        请继续步骤五。'
     Value:
       Fn::Sub:
       - ${redis_cli} -h ${host} -p ${port}

@@ -234,230 +234,108 @@ Resources:
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |-
-          #!/bin/bash
-          if [ ! -f .ros.provision ]; then
-            echo "Name: 手动部署LNMP环境（CentOS 7）" > .ros.provision
-          fi
-
-          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-          if [[ "$name" != "手动部署LNMP环境（CentOS 7）" ]]; then
-            echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
-            ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance has already applied the configuration of the \\\"$name\\\" tutorial, and the configuration of this tutorial can no longer be applied.\"}"
-            exit 0
-          fi
-
-          echo "#########################"
-          echo "# Check Network"
-          echo "#########################"
-          ping -c 2 -W 2 aliyun.com > /dev/null
-          if [[ $? -ne 0 ]]; then
-            echo "当前实例无法访问公网"
-            ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance cannot access the public network.\"}"
-            exit 0
-          fi
-
-          if ! grep -q "^Step1: Prepare Environment$" .ros.provision; then
-            echo "#########################"
-            echo "# Prepare Environment"
-            echo "#########################"
-            systemctl status firewalld
-            systemctl stop firewalld
-            echo "Step1: Prepare Environment" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# Environment has been ready"
-            echo "#########################"
-          fi
-
-          if ! grep -q "^Step2: Install Nginx$" .ros.provision; then
-            echo "#########################"
-            echo "# Install Nginx"
-            echo "#########################"
-            yum -y install nginx
-            nginx -v
-            echo "Step2: Install Nginx" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# Nginx has been installed"
-            echo "#########################"
-          fi
-
-          if ! grep -q "^Step3: Install MySQL$" .ros.provision; then
-            echo "#########################"
-            echo "# Install MySQL"
-            echo "#########################"
-            rpm -Uvh  https://dev.mysql.com/get/mysql57-community-release-el7-9.noarch.rpm
-            yum -y install mysql-community-server --nogpgcheck
-            mysql -V
-            systemctl start mysqld
-            systemctl enable mysqld
-            systemctl daemon-reload
-            echo "Step3: Install MySQL" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# MySQL has been installed"
-            echo "#########################"
-          fi
-
-          if ! grep -q "^Step4: Install PHP$" .ros.provision; then
-            echo "#########################"
-            echo "# Install PHP"
-            echo "#########################"
-            yum install -y \
-              https://mirrors.aliyun.com/ius/ius-release-el7.rpm \
-              https://mirrors.aliyun.com/epel/epel-release-latest-7.noarch.rpm
-            rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
-            yum -y install php70w-devel php70w.x86_64 php70w-cli.x86_64 php70w-common.x86_64 php70w-gd.x86_64 php70w-ldap.x86_64 php70w-mbstring.x86_64 php70w-mcrypt.x86_64  php70w-pdo.x86_64   php70w-mysqlnd  php70w-fpm php70w-opcache php70w-pecl-redis php70w-pecl-mongodb
-            php -v
-            echo "Step4: Install PHP" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# PHP has been installed"
-            echo "#########################"
-          fi
-
-          if ! grep -q "^Step4: Config Nginx$" .ros.provision; then
-            echo "#########################"
-            echo "# Config Nginx"
-            echo "#########################"
-            cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
-            cat > /etc/nginx/nginx.conf << \EOF
-          # For more information on configuration, see:
-          #   * Official English Documentation: http://nginx.org/en/docs/
-          #   * Official Russian Documentation: http://nginx.org/ru/docs/
-
-          user nginx;
-          worker_processes auto;
-          error_log /var/log/nginx/error.log;
-          pid /run/nginx.pid;
-
-          # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
-          include /usr/share/nginx/modules/*.conf;
-
-          events {
-              worker_connections 1024;
-          }
-
-          http {
-              log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
-                                '$status $body_bytes_sent "$http_referer" '
-                                '"$http_user_agent" "$http_x_forwarded_for"';
-
-              access_log  /var/log/nginx/access.log  main;
-
-              sendfile            on;
-              tcp_nopush          on;
-              tcp_nodelay         on;
-              keepalive_timeout   65;
-              types_hash_max_size 4096;
-
-              include             /etc/nginx/mime.types;
-              default_type        application/octet-stream;
-
-              # Load modular configuration files from the /etc/nginx/conf.d directory.
-              # See http://nginx.org/en/docs/ngx_core_module.html#include
-              # for more information.
-              include /etc/nginx/conf.d/*.conf;
-
-              server {
-                  listen       80;
-                  listen       [::]:80;
-                  server_name  _;
-                  root         /usr/share/nginx/html;
-
-                  # Load configuration files for the default server block.
-                  include /etc/nginx/default.d/*.conf;
-
-                  location / {
-                      index index.php index.html index.htm;
-                  }
-
-                  location ~ .php$ {
-                      root /usr/share/nginx/html;    # 将/usr/share/nginx/html替换为您的网站根目录，本文使用/usr/share/nginx/html作为网站根目录。
-                      fastcgi_pass 127.0.0.1:9000;   # Nginx通过本机的9000端口将PHP请求转发给PHP-FPM进行处理。
-                      fastcgi_index index.php;
-                      fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
-                      include fastcgi_params;   # Nginx调用fastcgi接口处理PHP请求。
-                  }
-
-                  error_page 404 /404.html;
-                  location = /404.html {
-                  }
-
-                  error_page 500 502 503 504 /50x.html;
-                  location = /50x.html {
-                  }
-              }
-
-          # Settings for a TLS enabled server.
-          #
-          #    server {
-          #        listen       443 ssl http2;
-          #        listen       [::]:443 ssl http2;
-          #        server_name  _;
-          #        root         /usr/share/nginx/html;
-          #
-          #        ssl_certificate "/etc/pki/nginx/server.crt";
-          #        ssl_certificate_key "/etc/pki/nginx/private/server.key";
-          #        ssl_session_cache shared:SSL:1m;
-          #        ssl_session_timeout  10m;
-          #        ssl_ciphers HIGH:!aNULL:!MD5;
-          #        ssl_prefer_server_ciphers on;
-          #
-          #        # Load configuration files for the default server block.
-          #        include /etc/nginx/default.d/*.conf;
-          #
-          #        error_page 404 /404.html;
-          #            location = /40x.html {
-          #        }
-          #
-          #        error_page 500 502 503 504 /50x.html;
-          #            location = /50x.html {
-          #        }
-          #    }
-
-          }
-          EOF
-            systemctl start nginx 
-            systemctl enable nginx
-            echo "Step4: Config Nginx" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# Nginx has been configured"
-            echo "#########################"
-          fi
-
-          if ! grep -q "^Step6: Config MySQL$" .ros.provision; then
-            echo "#########################"
-            echo "# Config MySQL"
-            echo "#########################"
-            export MYSQL_PWD=`grep "temporary password" /var/log/mysqld.log | awk '{print $NF}'`
-            mysqladmin -uroot password '${DbPassword}'
-            export MYSQL_PWD='${DbPassword}'
-            mysql -uroot -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '${DbPassword}'"
-            echo "Step6: Config MySQL" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# MySQL has been configured"
-            echo "#########################"
-          fi
-
-          if ! grep -q "^Step7: Config PHP$" .ros.provision; then
-            echo "#########################"
-            echo "# Config PHP"
-            echo "#########################"
-            echo "<?php phpinfo(); ?>" > /usr/share/nginx/html/phpinfo.php
-            systemctl start php-fpm
-            systemctl enable php-fpm
-            echo "Step7: Config MySQL" >> .ros.provision
-          else
-            echo "#########################"
-            echo "# PHP has been configured"
-            echo "#########################"
-          fi
-
-          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+        Fn::Sub: "#!/bin/bash\nif [ ! -f .ros.provision ]; then\n  echo \"Name: 手动部署LNMP环境（CentOS\
+          \ 7）\" > .ros.provision\nfi\n\nname=$(grep \"^Name:\" .ros.provision | awk\
+          \ -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')\n\
+          if [[ \"$name\" != \"手动部署LNMP环境（CentOS 7）\" ]]; then\n  echo \"当前实例已使用过\\\
+          \"$name\\\"教程的一键配置，不能再使用本教程的一键配置\"\n  ${WaitConditionHandle.CurlCli} --data-binary\
+          \ \"{\\\"status\\\": \\\"FAILURE\\\", \\\"reason\\\": \\\"The current instance\
+          \ has already applied the configuration of the \\\\\\\"$name\\\\\\\" tutorial,\
+          \ and the configuration of this tutorial can no longer be applied.\\\"}\"\
+          \n  exit 0\nfi\n\necho \"#########################\"\necho \"# Check Network\"\
+          \necho \"#########################\"\nping -c 2 -W 2 aliyun.com > /dev/null\n\
+          if [[ $? -ne 0 ]]; then\n  echo \"当前实例无法访问公网\"\n  ${WaitConditionHandle.CurlCli}\
+          \ --data-binary \"{\\\"status\\\": \\\"FAILURE\\\", \\\"reason\\\": \\\"\
+          The current instance cannot access the public network.\\\"}\"\n  exit 0\n\
+          fi\n\nif ! grep -q \"^Step1: Prepare Environment$\" .ros.provision; then\n\
+          \  echo \"#########################\"\n  echo \"# Prepare Environment\"\n\
+          \  echo \"#########################\"\n  systemctl status firewalld\n  systemctl\
+          \ stop firewalld\n  echo \"Step1: Prepare Environment\" >> .ros.provision\n\
+          else\n  echo \"#########################\"\n  echo \"# Environment has been\
+          \ ready\"\n  echo \"#########################\"\nfi\n\nif ! grep -q \"^Step2:\
+          \ Install Nginx$\" .ros.provision; then\n  echo \"#########################\"\
+          \n  echo \"# Install Nginx\"\n  echo \"#########################\"\n  yum\
+          \ -y install nginx\n  nginx -v\n  echo \"Step2: Install Nginx\" >> .ros.provision\n\
+          else\n  echo \"#########################\"\n  echo \"# Nginx has been installed\"\
+          \n  echo \"#########################\"\nfi\n\nif ! grep -q \"^Step3: Install\
+          \ MySQL$\" .ros.provision; then\n  echo \"#########################\"\n\
+          \  echo \"# Install MySQL\"\n  echo \"#########################\"\n  rpm\
+          \ -Uvh  https://dev.mysql.com/get/mysql57-community-release-el7-9.noarch.rpm\n\
+          \  yum -y install mysql-community-server --nogpgcheck\n  mysql -V\n  systemctl\
+          \ start mysqld\n  systemctl enable mysqld\n  systemctl daemon-reload\n \
+          \ echo \"Step3: Install MySQL\" >> .ros.provision\nelse\n  echo \"#########################\"\
+          \n  echo \"# MySQL has been installed\"\n  echo \"#########################\"\
+          \nfi\n\nif ! grep -q \"^Step4: Install PHP$\" .ros.provision; then\n  echo\
+          \ \"#########################\"\n  echo \"# Install PHP\"\n  echo \"#########################\"\
+          \n  yum install -y \\\n    https://mirrors.aliyun.com/ius/ius-release-el7.rpm\
+          \ \\\n    https://mirrors.aliyun.com/epel/epel-release-latest-7.noarch.rpm\n\
+          \  rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm\n \
+          \ yum -y install php70w-devel php70w.x86_64 php70w-cli.x86_64 php70w-common.x86_64\
+          \ php70w-gd.x86_64 php70w-ldap.x86_64 php70w-mbstring.x86_64 php70w-mcrypt.x86_64\
+          \  php70w-pdo.x86_64   php70w-mysqlnd  php70w-fpm php70w-opcache php70w-pecl-redis\
+          \ php70w-pecl-mongodb\n  php -v\n  echo \"Step4: Install PHP\" >> .ros.provision\n\
+          else\n  echo \"#########################\"\n  echo \"# PHP has been installed\"\
+          \n  echo \"#########################\"\nfi\n\nif ! grep -q \"^Step4: Config\
+          \ Nginx$\" .ros.provision; then\n  echo \"#########################\"\n\
+          \  echo \"# Config Nginx\"\n  echo \"#########################\"\n  cp /etc/nginx/nginx.conf\
+          \ /etc/nginx/nginx.conf.bak\n  cat > /etc/nginx/nginx.conf << \\EOF\n# For\
+          \ more information on configuration, see:\n#   * Official English Documentation:\
+          \ http://nginx.org/en/docs/\n#   * Official Russian Documentation: http://nginx.org/ru/docs/\n\
+          \nuser nginx;\nworker_processes auto;\nerror_log /var/log/nginx/error.log;\n\
+          pid /run/nginx.pid;\n\n# Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.\n\
+          include /usr/share/nginx/modules/*.conf;\n\nevents {\n    worker_connections\
+          \ 1024;\n}\n\nhttp {\n    log_format  main  '$remote_addr - $remote_user\
+          \ [$time_local] \"$request\" '\n                      '$status $body_bytes_sent\
+          \ \"$http_referer\" '\n                      '\"$http_user_agent\" \"$http_x_forwarded_for\"\
+          ';\n\n    access_log  /var/log/nginx/access.log  main;\n\n    sendfile \
+          \           on;\n    tcp_nopush          on;\n    tcp_nodelay         on;\n\
+          \    keepalive_timeout   65;\n    types_hash_max_size 4096;\n\n    include\
+          \             /etc/nginx/mime.types;\n    default_type        application/octet-stream;\n\
+          \n    # Load modular configuration files from the /etc/nginx/conf.d directory.\n\
+          \    # See http://nginx.org/en/docs/ngx_core_module.html#include\n    #\
+          \ for more information.\n    include /etc/nginx/conf.d/*.conf;\n\n    server\
+          \ {\n        listen       80;\n        listen       [::]:80;\n        server_name\
+          \  _;\n        root         /usr/share/nginx/html;\n\n        # Load configuration\
+          \ files for the default server block.\n        include /etc/nginx/default.d/*.conf;\n\
+          \n        location / {\n            index index.php index.html index.htm;\n\
+          \        }\n\n        location ~ .php$ {\n            root /usr/share/nginx/html;\
+          \    # 将/usr/share/nginx/html替换为您的网站根目录，本文使用/usr/share/nginx/html作为网站根目录。\n\
+          \            fastcgi_pass 127.0.0.1:9000;   # Nginx通过本机的9000端口将PHP请求转发给PHP-FPM进行处理。\n\
+          \            fastcgi_index index.php;\n            fastcgi_param  SCRIPT_FILENAME\
+          \  $document_root$fastcgi_script_name;\n            include fastcgi_params;\
+          \   # Nginx调用fastcgi接口处理PHP请求。\n        }\n\n        error_page 404 /404.html;\n\
+          \        location = /404.html {\n        }\n\n        error_page 500 502\
+          \ 503 504 /50x.html;\n        location = /50x.html {\n        }\n    }\n\
+          \n# Settings for a TLS enabled server.\n#\n#    server {\n#        listen\
+          \       443 ssl http2;\n#        listen       [::]:443 ssl http2;\n#   \
+          \     server_name  _;\n#        root         /usr/share/nginx/html;\n#\n\
+          #        ssl_certificate \"/etc/pki/nginx/server.crt\";\n#        ssl_certificate_key\
+          \ \"/etc/pki/nginx/private/server.key\";\n#        ssl_session_cache shared:SSL:1m;\n\
+          #        ssl_session_timeout  10m;\n#        ssl_ciphers HIGH:!aNULL:!MD5;\n\
+          #        ssl_prefer_server_ciphers on;\n#\n#        # Load configuration\
+          \ files for the default server block.\n#        include /etc/nginx/default.d/*.conf;\n\
+          #\n#        error_page 404 /404.html;\n#            location = /40x.html\
+          \ {\n#        }\n#\n#        error_page 500 502 503 504 /50x.html;\n#  \
+          \          location = /50x.html {\n#        }\n#    }\n\n}\nEOF\n  systemctl\
+          \ start nginx \n  systemctl enable nginx\n  echo \"Step4: Config Nginx\"\
+          \ >> .ros.provision\nelse\n  echo \"#########################\"\n  echo\
+          \ \"# Nginx has been configured\"\n  echo \"#########################\"\n\
+          fi\n\nif ! grep -q \"^Step6: Config MySQL$\" .ros.provision; then\n  echo\
+          \ \"#########################\"\n  echo \"# Config MySQL\"\n  echo \"#########################\"\
+          \n  export MYSQL_PWD=`grep \"temporary password\" /var/log/mysqld.log |\
+          \ awk '{print $NF}'`\n  mysqladmin -uroot password '${DbPassword}'\n  export\
+          \ MYSQL_PWD='${DbPassword}'\n  mysql -uroot -e \"GRANT ALL PRIVILEGES ON\
+          \ *.* TO 'root'@'%' IDENTIFIED BY '${DbPassword}'\"\n  echo \"Step6: Config\
+          \ MySQL\" >> .ros.provision\nelse\n  echo \"#########################\"\n\
+          \  echo \"# MySQL has been configured\"\n  echo \"#########################\"\
+          \nfi\n\nif ! grep -q \"^Step7: Config PHP$\" .ros.provision; then\n  echo\
+          \ \"#########################\"\n  echo \"# Config PHP\"\n  echo \"#########################\"\
+          \n  echo \"<?php phpinfo(); ?>\" > /usr/share/nginx/html/phpinfo.php\n \
+          \ systemctl start php-fpm\n  systemctl enable php-fpm\n  echo \"Step7: Config\
+          \ MySQL\" >> .ros.provision\nelse\n  echo \"#########################\"\n\
+          \  echo \"# PHP has been configured\"\n  echo \"#########################\"\
+          \nfi\n\n${WaitConditionHandle.CurlCli} --data-binary '{\"status\": \"SUCCESS\"\
+          }'"
     DependsOn:
     - SecurityGroupIngress_22
     - SecurityGroupIngress_443

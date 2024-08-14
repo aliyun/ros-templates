@@ -186,68 +186,23 @@ Resources:
       Type: RunShellScript
       Timeout: '300'
       CommandContent:
-        'Fn::Sub': >-
-          #!/bin/bash
-          
-          sudo yum install -y nodejs
-
-          cat >/root/iot_device.js << 'EOF' 
-
-          const mqtt = require("aliyun-iot-mqtt");
-
-          // 1. 设备身份信息
-
-          var options = {
-            productKey: "${ProductKey}",
-            deviceName: "${DeviceName}",
-            deviceSecret: "${DeviceSecret}",
-            host: "${Host}",
-          };
-
-          // 2. 建立MQTT连接
-
-          const client = mqtt.getAliyunIotMqttClient(options);
-          //订阅云端指令Topic
-
-          client.subscribe("/${ProductKey}/${DeviceName}/c");
-          client.on("message", function (topic, message) {
-            console.log("topic " + topic);
-            console.log("message " + message);
-          });
-
-          setInterval(function () {
-            // 3.定时上报温湿度数据
-
-            client.publish(
-              "/sys/${ProductKey}/${DeviceName}/thing/event/property/post",
-              getPostData(),
-              { qos: 0 }
-            );
-          }, 5 * 1000);
-
-          function getPostData() {
-            const payloadJson = {
-              id: Date.now(),
-              version: "1.0",
-              params: {
-                temperature: Math.floor(Math.random() * 20 + 10),
-                humidity: Math.floor(Math.random() * 20 + 10),
-              },
-              method: "thing.event.property.post",
-            };
-            console.log("payloadJson " + JSON.stringify(payloadJson));
-            return JSON.stringify(payloadJson);
-          }
-
-          EOF
-
-          cd /root
-          
-          npm config set registry https://registry.npm.taobao.org
-          
-          npm install aliyun-iot-mqtt -S
-          
-          nohup node iot_device.js &
+        Fn::Sub: "#!/bin/bash\nsudo yum install -y nodejs\ncat >/root/iot_device.js\
+          \ << 'EOF' \nconst mqtt = require(\"aliyun-iot-mqtt\");\n// 1. 设备身份信息\n\
+          var options = {\n  productKey: \"${ProductKey}\",\n  deviceName: \"${DeviceName}\"\
+          ,\n  deviceSecret: \"${DeviceSecret}\",\n  host: \"${Host}\",\n};\n// 2.\
+          \ 建立MQTT连接\nconst client = mqtt.getAliyunIotMqttClient(options); //订阅云端指令Topic\n\
+          client.subscribe(\"/${ProductKey}/${DeviceName}/c\"); client.on(\"message\"\
+          , function (topic, message) {\n  console.log(\"topic \" + topic);\n  console.log(\"\
+          message \" + message);\n});\nsetInterval(function () {\n  // 3.定时上报温湿度数据\n\
+          \n  client.publish(\n    \"/sys/${ProductKey}/${DeviceName}/thing/event/property/post\"\
+          ,\n    getPostData(),\n    { qos: 0 }\n  );\n}, 5 * 1000);\nfunction getPostData()\
+          \ {\n  const payloadJson = {\n    id: Date.now(),\n    version: \"1.0\"\
+          ,\n    params: {\n      temperature: Math.floor(Math.random() * 20 + 10),\n\
+          \      humidity: Math.floor(Math.random() * 20 + 10),\n    },\n    method:\
+          \ \"thing.event.property.post\",\n  };\n  console.log(\"payloadJson \" +\
+          \ JSON.stringify(payloadJson));\n  return JSON.stringify(payloadJson);\n\
+          }\nEOF\ncd /root\nnpm config set registry https://registry.npm.taobao.org\n\
+          npm install aliyun-iot-mqtt -S\nnohup node iot_device.js &"
   RamUser:
     Type: ALIYUN::RAM::User
     Properties:
@@ -467,63 +422,27 @@ Resources:
       Runtime: nodejs14
       Code:
         SourceCode:
-          'Fn::Sub': >-
-            const https = require("https");
-            const accessToken = "${AccessToken}";
-            module.exports.handler = function (event, context, callback) {
-              var eventJson = JSON.parse(event.toString());
-              //钉钉消息格式
-              const postData = JSON.stringify({
-                msgtype: "markdown",
-                markdown: {
-                  title: "温湿度传感器",
-                  text:
-                    "#### 温湿度传感器上报\n" +
-                    "> 设备位置：" +
-                    eventJson.tag +
-                    "\n\n" +
-                    "> 设备编号：" +
-                    eventJson.isn +
-                    "\n\n" +
-                    "> 实时温度：" +
-                    eventJson.temperature +
-                    "℃\n\n" +
-                    "> 相对湿度：" +
-                    eventJson.humidity +
-                    "%\n\n" +
-                    "> ###### " +
-                    eventJson.time +
-                    " 发布 by [物联网平台](https://www.aliyun.com/product/iot) \n",
-                },
-                at: {
-                  isAtAll: false,
-                },
-              });
-              const options = {
-                hostname: "oapi.dingtalk.com",
-                port: 443,
-                path: "/robot/send?access_token=" + accessToken,
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Content-Length": Buffer.byteLength(postData),
-                },
-              };
-              const req = https.request(options, (res) => {
-                res.setEncoding("utf8");
-                res.on("data", (chunk) => {});
-                res.on("end", () => {
-                  callback(null, "success");
-                });
-              });
-              // 异常返回
-              req.on("error", (e) => {
-                callback(e);
-              });
-              // 写入数据
-              req.write(postData);
-              req.end();
-            };
+          Fn::Sub: "const https = require(\"https\"); const accessToken = \"${AccessToken}\"\
+            ; module.exports.handler = function (event, context, callback) {\n  var\
+            \ eventJson = JSON.parse(event.toString());\n  //钉钉消息格式\n  const postData\
+            \ = JSON.stringify({\n    msgtype: \"markdown\",\n    markdown: {\n  \
+            \    title: \"温湿度传感器\",\n      text:\n        \"#### 温湿度传感器上报\\n\" +\n\
+            \        \"> 设备位置：\" +\n        eventJson.tag +\n        \"\\n\\n\" +\n\
+            \        \"> 设备编号：\" +\n        eventJson.isn +\n        \"\\n\\n\" +\n\
+            \        \"> 实时温度：\" +\n        eventJson.temperature +\n        \"℃\\\
+            n\\n\" +\n        \"> 相对湿度：\" +\n        eventJson.humidity +\n      \
+            \  \"%\\n\\n\" +\n        \"> ###### \" +\n        eventJson.time +\n\
+            \        \" 发布 by [物联网平台](https://www.aliyun.com/product/iot) \\n\",\n\
+            \    },\n    at: {\n      isAtAll: false,\n    },\n  });\n  const options\
+            \ = {\n    hostname: \"oapi.dingtalk.com\",\n    port: 443,\n    path:\
+            \ \"/robot/send?access_token=\" + accessToken,\n    method: \"POST\",\n\
+            \    headers: {\n      \"Content-Type\": \"application/json\",\n     \
+            \ \"Content-Length\": Buffer.byteLength(postData),\n    },\n  };\n  const\
+            \ req = https.request(options, (res) => {\n    res.setEncoding(\"utf8\"\
+            );\n    res.on(\"data\", (chunk) => {});\n    res.on(\"end\", () => {\n\
+            \      callback(null, \"success\");\n    });\n  });\n  // 异常返回\n  req.on(\"\
+            error\", (e) => {\n    callback(e);\n  });\n  // 写入数据\n  req.write(postData);\n\
+            \  req.end();\n};"
 Outputs:
   FcService:
     Description:

@@ -269,21 +269,38 @@ Resources:
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |
-          #!/bin/bash
+        Fn::Sub: '#!/bin/bash
+
           wget http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
+
           yum -y install mysql57-community-release-el7-10.noarch.rpm
+
           yum -y install * --nogpgcheck mysql-community-server
-          yum -y install gcc gcc-c++ autoconf automake make libtool bzr mysql-devel git mysql unzip --nogpgcheck
+
+          yum -y install gcc gcc-c++ autoconf automake make libtool bzr mysql-devel
+          git mysql unzip --nogpgcheck
+
           bzr branch lp:~percona-dev/perconatools/tpcc-mysql
+
           cd tpcc-mysql/src
+
           make
+
           cd ..
-          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser} -p${DataBasePassword} -D tpcc < create_table.sql
-          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser} -p${DataBasePassword} -D tpcc < add_fkey_idx.sql
-          IpAddr=`ping ${RdsInstance.InnerConnectionString} -c 1 | sed '1{s/[^(]*(//;s/).*//;q}'`
+
+          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser} -p${DataBasePassword}
+          -D tpcc < create_table.sql
+
+          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser} -p${DataBasePassword}
+          -D tpcc < add_fkey_idx.sql
+
+          IpAddr=`ping ${RdsInstance.InnerConnectionString} -c 1 | sed ''1{s/[^(]*(//;s/).*//;q}''`
+
           echo $IpAddr
+
           ./tpcc_load $IpAddr tpcc ${RDSDBUser} ${DataBasePassword} 10
+
+          '
   RunTpcc:
     Type: ALIYUN::ECS::RunCommand
     Properties:
@@ -294,48 +311,33 @@ Resources:
       Type: RunShellScript
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |
-          #!/bin/bash
-          tpcc-mysql/tpcc_start -h ${RdsInstance.InnerConnectionString} -d tpcc -u ${RDSDBUser} -p ${DataBasePassword} -w 10 -c 100 -r 180 -l 600 -i 10 > tpcc.log 2>&1 &
+        Fn::Sub: '#!/bin/bash
+
+          tpcc-mysql/tpcc_start -h ${RdsInstance.InnerConnectionString} -d tpcc -u
+          ${RDSDBUser} -p ${DataBasePassword} -w 10 -c 100 -r 180 -l 600 -i 10 > tpcc.log
+          2>&1 &
+
+          '
+    DependsOn:
+    - InstallEnv
   ModuleAcsOosExecuteTemplate:
     Type: MODULE::ACS::OOS::ExecuteTemplate
     Properties:
       CleanUp: true
       TemplateContent:
-        Fn::Sub: |
-          FormatVersion: OOS-2019-06-01
-          Tasks:
-            - Name: DescribeAccounts
-              Action: ACS::ExecuteAPI
-              Properties:
-                Service: ClickHouse
-                API: DescribeAccounts
-                Parameters:
-                  RegionId: '{{ ACS::RegionId }}'
-                  DBClusterId: ${ClickHouse.DBClusterId}
-              Outputs:
-                RequestId:
-                  ValueSelector: .RequestId
-                  Type: String
-            - Name: sleepTask1
-              Action: ACS::Sleep
-              Properties:
-                Duration: 5s
-            - Name: CreateSQLAccount
-              Action: ACS::ExecuteAPI
-              Properties:
-                Service: ClickHouse
-                API: CreateSQLAccount
-                Parameters:
-                  RegionId: '{{ ACS::RegionId }}'
-                  DBClusterId: ${ClickHouse.DBClusterId}
-                  AccountName: ${ClickHouseUser}
-                  AccountPassword: ${DataBasePassword}
-                  AccountType: Super
-            - Name: sleepTask2
-              Action: ACS::Sleep
-              Properties:
-                Duration: 20s
+        Fn::Sub: "FormatVersion: OOS-2019-06-01\nTasks:\n  - Name: DescribeAccounts\n\
+          \    Action: ACS::ExecuteAPI\n    Properties:\n      Service: ClickHouse\n\
+          \      API: DescribeAccounts\n      Parameters:\n        RegionId: '{{ ACS::RegionId\
+          \ }}'\n        DBClusterId: ${ClickHouse.DBClusterId}\n    Outputs:\n  \
+          \    RequestId:\n        ValueSelector: .RequestId\n        Type: String\n\
+          \  - Name: sleepTask1\n    Action: ACS::Sleep\n    Properties:\n      Duration:\
+          \ 5s\n  - Name: CreateSQLAccount\n    Action: ACS::ExecuteAPI\n    Properties:\n\
+          \      Service: ClickHouse\n      API: CreateSQLAccount\n      Parameters:\n\
+          \        RegionId: '{{ ACS::RegionId }}'\n        DBClusterId: ${ClickHouse.DBClusterId}\n\
+          \        AccountName: ${ClickHouseUser}\n        AccountPassword: ${DataBasePassword}\n\
+          \        AccountType: Super\n  - Name: sleepTask2\n    Action: ACS::Sleep\n\
+          \    Properties:\n      Duration: 20s\n"
+    Version: default
   SynDb:
     Type: ALIYUN::ClickHouse::SynDb
     Properties:

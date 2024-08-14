@@ -240,86 +240,37 @@ Resources:
         - InstanceIds
       CommandContent:
         Fn::Sub:
-          - |
-            #!/bin/bash
-            set -x
-  
-            init_and_mount_data_disk() {
-              local fs_type=$1
-              local mount_point=$2
-            
-              # 找出磁盘设备（排除分区）
-              devices=(`lsblk -o NAME,FSTYPE --noheadings --nodeps | awk '$2 == "" {print $1}'`)
-              # 找出不存在文件系统的磁盘设备
-              for device in ${!devices[@]};
-              do
-                lsblk -o NAME,FSTYPE --noheadings  | awk '$2 != "" {print $1}' | grep ${!device}
-                if [[ $? -eq 1 ]]; then
-                  data_disk=${!device}
-                  break
-                fi
-              done
-              
-              # 为数据盘创建文件系统
-              mkfs -t ${!fs_type} /dev/${!data_disk}
-              
-              cp /etc/fstab /etc/fstab.bak
-              mkdir ${!mount_point}
-              # 更新/etc/fstab并挂载磁盘
-              echo `blkid /dev/${!data_disk} | awk '{print $2}' | sed 's/\\\"//g'` ${!mount_point} ext4 defaults 0 0 >> /etc/fstab
-              mount -a
-            }
-
-            # 挂盘到/opt/vault
-            init_and_mount_data_disk ext4 /opt/vault
-            
-            wget '{{ computenest::file::vault }}'
-            rpm -ivh vault-*.rpm
-            
-            cp /etc/vault.d/vault.hcl /etc/vault.d/vault.hcl.default
-            cat > /etc/vault.d/vault.hcl <<"EOF"
-            # Full configuration options can be found at https://www.vaultproject.io/docs/configuration
-            
-            ui = true
-            mlock = true
-            
-            storage "file" {
-              path = "/opt/vault/data"
-            }
-            
-            # HTTPS listener
-            listener "tcp" {
-              address       = "0.0.0.0:8200"
-              tls_cert_file = "/opt/vault/tls/tls.crt"
-              tls_key_file  = "/opt/vault/tls/tls.key"
-            }
-            EOF
-            
-            cp /opt/vault/tls/tls.crt /opt/vault/tls/tls.crt.default 
-            cp /opt/vault/tls/tls.key /opt/vault/tls/tls.key.default 
-            cat > /opt/vault/tls/tls.crt <<"EOF"
-            ${TlsCert}
-            EOF
-            cat > /opt/vault/tls/tls.key << "EOF"
-            ${TlsKey}
-            EOF
-            
-            systemctl enable vault
-            # 启动Vault服务，但是Vault服务端还没有初始化
-            # 用户必须手工初始化，并妥善保存unseal keys和root token
-            systemctl start vault
-
-            # 执行成功回调WaitCondition结束waitCondition的等待
-            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
-          # 获取到waitConditionHandle的地址放到 ${CurlCli}变量里
-          - CurlCli:
-              Fn::GetAtt:
-                - WaitConditionHandle
-                - CurlCli
-            TlsCert:
-              Ref: TlsCert
-            TlsKey:
-              Ref: TlsKey
+        - "#!/bin/bash\nset -x\n\ninit_and_mount_data_disk() {\n  local fs_type=$1\n\
+          \  local mount_point=$2\n\n  # 找出磁盘设备（排除分区）\n  devices=(`lsblk -o NAME,FSTYPE\
+          \ --noheadings --nodeps | awk '$2 == \"\" {print $1}'`)\n  # 找出不存在文件系统的磁盘设备\n\
+          \  for device in ${!devices[@]};\n  do\n    lsblk -o NAME,FSTYPE --noheadings\
+          \  | awk '$2 != \"\" {print $1}' | grep ${!device}\n    if [[ $? -eq 1 ]];\
+          \ then\n      data_disk=${!device}\n      break\n    fi\n  done\n  \n  #\
+          \ 为数据盘创建文件系统\n  mkfs -t ${!fs_type} /dev/${!data_disk}\n  \n  cp /etc/fstab\
+          \ /etc/fstab.bak\n  mkdir ${!mount_point}\n  # 更新/etc/fstab并挂载磁盘\n  echo\
+          \ `blkid /dev/${!data_disk} | awk '{print $2}' | sed 's/\\\\\\\"//g'` ${!mount_point}\
+          \ ext4 defaults 0 0 >> /etc/fstab\n  mount -a\n}\n\n# 挂盘到/opt/vault\ninit_and_mount_data_disk\
+          \ ext4 /opt/vault\n\nwget '{{ computenest::file::vault }}'\nrpm -ivh vault-*.rpm\n\
+          \ncp /etc/vault.d/vault.hcl /etc/vault.d/vault.hcl.default\ncat > /etc/vault.d/vault.hcl\
+          \ <<\"EOF\"\n# Full configuration options can be found at https://www.vaultproject.io/docs/configuration\n\
+          \nui = true\nmlock = true\n\nstorage \"file\" {\n  path = \"/opt/vault/data\"\
+          \n}\n\n# HTTPS listener\nlistener \"tcp\" {\n  address       = \"0.0.0.0:8200\"\
+          \n  tls_cert_file = \"/opt/vault/tls/tls.crt\"\n  tls_key_file  = \"/opt/vault/tls/tls.key\"\
+          \n}\nEOF\n\ncp /opt/vault/tls/tls.crt /opt/vault/tls/tls.crt.default \n\
+          cp /opt/vault/tls/tls.key /opt/vault/tls/tls.key.default \ncat > /opt/vault/tls/tls.crt\
+          \ <<\"EOF\"\n${TlsCert}\nEOF\ncat > /opt/vault/tls/tls.key << \"EOF\"\n\
+          ${TlsKey}\nEOF\n\nsystemctl enable vault\n# 启动Vault服务，但是Vault服务端还没有初始化\n\
+          # 用户必须手工初始化，并妥善保存unseal keys和root token\nsystemctl start vault\n\n# 执行成功回调WaitCondition结束waitCondition的等待\n\
+          ${CurlCli} -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"status\\\" : \\\"SUCCESS\\\
+          \"}\"\n"
+        - CurlCli:
+            Fn::GetAtt:
+            - WaitConditionHandle
+            - CurlCli
+          TlsCert:
+            Ref: TlsCert
+          TlsKey:
+            Ref: TlsKey
       Type: RunShellScript
       Timeout: '240'
 Outputs:
