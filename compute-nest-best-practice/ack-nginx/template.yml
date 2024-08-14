@@ -350,14 +350,25 @@ Resources:
         Ref: SystemDiskCategory
       UserData:
         Fn::Sub:
-        - "#!/bin/bash\n\n# 安装kubectl\ncurl -LO \"https://dl.k8s.io/release/$(curl\
-          \ -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\"\n\
-          install -o root -g root -m 0755 kubectl /usr/bin/kubectl\n\n# 配置kubeconfig信息\n\
-          mkdir -p ~/.kube\necho '${KubeConfig}' >> ~/.kube/config\necho '${ApplicationYaml}'\
-          \ > ~/application.yaml\nsleep 10\n\n# 应用容器模版\nkubectl --kubeconfig ~/.kube/config\
-          \ apply -f ~/application.yaml\n\n# 执行成功回调WaitCondition结束waitCondition的等待\n\
-          \ ${CurlCli} -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"status\\\" : \\\"\
-          SUCCESS\\\"}\"\n"
+        - |
+          #!/bin/bash
+
+          # 安装kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          install -o root -g root -m 0755 kubectl /usr/bin/kubectl
+
+          # 配置kubeconfig信息
+          mkdir -p ~/.kube
+          echo '${KubeConfig}' >> ~/.kube/config
+          echo '${ApplicationYaml}' > ~/application.yaml
+          sleep 10
+
+          # 应用容器模版
+          kubectl --kubeconfig ~/.kube/config apply -f ~/application.yaml
+
+          # 执行成功回调WaitCondition结束waitCondition的等待
+           ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+        # 获取到ack的kubeconfig写入到 ${KubeConfig}变量里
         - KubeConfig:
             Fn::GetAtt:
             - ManagedKubernetesCluster
@@ -368,17 +379,46 @@ Resources:
             - CurlCli
           ApplicationYaml:
             Fn::Sub:
-            - "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: nginx\n \
-              \ labels:\n    app: nginx\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n\
-              \      app: nginx\n  template:\n    metadata:\n      labels:\n     \
-              \   app: nginx\n    spec:\n      containers:\n      - name: nginx\n\
-              \        image: nginx:1.14.2\n        ports:\n        - containerPort:\
-              \ 80\n---\napiVersion: v1\nkind: Service\nmetadata:\n  annotations:\n\
-              \    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-id: ${LoadBalancerId}\n\
-              \    service.beta.kubernetes.io/alicloud-loadbalancer-force-override-listeners:\
-              \ \"true\"\n  labels:\n    app: nginx\n  name: nginx-svc\nspec:\n  ports:\n\
-              \  - port: 80\n    protocol: TCP\n    targetPort: 80\n  selector:\n\
-              \    app: nginx\n  type: LoadBalancer\n"
+            - |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: nginx
+                labels:
+                  app: nginx
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: nginx
+                template:
+                  metadata:
+                    labels:
+                      app: nginx
+                  spec:
+                    containers:
+                    - name: nginx
+                      image: nginx:1.14.2
+                      ports:
+                      - containerPort: 80
+              ---
+              apiVersion: v1
+              kind: Service
+              metadata:
+                annotations:
+                  service.beta.kubernetes.io/alibaba-cloud-loadbalancer-id: ${LoadBalancerId}
+                  service.beta.kubernetes.io/alicloud-loadbalancer-force-override-listeners: "true"
+                labels:
+                  app: nginx
+                name: nginx-svc
+              spec:
+                ports:
+                - port: 80
+                  protocol: TCP
+                  targetPort: 80
+                selector:
+                  app: nginx
+                type: LoadBalancer
             - LoadBalancerId:
                 Fn::GetAtt:
                 - Slb

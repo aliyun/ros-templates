@@ -203,28 +203,57 @@ Resources:
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: "#!/bin/bash\necho \"################################\"\necho \"\
-          # Install MySQL Client\"\necho \"################################\"\nsudo\
-          \ yum install -y mysql\nmysql --version\n\necho \"################################\"\
-          \necho \"# Create MySQL Table\"\necho \"################################\"\
-          \nexport MYSQL_HOST=${RdsInstance.InnerConnectionString}\nexport MYSQL_PWD=${RdsAccountPassword}\n\
-          mysql -u ${RdsAccountName} -D ${RdsDatabaseName} -e \"CREATE TABLE \"students\"\
-          \ (\"id\" bigint(20) NOT NULL COMMENT 'id', \"sid\" char(64) NOT NULL COMMENT\
-          \ 'student id',\"name\" varchar(64) NOT NULL COMMENT 'name',\"birth_date\"\
-          \ date NOT NULL COMMENT 'birth date',\"gender\" char(16) NOT NULL COMMENT\
-          \ 'gender',\"extra_info\" varchar(1024) DEFAULT NULL);\"\n\necho \"################################\"\
-          \necho \"# Prepare MySQL Script\"\necho \"################################\"\
-          \ncat > ~/parallel_queries.sh << \\EOF\n#!/bin/bash\n\n# MySQL configuration\n\
-          MYSQL_USER=${RdsAccountName}\nMYSQL_PASS=${RdsAccountPassword}\nMYSQL_DB=${RdsDatabaseName}\n\
-          MYSQL_HOST=${RdsInstance.InnerConnectionString}\n\n# Slow SELECT query\n\
-          slow_query() {\n  while true; do\n    mysql -h $MYSQL_HOST -u $MYSQL_USER\
-          \ -p$MYSQL_PASS $MYSQL_DB -e \"SELECT * FROM students WHERE SLEEP(2);\"\n\
-          \  done\n}\n# Slow UPDATE query\nslow_update() {\n  while true; do\n   \
-          \ mysql -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e \"UPDATE\
-          \ students SET name=CONCAT(name, 'a') WHERE id = FLOOR(1 + (RAND() * 1000000))\
-          \ AND SLEEP(2);\"\n  done\n}\n\n# Run queries in parallel\nfor i in {1..10};\
-          \ do\n  slow_query &\n  slow_update &\ndone\n\n# 等待所有后台进程完成\nwait\nEOF\n\
-          \nchmod +x ~/parallel_queries.sh"
+        Fn::Sub: |-
+          #!/bin/bash
+          echo "################################"
+          echo "# Install MySQL Client"
+          echo "################################"
+          sudo yum install -y mysql
+          mysql --version
+
+          echo "################################"
+          echo "# Create MySQL Table"
+          echo "################################"
+          export MYSQL_HOST=${RdsInstance.InnerConnectionString}
+          export MYSQL_PWD=${RdsAccountPassword}
+          mysql -u ${RdsAccountName} -D ${RdsDatabaseName} -e "CREATE TABLE "students" ("id" bigint(20) NOT NULL COMMENT 'id', "sid" char(64) NOT NULL COMMENT 'student id',"name" varchar(64) NOT NULL COMMENT 'name',"birth_date" date NOT NULL COMMENT 'birth date',"gender" char(16) NOT NULL COMMENT 'gender',"extra_info" varchar(1024) DEFAULT NULL);"
+
+          echo "################################"
+          echo "# Prepare MySQL Script"
+          echo "################################"
+          cat > ~/parallel_queries.sh << \EOF
+          #!/bin/bash
+
+          # MySQL configuration
+          MYSQL_USER=${RdsAccountName}
+          MYSQL_PASS=${RdsAccountPassword}
+          MYSQL_DB=${RdsDatabaseName}
+          MYSQL_HOST=${RdsInstance.InnerConnectionString}
+
+          # Slow SELECT query
+          slow_query() {
+            while true; do
+              mysql -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "SELECT * FROM students WHERE SLEEP(2);"
+            done
+          }
+          # Slow UPDATE query
+          slow_update() {
+            while true; do
+              mysql -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "UPDATE students SET name=CONCAT(name, 'a') WHERE id = FLOOR(1 + (RAND() * 1000000)) AND SLEEP(2);"
+            done
+          }
+
+          # Run queries in parallel
+          for i in {1..10}; do
+            slow_query &
+            slow_update &
+          done
+
+          # 等待所有后台进程完成
+          wait
+          EOF
+
+          chmod +x ~/parallel_queries.sh
     DependsOn:
     - RdsAccount
     - RdsDatabase

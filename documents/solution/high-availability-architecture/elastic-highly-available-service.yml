@@ -281,37 +281,64 @@ Resources:
       InstanceName:
         Fn::Sub: ${CommonName}-wordpress
       UserData:
-        Fn::Sub: "#!/bin/bash\nscript=/root/setup-wordpress.sh\ncat<<\\EOF>$script\n\
-          #!/bin/bash\nif [ ! -f .ros.provision ]; then\n  echo \"Name: ha-service\"\
-          \ > .ros.provision\nfi\n\nname=$(grep \"^Name:\" .ros.provision | awk -F':'\
-          \ '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')\nif\
-          \ [[ \"$name\" != \"ha-service\" ]]; then\n  echo \"ha-service installed,\
-          \ skip\"\n  exit 0\nfi\n\nif ! grep -q \"^Step1: Install Environment$\"\
-          \ .ros.provision; then\n  echo \"#########################\"\n  echo \"\
-          # Install Environment\"\n  echo \"#########################\"\n  yum -y\
-          \ install httpd httpd-manual mod_ssl mod_perl mod_auth_mysql sysbench\n\
-          \  systemctl start httpd\n  systemctl enable httpd\n  systemctl status httpd\n\
-          \n  yum install -y yum-utils epel-release http://rpms.remirepo.net/enterprise/remi-release-7.rpm\
-          \ \n  yum-config-manager --enable remi-php82\n  yum -y install php php-opcache\
-          \ php-mysqlnd php-pdo php-gd php-ldap php-odbc php-pear php-xml php-xmlrpc\
-          \ php-mbstring php-soap\n  echo \"<?php phpinfo(); ?>\" > /var/www/html/phpinfo.php\n\
-          \  systemctl restart httpd\n  echo \"Step1: Install Environment\" >> .ros.provision\n\
-          else\n  echo \"#########################\"\n  echo \"# Environment has been\
-          \ installed\"\n  echo \"#########################\"\nfi\n\nif ! grep -q\
-          \ \"^Step2: Install and Config WordPress$\" .ros.provision; then\n  echo\
-          \ \"################################\"\n  echo \"# Install and Config WordPress\"\
-          \n  echo \"################################\"\n  wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/WordPress/wordpress-6.3.1-zh_CN.tar.gz\n\
-          \  tar -xvf wordpress-6.3.1-zh_CN.tar.gz -C /var/www/html\n  mv /var/www/html/wordpress/*\
-          \ /var/www/html\n  chown -R apache:apache /var/www/html/wordpress\n  chmod\
-          \ -R 755 /var/www/html/wordpress\n  mv /var/www/html/wp-config-sample.php\
-          \ /var/www/html/wp-config.php\n  sed -i 's/localhost/${RdsInstance.InnerConnectionString}/'\
-          \ /var/www/html/wp-config.php\n  sed -i 's/username_here/${RdsAccount}/'\
-          \ /var/www/html/wp-config.php\n  sed -i 's/password_here/${RdsDBPassword}/'\
-          \ /var/www/html/wp-config.php\n  sed -i 's/database_name_here/${RdsDatabase}/'\
-          \ /var/www/html/wp-config.php\n  systemctl restart httpd\n  echo \"Step2:\
-          \ Install and Config WordPress\" >> .ros.provision\nelse\n  echo \"#########################\"\
-          \n  echo \"# WordPress has been installed and configed\"\n  echo \"#########################\"\
-          \nfi\nEOF"
+        Fn::Sub: |-
+          #!/bin/bash
+          script=/root/setup-wordpress.sh
+          cat<<\EOF>$script
+          #!/bin/bash
+          if [ ! -f .ros.provision ]; then
+            echo "Name: ha-service" > .ros.provision
+          fi
+
+          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [[ "$name" != "ha-service" ]]; then
+            echo "ha-service installed, skip"
+            exit 0
+          fi
+
+          if ! grep -q "^Step1: Install Environment$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Environment"
+            echo "#########################"
+            yum -y install httpd httpd-manual mod_ssl mod_perl mod_auth_mysql sysbench
+            systemctl start httpd
+            systemctl enable httpd
+            systemctl status httpd
+
+            yum install -y yum-utils epel-release http://rpms.remirepo.net/enterprise/remi-release-7.rpm 
+            yum-config-manager --enable remi-php82
+            yum -y install php php-opcache php-mysqlnd php-pdo php-gd php-ldap php-odbc php-pear php-xml php-xmlrpc php-mbstring php-soap
+            echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php
+            systemctl restart httpd
+            echo "Step1: Install Environment" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Environment has been installed"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step2: Install and Config WordPress$" .ros.provision; then
+            echo "################################"
+            echo "# Install and Config WordPress"
+            echo "################################"
+            wget https://ros-template-resources.oss-cn-beijing.aliyuncs.com/WordPress/wordpress-6.3.1-zh_CN.tar.gz
+            tar -xvf wordpress-6.3.1-zh_CN.tar.gz -C /var/www/html
+            mv /var/www/html/wordpress/* /var/www/html
+            chown -R apache:apache /var/www/html/wordpress
+            chmod -R 755 /var/www/html/wordpress
+            mv /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
+            sed -i 's/localhost/${RdsInstance.InnerConnectionString}/' /var/www/html/wp-config.php
+            sed -i 's/username_here/${RdsAccount}/' /var/www/html/wp-config.php
+            sed -i 's/password_here/${RdsDBPassword}/' /var/www/html/wp-config.php
+            sed -i 's/database_name_here/${RdsDatabase}/' /var/www/html/wp-config.php
+            systemctl restart httpd
+            echo "Step2: Install and Config WordPress" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# WordPress has been installed and configed"
+            echo "#########################"
+          fi
+          EOF
   EssScalingGroupEnable:
     Type: ALIYUN::ESS::ScalingGroupEnable
     Properties:
@@ -360,13 +387,18 @@ Resources:
       NotificationArn:
         Fn::Sub: acs:ess:${ALIYUN::Region}:${ALIYUN::TenantId}:oos/ACS-ESS-LifeCycleRunCommand
       NotificationMetadata:
-        Fn::Sub: "{\n  \"commandContent\": \"bash -x /root/setup-wordpress.sh\",\n\
-          \  \"commandType\": \"RunShellScript\",\n  \"timeout\": 1200,\n  \"OOSAssumeRole\"\
-          : \"${ESSLifecycleOOSRunCommandRole.RoleName}\",\n  \"regionId\": \"${!regionId}\"\
-          ,\n  \"instanceIds\": \"${!instanceIds}\",\n  \"lifecycleHookId\": \"${!lifecycleHookId}\"\
-          ,\n  \"rateControl\": \"{\\\"Mode\\\":\\\"Concurrency\\\",\\\"MaxErrors\\\
-          \":0,\\\"Concurrency\\\":10}\",\n  \"lifecycleActionToken\": \"${!lifecycleActionToken}\"\
-          \n}"
+        Fn::Sub: |-
+          {
+            "commandContent": "bash -x /root/setup-wordpress.sh",
+            "commandType": "RunShellScript",
+            "timeout": 1200,
+            "OOSAssumeRole": "${ESSLifecycleOOSRunCommandRole.RoleName}",
+            "regionId": "${!regionId}",
+            "instanceIds": "${!instanceIds}",
+            "lifecycleHookId": "${!lifecycleHookId}",
+            "rateControl": "{\"Mode\":\"Concurrency\",\"MaxErrors\":0,\"Concurrency\":10}",
+            "lifecycleActionToken": "${!lifecycleActionToken}"
+          }
     DependsOn: SnatEntry
   EssScalingRule:
     Type: ALIYUN::ESS::ScalingRule

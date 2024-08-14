@@ -334,31 +334,70 @@ Resources:
       Type: RunShellScript
       Timeout: 300
       CommandContent:
-        Fn::Sub: "#!/bin/bash\n\ncat << EOF >> ~/.bashrc\nexport APPLETS_RDS_ENDPOINT=\"\
-          ${RdsInstance.InnerConnectionString}\"\nexport APPLETS_RDS_USER=\"${DBUserName}\"\
-          \nexport APPLETS_RDS_DB_NAME=\"applets\"\nexport APPLETS_RDS_PASSWORD=\"\
-          ${DBPassword}\"\nexport ALIYUN_RAM_ROLE_NAME=\"${FcDemoRole}\"\nexport ALIYUN_OSS_ENDPOINT=\"\
-          oss-${ALIYUN::Region}.aliyuncs.com\"\nexport ALIYUN_REGION_ID=\"${ALIYUN::Region}\"\
-          \nexport ALIYUN_OSS_BUCKET=\"${OssBucket}\"\nexport ECS_IP=`curl http://100.100.100.200/latest/meta-data/eipv4`\n\
-          export ALIYUN_MNS_ENDPOINT=\"http://${ALIYUN::TenantId}.mns.${ALIYUN::Region}-internal.aliyuncs.com\"\
-          \nexport ALIYUN_MNS_QUEUE=\"${BucketName}-oss-queue\"\nexport WANX_DEMO_USERNAME=\"\
-          ${DemoUserName}\"\nexport WANX_DEMO_PASSWORD=\"${DemoUserPassword}\"\n\n\
-          EOF\n\ncat << EOF > ~/.ossutilconfig\n[Credentials]\nendpoint = oss-${ALIYUN::Region}-internal.aliyuncs.com\n\
-          mode = EcsRamRole\necsRoleName = ${FcDemoRole}\n\nEOF\n\nfunction log_info()\
-          \ {\n    printf \"%s [INFO] %s\\n\" \"$(date '+%Y-%m-%d %H:%M:%S')\" \"\
-          $1\"\n}\n\nfunction log_error() {\n    printf \"%s [ERROR] %s\\n\" \"$(date\
-          \ '+%Y-%m-%d %H:%M:%S')\" \"$1\"\n}\n\nfunction debug_exec(){\n    local\
-          \ cmd=\"$@\"\n    log_info \"$cmd\"\n    eval \"$cmd\"\n    ret=$?\n   \
-          \ echo \"\"\n    log_info \"$cmd, exit code: $ret\"\n    return $ret\n}\n\
-          \nfunction pre_work(){\n  source ~/.bashrc\n  yum upgrade & yum install\
-          \ -y java-1.8.0-openjdk-devel unzip zip\n  sudo -v ; curl https://gosspublic.alicdn.com/ossutil/install.sh\
-          \ | sudo bash\n  \n  wget -O fc-web-demo-job-jar-with-dependencies.jar https://help-static-aliyun-doc.aliyuncs.com/demos/fc-web-demo-job-jar-with-dependencies.jar\n\
-          \  zip fc-web-demo-job-jar-with-dependencies.jar.zip fc-web-demo-job-jar-with-dependencies.jar\n\
-          \  ossutil cp fc-web-demo-job-jar-with-dependencies.jar.zip oss://${OssBucket}/fc-code/\
-          \ -c ~/.ossutilconfig\n\n  wget -O demo.zip https://help-static-aliyun-doc.aliyuncs.com/demos/demo.zip\n\
-          \  unzip -d /home/admin demo.zip\n}\n\ndebug_exec pre_work\n\ncd /home/admin/\
-          \ \ndebug_exec \"nohup sh deploy.sh start fc-web-demo-0.0.1-SNAPSHOT.jar\
-          \ > deploy.log 2>&1 &\""
+        Fn::Sub: |-
+          #!/bin/bash
+
+          cat << EOF >> ~/.bashrc
+          export APPLETS_RDS_ENDPOINT="${RdsInstance.InnerConnectionString}"
+          export APPLETS_RDS_USER="${DBUserName}"
+          export APPLETS_RDS_DB_NAME="applets"
+          export APPLETS_RDS_PASSWORD="${DBPassword}"
+          export ALIYUN_RAM_ROLE_NAME="${FcDemoRole}"
+          export ALIYUN_OSS_ENDPOINT="oss-${ALIYUN::Region}.aliyuncs.com"
+          export ALIYUN_REGION_ID="${ALIYUN::Region}"
+          export ALIYUN_OSS_BUCKET="${OssBucket}"
+          export ECS_IP=`curl http://100.100.100.200/latest/meta-data/eipv4`
+          export ALIYUN_MNS_ENDPOINT="http://${ALIYUN::TenantId}.mns.${ALIYUN::Region}-internal.aliyuncs.com"
+          export ALIYUN_MNS_QUEUE="${BucketName}-oss-queue"
+          export WANX_DEMO_USERNAME="${DemoUserName}"
+          export WANX_DEMO_PASSWORD="${DemoUserPassword}"
+          
+          EOF
+          
+          cat << EOF > ~/.ossutilconfig
+          [Credentials]
+          endpoint = oss-${ALIYUN::Region}-internal.aliyuncs.com
+          mode = EcsRamRole
+          ecsRoleName = ${FcDemoRole}
+          
+          EOF
+          
+          function log_info() {
+              printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_error() {
+              printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function debug_exec(){
+              local cmd="$@"
+              log_info "$cmd"
+              eval "$cmd"
+              ret=$?
+              echo ""
+              log_info "$cmd, exit code: $ret"
+              return $ret
+          }
+          
+          function pre_work(){
+            source ~/.bashrc
+            yum upgrade & yum install -y java-1.8.0-openjdk-devel unzip zip
+            sudo -v ; curl https://gosspublic.alicdn.com/ossutil/install.sh | sudo bash
+            
+            wget -O fc-web-demo-job-jar-with-dependencies.jar https://help-static-aliyun-doc.aliyuncs.com/demos/fc-web-demo-job-jar-with-dependencies.jar
+            zip fc-web-demo-job-jar-with-dependencies.jar.zip fc-web-demo-job-jar-with-dependencies.jar
+            ossutil cp fc-web-demo-job-jar-with-dependencies.jar.zip oss://${OssBucket}/fc-code/ -c ~/.ossutilconfig
+
+            wget -O demo.zip https://help-static-aliyun-doc.aliyuncs.com/demos/demo.zip
+            unzip -d /home/admin demo.zip
+          }
+          
+          debug_exec pre_work
+          
+          cd /home/admin/ 
+          debug_exec "nohup sh deploy.sh start fc-web-demo-0.0.1-SNAPSHOT.jar > deploy.log 2>&1 &"
+  
   FcService:
     Type: ALIYUN::FC::Service
     Properties:

@@ -84,55 +84,99 @@ Resources:
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: "#!/bin/bash\nif [ ! -f .ros.provision ]; then\n  echo \"Name: 快速搭建网站\"\
-          \ > .ros.provision\nfi\n\nname=$(grep \"^Name:\" .ros.provision | awk -F':'\
-          \ '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')\nif\
-          \ [[ \"$name\" != \"快速搭建网站\" ]]; then\n  echo \"当前实例已使用过\\\"$name\\\"教程的一键配置，不能再使用本教程的一键配置\"\
-          \n  ${WaitConditionHandle.CurlCli} --data-binary \"{\\\"status\\\": \\\"\
-          FAILURE\\\", \\\"reason\\\": \\\"The current instance has already applied\
-          \ the configuration of the \\\\\\\"$name\\\\\\\" tutorial, and the configuration\
-          \ of this tutorial can no longer be applied.\\\"}\"\n  exit 0\nfi\n\nif\
-          \ ! grep -q \"^Step1: Install Apache$\" .ros.provision; then\n  echo \"\
-          #########################\"\n  echo \"# Install Apache\"\n  echo \"#########################\"\
-          \n  yum install -y httpd httpd-manual mod_ssl mod_perl mod_auth_mysql\n\
-          \  systemctl start httpd\n  systemctl enable httpd\n  systemctl status httpd\n\
-          \  echo \"Step1: Install Apache\" >> .ros.provision\nelse\n  echo \"#########################\"\
-          \n  echo \"# Apache has been installed\"\n  echo \"#########################\"\
-          \nfi\n\nif ! grep -q \"^Step2: Install MySQL$\" .ros.provision; then\n \
-          \ echo \"#########################\"\n  echo \"# Install MySQL\"\n  echo\
-          \ \"#########################\"\n  rpm -Uvh http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm\n\
-          \  yum install -y mysql-community-server --nogpgcheck\n  systemctl start\
-          \ mysqld.service\n  systemctl status mysqld.service\n  export MYSQL_PWD=`grep\
-          \ \"temporary password\" /var/log/mysqld.log | awk '{print $NF}'`\n  mysqladmin\
-          \ -uroot password '${DbPassword}'\n  export MYSQL_PWD='${DbPassword}'\n\
-          \  mysql -uroot -e \"create database pbootcms;\"\n  echo \"Step2: Install\
-          \ MySQL\" >> .ros.provision\nelse\n  echo \"#########################\"\n\
-          \  echo \"# MySQL has been installed\"\n  echo \"#########################\"\
-          \nfi\n\nif ! grep -q \"^Step3: Install PHP$\" .ros.provision; then\n  echo\
-          \ \"#########################\"\n  echo \"# Install PHP\"\n  echo \"#########################\"\
-          \n  yum install -y https://repo.ius.io/ius-release-el7.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm\n\
-          \  rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm\n \
-          \ yum install -y php70w-devel php70w.x86_64 php70w-cli.x86_64 php70w-common.x86_64\
-          \ php70w-gd.x86_64 php70w-ldap.x86_64 php70w-mbstring.x86_64 php70w-mcrypt.x86_64\
-          \ php70w-pdo.x86_64 php70w-mysqlnd php70w-fpm php70w-opcache php70w-pecl-redis\
-          \ php70w-pecl-mongodb\n  php -v\n  echo \"Step3: Install PHP\" >> .ros.provision\n\
-          \ else\n  echo \"#########################\"\n  echo \"# PHP has been installed\"\
-          \n  echo \"#########################\"\nfi\n\nif ! grep -q \"^Step4: Install\
-          \ Web Server$\" .ros.provision; then\n  echo \"#########################\"\
-          \n  echo \"# Install Web Server\"\n  echo \"#########################\"\n\
-          \  yum install -y git\n  cd ~ && git clone https://gitee.com/hnaoyun/PbootCMS.git\n\
-          \  cp -r PbootCMS/* /var/www/html/\n  chmod -R a+w /var/www/html\n  mysql\
-          \ -uroot -Dpbootcms < /var/www/html/static/backup/sql/pbootcms_v*.sql\n\
-          \  cat > /var/www/html/config/database.php << EOF\n<?php\nreturn array(\n\
-          \    'database' => array(\n        'type' => 'mysqli', // 数据库连接驱动类型: mysqli,sqlite,pdo_mysql,pdo_sqlite\n\
-          \        'host' => '127.0.0.1', // 数据库服务器\n        'user' => 'root', //\
-          \ 数据库连接用户名\n        'passwd' => '${DbPassword}', // 数据库连接密码\n        'port'\
-          \ => '3306', // 数据库端口\n        'dbname' => 'pbootcms' //数据库名称\n    )\n);\n\
-          EOF\n  systemctl restart httpd.service\n  echo \"Step4: Install Web Server\"\
-          \ >> .ros.provision\nelse\n  echo \"#########################\"\n  echo\
-          \ \"# Web Server has been installed\"\n  echo \"#########################\"\
-          \nfi\n\n${WaitConditionHandle.CurlCli} --data-binary '{\"status\": \"SUCCESS\"\
-          }'"
+        Fn::Sub: |-
+          #!/bin/bash
+          if [ ! -f .ros.provision ]; then
+            echo "Name: 快速搭建网站" > .ros.provision
+          fi
+
+          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [[ "$name" != "快速搭建网站" ]]; then
+            echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
+            ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance has already applied the configuration of the \\\"$name\\\" tutorial, and the configuration of this tutorial can no longer be applied.\"}"
+            exit 0
+          fi
+
+          if ! grep -q "^Step1: Install Apache$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Apache"
+            echo "#########################"
+            yum install -y httpd httpd-manual mod_ssl mod_perl mod_auth_mysql
+            systemctl start httpd
+            systemctl enable httpd
+            systemctl status httpd
+            echo "Step1: Install Apache" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Apache has been installed"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step2: Install MySQL$" .ros.provision; then
+            echo "#########################"
+            echo "# Install MySQL"
+            echo "#########################"
+            rpm -Uvh http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
+            yum install -y mysql-community-server --nogpgcheck
+            systemctl start mysqld.service
+            systemctl status mysqld.service
+            export MYSQL_PWD=`grep "temporary password" /var/log/mysqld.log | awk '{print $NF}'`
+            mysqladmin -uroot password '${DbPassword}'
+            export MYSQL_PWD='${DbPassword}'
+            mysql -uroot -e "create database pbootcms;"
+            echo "Step2: Install MySQL" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# MySQL has been installed"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step3: Install PHP$" .ros.provision; then
+            echo "#########################"
+            echo "# Install PHP"
+            echo "#########################"
+            yum install -y https://repo.ius.io/ius-release-el7.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+            rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+            yum install -y php70w-devel php70w.x86_64 php70w-cli.x86_64 php70w-common.x86_64 php70w-gd.x86_64 php70w-ldap.x86_64 php70w-mbstring.x86_64 php70w-mcrypt.x86_64 php70w-pdo.x86_64 php70w-mysqlnd php70w-fpm php70w-opcache php70w-pecl-redis php70w-pecl-mongodb
+            php -v
+            echo "Step3: Install PHP" >> .ros.provision
+           else
+            echo "#########################"
+            echo "# PHP has been installed"
+            echo "#########################"
+          fi
+
+          if ! grep -q "^Step4: Install Web Server$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Web Server"
+            echo "#########################"
+            yum install -y git
+            cd ~ && git clone https://gitee.com/hnaoyun/PbootCMS.git
+            cp -r PbootCMS/* /var/www/html/
+            chmod -R a+w /var/www/html
+            mysql -uroot -Dpbootcms < /var/www/html/static/backup/sql/pbootcms_v*.sql
+            cat > /var/www/html/config/database.php << EOF
+          <?php
+          return array(
+              'database' => array(
+                  'type' => 'mysqli', // 数据库连接驱动类型: mysqli,sqlite,pdo_mysql,pdo_sqlite
+                  'host' => '127.0.0.1', // 数据库服务器
+                  'user' => 'root', // 数据库连接用户名
+                  'passwd' => '${DbPassword}', // 数据库连接密码
+                  'port' => '3306', // 数据库端口
+                  'dbname' => 'pbootcms' //数据库名称
+              )
+          );
+          EOF
+            systemctl restart httpd.service
+            echo "Step4: Install Web Server" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Web Server has been installed"
+            echo "#########################"
+          fi
+
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
     DependsOn:
     - SecurityGroupIngress_22
     - SecurityGroupIngress_80

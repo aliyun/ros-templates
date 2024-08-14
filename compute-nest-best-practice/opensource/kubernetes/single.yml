@@ -331,59 +331,78 @@ Resources:
           - InstanceIds
       CommandContent:
         Fn::Sub:
-        - "#!/bin/bash\n# 安装sealer\nARCH=amd64\nget_arch=`arch`\nif [[ $get_arch !=\
-          \ \"x86_64\" ]];then\n    ARCH=arm64\nfi\n# 部署物功能暂不支持参数化和特殊符合如中划线等，所以只能暂时这么写了\n\
-          if [[ ${!ARCH} == \"amd64\" ]];then\n    # 根据版本选择对应的部署物\n    echo \"deploy\
-          \ amd64\"\n    # 使用-q是为了避免云助手执行时影响后续输出\n    wget -q '{{ computenest::file::sealerAmd64\
-          \ }}' -O sealer-latest-linux-amd64.tar.gz && \\\n    tar -xvf sealer-latest-linux-${!ARCH}.tar.gz\
-          \ -C /usr/bin\n    if [[ ${AckDistroVersion} == \"v1-22-15-ack-10\" ]];then\n\
-          \        wget -q '{{ computenest::file::ackdistroAmd64V12215Ack10 }}'\n\
-          \    elif [[ ${AckDistroVersion} == \"v1-20-11-ack-23\" ]];then\n      \
-          \  wget -q '{{ computenest::file::ackdistroAmd64V12011Ack23 }}'\n    fi\n\
-          else\n    echo \"deploy arm64\"\n    wget -q '{{ computenest::file::sealerArm64\
-          \ }}' -O sealer-latest-linux-arm64.tar.gz && \\\n    tar -xvf sealer-latest-linux-${!ARCH}.tar.gz\
-          \ -C /usr/bin\n    if [[ ${AckDistroVersion} == \"v1-22-15-ack-10\" ]];then\n\
-          \        wget -q '{{ computenest::file::ackdistroArm64V12215Ack10 }}'\n\
-          \    elif [[ ${AckDistroVersion} == \"v1-20-11-ack-23\" ]];then\n      \
-          \  wget -q '{{ computenest::file::ackdistroArm64V12011Ack23 }}'\n    fi\n\
-          fi\nsealer load -i ackdistro-${!ARCH}-${AckDistroVersion}.tar\nsealer run\
-          \ ack-agility-registry.cn-shanghai.cr.aliyuncs.com/ecp_builder/ackdistro:${AckDistroVersion}\
-          \ -m ${Master} -p ${Password} >> deployK8sOutput.txt 2>&1\n# cert for external\
-          \ ip\nsed 's#https://apiserver.cluster.local:6443#https://${ExternalIp}:6443#g'\
-          \ ~/.kube/config > ~/.kube/external_ip_config\nsealer cert --alt-names ${ExternalIp}\n\
-          echo \"公网方式 通过 kubectl 连接 Kubernetes 集群\"\necho \"1. 安装和设置 kubectl 客户端。有关详细信息请参见:\
-          \ https://kubernetes.io/docs/tasks/tools/\"\necho \"2. 配置集群凭证：将以下内容复制到本地计算机\
-          \ $HOME/.kube/config 文件中（没有~/.kube目录请新建），配置完成后，即可使用 kubectl 从计算机访问 Kubernetes\
-          \ 集群。\"\ncat  ~/.kube/external_ip_config\necho \"\n  \n\"          \nsed\
-          \ 's#https://apiserver.cluster.local:6443#https://${Master}:6443#g' ~/.kube/config\
-          \ > ~/.kube/internal_ip_config\necho \"私网方式 通过 kubectl 连接 Kubernetes 集群\"\
-          \necho \"1. 安装和设置 kubectl 客户端。有关详细信息请参见: https://kubernetes.io/docs/tasks/tools/\"\
-          \necho \"2. 配置集群凭证：将以下内容复制到本地计算机 $HOME/.kube/config 文件中（没有~/.kube目录请新建），配置完成后，即可使用\
-          \ kubectl 从计算机访问 Kubernetes 集群。\"\ncat  ~/.kube/internal_ip_config\n\n#\
-          \ 安装监控\nARGUS_VERSION=3.5.7 /bin/bash -c \"$(curl -sS https://cms-agent-${RegionId}.oss-${RegionId}-internal.aliyuncs.com/Argus/agent_install_ecs-1.7.sh)\"\
-          \ >> /root/install_cms_agent.log 2>&1\n# 执行成功回调WaitCondition结束waitCondition的等待\n\
-          ${CurlCli} -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"status\\\" : \\\"SUCCESS\\\
-          \"}\" > /dev/null 2>/dev/null\n"
-        - Master:
-            Fn::Select:
-            - 0
-            - Fn::GetAtt:
-              - MasterEcsInstanceGroup
-              - PrivateIps
-          ExternalIp:
-            Fn::Select:
-            - 0
-            - Fn::GetAtt:
-              - MasterEcsInstanceGroup
-              - PublicIps
-          Password:
-            Ref: InstancePassword
-          AckDistroVersion:
-            Ref: AckDistroVersion
-          CurlCli:
-            Fn::GetAtt:
-            - WaitConditionHandle
-            - CurlCli
+          - |
+            #!/bin/bash
+            # 安装sealer
+            ARCH=amd64
+            get_arch=`arch`
+            if [[ $get_arch != "x86_64" ]];then
+                ARCH=arm64
+            fi
+            # 部署物功能暂不支持参数化和特殊符合如中划线等，所以只能暂时这么写了
+            if [[ ${!ARCH} == "amd64" ]];then
+                # 根据版本选择对应的部署物
+                echo "deploy amd64"
+                # 使用-q是为了避免云助手执行时影响后续输出
+                wget -q '{{ computenest::file::sealerAmd64 }}' -O sealer-latest-linux-amd64.tar.gz && \
+                tar -xvf sealer-latest-linux-${!ARCH}.tar.gz -C /usr/bin
+                if [[ ${AckDistroVersion} == "v1-22-15-ack-10" ]];then
+                    wget -q '{{ computenest::file::ackdistroAmd64V12215Ack10 }}'
+                elif [[ ${AckDistroVersion} == "v1-20-11-ack-23" ]];then
+                    wget -q '{{ computenest::file::ackdistroAmd64V12011Ack23 }}'
+                fi
+            else
+                echo "deploy arm64"
+                wget -q '{{ computenest::file::sealerArm64 }}' -O sealer-latest-linux-arm64.tar.gz && \
+                tar -xvf sealer-latest-linux-${!ARCH}.tar.gz -C /usr/bin
+                if [[ ${AckDistroVersion} == "v1-22-15-ack-10" ]];then
+                    wget -q '{{ computenest::file::ackdistroArm64V12215Ack10 }}'
+                elif [[ ${AckDistroVersion} == "v1-20-11-ack-23" ]];then
+                    wget -q '{{ computenest::file::ackdistroArm64V12011Ack23 }}'
+                fi
+            fi
+            sealer load -i ackdistro-${!ARCH}-${AckDistroVersion}.tar
+            sealer run ack-agility-registry.cn-shanghai.cr.aliyuncs.com/ecp_builder/ackdistro:${AckDistroVersion} -m ${Master} -p ${Password} >> deployK8sOutput.txt 2>&1
+            # cert for external ip
+            sed 's#https://apiserver.cluster.local:6443#https://${ExternalIp}:6443#g' ~/.kube/config > ~/.kube/external_ip_config
+            sealer cert --alt-names ${ExternalIp}
+            echo "公网方式 通过 kubectl 连接 Kubernetes 集群"
+            echo "1. 安装和设置 kubectl 客户端。有关详细信息请参见: https://kubernetes.io/docs/tasks/tools/"
+            echo "2. 配置集群凭证：将以下内容复制到本地计算机 $HOME/.kube/config 文件中（没有~/.kube目录请新建），配置完成后，即可使用 kubectl 从计算机访问 Kubernetes 集群。"
+            cat  ~/.kube/external_ip_config
+            echo "
+              
+            "          
+            sed 's#https://apiserver.cluster.local:6443#https://${Master}:6443#g' ~/.kube/config > ~/.kube/internal_ip_config
+            echo "私网方式 通过 kubectl 连接 Kubernetes 集群"
+            echo "1. 安装和设置 kubectl 客户端。有关详细信息请参见: https://kubernetes.io/docs/tasks/tools/"
+            echo "2. 配置集群凭证：将以下内容复制到本地计算机 $HOME/.kube/config 文件中（没有~/.kube目录请新建），配置完成后，即可使用 kubectl 从计算机访问 Kubernetes 集群。"
+            cat  ~/.kube/internal_ip_config
+            
+            # 安装监控
+            ARGUS_VERSION=3.5.7 /bin/bash -c "$(curl -sS https://cms-agent-${RegionId}.oss-${RegionId}-internal.aliyuncs.com/Argus/agent_install_ecs-1.7.sh)" >> /root/install_cms_agent.log 2>&1
+            # 执行成功回调WaitCondition结束waitCondition的等待
+            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}" > /dev/null 2>/dev/null
+          - Master:
+              Fn::Select:
+                - 0
+                - Fn::GetAtt:
+                    - MasterEcsInstanceGroup
+                    - PrivateIps
+            ExternalIp:
+              Fn::Select:
+                - 0
+                - Fn::GetAtt:
+                    - MasterEcsInstanceGroup
+                    - PublicIps
+            Password:
+              Ref: InstancePassword
+            AckDistroVersion:
+              Ref: AckDistroVersion
+            CurlCli:
+              Fn::GetAtt:
+                - WaitConditionHandle
+                - CurlCli
       Type: RunShellScript
       Timeout: '1000'
     DependsOn:
@@ -411,20 +430,23 @@ Outputs:
       en: How Connect With Api Server
     Value:
       Fn::Sub:
-      - "获取集群访问凭证方式: <br> \n方式1：运维管理页中，选择执行\"获取集群凭证\"运维项，在执行结果中查看凭证。<br>\n方式2：远程连接master节点，公网访问凭证：~/.kube/external_ip_config，私网访问凭证：\
-        \ ~/.kube/internal_ip_config <br>\n方式3：<br>\n1.登录阿里云ECS控制台:${AssistantAddress}。<br>\n\
-        2.查看该命令执行Id: ${InvokeId} 的执行结果。\n"
-      - AssistantAddress:
-          Fn::Sub:
-          - 'https://ecs.console.aliyun.com/cloud-assistant/region/${RegionId}/
-
-            '
-          - RegionId:
-              Ref: ALIYUN::Region
-        InvokeId:
-          Fn::GetAtt:
-          - InstanceRunCommand
-          - InvokeId
+        - |
+          获取集群访问凭证方式: <br> 
+          方式1：运维管理页中，选择执行"获取集群凭证"运维项，在执行结果中查看凭证。<br>
+          方式2：远程连接master节点，公网访问凭证：~/.kube/external_ip_config，私网访问凭证： ~/.kube/internal_ip_config <br>
+          方式3：<br>
+          1.登录阿里云ECS控制台:${AssistantAddress}。<br>
+          2.查看该命令执行Id: ${InvokeId} 的执行结果。
+        - AssistantAddress:
+            Fn::Sub:
+              - |
+                https://ecs.console.aliyun.com/cloud-assistant/region/${RegionId}/
+              - RegionId:
+                  Ref: ALIYUN::Region
+          InvokeId:
+            Fn::GetAtt:
+              - InstanceRunCommand
+              - InvokeId
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:

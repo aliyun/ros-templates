@@ -309,78 +309,45 @@ Resources:
         Ref: InternetChargeType
       UserData:
         Fn::Sub:
-        - '#!/bin/bash
-
-          # 挂盘到/data
-
-          cat >> /root/InitDataDisk.sh << "EOF"
-
+        - |
           #!/bin/bash
-
+          # 挂盘到/data
+          cat >> /root/InitDataDisk.sh << "EOF"
+          #!/bin/bash
           echo "p
-
           n
-
           p
 
 
 
-
           w
-
           " |  fdisk -u /dev/vdb
-
           EOF
-
           /bin/bash /root/InitDataDisk.sh
-
           rm -f /root/InitDataDisk.sh
-
           mkfs -t ext4 /dev/vdb1
-
           cp /etc/fstab /etc/fstab.bak
-
           mkdir /data
-
-          echo `blkid /dev/vdb1 | awk ''{print $2}'' | sed ''s/\\\"//g''` /data ext4
-          defaults 0 0 >> /etc/fstab
-
+          echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /data ext4 defaults 0 0 >> /etc/fstab
           mount -a
 
 
-
           # 这里配置安装脚本
-
           yum install -y java
-
-          wget ''{{ computenest::file::zookeeper }}''
-
-          tar xvf apache-zookeeper-3.8.1-bin.tar.gz && mv apache-zookeeper-3.8.1-bin
-          /opt/
-
+          wget '{{ computenest::file::zookeeper }}'
+          tar xvf apache-zookeeper-3.8.1-bin.tar.gz && mv apache-zookeeper-3.8.1-bin /opt/
           ln -s /opt/apache-zookeeper-3.8.1-bin /opt/zookeeper
 
-
           groupadd zookeeper
-
           useradd -g zookeeper zookeeper -s /bin/bash
-
           chown -R zookeeper:zookeeper /opt/zookeeper
-
           mkdir /data/zookeeper
-
           chown -R zookeeper:zookeeper /data/zookeeper
-
           chown -R zookeeper:zookeeper /opt/apache-zookeeper-3.8.1-bin
-
           cd /opt/zookeeper/
 
-
           # 执行成功回调WaitCondition结束waitCondition的等待
-
           ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
-
-          '
         - CurlCli:
             Fn::GetAtt:
             - WaitConditionHandle
@@ -396,23 +363,57 @@ Resources:
         - InstanceIds
       CommandContent:
         Fn::Sub:
-        - "#!/bin/bash\n\nmkdir -p /data/zookeeper\ncd /opt/zookeeper/\ncat >> conf/zoo.cfg\
-          \ << \"EOF\"\ntickTime=2000\ndataDir=/data/zookeeper\nclientPort=2181\n\
-          initLimit=5\nsyncLimit=2\nserver.1=${Zoo1}:2888:3888\nserver.2=${Zoo2}:2888:3888\n\
-          server.3=${Zoo3}:2888:3888\nEOF\nlocalIp=`curl http://100.100.100.200/latest/meta-data/private-ipv4`\n\
-          if [ ${!localIp} == \"${Zoo1}\" ]; then\n  echo 1 > /data/zookeeper/myid\n\
-          elif [ ${!localIp} == \"${Zoo2}\" ]; then\n  echo 2 > /data/zookeeper/myid\n\
-          elif [ ${!localIp} == \"${Zoo3}\" ]; then\n  echo 3 > /data/zookeeper/myid\n\
-          fi\n# 配置启动脚本\ncat >> /usr/lib/systemd/system/zookeeper.service << \"EOF\"\
-          \n[Unit]\nDescription=Zookeeper Service unit Configuration\nAfter=network.target\n\
-          \n[Service]\nType=forking\nEnvironment=JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.362.b08-1.el7_9.x86_64\n\
-          ExecStart=/opt/zookeeper/bin/zkServer.sh start /opt/zookeeper/conf/zoo.cfg\n\
-          ExecStop=/opt/zookeeper/bin/zkServer.sh stop\nPIDFile=/data/zookeeper/zookeeper_server.pid\n\
-          KillMode=none\nUser=zookeeper\nGroup=zookeeper\nRestart=on-failure\n[Install]\n\
-          WantedBy=multi-user.target\nEOF\n\nsystemctl daemon-reload\n\n# 配置启动脚本\n\
-          systemctl enable zookeeper\nsystemctl start zookeeper\n\n# 执行成功回调WaitCondition结束waitCondition的等待\n\
-          ${CurlCli} -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"status\\\" : \\\"SUCCESS\\\
-          \"}\"\n"
+        - |
+          #!/bin/bash
+
+          mkdir -p /data/zookeeper
+          cd /opt/zookeeper/
+          cat >> conf/zoo.cfg << "EOF"
+          tickTime=2000
+          dataDir=/data/zookeeper
+          clientPort=2181
+          initLimit=5
+          syncLimit=2
+          server.1=${Zoo1}:2888:3888
+          server.2=${Zoo2}:2888:3888
+          server.3=${Zoo3}:2888:3888
+          EOF
+          localIp=`curl http://100.100.100.200/latest/meta-data/private-ipv4`
+          if [ ${!localIp} == "${Zoo1}" ]; then
+            echo 1 > /data/zookeeper/myid
+          elif [ ${!localIp} == "${Zoo2}" ]; then
+            echo 2 > /data/zookeeper/myid
+          elif [ ${!localIp} == "${Zoo3}" ]; then
+            echo 3 > /data/zookeeper/myid
+          fi
+          # 配置启动脚本
+          cat >> /usr/lib/systemd/system/zookeeper.service << "EOF"
+          [Unit]
+          Description=Zookeeper Service unit Configuration
+          After=network.target
+
+          [Service]
+          Type=forking
+          Environment=JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.362.b08-1.el7_9.x86_64
+          ExecStart=/opt/zookeeper/bin/zkServer.sh start /opt/zookeeper/conf/zoo.cfg
+          ExecStop=/opt/zookeeper/bin/zkServer.sh stop
+          PIDFile=/data/zookeeper/zookeeper_server.pid
+          KillMode=none
+          User=zookeeper
+          Group=zookeeper
+          Restart=on-failure
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+          systemctl daemon-reload
+
+          # 配置启动脚本
+          systemctl enable zookeeper
+          systemctl start zookeeper
+
+          # 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
         - Zoo1:
             Fn::Select:
             - 0

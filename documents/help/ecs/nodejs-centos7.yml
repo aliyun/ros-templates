@@ -201,49 +201,83 @@ Resources:
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: "#!/bin/bash\nif [ ! -f .ros.provision ]; then\n  echo \"Name: 部署Node.js环境（CentOS\
-          \ 7）\" > .ros.provision\nfi\n\nname=$(grep \"^Name:\" .ros.provision | awk\
-          \ -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')\n\
-          if [[ \"$name\" != \"部署Node.js环境（CentOS 7）\" ]]; then\n  echo \"当前实例已使用过\\\
-          \"$name\\\"教程的一键配置，不能再使用本教程的一键配置\"\n  ${WaitConditionHandle.CurlCli} --data-binary\
-          \ \"{\\\"status\\\": \\\"FAILURE\\\", \\\"reason\\\": \\\"The current instance\
-          \ has already applied the configuration of the \\\\\\\"$name\\\\\\\" tutorial,\
-          \ and the configuration of this tutorial can no longer be applied.\\\"}\"\
-          \n  exit 0\nfi\n\nif ! grep -q \"^Step1: Install Node.js$\" .ros.provision;\
-          \ then\n  echo \"#########################\"\n  echo \"# Install Node.js\"\
-          \n  echo \"#########################\"\n  yum install git -y\n  curl -o\
-          \ install.sh https://gitee.com/mirrors/nvm/raw/v0.39.3/install.sh\n  if\
-          \ [ $? -ne 0 ]; then\n    ${WaitConditionHandle.CurlCli} --data-binary \"\
-          {\\\"status\\\": \\\"FAILURE\\\", \\\"reason\\\": \\\"Download nvm install\
-          \ script failed.\\\"}\"\n  fi\n  sed -i 's|GITHUB_REPO|GITEE_REPO|g' install.sh\n\
-          \  sed -i 's|github.com|gitee.com|g' install.sh\n  sed -i 's|https://raw.githubusercontent.com/${!NVM_GITEE_REPO}/${!NVM_VERSION}|https://gitee.com/${!NVM_GITEE_REPO}/raw/${!NVM_VERSION}|g'\
-          \ install.sh\n  NVM_INSTALL_GITEE_REPO=mirrors/nvm METHOD='script' bash\
-          \ install.sh\n  if [ $? -ne 0 ]; then\n    ${WaitConditionHandle.CurlCli}\
-          \ --data-binary \"{\\\"status\\\": \\\"FAILURE\\\", \\\"reason\\\": \\\"\
-          Install nvm failed.\\\"}\"\n  fi\n  export NVM_DIR=\"$([ -z \"${!XDG_CONFIG_HOME-}\"\
-          \ ] && printf %s \"${!HOME}/.nvm\" || printf %s \"${!XDG_CONFIG_HOME}/nvm\"\
-          )\"\n  [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\" # This loads\
-          \ nvm\n  export NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node\n\
-          \  nvm list-remote\n  nvm install v14.0.0\n  if [ $? -ne 0 ]; then\n   \
-          \ ${WaitConditionHandle.CurlCli} --data-binary \"{\\\"status\\\": \\\"FAILURE\\\
-          \", \\\"reason\\\": \\\"nvm install v14.0.0 failed.\\\"}\"\n  fi\n  nvm\
-          \ install v16.0.0\n  if [ $? -ne 0 ]; then\n    ${WaitConditionHandle.CurlCli}\
-          \ --data-binary \"{\\\"status\\\": \\\"FAILURE\\\", \\\"reason\\\": \\\"\
-          nvm install v16.0.0 failed.\\\"}\"\n  fi\n  nvm ls\n  echo \"Step1: Install\
-          \ Node.js\" >> .ros.provision\nelse\n  echo \"#########################\"\
-          \n  echo \"# Node.js has been installed\"\n  echo \"#########################\"\
-          \nfi\n\nif ! grep -q \"^Step2: Prepare example$\" .ros.provision; then\n\
-          \  echo \"#########################\"\n  echo \"# Prepare example\"\n  echo\
-          \ \"#########################\"\n  cd\n  cat > example.js << \\EOF\nconst\
-          \ http = require('http');\nconst hostname = '0.0.0.0';\nconst port = 3000;\n\
-          const server = http.createServer((req, res) => { \n    res.statusCode =\
-          \ 200;\n    res.setHeader('Content-Type', 'text/plain');\n    res.end('Hello\
-          \ World\\n');\n}); \n\nserver.listen(port, hostname, () => { \n    console.log(`Server\
-          \ running at http://${!hostname}:${!port}/`);\n});\nEOF\n  nohup node ~/example.js\
-          \ > example.log 2>&1 &\n  echo \"Step2: Prepare example\" >> .ros.provision\n\
-          else\n  echo \"#########################\"\n  echo \"# Example has been\
-          \ ready\"\n  echo \"#########################\"\nfi\n\n${WaitConditionHandle.CurlCli}\
-          \ --data-binary '{\"status\": \"SUCCESS\"}'"
+        Fn::Sub: |-
+          #!/bin/bash
+          if [ ! -f .ros.provision ]; then
+            echo "Name: 部署Node.js环境（CentOS 7）" > .ros.provision
+          fi
+
+          name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [[ "$name" != "部署Node.js环境（CentOS 7）" ]]; then
+            echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
+            ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance has already applied the configuration of the \\\"$name\\\" tutorial, and the configuration of this tutorial can no longer be applied.\"}"
+            exit 0
+          fi
+
+          if ! grep -q "^Step1: Install Node.js$" .ros.provision; then
+            echo "#########################"
+            echo "# Install Node.js"
+            echo "#########################"
+            yum install git -y
+            curl -o install.sh https://gitee.com/mirrors/nvm/raw/v0.39.3/install.sh
+            if [ $? -ne 0 ]; then
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"Download nvm install script failed.\"}"
+            fi
+            sed -i 's|GITHUB_REPO|GITEE_REPO|g' install.sh
+            sed -i 's|github.com|gitee.com|g' install.sh
+            sed -i 's|https://raw.githubusercontent.com/${!NVM_GITEE_REPO}/${!NVM_VERSION}|https://gitee.com/${!NVM_GITEE_REPO}/raw/${!NVM_VERSION}|g' install.sh
+            NVM_INSTALL_GITEE_REPO=mirrors/nvm METHOD='script' bash install.sh
+            if [ $? -ne 0 ]; then
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"Install nvm failed.\"}"
+            fi
+            export NVM_DIR="$([ -z "${!XDG_CONFIG_HOME-}" ] && printf %s "${!HOME}/.nvm" || printf %s "${!XDG_CONFIG_HOME}/nvm")"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+            export NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
+            nvm list-remote
+            nvm install v14.0.0
+            if [ $? -ne 0 ]; then
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"nvm install v14.0.0 failed.\"}"
+            fi
+            nvm install v16.0.0
+            if [ $? -ne 0 ]; then
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"nvm install v16.0.0 failed.\"}"
+            fi
+            nvm ls
+            echo "Step1: Install Node.js" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Node.js has been installed"
+            echo "#########################"
+          fi
+          
+          if ! grep -q "^Step2: Prepare example$" .ros.provision; then
+            echo "#########################"
+            echo "# Prepare example"
+            echo "#########################"
+            cd
+            cat > example.js << \EOF
+          const http = require('http');
+          const hostname = '0.0.0.0';
+          const port = 3000;
+          const server = http.createServer((req, res) => { 
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'text/plain');
+              res.end('Hello World\n');
+          }); 
+          
+          server.listen(port, hostname, () => { 
+              console.log(`Server running at http://${!hostname}:${!port}/`);
+          });
+          EOF
+            nohup node ~/example.js > example.log 2>&1 &
+            echo "Step2: Prepare example" >> .ros.provision
+          else
+            echo "#########################"
+            echo "# Example has been ready"
+            echo "#########################"
+          fi
+
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
     DependsOn:
     - SecurityGroupIngress_3000
 Outputs:

@@ -203,117 +203,195 @@ Resources:
       Sync: true
       Timeout: 3600
       CommandContent:
-        Fn::Sub: "#!/bin/sh\ncd /root\n\necho \"---------- Download Data Center Driver\
-          \ For Ubuntu 22.04 ---------- \\n\" | tee /root/runinit.log\necho \"----------\
-          \ Begin to download ... @ `date` ---------- \\n\"               | tee -a\
-          \ /root/runinit.log\n\nwget -O nvidia-driver-local-repo-ubuntu2204-525.105.17_1.0-1_amd64.deb\
-          \ \"https://cn.download.nvidia.com/tesla/525.105.17/nvidia-driver-local-repo-ubuntu2204-525.105.17_1.0-1_amd64.deb\"\
-          \ | tee -a /root/runinit.log\n\necho \"---------- Begin to install nvidia\
-          \ & pgdriver ... @ `date` ---------- \\n\"  | tee -a /root/runinit.log\n\
-          sudo dpkg -i nvidia-driver-local-repo-ubuntu2204-525.105.17_1.0-1_amd64.deb\
-          \      | tee -a /root/runinit.log\nsudo cp /var/nvidia-driver-local-repo-ubuntu2204-525.105.17/nvidia-driver-local-321ACFBA-keyring.gpg\
-          \ /usr/share/keyrings/\nsudo apt-get update                            \
-          \                                  | tee -a /root/runinit.log\nsudo DEBIAN_FRONTEND=noninteractive\
-          \ apt-get install nvidia-driver-525 -y         | tee -a /root/runinit.log\n\
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install postgresql-server-dev-all\
-          \ -y | tee -a /root/runinit.log\n\necho \"---------- Check driver ... @\
-          \ `date` ---------- \\n\"                        | tee -a /root/runinit.log\n\
-          nvidia-smi                                                             \
-          \          | tee -a /root/runinit.log\n\necho \"---------- pip3.10 upgrade\
-          \ ... @ `date` ---------- \\n\"                     | tee -a /root/runinit.log\n\
-          pip3.10 install --upgrade pip\npip3.10 cache purge\n\necho \"----------\
-          \ Prepare requirements.txt ... @ `date` ---------- \\n\"            | tee\
-          \ -a /root/runinit.log\ncat > /root/requirements.txt << EOF\nlangchain==0.0.146\n\
-          transformers==4.27.1\nunstructured[local-inference]\nlayoutparser[layoutmodels,tesseract]\n\
-          nltk\nsentence-transformers\nbeautifulsoup4\nicetk\ncpm_kernels\nfaiss-cpu\n\
-          accelerate\ngradio==3.28.3\nfastapi\nuvicorn\npeft\nEOF\n\necho \"----------\
-          \ pip install ... @ `date` ---------- \\n\"                      | tee -a\
-          \ /root/runinit.log\npip3.10 install -r requirements.txt               \
-          \                            | tee -a /root/runinit.log\npip3.10 install\
-          \ psycopg2                                                      | tee -a\
-          \ /root/runinit.log\npip3.10 install psycopg2cffi                      \
-          \                            | tee -a /root/runinit.log\npip3.10 install\
-          \ tabulate                                                      | tee -a\
-          \ /root/runinit.log\n\necho -e \"\\n PreRun Completely @ `date '+%Y-%m-%d\
-          \ %H:%M:%S'` ... \"             | tee -a /root/runinit.log\n\ncat > /root/chatbot.py\
-          \ <<EOF\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\nimport os, time\n\
-          \nfrom subprocess import Popen, PIPE\nimport argparse\nimport logging\n\
-          import warnings\nwarnings.filterwarnings(\"ignore\")\n\nlogging.basicConfig(level=logging.DEBUG,\n\
-          \                    format='%(asctime)s %(levelname)s %(funcName)s %(message)s',\n\
-          \                    datefmt='%a, %d %b %Y %H:%M:%S',\n                \
-          \    filename='chatbot.log',\n                    filemode='w')\nconsole\
-          \ = logging.StreamHandler()\nconsole.setLevel(logging.WARN)\nformatter =\
-          \ logging.Formatter('%(asctime)s %(levelname)s %(funcName)s %(message)s')\n\
-          console.setFormatter(formatter)\nlogging.getLogger('').addHandler(console)\n\
-          parser = argparse.ArgumentParser(description='deploy chatGLM.')\nparser.add_argument('-db_connection',\
-          \ '--db_connection', action=\"store\", dest='db_connection',\n         \
-          \           help='input alicloud GPDB connection info.')\nparser.add_argument('-db_name',\
-          \ '--db_name', action=\"store\", dest='db_name',\n                    help='input\
-          \ alicloud GPDB name.')\nparser.add_argument('-db_port', '--db_port', action=\"\
-          store\", dest='db_port',\n                              help='input alicloud\
-          \ GPDB port.')\nparser.add_argument('-db_username', '--db_username', action=\"\
-          store\", dest='db_username',\n                    help='input alicloud GPDB\
-          \ account username.')\nparser.add_argument('-db_password', '--db_password',\
-          \ action=\"store\", dest='db_password',\n                    help='input\
-          \ alicloud GPDB account password.')\nparser.add_argument('-ecs_public_ip',\
-          \ '--ecs_public_ip', action=\"store\", dest='ecs_public_ip',\n         \
-          \           help='input alicloud ECS instance public ip.')\nargs = parser.parse_args()\n\
-          \n\ndef LocalShellCmd(cmd, env=None, shell=True):\n    p = Popen(\n    \
-          \    cmd,\n        stdin = PIPE,\n        stdout = PIPE,\n        stderr\
-          \ = PIPE,\n        env = env,\n        shell = shell\n    )\n    stdout,\
-          \ stderr = p.communicate()\n    rc = p.wait()\n    logging.debug(\"LocalShellCmd\
-          \ => cmd = [%s] \\n stdout => [%s] \\n\" % (cmd, stdout))\n    assert (rc\
-          \ == 0)\n    return stdout.strip()\n\n\ndef envCheck():\n\n\n    cmd = \"\
-          tail -n 1 /root/runinit.log | grep 'PreRun Completely' > /dev/null 2>&1\"\
-          \n    LocalShellCmd(cmd)\n\n    cmd = \"nvidia-smi > /dev/null 2>&1\"\n\
-          \    LocalShellCmd(cmd)\n\n    cmd = \"dpkg -l | grep nvidia-driver-525\"\
-          \n    LocalShellCmd(cmd)\n\n    cmd = \"dpkg -l | grep postgresql-server-dev-all\"\
-          \n    LocalShellCmd(cmd)\n\n\nif __name__ == '__main__':\n    print(\"\\\
-          n\" + \"*\"*30 + \"\"\" 提示：\\n\n            1）如果脚本执行过程中报错, 可以通过查看 /root/chatbot.log\
-          \ 文件进行自助排错（很简单的）!\n            2）如果需要重启 WEBUI 等服务或者查看数据库信息等, 可以参考 /root/env.txt\
-          \ 文件!\\n\"\"\"+ \"*\"*30 + \"\\n\")\n    print(\"*\"*30 + \"Step0: 正在进行环境检查,\
-          \ 比如驱动和安装依赖包等\" + \"*\"*30)\n\n    envCheck()\n\n    print(\"*\"*30 + \"\
-          Step4: 设置操作系统环境变量,准备下载模型并且启动WEB程序,耗时很长!\" + \"*\"*30)\n    # setting os\
-          \ system variables\n    os.chdir(\"/root\")\n    ecsPubIpAddr = args.ecs_public_ip\
-          \ if args.ecs_public_ip else \"\"\n    os.environ[\"PG_HOST\"] = args.db_connection\
-          \ if args.db_connection else \"\"\n    os.environ[\"PG_PORT\"] = args.db_port\
-          \ if args.db_port else \"5432\"\n    os.environ[\"PG_USER\"] = args.db_username\
-          \ if args.db_username else \"\"\n    os.environ[\"PG_PASSWORD\"] = args.db_password\
-          \ if args.db_password else \"\"\n    os.environ[\"PG_DATABASE\"] = args.db_name\
-          \ if args.db_name else \"\"\n    logging.debug(\"\"\"ADBPG SYSTEM VARIABLE\
-          \ =>\n        export PG_HOST=%s\n        export PG_PORT=%s\n        export\
-          \ PG_USER=%s\n        export PG_PASSWORD=%s\n        export PG_DATABASE=%s\n\
-          \            \"\"\" % (os.environ[\"PG_HOST\"], os.environ[\"PG_PORT\"],\
-          \ os.environ[\"PG_USER\"], os.environ[\"PG_PASSWORD\"], os.environ[\"PG_DATABASE\"\
-          ]))\n\n    with open(\"env.txt\", \"w\") as fw:\n        fw.write(\"export\
-          \ PG_HOST=%s\\n\" % os.environ[\"PG_HOST\"])\n        fw.write(\"export\
-          \ PG_PORT=%s\\n\" % os.environ[\"PG_PORT\"])\n        fw.write(\"export\
-          \ PG_USER=%s\\n\" % os.environ[\"PG_USER\"])\n        fw.write(\"export\
-          \ PG_PASSWORD=%s\\n\" % os.environ[\"PG_PASSWORD\"])\n        fw.write(\"\
-          export PG_DATABASE=%s\\n\" % os.environ[\"PG_DATABASE\"])\n        fw.write(\"\
-          #webui url=> %s:7860\\n\" % ecsPubIpAddr)\n\n    cmd1 = \"cd /root; git\
-          \ clone https://github.com/wangxuqi/langchain-ChatGLM.git ; cd langchain-ChatGLM\
-          \ ; git checkout analyticdb_store\"\n    cmd2 = \"nohup python3.10 /root/langchain-ChatGLM/webui.py\
-          \ > webui.log 2>&1 &\"\n\n\n    print(\"*\"*35 + \"Step4.1: 下载langchain代码!\"\
-          \ + \"*\"*30)\n    LocalShellCmd(cmd1)\n\n    print(\"*\"*35 + \"\"\"Step4.2:\
-          \ 开始运行chatGLM模型， 由于模型比较大(17GB左右)，下载需要较长的时间, 预计需要耗时15分钟左右，请耐心等待,\n      \
-          \      具体进度可以通过  \\033[1;5;32;4m tail -f webui.log \\033[0m 来查看 ...\"\"\"\
-          \ + \"*\"*30)\n    LocalShellCmd(cmd2)\n    print(\"*=\"*30)\n\n    print(\"\
-          \"\"\n        【阿里云不对您在镜像上使用的第三方模型的合法性、安全性、准确性进行任何保证，并不对由此引发的任何损害承担责任；您应自觉遵守在镜像上安装的第三方模型的用户协议、使用规范和相关法律法规，并就使用第三方模型的合法性、合规性自行承担相关责任。】\n\
-          \n        环境一切准备就绪,您可以通过浏览器打开\\n\\t\\t\\t=>=>=> %s:7860 <=<=<=\\n\\t 来访问和体验有记忆能力的Chatbot了!!!\n\
-          \    \"\"\" % ecsPubIpAddr)\n    print(\"*=\"*30)\nEOF\npython3.10 /root/chatbot.py\
-          \ --ecs_public_ip=${EcsInstance.PublicIp}  --db_connection=${DBInstance.ConnectionString}\
-          \ --db_port=${DBInstance.Port} --db_username=${Account.AccountName} --db_password=${AccountPassword}\
-          \ --db_name=${Account.AccountName}\nsleep 30\ni=1\nwhile [ $i -le 10 ]\n\
-          do\n    netstat -ntlp | grep 7860\n    if [ $? -eq 0 ];then\n        echo\
-          \ 'web service start success.' >> /root/web_service.log\n        ${WaitConditionHandle.CurlCli}\
-          \ --data-binary '{\"status\": \"SUCCESS\"}'\n        break\n    else\n \
-          \       echo 'web service start failed.' >> /root/web_service.log\n    \
-          \    python3.10 /root/chatbot.py --ecs_public_ip=${EcsInstance.PublicIp}\
-          \  --db_connection=${DBInstance.ConnectionString} --db_port=${DBInstance.Port}\
-          \ --db_username=${Account.AccountName} --db_password=${AccountPassword}\
-          \ --db_name=${Account.AccountName}\n        sleep 30\n        let \"i++\"\
-          \n    fi\ndone"
+        Fn::Sub: |-
+          #!/bin/sh
+          cd /root
+
+          echo "---------- Download Data Center Driver For Ubuntu 22.04 ---------- \n" | tee /root/runinit.log
+          echo "---------- Begin to download ... @ `date` ---------- \n"               | tee -a /root/runinit.log
+
+          wget -O nvidia-driver-local-repo-ubuntu2204-525.105.17_1.0-1_amd64.deb "https://cn.download.nvidia.com/tesla/525.105.17/nvidia-driver-local-repo-ubuntu2204-525.105.17_1.0-1_amd64.deb" | tee -a /root/runinit.log
+
+          echo "---------- Begin to install nvidia & pgdriver ... @ `date` ---------- \n"  | tee -a /root/runinit.log
+          sudo dpkg -i nvidia-driver-local-repo-ubuntu2204-525.105.17_1.0-1_amd64.deb      | tee -a /root/runinit.log
+          sudo cp /var/nvidia-driver-local-repo-ubuntu2204-525.105.17/nvidia-driver-local-321ACFBA-keyring.gpg /usr/share/keyrings/
+          sudo apt-get update                                                              | tee -a /root/runinit.log
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install nvidia-driver-525 -y         | tee -a /root/runinit.log
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install postgresql-server-dev-all -y | tee -a /root/runinit.log
+
+          echo "---------- Check driver ... @ `date` ---------- \n"                        | tee -a /root/runinit.log
+          nvidia-smi                                                                       | tee -a /root/runinit.log
+
+          echo "---------- pip3.10 upgrade ... @ `date` ---------- \n"                     | tee -a /root/runinit.log
+          pip3.10 install --upgrade pip
+          pip3.10 cache purge
+
+          echo "---------- Prepare requirements.txt ... @ `date` ---------- \n"            | tee -a /root/runinit.log
+          cat > /root/requirements.txt << EOF
+          langchain==0.0.146
+          transformers==4.27.1
+          unstructured[local-inference]
+          layoutparser[layoutmodels,tesseract]
+          nltk
+          sentence-transformers
+          beautifulsoup4
+          icetk
+          cpm_kernels
+          faiss-cpu
+          accelerate
+          gradio==3.28.3
+          fastapi
+          uvicorn
+          peft
+          EOF
+
+          echo "---------- pip install ... @ `date` ---------- \n"                      | tee -a /root/runinit.log
+          pip3.10 install -r requirements.txt                                           | tee -a /root/runinit.log
+          pip3.10 install psycopg2                                                      | tee -a /root/runinit.log
+          pip3.10 install psycopg2cffi                                                  | tee -a /root/runinit.log
+          pip3.10 install tabulate                                                      | tee -a /root/runinit.log
+
+          echo -e "\n PreRun Completely @ `date '+%Y-%m-%d %H:%M:%S'` ... "             | tee -a /root/runinit.log
+
+          cat > /root/chatbot.py <<EOF
+          #!/usr/bin/env python
+          # -*- coding: utf-8 -*-
+
+          import os, time
+
+          from subprocess import Popen, PIPE
+          import argparse
+          import logging
+          import warnings
+          warnings.filterwarnings("ignore")
+
+          logging.basicConfig(level=logging.DEBUG,
+                              format='%(asctime)s %(levelname)s %(funcName)s %(message)s',
+                              datefmt='%a, %d %b %Y %H:%M:%S',
+                              filename='chatbot.log',
+                              filemode='w')
+          console = logging.StreamHandler()
+          console.setLevel(logging.WARN)
+          formatter = logging.Formatter('%(asctime)s %(levelname)s %(funcName)s %(message)s')
+          console.setFormatter(formatter)
+          logging.getLogger('').addHandler(console)
+          parser = argparse.ArgumentParser(description='deploy chatGLM.')
+          parser.add_argument('-db_connection', '--db_connection', action="store", dest='db_connection',
+                              help='input alicloud GPDB connection info.')
+          parser.add_argument('-db_name', '--db_name', action="store", dest='db_name',
+                              help='input alicloud GPDB name.')
+          parser.add_argument('-db_port', '--db_port', action="store", dest='db_port',
+                                        help='input alicloud GPDB port.')
+          parser.add_argument('-db_username', '--db_username', action="store", dest='db_username',
+                              help='input alicloud GPDB account username.')
+          parser.add_argument('-db_password', '--db_password', action="store", dest='db_password',
+                              help='input alicloud GPDB account password.')
+          parser.add_argument('-ecs_public_ip', '--ecs_public_ip', action="store", dest='ecs_public_ip',
+                              help='input alicloud ECS instance public ip.')
+          args = parser.parse_args()
+
+
+          def LocalShellCmd(cmd, env=None, shell=True):
+              p = Popen(
+                  cmd,
+                  stdin = PIPE,
+                  stdout = PIPE,
+                  stderr = PIPE,
+                  env = env,
+                  shell = shell
+              )
+              stdout, stderr = p.communicate()
+              rc = p.wait()
+              logging.debug("LocalShellCmd => cmd = [%s] \n stdout => [%s] \n" % (cmd, stdout))
+              assert (rc == 0)
+              return stdout.strip()
+
+
+          def envCheck():
+
+
+              cmd = "tail -n 1 /root/runinit.log | grep 'PreRun Completely' > /dev/null 2>&1"
+              LocalShellCmd(cmd)
+
+              cmd = "nvidia-smi > /dev/null 2>&1"
+              LocalShellCmd(cmd)
+
+              cmd = "dpkg -l | grep nvidia-driver-525"
+              LocalShellCmd(cmd)
+
+              cmd = "dpkg -l | grep postgresql-server-dev-all"
+              LocalShellCmd(cmd)
+
+
+          if __name__ == '__main__':
+              print("\n" + "*"*30 + """ 提示：\n
+                      1）如果脚本执行过程中报错, 可以通过查看 /root/chatbot.log 文件进行自助排错（很简单的）!
+                      2）如果需要重启 WEBUI 等服务或者查看数据库信息等, 可以参考 /root/env.txt 文件!\n"""+ "*"*30 + "\n")
+              print("*"*30 + "Step0: 正在进行环境检查, 比如驱动和安装依赖包等" + "*"*30)
+
+              envCheck()
+
+              print("*"*30 + "Step4: 设置操作系统环境变量,准备下载模型并且启动WEB程序,耗时很长!" + "*"*30)
+              # setting os system variables
+              os.chdir("/root")
+              ecsPubIpAddr = args.ecs_public_ip if args.ecs_public_ip else ""
+              os.environ["PG_HOST"] = args.db_connection if args.db_connection else ""
+              os.environ["PG_PORT"] = args.db_port if args.db_port else "5432"
+              os.environ["PG_USER"] = args.db_username if args.db_username else ""
+              os.environ["PG_PASSWORD"] = args.db_password if args.db_password else ""
+              os.environ["PG_DATABASE"] = args.db_name if args.db_name else ""
+              logging.debug("""ADBPG SYSTEM VARIABLE =>
+                  export PG_HOST=%s
+                  export PG_PORT=%s
+                  export PG_USER=%s
+                  export PG_PASSWORD=%s
+                  export PG_DATABASE=%s
+                      """ % (os.environ["PG_HOST"], os.environ["PG_PORT"], os.environ["PG_USER"], os.environ["PG_PASSWORD"], os.environ["PG_DATABASE"]))
+
+              with open("env.txt", "w") as fw:
+                  fw.write("export PG_HOST=%s\n" % os.environ["PG_HOST"])
+                  fw.write("export PG_PORT=%s\n" % os.environ["PG_PORT"])
+                  fw.write("export PG_USER=%s\n" % os.environ["PG_USER"])
+                  fw.write("export PG_PASSWORD=%s\n" % os.environ["PG_PASSWORD"])
+                  fw.write("export PG_DATABASE=%s\n" % os.environ["PG_DATABASE"])
+                  fw.write("#webui url=> %s:7860\n" % ecsPubIpAddr)
+
+              cmd1 = "cd /root; git clone https://github.com/wangxuqi/langchain-ChatGLM.git ; cd langchain-ChatGLM ; git checkout analyticdb_store"
+              cmd2 = "nohup python3.10 /root/langchain-ChatGLM/webui.py > webui.log 2>&1 &"
+
+
+              print("*"*35 + "Step4.1: 下载langchain代码!" + "*"*30)
+              LocalShellCmd(cmd1)
+
+              print("*"*35 + """Step4.2: 开始运行chatGLM模型， 由于模型比较大(17GB左右)，下载需要较长的时间, 预计需要耗时15分钟左右，请耐心等待,
+                      具体进度可以通过  \033[1;5;32;4m tail -f webui.log \033[0m 来查看 ...""" + "*"*30)
+              LocalShellCmd(cmd2)
+              print("*="*30)
+
+              print("""
+                  【阿里云不对您在镜像上使用的第三方模型的合法性、安全性、准确性进行任何保证，并不对由此引发的任何损害承担责任；您应自觉遵守在镜像上安装的第三方模型的用户协议、使用规范和相关法律法规，并就使用第三方模型的合法性、合规性自行承担相关责任。】
+
+                  环境一切准备就绪,您可以通过浏览器打开\n\t\t\t=>=>=> %s:7860 <=<=<=\n\t 来访问和体验有记忆能力的Chatbot了!!!
+              """ % ecsPubIpAddr)
+              print("*="*30)
+          EOF
+          python3.10 /root/chatbot.py --ecs_public_ip=${EcsInstance.PublicIp}  --db_connection=${DBInstance.ConnectionString} --db_port=${DBInstance.Port} --db_username=${Account.AccountName} --db_password=${AccountPassword} --db_name=${Account.AccountName}
+          sleep 30
+          i=1
+          while [ $i -le 10 ]
+          do
+              netstat -ntlp | grep 7860
+              if [ $? -eq 0 ];then
+                  echo 'web service start success.' >> /root/web_service.log
+                  ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+                  break
+              else
+                  echo 'web service start failed.' >> /root/web_service.log
+                  python3.10 /root/chatbot.py --ecs_public_ip=${EcsInstance.PublicIp}  --db_connection=${DBInstance.ConnectionString} --db_port=${DBInstance.Port} --db_username=${Account.AccountName} --db_password=${AccountPassword} --db_name=${Account.AccountName}
+                  sleep 30
+                  let "i++"
+              fi
+          done
     DependsOn:
     - Account
     - EcsInstance

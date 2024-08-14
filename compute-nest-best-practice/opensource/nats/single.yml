@@ -317,28 +317,83 @@ Resources:
         Ref: InternetChargeType
       UserData:
         Fn::Sub:
-        - "#!/bin/bash\n# 挂盘到/data\ncat >> /root/InitDataDisk.sh << \"EOF\"\n#!/bin/bash\n\
-          echo \"p\nn\np\n\n\n\nw\n\" |  fdisk -u /dev/vdb\nEOF\n/bin/bash /root/InitDataDisk.sh\n\
-          rm -f /root/InitDataDisk.sh\nmkfs -t ext4 /dev/vdb1\ncp /etc/fstab /etc/fstab.bak\n\
-          mkdir /data\necho `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\\\\\"\
-          //g'` /data ext4 defaults 0 0 >> /etc/fstab\nmount -a\n\n# 这里配置安装脚本\nwget\
-          \ '{{ computenest::file::nats_server }}'\nwget '{{ computenest::file::nats_cli\
-          \ }}'\ntar -zxf nats-0.0.35-linux-amd64.tar.gz -C /tmp\ntar -zxf nats-server-v2.9.15-linux-amd64.tar.gz\
-          \ -C /tmp\ncp /tmp/nats-server-v2.9.15-linux-amd64/nats-server /usr/bin/\n\
-          cp /tmp/nats-0.0.35-linux-amd64/nats /usr/bin/\n\nencryptedPasswd=$(nats\
-          \ server passwd -p ${NatsSysPassword})\n\nlocalIp=$(curl http://100.100.100.200/latest/meta-data/private-ipv4|sed\
-          \ 's/\\./-/g')\nhostName=$(curl http://100.100.100.200/latest/meta-data/hostname)\n\
-          serverName=\"$hostName-$localIp\"\n\nmkdir /etc/nats\ncat >> /etc/nats/nats.conf\
-          \ << EOF\nserver_name=$serverName\nlisten: 0.0.0.0:4222\nhttp: 8222\naccounts\
-          \ {\n  \\$SYS {\n    users = [\n      { user: \"admin\",\n        pass:\
-          \ \"$encryptedPasswd\"\n      }\n    ]\n  }\n}\njetstream {\n   store_dir=/data/nats-storage\n\
-          }\nEOF\n\ncat >> /etc/systemd/system/natsd.service << \"EOF\"\n[Unit]\n\
-          Description=natsd.service\n\n[Service]\nType=simple\nExecStart=/usr/bin/nats-server\
-          \ --config /etc/nats/nats.conf\nRestart=always\nRestartSec=10\n\n[Install]\n\
-          WantedBy=multi-user.target\nEOF\n\nsystemctl daemon-reload\n\n# 配置启动脚本\n\
-          systemctl enable natsd\nsystemctl start natsd\n\n# 执行成功回调WaitCondition结束waitCondition的等待\n\
-          ${CurlCli} -d \"{\\\"Data\\\" : \\\"Success\\\", \\\"status\\\" : \\\"SUCCESS\\\
-          \"}\"\n"
+        - |
+          #!/bin/bash
+          # 挂盘到/data
+          cat >> /root/InitDataDisk.sh << "EOF"
+          #!/bin/bash
+          echo "p
+          n
+          p
+
+
+
+          w
+          " |  fdisk -u /dev/vdb
+          EOF
+          /bin/bash /root/InitDataDisk.sh
+          rm -f /root/InitDataDisk.sh
+          mkfs -t ext4 /dev/vdb1
+          cp /etc/fstab /etc/fstab.bak
+          mkdir /data
+          echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /data ext4 defaults 0 0 >> /etc/fstab
+          mount -a
+
+          # 这里配置安装脚本
+          wget '{{ computenest::file::nats_server }}'
+          wget '{{ computenest::file::nats_cli }}'
+          tar -zxf nats-0.0.35-linux-amd64.tar.gz -C /tmp
+          tar -zxf nats-server-v2.9.15-linux-amd64.tar.gz -C /tmp
+          cp /tmp/nats-server-v2.9.15-linux-amd64/nats-server /usr/bin/
+          cp /tmp/nats-0.0.35-linux-amd64/nats /usr/bin/
+
+          encryptedPasswd=$(nats server passwd -p ${NatsSysPassword})
+
+          localIp=$(curl http://100.100.100.200/latest/meta-data/private-ipv4|sed 's/\./-/g')
+          hostName=$(curl http://100.100.100.200/latest/meta-data/hostname)
+          serverName="$hostName-$localIp"
+
+          mkdir /etc/nats
+          cat >> /etc/nats/nats.conf << EOF
+          server_name=$serverName
+          listen: 0.0.0.0:4222
+          http: 8222
+          accounts {
+            \$SYS {
+              users = [
+                { user: "admin",
+                  pass: "$encryptedPasswd"
+                }
+              ]
+            }
+          }
+          jetstream {
+             store_dir=/data/nats-storage
+          }
+          EOF
+
+          cat >> /etc/systemd/system/natsd.service << "EOF"
+          [Unit]
+          Description=natsd.service
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/nats-server --config /etc/nats/nats.conf
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+          systemctl daemon-reload
+
+          # 配置启动脚本
+          systemctl enable natsd
+          systemctl start natsd
+
+          # 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
         - CurlCli:
             Fn::GetAtt:
             - WaitConditionHandle

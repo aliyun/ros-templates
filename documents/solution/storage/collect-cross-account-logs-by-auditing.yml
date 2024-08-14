@@ -113,12 +113,29 @@ Resources:
         ROSTemplateFormatVersion: '2015-09-01'
         Transform: Aliyun::Terraform-v1.2
         Workspace:
-          main.tf: "variable \"aliuid\" {\n  type = string\n}\n\nvariable \"display_name\"\
-            \ {\n  type = string\n}\n\nvariable \"multi_account\" {\n  type = list(string)\n\
-            }\n\nresource \"alicloud_log_audit\" \"default\" {\n  display_name = var.display_name\n\
-            \  aliuid       = var.aliuid\n  variable_map = {\n    \"oss_access_enabled\"\
-            \  = \"true\", \n    \"oss_access_ttl\"      = \"180\",\n  }\n  multi_account\
-            \ = var.multi_account\n  resource_directory_type = \"custom\"\n}"
+          main.tf: |-
+            variable "aliuid" {
+              type = string
+            }
+            
+            variable "display_name" {
+              type = string
+            }
+
+            variable "multi_account" {
+              type = list(string)
+            }
+
+            resource "alicloud_log_audit" "default" {
+              display_name = var.display_name
+              aliuid       = var.aliuid
+              variable_map = {
+                "oss_access_enabled"  = "true", 
+                "oss_access_ttl"      = "180",
+              }
+              multi_account = var.multi_account
+              resource_directory_type = "custom"
+            }
     DependsOn:
     - ResourceManagerAccount
   DealAccountPermissionPolicyStack:
@@ -138,44 +155,113 @@ Resources:
         ROSTemplateFormatVersion: '2015-09-01'
         Transform: Aliyun::Terraform-v1.2
         Workspace:
-          main.tf: "variable \"aliuid\" {\n  type = string\n}\n\nvariable \"access_key\"\
-            \ {\n  type = string\n}\n\nvariable \"secret_key\" {\n  type = string\n\
-            }\n\nvariable \"region\" {\n  type = string\n}\n\nprovider \"alicloud\"\
-            \ {\n  access_key = \"${var.access_key}\"\n  secret_key = \"${var.secret_key}\"\
-            \n  region     = \"${var.region}\"\n}\n\nresource \"alicloud_ram_policy\"\
-            \ \"policy\" {\n  policy_name     = \"AliyunLogAuditServiceMonitorAccess\"\
-            \n  policy_document = <<EOF\n  {\n      \"Version\": \"1\",\n      \"\
-            Statement\": [\n          {\n              \"Action\": \"log:*\",\n  \
-            \            \"Resource\": [\n                  \"acs:log:*:*:project/slsaudit-*\"\
-            ,\n                  \"acs:log:*:*:app/audit\"\n              ],\n   \
-            \           \"Effect\": \"Allow\"\n          },\n          {\n       \
-            \       \"Action\": [\n                  \"rds:ModifySQLCollectorPolicy\"\
-            ,\n                  \"vpc:*FlowLog*\",\n                  \"drds:*SqlAudit*\"\
-            ,\n                  \"kvstore:ModifyAuditLogConfig\",\n             \
-            \     \"polardb:ModifyDBClusterAuditLogCollector\",\n                \
-            \  \"config:UpdateIntegratedServiceStatus\",\n                  \"config:StartConfigurationRecorder\"\
-            ,\n                  \"config:PutConfigurationRecorder\"\n           \
-            \   ],\n              \"Resource\": \"*\",\n              \"Effect\":\
-            \ \"Allow\"\n          },\n          {\n              \"Action\": \"ram:CreateServiceLinkedRole\"\
-            ,\n              \"Resource\": \"*\",\n              \"Effect\": \"Allow\"\
-            ,\n              \"Condition\": {\n                  \"StringEquals\"\
-            : {\n                      \"ram:ServiceName\": [\n                  \
-            \        \"config.aliyuncs.com\"\n                      ]\n          \
-            \        }\n              }\n          }\n      ]\n  }\n  EOF\n}\n\nresource\
-            \ \"alicloud_ram_role\" \"role\" {\n  name        = \"sls-audit-service-monitor\"\
-            \n  document    = <<EOF\n  {\n      \"Statement\": [\n          {\n  \
-            \            \"Action\": \"sts:AssumeRole\",\n              \"Effect\"\
-            : \"Allow\",\n              \"Principal\": {\n                  \"Service\"\
-            : [\n                      \"${var.aliuid}@log.aliyuncs.com\",\n     \
-            \                 \"log.aliyuncs.com\"\n                  ]\n        \
-            \      }\n          }\n      ],\n      \"Version\": \"1\"\n  }\n  EOF\n\
-            }\n\nresource \"alicloud_ram_role_policy_attachment\" \"attach\" {\n \
-            \ policy_name = alicloud_ram_policy.policy.policy_name\n  policy_type\
-            \ = \"Custom\"\n  role_name   = alicloud_ram_role.role.name\n}\n\nresource\
-            \ \"alicloud_ram_role_policy_attachment\" \"system_attach\" {\n  policy_name\
-            \ = \"ReadOnlyAccess\"\n  policy_type = \"System\"\n  role_name   = alicloud_ram_role.role.name\n\
-            }\n\ndata \"alicloud_account\" \"current\" {\n}\n\noutput \"current_account_id\"\
-            \ {\n  value = \"${data.alicloud_account.current.id}\"\n}"
+          main.tf: |-
+            variable "aliuid" {
+              type = string
+            }
+            
+            variable "access_key" {
+              type = string
+            }
+            
+            variable "secret_key" {
+              type = string
+            }
+            
+            variable "region" {
+              type = string
+            }
+
+            provider "alicloud" {
+              access_key = "${var.access_key}"
+              secret_key = "${var.secret_key}"
+              region     = "${var.region}"
+            }
+            
+            resource "alicloud_ram_policy" "policy" {
+              policy_name     = "AliyunLogAuditServiceMonitorAccess"
+              policy_document = <<EOF
+              {
+                  "Version": "1",
+                  "Statement": [
+                      {
+                          "Action": "log:*",
+                          "Resource": [
+                              "acs:log:*:*:project/slsaudit-*",
+                              "acs:log:*:*:app/audit"
+                          ],
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": [
+                              "rds:ModifySQLCollectorPolicy",
+                              "vpc:*FlowLog*",
+                              "drds:*SqlAudit*",
+                              "kvstore:ModifyAuditLogConfig",
+                              "polardb:ModifyDBClusterAuditLogCollector",
+                              "config:UpdateIntegratedServiceStatus",
+                              "config:StartConfigurationRecorder",
+                              "config:PutConfigurationRecorder"
+                          ],
+                          "Resource": "*",
+                          "Effect": "Allow"
+                      },
+                      {
+                          "Action": "ram:CreateServiceLinkedRole",
+                          "Resource": "*",
+                          "Effect": "Allow",
+                          "Condition": {
+                              "StringEquals": {
+                                  "ram:ServiceName": [
+                                      "config.aliyuncs.com"
+                                  ]
+                              }
+                          }
+                      }
+                  ]
+              }
+              EOF
+            }
+            
+            resource "alicloud_ram_role" "role" {
+              name        = "sls-audit-service-monitor"
+              document    = <<EOF
+              {
+                  "Statement": [
+                      {
+                          "Action": "sts:AssumeRole",
+                          "Effect": "Allow",
+                          "Principal": {
+                              "Service": [
+                                  "${var.aliuid}@log.aliyuncs.com",
+                                  "log.aliyuncs.com"
+                              ]
+                          }
+                      }
+                  ],
+                  "Version": "1"
+              }
+              EOF
+            }
+            
+            resource "alicloud_ram_role_policy_attachment" "attach" {
+              policy_name = alicloud_ram_policy.policy.policy_name
+              policy_type = "Custom"
+              role_name   = alicloud_ram_role.role.name
+            }
+            
+            resource "alicloud_ram_role_policy_attachment" "system_attach" {
+              policy_name = "ReadOnlyAccess"
+              policy_type = "System"
+              role_name   = alicloud_ram_role.role.name
+            }
+            
+            data "alicloud_account" "current" {
+            }
+
+            output "current_account_id" {
+              value = "${data.alicloud_account.current.id}"
+            }
   DealUserDefinedLogAuditStack:
     Type: ALIYUN::ROS::Stack
     Condition: UserDefinedMode
@@ -193,11 +279,27 @@ Resources:
         ROSTemplateFormatVersion: '2015-09-01'
         Transform: Aliyun::Terraform-v1.2
         Workspace:
-          main.tf: "variable \"aliuid\" {\n  type = string\n}\n\nvariable \"display_name\"\
-            \ {\n  type = string\n}\n\nvariable \"multi_account\" {\n  type = list(string)\n\
-            }\n\nresource \"alicloud_log_audit\" \"default\" {\n  display_name = var.display_name\n\
-            \  aliuid       = var.aliuid\n  variable_map = {\n    \"oss_access_enabled\"\
-            \  = \"true\", \n    \"oss_access_ttl\"      = \"180\",\n  }\n  multi_account\
-            \ = var.multi_account\n}"
+          main.tf: |-
+            variable "aliuid" {
+              type = string
+            }
+
+            variable "display_name" {
+              type = string
+            }
+
+            variable "multi_account" {
+              type = list(string)
+            }
+
+            resource "alicloud_log_audit" "default" {
+              display_name = var.display_name
+              aliuid       = var.aliuid
+              variable_map = {
+                "oss_access_enabled"  = "true", 
+                "oss_access_ttl"      = "180",
+              }
+              multi_account = var.multi_account
+            }
     DependsOn:
     - DealAccountPermissionPolicyStack

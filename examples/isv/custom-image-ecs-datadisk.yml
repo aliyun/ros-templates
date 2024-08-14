@@ -328,23 +328,51 @@ Resources:
         - InstanceIds
       CommandContent:
         Fn::Sub:
-        - "#!/bin/bash\n# 1. 如果使用了数据盘，需要对数据盘进行格式化，并挂载到指定目录，这里假定挂载到/data\ninit_and_mount_data_disk()\
-          \ {\n  local fs_type=$1\n  local mount_point=$2\n\n  # 找出磁盘设备（排除分区）\n  devices=(`lsblk\
-          \ -o NAME,FSTYPE --noheadings --nodeps | awk '$2 == \"\" {print $1}'`)\n\
-          \  # 找出不存在文件系统的磁盘设备\n  for device in ${!devices[@]};\n  do\n    lsblk -o\
-          \ NAME,FSTYPE --noheadings  | awk '$2 != \"\" {print $1}' | grep ${!device}\n\
-          \    if [[ $? -eq 1 ]]; then\n      data_disk=${!device}\n      break\n\
-          \    fi\n  done\n\n  # 为数据盘创建文件系统\n  mkfs -t ${!fs_type} /dev/${!data_disk}\n\
-          \n  cp /etc/fstab /etc/fstab.bak\n  mkdir ${!mount_point}\n  # 更新/etc/fstab并挂载磁盘\n\
-          \  echo `blkid /dev/${!data_disk} | awk '{print $2}' | sed 's/\\\\\\\"//g'`\
-          \ ${!mount_point} ext4 defaults 0 0 >> /etc/fstab\n  mount -a\n}\n\n# 挂盘到/data\n\
-          init_and_mount_data_disk ext4 /data\n\n# 2. 安装软件，或者对软件进行初始化配置，比如将数据文件目录指定到数据盘目录\n\
-          # yum install -y nginx\n\n# 3. 如果需要开机自启动，请添加系统服务并启用\n# systemctl enable\
-          \ nginx.service\n\n# 4. 配置启动脚本或者启动系统服务\n# systemctl start nginx.service\n\
-          \n# 5. 执行成功回调WaitCondition结束waitCondition的等待\n${CurlCli} -d \"{\\\"Data\\\
-          \" : \\\"Success\\\", \\\"status\\\" : \\\"SUCCESS\\\"}\"\n# 脚本里任何地方如果发现执行失败，使用以下命令返回FAILURE和错误信息\n\
-          # ${CurlCli} -d \"{\\\"Data\\\" : \\\"error message\\\", \\\"status\\\"\
-          \ : \\\"FAILURE\\\"}\"\n"
+        - |
+          #!/bin/bash
+          # 1. 如果使用了数据盘，需要对数据盘进行格式化，并挂载到指定目录，这里假定挂载到/data
+          init_and_mount_data_disk() {
+            local fs_type=$1
+            local mount_point=$2
+
+            # 找出磁盘设备（排除分区）
+            devices=(`lsblk -o NAME,FSTYPE --noheadings --nodeps | awk '$2 == "" {print $1}'`)
+            # 找出不存在文件系统的磁盘设备
+            for device in ${!devices[@]};
+            do
+              lsblk -o NAME,FSTYPE --noheadings  | awk '$2 != "" {print $1}' | grep ${!device}
+              if [[ $? -eq 1 ]]; then
+                data_disk=${!device}
+                break
+              fi
+            done
+
+            # 为数据盘创建文件系统
+            mkfs -t ${!fs_type} /dev/${!data_disk}
+
+            cp /etc/fstab /etc/fstab.bak
+            mkdir ${!mount_point}
+            # 更新/etc/fstab并挂载磁盘
+            echo `blkid /dev/${!data_disk} | awk '{print $2}' | sed 's/\\\"//g'` ${!mount_point} ext4 defaults 0 0 >> /etc/fstab
+            mount -a
+          }
+
+          # 挂盘到/data
+          init_and_mount_data_disk ext4 /data
+
+          # 2. 安装软件，或者对软件进行初始化配置，比如将数据文件目录指定到数据盘目录
+          # yum install -y nginx
+
+          # 3. 如果需要开机自启动，请添加系统服务并启用
+          # systemctl enable nginx.service
+
+          # 4. 配置启动脚本或者启动系统服务
+          # systemctl start nginx.service
+
+          # 5. 执行成功回调WaitCondition结束waitCondition的等待
+          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+          # 脚本里任何地方如果发现执行失败，使用以下命令返回FAILURE和错误信息
+          # ${CurlCli} -d "{\"Data\" : \"error message\", \"status\" : \"FAILURE\"}"
         - CurlCli:
             Fn::GetAtt:
             - WaitConditionHandle

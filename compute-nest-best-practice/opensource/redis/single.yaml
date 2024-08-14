@@ -312,116 +312,72 @@ Resources:
         Ref: InternetChargeType
       UserData:
         Fn::Sub:
-        - '#!/bin/bash
-
-          # 挂盘到/data
-
-          cat >> /root/InitDataDisk.sh << "EOF"
-
-          #!/bin/bash
-
-          echo "p
-
-          n
-
-          p
+          - |
+            #!/bin/bash
+            # 挂盘到/data
+            cat >> /root/InitDataDisk.sh << "EOF"
+            #!/bin/bash
+            echo "p
+            n
+            p
 
 
 
+            w
+            " |  fdisk -u /dev/vdb
+            EOF
+            /bin/bash /root/InitDataDisk.sh
+            rm -f /root/InitDataDisk.sh
+            mkfs -t ext4 /dev/vdb1
+            cp /etc/fstab /etc/fstab.bak
+            mkdir /data
+            echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /data ext4 defaults 0 0 >> /etc/fstab
+            mount -a
 
-          w
+            mkdir /data/redis
+            mkdir /data/redis/logs
+            mkdir /data/redis/data
+            chown -R redis:redis /data/redis
+            sed -i 's/dir .\//dir \/data\/redis\/data/' /etc/redis.conf
+            sed -i 's/logfile ""/logfile \/data\/redis\/logs\/redis.log/g' /etc/redis.conf
+            sed -i 's/# requirepass foobared/requirepass ${RedisPassword}/g' /etc/redis.conf
+            sed -i 's/daemonize no/daemonize yes/g' /etc/redis.conf
+            # 这里配置安装脚本
 
-          " |  fdisk -u /dev/vdb
+            cat >> /usr/lib/systemd/system/redis.service << "EOF"
+            [Unit]
+            Description=redis
+            After=network.target
 
-          EOF
+            [Service]
+            Type=forking
+            PIDFile=/var/run/redis_6379.pid
+            ExecStart=/usr/bin/redis-server /etc/redis.conf
+            ExecStop=/usr/bin/redis-cli shutdown
+            PrivateTmp=true
 
-          /bin/bash /root/InitDataDisk.sh
+            [Install]
+            WantedBy=multi-user.target
+            EOF
 
-          rm -f /root/InitDataDisk.sh
+            systemctl daemon-reload
 
-          mkfs -t ext4 /dev/vdb1
+            # 配置启动脚本
+            systemctl enable redis
+            systemctl start redis
 
-          cp /etc/fstab /etc/fstab.bak
-
-          mkdir /data
-
-          echo `blkid /dev/vdb1 | awk ''{print $2}'' | sed ''s/\\\"//g''` /data ext4
-          defaults 0 0 >> /etc/fstab
-
-          mount -a
-
-
-          mkdir /data/redis
-
-          mkdir /data/redis/logs
-
-          mkdir /data/redis/data
-
-          chown -R redis:redis /data/redis
-
-          sed -i ''s/dir .\//dir \/data\/redis\/data/'' /etc/redis.conf
-
-          sed -i ''s/logfile ""/logfile \/data\/redis\/logs\/redis.log/g'' /etc/redis.conf
-
-          sed -i ''s/# requirepass foobared/requirepass ${RedisPassword}/g'' /etc/redis.conf
-
-          sed -i ''s/daemonize no/daemonize yes/g'' /etc/redis.conf
-
-          # 这里配置安装脚本
-
-
-          cat >> /usr/lib/systemd/system/redis.service << "EOF"
-
-          [Unit]
-
-          Description=redis
-
-          After=network.target
-
-
-          [Service]
-
-          Type=forking
-
-          PIDFile=/var/run/redis_6379.pid
-
-          ExecStart=/usr/bin/redis-server /etc/redis.conf
-
-          ExecStop=/usr/bin/redis-cli shutdown
-
-          PrivateTmp=true
-
-
-          [Install]
-
-          WantedBy=multi-user.target
-
-          EOF
-
-
-          systemctl daemon-reload
-
-
-          # 配置启动脚本
-
-          systemctl enable redis
-
-          systemctl start redis
-
-
-          # 执行成功回调WaitCondition结束waitCondition的等待
-
-          ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
-
-          '
-        - CurlCli:
-            Fn::GetAtt:
-            - WaitConditionHandle
-            - CurlCli
-          RegionId:
-            Ref: ALIYUN::Region
-          RedisPassword:
-            Ref: RedisPassword
+            # 执行成功回调WaitCondition结束waitCondition的等待
+            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+          # 获取到waitConditionHandle的地址放到 ${CurlCli}变量里
+          - CurlCli:
+              Fn::GetAtt:
+                - WaitConditionHandle
+                - CurlCli
+            RegionId:
+              Ref: ALIYUN::Region
+            RedisPassword:
+              Ref: RedisPassword
+# 定义输出
 Outputs:
   PrivateEndpoint:
     Description:

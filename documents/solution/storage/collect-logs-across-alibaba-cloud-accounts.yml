@@ -102,30 +102,90 @@ Resources:
         ROSTemplateFormatVersion: '2015-09-01'
         Transform: Aliyun::Terraform-v1.2
         Workspace:
-          main.tf: "variable \"account_a_id\" {\n  description = <<EOT\n  {\n    \"\
-            Label\": {\n        \"zh-cn\": \"账号A的ID\"\n    }\n  }\n  EOT\n  type =\
-            \ string\n}\n\nvariable \"account_b_id\" {\n  description = <<EOT\n  {\n\
-            \    \"Label\": {\n        \"zh-cn\": \"账号B的ID\"\n    }\n  }\n  EOT\n\
-            \  type = string\n}\n\nvariable \"region\" {\n  description = <<EOT\n\
-            \  {\n    \"Label\": {\n        \"zh-cn\": \"账号B的ECS Region。\"\n    }\n\
-            \  }\n  EOT\n  type = string\n}\n\nvariable \"role_name\" {\n  description\
-            \ = <<EOT\n  {\n    \"Label\": {\n        \"zh-cn\": \"扮演账号B的RAM角色名称\"\
-            \n    }\n  }\n  EOT\n}\n\nvariable \"ecs_id\" {\n  description = <<EOT\n\
-            \  {\n    \"Label\": {\n        \"zh-cn\": \"账号B的ECS实例ID\"\n    }\n  }\n\
-            \  EOT\n}\n\nlocals {\n  role_name = var.role_name\n  account_id = var.account_b_id\n\
-            }\n\n# provider\nprovider \"alicloud\" {\n  alias = \"account_b\"\n  region\
-            \ = var.region\n  assume_role {\n    role_arn = format(\"acs:ram::%s:role/%s\"\
-            , local.account_id, local.role_name)\n    session_name = \"ros\"\n   \
-            \ session_expiration = 999\n  }\n}\n\nresource \"alicloud_ecs_command\"\
-            \ \"default\" {\n  provider        = alicloud.account_b\n  name      \
-            \      = \"terraform-example\"\n  command_content = base64encode(format(\"\
-            touch /etc/ilogtail/users/%s && echo \\\"application_b\\\" >> /etc/ilogtail/user_defined_id\
-            \ && sed -i \\\"1a \\\\\\\"accept_multi_config\\\\\\\": true,\\\" /usr/local/ilogtail/ilogtail_config.json\
-            \ && /etc/init.d/ilogtaild stop && /etc/init.d/ilogtaild start\", var.account_a_id))\n\
-            \  description     = \"terraform-example\"\n  type            = \"RunShellScript\"\
-            \n  working_dir     = \"/root\"\n}\n\nresource \"alicloud_ecs_invocation\"\
-            \ \"default\" {\n  provider        = alicloud.account_b\n  command_id\
-            \  = alicloud_ecs_command.default.id\n  instance_id = [var.ecs_id]\n}"
+          main.tf: |-
+            variable "account_a_id" {
+              description = <<EOT
+              {
+                "Label": {
+                    "zh-cn": "账号A的ID"
+                }
+              }
+              EOT
+              type = string
+            }
+
+            variable "account_b_id" {
+              description = <<EOT
+              {
+                "Label": {
+                    "zh-cn": "账号B的ID"
+                }
+              }
+              EOT
+              type = string
+            }
+
+            variable "region" {
+              description = <<EOT
+              {
+                "Label": {
+                    "zh-cn": "账号B的ECS Region。"
+                }
+              }
+              EOT
+              type = string
+            }
+
+            variable "role_name" {
+              description = <<EOT
+              {
+                "Label": {
+                    "zh-cn": "扮演账号B的RAM角色名称"
+                }
+              }
+              EOT
+            }
+
+            variable "ecs_id" {
+              description = <<EOT
+              {
+                "Label": {
+                    "zh-cn": "账号B的ECS实例ID"
+                }
+              }
+              EOT
+            }
+
+            locals {
+              role_name = var.role_name
+              account_id = var.account_b_id
+            }
+
+            # provider
+            provider "alicloud" {
+              alias = "account_b"
+              region = var.region
+              assume_role {
+                role_arn = format("acs:ram::%s:role/%s", local.account_id, local.role_name)
+                session_name = "ros"
+                session_expiration = 999
+              }
+            }
+
+            resource "alicloud_ecs_command" "default" {
+              provider        = alicloud.account_b
+              name            = "terraform-example"
+              command_content = base64encode(format("touch /etc/ilogtail/users/%s && echo \"application_b\" >> /etc/ilogtail/user_defined_id && sed -i \"1a \\\"accept_multi_config\\\": true,\" /usr/local/ilogtail/ilogtail_config.json && /etc/init.d/ilogtaild stop && /etc/init.d/ilogtaild start", var.account_a_id))
+              description     = "terraform-example"
+              type            = "RunShellScript"
+              working_dir     = "/root"
+            }
+
+            resource "alicloud_ecs_invocation" "default" {
+              provider        = alicloud.account_b
+              command_id  = alicloud_ecs_command.default.id
+              instance_id = [var.ecs_id]
+            }
       Parameters:
         account_a_id:
           Ref: ALIYUN::TenantId
