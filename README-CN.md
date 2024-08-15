@@ -473,6 +473,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml)                     | 基于AnalyticDB MySQL湖仓版的用户运营分析实践。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/adbmysql_uoap)   |
 | [cloud-native-enterprise-data-lake.yml](./documents/solution/data-analysis/cloud-native-enterprise-data-lake.yml)     | 云原生企业级数据湖。   ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/datalake)      |
 | [OLAP-analysis-based-on-Hologres.yml](./documents/solution/data-analysis/OLAP-analysis-based-on-Hologres.yml)     | 基于Hologres轻量高性能OLAP分析。                                                                               |
+| [quickly-build-large-screen.yml](./documents/solution/data-analysis/quickly-build-large-screen.yml)     | 快速搭建企业经营大屏。                                                                          |
 
 - database
 
