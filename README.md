@@ -462,6 +462,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [drawing_with_tongyi_wanxiang.yml](documents/solution/ai/drawing_with_tongyi_wanxiang.yml)     | Tongyi Wanxiang’s journey of text drawing and portrait beautification. |
 | [drawing_with_tongyi_wanxiang_new.yml](documents/solution/ai/drawing_with_tongyi_wanxiang_new.yml)     | Tongyi Wanxiang’s journey of text drawing and portrait beautification. |
 | [AnalyticDB-and-Bailian-system.yml](documents/solution/ai/AnalyticDB-and-Bailian-system.yml)     | AnalyticDB and Bailian build intelligent question and answer system. |
+| [use-elasticsearch-vector-search-capabilities-for-personalized-recommendations.yml](documents/solution/ai/use-elasticsearch-vector-search-capabilities-for-personalized-recommendations.yml)     | Using Elasticsearch's vector search capabilities for personalized recommendations. |
 
 
 
