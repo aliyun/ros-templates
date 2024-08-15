@@ -462,7 +462,6 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [drawing_with_tongyi_wanxiang.yml](documents/solution/ai/drawing_with_tongyi_wanxiang.yml)     | Tongyi Wanxiang’s journey of text drawing and portrait beautification. |
 | [drawing_with_tongyi_wanxiang_new.yml](documents/solution/ai/drawing_with_tongyi_wanxiang_new.yml)     | Tongyi Wanxiang’s journey of text drawing and portrait beautification. |
 | [AnalyticDB-and-Bailian-system.yml](documents/solution/ai/AnalyticDB-and-Bailian-system.yml)     | AnalyticDB and Bailian build intelligent question and answer system. |
-| [use-elasticsearch-vector-search-capabilities-for-personalized-recommendations.yml](documents/solution/ai/use-elasticsearch-vector-search-capabilities-for-personalized-recommendations.yml)     | Using Elasticsearch's vector search capabilities for personalized recommendations. |
 
 
 
@@ -595,6 +594,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [rapidly-enterprise-portal.yaml](documents/solution/internet-application-development/rapidly-enterprise-portal.yaml)                                                                   | Rapidly set up a enterprise portal. |
 | [serverless-rabbitmq.yaml](documents/solution/internet-application-development/serverless-rabbitmq.yaml)                                                                                                    | Cloud Message Queue RabbitMQ version Serverless series advantages and practices. |
 | [websites-from-HTTP-to-HTTPS.yaml](documents/solution/internet-application-development/websites-from-HTTP-to-HTTPS.yaml)                                                                    | Making websites more secure from HTTP to HTTPS. |
+| [ES-vector-retrieval-capabilities.yml](documents/solution/internet-application-development/ES-vector-retrieval-capabilities.yml)     | Using Elasticsearch's vector search capabilities for personalized recommendations. |
 
 
 - security-and-compliance

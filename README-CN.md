@@ -460,7 +460,6 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [drawing_with_tongyi_wanxiang.yml](documents/solution/ai/drawing_with_tongyi_wanxiang.yml)     | 通义万相的文本绘图与人像美化之旅。 |
 | [drawing_with_tongyi_wanxiang_new.yml](documents/solution/ai/drawing_with_tongyi_wanxiang_new.yml)     | 通义万相的文本绘图与人像美化之旅。 |
 | [AnalyticDB-and-Bailian-system.yml](documents/solution/ai/AnalyticDB-and-Bailian-system.yml)     | AnalyticDB与百炼搭建智能问答系统。 |
-| [use-elasticsearch-vector-search-capabilities-for-personalized-recommendations.yml](documents/solution/ai/use-elasticsearch-vector-search-capabilities-for-personalized-recommendations.yml)     | 使用Elasticsearch的向量检索能力进行个性化推荐。 |
 
 
 - data-analysis
@@ -589,6 +588,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [rapidly-enterprise-portal.yaml](documents/solution/internet-application-development/rapidly-enterprise-portal.yaml)                                                                   | 快速搭建企业门户网站。 |
 | [serverless-rabbitmq.yaml](documents/solution/internet-application-development/serverless-rabbitmq.yaml)                                                                                                    | 云消息队列 RabbitMQ 版 Serverless 系列优势和实践。 |
 | [websites-from-HTTP-to-HTTPS.yaml](documents/solution/internet-application-development/websites-from-HTTP-to-HTTPS.yaml)                                                                    | 从 HTTP 到 HTTPS 让网站更安全。 |
+| [ES-vector-retrieval-capabilities.yml](documents/solution/internet-application-development/ES-vector-retrieval-capabilities.yml)     | 使用Elasticsearch的向量检索能力进行个性化推荐。 |
 
 
 - security-and-compliance
