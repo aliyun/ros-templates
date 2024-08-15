@@ -4,16 +4,44 @@ Parameters:
     Type: String
     Default: Elasticsearch
   AppUserName:
-    Type: String
+    ConstraintDescription:
+      zh-cn: 3 到 63 个字母组成。
+      en: 3 to 63 letters.
+    Description:
+      zh-cn: 在浏览器中登录示例应用程序时的用户名。
+      en: Username when logging into the sample application in the browser.
     Label:
-      en: App Login UserName
-      zh-cn: 应用程序登录名
+      zh-cn: 登录用户名
+      en: Login Username
+    AllowedPattern: '^[a-zA-Z-]{3,63}$'
+    Type: String
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: demo-user-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
   AppPassword:
     Type: String
     NoEcho: true
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        在浏览器中登录示例应用程序时的密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
     Label:
-      en: App UserName Password
-      zh-cn: 应用程序登录密码
+      en: Login Password
+      zh-cn: 登录密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
   InstancePassword:
     NoEcho: true
     Type: String
@@ -55,7 +83,7 @@ Parameters:
     Description:
       en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
       zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
-    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -78,8 +106,62 @@ Metadata:
       - acs:technical-solution:ai:使用Elasticsearch的向量检索能力进行个性化推荐-tech_solu_153
     Hidden:
       - CommonName
-Outputs: {}
+Outputs:
+  Console@DemoUrl:
+    Description:
+      zh-cn: 应用程序访问域名。
+      en: URL of App.
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}/elasticsearch-demo
+        - PublicIp:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
 Resources:
+  InstallApp:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 7200
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash          
+          echo "#########################"
+          echo "# Install JDK"
+          echo "#########################"
+          yum -y install java-1.8.0-openjdk-devel.x86_64
+          cat << EOF >> ~/.bash_profile
+          export DEMO_ES_HOST='${Elasticsearch.Domain}'
+          export DEMO_ES_PORT=9200
+          export DEMO_ES_USERNAME=elastic
+          export DEMO_ES_PASSWORD='${ElasticsearchPassword}'
+          
+          export DEMO_USERNAME='${AppUserName}'
+          export DEMO_PASSWORD='${AppPassword}'
+          export ROS_DEPLOY=true
+          EOF
+          
+          source ~/.bash_profile
+          
+          echo "#########################"
+          echo "# Install App"
+          echo "#########################"
+          wget https://help-static-aliyun-doc.aliyuncs.com/demos/elasticsearch-demo-0.0.1-SNAPSHOT.jar
+          nohup java -jar elasticsearch-demo-0.0.1-SNAPSHOT.jar > elasticsearch-demo.log 2>&1 &
+          
+          echo "#########################"
+          echo "#App Install Success"
+          echo "#########################"
+          
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
   WaitConditionHandle:
     Type: ALIYUN::ROS::WaitConditionHandle
     Properties: { }
@@ -121,32 +203,6 @@ Resources:
   EcsInstance:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      UserData:
-        Fn::Sub: |-
-          #!/bin/bash          
-          echo "#########################"
-          echo "# Install JDK"
-          echo "#########################"
-          yum -y install java-1.8.0-openjdk-devel.x86_64
-          cat << EOF >> ~/.bash_profile
-          export DEMO_ES_HOST=${Elasticsearch.Domain}
-          export DEMO_ES_PORT=9200
-          export DEMO_ES_USERNAME=elastic
-          export DEMO_ES_PASSWORD=${ElasticsearchPassword}
-          
-          export DEMO_USERNAME=${AppUserName}
-          export DEMO_PASSWORD=${AppPassword}
-          EOF
-          
-          source ~/.bash_profile
-        
-          echo "#########################"
-          echo "# Install App"
-          echo "#########################"
-          wget https://help-static-aliyun-doc.aliyuncs.com/demos/elasticsearch-demo-0.0.1-SNAPSHOT.jar
-          nohup java -jar elasticsearch-demo-0.0.1-SNAPSHOT.jar > elasticsearch-demo.log 2>&1 &
-          
-          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
       InstanceName:
         Fn::Sub: ${CommonName}-ecs
       MaxAmount: 1
