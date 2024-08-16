@@ -1,0 +1,289 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: AnalyticDB and Bailian build intelligent question and answer system.
+  zh-cn: AnalyticDB与百炼搭建智能问答系统。
+Parameters:
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  DASHSCOPE_API_KEY:
+    NoEcho: true
+    Type: String
+    Label:
+      en: Bailian application API-KEY
+      zh-cn: 百炼应用的API-KEY
+  APP_ID:
+    Type: String
+    Label:
+      en: Application ID of Bilian application
+      zh-cn: 百炼应用的应用ID
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  CommonName:
+    Type: String
+    Default: RAG
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: vpc_${CommonName}
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: vsw_${CommonName}
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 5000/5000
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs_adb
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      Password:
+        Ref: InstancePassword
+  AnalyticDB:
+    Type: ALIYUN::GPDB::DBInstance
+    Properties:
+      EngineVersion: '6.0'
+      InstanceSpec: 4C16G
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SegNodeNum: 2
+      SegStorageType: cloud_essd
+      SegDiskPerformanceLevel: pl1
+      StorageSize: 50
+      VPCId:
+        Ref: Vpc
+      SecurityIPList: 192.168.0.0/24
+      DBInstanceDescription:
+        Fn::Sub: ${CommonName}-adb
+      PayType: Postpaid
+      DBInstanceCategory: Basic
+      DBInstanceMode: StorageElastic
+      VectorConfigurationStatus: true
+  WaitConditionHandle:
+    Type: 'ALIYUN::ROS::WaitConditionHandle'
+    Properties: { }
+  RosWaitCondition:
+    Type: 'ALIYUN::ROS::WaitCondition'
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 7200
+  RunCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 7200
+      CommandContent:
+        'Fn::Sub':
+          - >-
+            #!/bin/bash
+            
+            if [ ! -f .ros.provision ]; then
+              echo "Name: 手动搭建AnalyticDB与百炼搭建智能问答系统" > .ros.provision
+            fi
+            
+            
+            name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed
+            -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+            if [[ "$name" != "手动搭建AnalyticDB与百炼搭建智能问答系统" ]]; then
+              echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
+              ${WaitConditionHandle.CurlCli} --data-binary "{\"status\": \"FAILURE\", \"reason\": \"The current instance has already applied the configuration of the \\\"$name\\\" tutorial, and the configuration of this tutorial can no longer be applied.\"}"
+              exit 0
+            fi
+            
+            if ! grep -q "^Step1: Prepare Environment$" .ros.provision; then
+              echo "#########################"
+              echo "# Prepare Environment "
+              echo "#########################"
+              # 安装Python-3.9.7，建议Python版本为3.9及以上。
+              sudo yum update -y && \
+              sudo yum groupinstall "Development Tools" -y && \
+              sudo yum install openssl-devel bzip2-devel libffi-devel -y
+              
+              cd /usr/src && \
+              sudo curl -O https://help-static-aliyun-doc.aliyuncs.com/software/Python-3.9.0.tgz && \
+              sudo tar xzf Python-3.9.0.tgz && \
+              cd Python-3.9.0 && \
+              sudo ./configure --enable-optimizations && \
+              sudo make altinstall
+            
+              python3.9 --version && \
+              python3.9 -m ensurepip && \
+              python3.9 -m pip install --upgrade pip
+            
+              echo 'export SOCKET_ENDPOINT="${ECS_NETWORK_IP}:5000"' >> ~/.bashrc
+              echo 'export APP_ID="${APP_ID}"' >> ~/.bashrc
+              echo 'export DASHSCOPE_API_KEY="${DASHSCOPE_API_KEY}"' >> ~/.bashrc
+              source ~/.bashrc
+              echo "Step1: Prepare Environment" >> .ros.provision
+            else
+              echo "#########################"
+              echo "# Environment has been ready"
+              echo "#########################"
+            fi
+            
+            if ! grep -q "^Step2: Deployment service$" .ros.provision; then
+              echo "#########################"
+              echo "# Deployment service "
+              echo "#########################"
+              cd /root
+              wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20240729/unpfxr/demo.zip
+              sudo yum install -y unzip
+              unzip demo.zip
+              cd demo
+              python3.9 -m venv $(pwd)/venv
+              source $(pwd)/venv/bin/activate
+              pip3 install -r requirements.txt
+              sed "s/socketio.run(app, debug=True, host='0.0.0.0')/socketio.run(app, debug=True, host='0.0.0.0', allow_unsafe_werkzeug=True)/" app-stream.py > temp_app_stream.py
+              mv temp_app_stream.py app-stream.py
+              rm -rf temp_app_stream.py
+              nohup python3.9 app-stream.py > app-stream.log 2>&1 &
+              echo "Step2: Deployment service" >> .ros.provision
+            else
+              echo "#########################"
+              echo "# Service deployed"
+              echo "#########################"
+            fi
+            
+            ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+          - ECS_NETWORK_IP:
+              Fn::Select:
+                - 0
+                - Fn::GetAtt:
+                    - EcsInstance
+                    - PublicIps
+            APP_ID:
+              Ref:
+                APP_ID
+            DASHSCOPE_API_KEY:
+              Ref:
+                DASHSCOPE_API_KEY
+Outputs:
+  WebUrl:
+    Description:
+      zh-cn: Web 访问地址。
+      en: The Addresses of Web.
+    Value:
+      'Fn::Sub':
+        - 'http://${ServerAddress}:5000/home'
+        - ServerAddress:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - PublicIps
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - InstanceIds
+          Region:
+            Ref: 'ALIYUN::Region'
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: Ecs Configuration
+            zh-cn: ECS 实例配置
+      - Parameters:
+          - APP_ID
+          - DASHSCOPE_API_KEY
+        Label:
+          default:
+            en: Bilian Application Configuration
+            zh-cn: 百炼应用配置
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:technical-solution:ai:AnalyticDB与百炼搭建智能问答系统-tech_solu_150

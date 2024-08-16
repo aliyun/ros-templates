@@ -314,6 +314,81 @@ Resources:
       SourceCidrIp: 0.0.0.0/0
       IpProtocol: all
       PortRange: -1/-1
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      IoOptimized: optimized
+      ImageId: aliyun_3_x64_20G_alibase_
+      SecurityGroupId:
+        Ref: SecurityGroup
+      Password:
+        Ref: InstancePassword
+      InternetMaxBandwidthOut: 80
+      VSwitchId:
+        Ref: VSwitch
+      VpcId:
+        Ref: Vpc
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory: cloud_essd
+      AllocatePublicIP: true
+      ZoneId:
+        Ref: Zone
+  RunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Ref: WebServer
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        'Fn::Sub':
+          - |
+            #!/bin/sh
+            DatabaseUser='wordpressuser'
+            DatabasePwd='password'
+            DatabaseName='wordpressdb'
+            DatabaseHost='localhost'
+            yum update -y
+            yum install -y unzip zip
+            yum install -y mysql-server
+            systemctl start mysqld    
+            systemctl enable mysqld
+            mysql -e "CREATE DATABASE wordpressdb;"
+            mysql -e "CREATE USER 'wordpressuser'@'localhost' IDENTIFIED BY 'password';"
+            mysql -e "GRANT ALL PRIVILEGES ON wordpressdb.* TO 'wordpressuser'@'localhost';"
+            mysql -e "FLUSH PRIVILEGES;"
+            mysql -e "CREATE USER dtssync1 IDENTIFIED BY 'P@ssw0rd';"
+            mysql -e "GRANT ALL ON *.* TO 'dtssync1'@'%';"
+            mysql -e "FLUSH PRIVILEGES;"
+            mysql -e "SET GLOBAL binlog_format = 'ROW';"
+            yum install -y nginx
+            systemctl start nginx
+            systemctl enable nginx
+            yum install -y php php-fpm php-mysqlnd
+            systemctl start php-fpm
+            systemctl enable php-fpm
+            cd /usr/share/nginx/html
+            wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20240726/hhvpuw/wordpress-6.6.1.tar
+            tar -xvf wordpress-6.6.1.tar
+            cp -R wordpress/* .
+            rm -R wordpress
+            cp wp-config-sample.php wp-config.php
+            sed -i "s/database_name_here/$DatabaseName/" wp-config.php
+            sed -i "s/username_here/$DatabaseUser/" wp-config.php
+            sed -i "s/password_here/$DatabasePwd/" wp-config.php
+            sed -i "s/localhost/$DatabaseHost/" wp-config.php
+            systemctl restart nginx
+            systemctl restart php-fpm
+            ${CurlCli} --data-binary '{"status": "SUCCESS"}'
+          - CurlCli:
+              Fn::GetAtt:
+                - RosWaitConditionHandle
+                - CurlCli
+    DependsOn:
+      - SecurityGroupIngress
+
 Outputs:
   ECSInstanceUser:
     Description: Username and password for logging in to ECS instance
