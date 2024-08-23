@@ -1,0 +1,82 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  CommonName:
+    Type: String
+    Default: pai_rec
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+    TemplateTags:
+      - acs:technical-solution:cloud-migration:PAI-Rec全链路推荐系统开发方案-tech_solu_140
+    Hidden:
+      - CommonName
+Outputs: {}
+Resources:
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+      CidrBlock: 192.168.0.0/16
+  AutoEnablePAIService:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: PAI
+  HologramInstance:
+    Type: ALIYUN::Hologram::Instance
+    Properties:
+      GatewayCount: 2
+      Cpu: 32
+      ZoneId:
+        Ref: ZoneId
+      InstanceType: Warehouse
+      PaymentType: PostPaid
+      PricingCycle: Hour
+      InstanceName:
+        Fn::Sub: ${CommonName}-Hologram
+      Endpoints:
+        - Type: Intranet
+        - VpcId:
+            Ref: EcsVpc
+          VSwitchId:
+            Ref: EcsVSwitch
+          Type: VPCSingleTunnel
+          VpcInstanceId: Null
+          Endpoint: Null
+          AlternativeEndpoints: Null
+        - Type: Internet
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: pai-rec-${ALIYUN::StackId}
+  DataWorksProject:
+    Type: ALIYUN::DataWorks::Project
+    Properties:
+      ProjectIdentifier:
+        Fn::Sub: DataWorks_${CommonName}
+      ProjectName:
+        Fn::Sub: DataWorks_${CommonName}
