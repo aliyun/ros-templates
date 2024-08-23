@@ -1,46 +1,69 @@
 ROSTemplateFormatVersion: '2015-09-01'
-Parameters:
-  CommonName:
-    Type: String
-    Default: pai_rec
-  ZoneId:
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
-    AssociationPropertyMetadata:
-      AutoSelectFirst: true
-    Type: String
-    Description:
-      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
-      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
-    Label:
-      zh-cn: 可用区ID
-      en: Available Zone ID
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
       - Parameters:
           - ZoneId
+          - BucketName
     TemplateTags:
       - acs:technical-solution:cloud-migration:PAI-Rec全链路推荐系统开发方案-tech_solu_140
     Hidden:
       - CommonName
-Outputs: {}
+Parameters:
+  CommonName:
+    Default: pai_rec
+    Type: String
+  BucketName:
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: pai-rec-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    Description:
+      zh-cn: 3到63个字符，不以连字符(-)开头和结尾，可以包含小写字母、数字和连字符(-)；<br>备注：<font color='blue'><b>需要保证整个网络的唯一性，已经存在的无法创建</b></font>
+      en: '3 to 63 characters, not beginning and ending with a hyphen (-), can contain lowercase letters, Numbers and hyphens (-);<br>Note: <font color=''blue''><b>need whole network uniqueness, already existing can not be created.</b></font>'
+    MinLength: 3
+    Label:
+      zh-cn: 存储空间名称
+      en: Bucket Name
+    AllowedPattern: ^[a-z0-9]+[a-z0-9\-]*[a-z0-9]+$
+    ConstraintDescription:
+      zh-cn: 3 到 63 个字符，不以连字符 (-) 开头和结尾，可以包含小写字母、数字和连字符 (-)
+      en: 3 to 63 characters, not beginning and ending with a hyphen (-), can contain lowercase letters, Numbers and hyphens (-)
+    MaxLength: 63
+    AssociationProperty: AutoCompleteInput
+    Type: String
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Type: String
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
 Resources:
-  EcsVSwitch:
-    Type: ALIYUN::ECS::VSwitch
+  DataWorksProject:
+    Type: ALIYUN::DataWorks::Project
     Properties:
-      VpcId:
-        Ref: EcsVpc
-      CidrBlock: 192.168.1.0/24
-      ZoneId:
-        Ref: ZoneId
-      VSwitchName:
-        Fn::Sub: ${CommonName}-vsw
-  EcsVpc:
-    Type: ALIYUN::ECS::VPC
+      ProjectName:
+        Fn::Sub: DataWorks_${CommonName}
+      ProjectIdentifier:
+        Fn::Sub: DataWorks_${CommonName}
+  RandomString:
+    Type: ALIYUN::RandomString
     Properties:
-      VpcName:
-        Fn::Sub: ${CommonName}-vpc
-      CidrBlock: 192.168.0.0/16
+      length: 8
+      character_classes:
+        - class: lowercase
+          min: 1
+        - class: digits
+          min: 1
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
   AutoEnablePAIService:
     Type: ALIYUN::ROS::AutoEnableService
     Properties:
@@ -49,34 +72,76 @@ Resources:
     Type: ALIYUN::Hologram::Instance
     Properties:
       GatewayCount: 2
-      Cpu: 32
       ZoneId:
         Ref: ZoneId
-      InstanceType: Warehouse
       PaymentType: PostPaid
+      Cpu: 32
       PricingCycle: Hour
-      InstanceName:
-        Fn::Sub: ${CommonName}-Hologram
       Endpoints:
         - Type: Intranet
-        - VpcId:
-            Ref: EcsVpc
-          VSwitchId:
-            Ref: EcsVSwitch
-          Type: VPCSingleTunnel
-          VpcInstanceId: Null
+        - AlternativeEndpoints: Null
           Endpoint: Null
-          AlternativeEndpoints: Null
+          VpcInstanceId: Null
+          VpcId:
+            Ref: Vpc
+          VSwitchId:
+            Ref: VSwitch
+          Type: VPCSingleTunnel
         - Type: Internet
-  OssBucket:
-    Type: ALIYUN::OSS::Bucket
+      InstanceName:
+        Fn::Sub: ${CommonName}-Hologram
+      InstanceType: Warehouse
+  Vpc:
+    Type: ALIYUN::ECS::VPC
     Properties:
-      BucketName:
-        Fn::Sub: pai-rec-${ALIYUN::StackId}
-  DataWorksProject:
-    Type: ALIYUN::DataWorks::Project
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
     Properties:
-      ProjectIdentifier:
-        Fn::Sub: DataWorks_${CommonName}
-      ProjectName:
-        Fn::Sub: DataWorks_${CommonName}
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+  PaiWorkspace:
+    Type: ALIYUN::PAI::Workspace
+    Properties:
+      DisplayName:
+        Fn::Sub: ${CommonName}_${RandomString.value}
+      EnvTypes:
+        - dev
+        - prod
+      Description:
+        Fn::Sub: ${CommonName}_${RandomString.value}
+      WorkspaceName:
+        Fn::Sub: ${CommonName}_${RandomString.value}
+Outputs:
+  Console@HologramInstanceId:
+    Value:
+      Fn::GetAtt:
+        - HologramInstance
+        - InstanceId
+  Console@DataWorksProjectName:
+    Value:
+      Fn::GetAtt:
+        - DataWorksProject
+        - ProjectIdentifier
+  Console@BucketDomainName:
+    Value:
+      Fn::GetAtt:
+        - OssBucket
+        - DomainName
+  Console@BucketName:
+    Value:
+      Fn::GetAtt:
+        - OssBucket
+        - Name
+  Console@PaiWorkspace:
+    Value:
+      Fn::GetAtt:
+        - PaiWorkspace
+        - WorkspaceName
