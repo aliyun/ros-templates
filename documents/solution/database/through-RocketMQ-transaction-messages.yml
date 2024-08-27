@@ -1,0 +1,365 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Distributed transactions are implemented through RocketMQ transaction messages.
+  zh-cn: 通过RocketMQ事务消息实现分布式事务。
+Parameters:
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  CommonName:
+    Type: String
+    Default: rocketmq-transcation
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例类型
+    Description:
+      en: Database instance type. Refer the RDS database instance type.<a href='https://www.alibabacloud.com/help/doc-detail/26312.htm' target='_blank'>View RDS resources type</a>
+      zh-cn: '数据库实例类型, <br>详见: <a href=''https://help.aliyun.com/document_detail/26312.html'' target=''_blank''><b><font color=''blue''>实例规格表</font></b></a>.'
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      Engine: MySQL
+      Category: Basic
+      EngineVersion: '8.0'
+      ZoneId: ${ZoneId}
+      DBInstanceStorageType: cloud_essd
+    Default: mysql.n2e.small.1
+  AccountName:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库账号
+    Description:
+      en: The account name must be 2 to 32 characters in length and can contain lowercase letters, digits, and underscores (_). It must start with a letter and end with a letter or digit.
+      zh-cn: 由小写字母、数字、下划线（_）组成，以字母开头，以字母或数字结尾，最多32个字符。
+    AllowedPattern: ^(?!root$)[a-z][a-z0-9_]{0,30}[a-z0-9]$
+    Default: user_test
+  DBPassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: 'The password is 8 to 30 characters in length and must contain at least three types: uppercase letters, lowercase letters, digits, and special symbols. The name contains 8 to 32 characters. Special characters include! @ # $% ^ & * () _ + - ='
+      zh-cn: '数据库账号密码，长度8-30，必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括! @ # $ % ^ & * () _ + - ='
+    Label:
+      en: MySQL Instance Password
+      zh-cn: MySQL数据库密码
+    ConstraintDescription:
+      en: 'Length 8-30, must contain three(Capital letters, lowercase letters, numbers, @ # $% ^ & * () _ + - = Special symbol in)'
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括! @ # $ % ^ & * () _ + - =）'
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])((?=.*[!@#\$%\^&\*\(\)\-\+])|(?=.*[_\.,:;\-\?]))[a-zA-Z0-9!@#\$%\^&\*\(\)\-\+_\.,:;\-\?]{8,32}$
+    MinLength: '8'
+    MaxLength: '30'
+  AppDemoAccountName:
+    Type: String
+    Label:
+      en: App demo username
+      zh-cn: 登录演示账户的用户名
+    Description:
+      en: The account name must be 2 to 32 characters in length and can contain lowercase letters, digits, and underscores (_). It must start with a letter and end with a letter or digit.
+      zh-cn: 由小写字母、数字、下划线（_）组成，以字母开头，以字母或数字结尾，最多32个字符。
+    AllowedPattern: ^(?!root$)[a-z][a-z0-9_]{0,30}[a-z0-9]$
+    Default: app_demo_user
+  AppDemoPassword:
+    NoEcho: true
+    Type: String
+    Label:
+      en: App demo password
+      zh-cn: 登录演示账户的密码
+    Description:
+      en: 'The password is 8 to 30 characters in length and must contain at least three types: uppercase letters, lowercase letters, digits, and special symbols. The name contains 8 to 32 characters. Special characters include! @ # $% ^ & * () _ + - ='
+      zh-cn: '账号密码，长度8-30，必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括! @ # $ % ^ & * () _ + - ='
+    ConstraintDescription:
+      en: 'Length 8-30, must contain three(Capital letters, lowercase letters, numbers, @ # $% ^ & * () _ + - = Special symbol in)'
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括! @ # $ % ^ & * () _ + - =）'
+    AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])((?=.*[!@#\$%\^&\*\(\)\-\+])|(?=.*[_\.,:;\-\?]))[a-zA-Z0-9!@#\$%\^&\*\(\)\-\+_\.,:;\-\?]{8,32}$
+    MinLength: '8'
+    MaxLength: '30'
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: vpc_${CommonName}
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: vsw_app_${CommonName}
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: vsw_db_${CommonName}_2
+  VSwitch3:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.2.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: vsw_mq_${CommonName}_3
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: sg-${CommonName}
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        # workbench white list
+        - PortRange: 22/22
+          SourceCidrIp: 47.96.60.0/24,118.31.243.0/24,8.139.112.0/24,8.139.99.192/26
+          IpProtocol: tcp
+  EcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch1
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs_adb
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      Password:
+        Ref: InstancePassword
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch2
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceNetType: Intranet
+      SecurityGroupId:
+        Ref: SecurityGroup
+      DBInstanceStorage: 40
+      Category: Basic
+      MultiAZ: false
+      DBInstanceStorageType: cloud_essd
+      Engine: MySQL
+      EngineVersion: '8.0'
+      DBMappings:
+        - CharacterSetName: utf8mb4
+          DBName: rocketmq_transaction_db
+      SecurityIPList: 192.168.0.0/16
+  Account:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      AccountName:
+        Ref: AccountName
+      AccountType: Super
+      AccountPassword:
+        Ref: DBPassword
+      DBInstanceId:
+        Ref: Database
+  RocketMQ:
+    Type: ALIYUN::ROCKETMQ5::Instance
+    Properties:
+      ProductInfo:
+        MsgProcessSpec: rmq.s1.micro
+      InternetInfo:
+        InternetSpec: disable
+      SubSeriesCode: single_node
+      InstanceName:
+        Fn::Sub: ${CommonName}-mq
+      SeriesCode: standard
+      PaymentType: PayAsYouGo
+      VpcInfo:
+        VpcId:
+          Ref: Vpc
+        VSwitchId:
+          Ref: VSwitch3
+  Topic:
+    Type: ALIYUN::ROCKETMQ5::Topic
+    Properties:
+      InstanceId:
+        Ref: RocketMQ
+      MessageType: TRANSACTION
+      Remark: 用于存储和传输订单相关的业务消息
+      TopicName:
+        Fn::Sub: ROCKETMQ_ORDER_TOPIC
+  ConsumerGroup:
+    Type: ALIYUN::ROCKETMQ5::ConsumerGroup
+    DependsOn:
+      - Topic
+    Properties:
+      ConsumerGroupId:
+        Fn::Sub: ROCKETMQ_LOGISTIC_CONSUMER_GROUP
+      InstanceId:
+        Ref: RocketMQ
+      ConsumeRetryPolicy:
+        RetryPolicy: DefaultRetryPolicy
+        MaxRetryTimes: 5
+      DeliveryOrderType: Concurrently
+  AutoEnableCDT:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: CDT
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 7200
+  RunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn:
+      - ConsumerGroup
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 7200
+      CommandContent:
+        Fn::Sub: |-
+            #!/bin/bash
+            sudo yum -y install java-1.8.0-openjdk-devel.x86_64
+            cat << EOF >> ~/.bash_profile
+            export MYSQL_HOST=${Database.InnerConnectionString}
+            export MYSQL_DB=rocketmq_transaction_db
+            export MYSQL_USER=${AccountName}
+            export MYSQL_PASSWORD=${DBPassword}
+            export APP_DEMO_ROCKETMQ_ENDPOINT=${RocketMQ.VpcEndpoint}
+            export APP_DEMO_ROCKETMQ_USERNAME=${RocketMQ.UserName}
+            export APP_DEMO_ROCKETMQ_PASSWORD=${RocketMQ.Password}
+            export APP_DEMO_USERNAME="${AppDemoAccountName}"
+            export APP_DEMO_PASSWORD="${AppDemoPassword}"
+            export ROS_DEPLOY=true
+            EOF
+            source ~/.bash_profile
+            
+            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/rocketmq-transaction/install.sh|bash
+            ${WaitConditionHandle.CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+Outputs:
+  AppDemoAccountName:
+    Description:
+      en: App demo username
+      zh-cn: 登录演示账户的用户名
+    Value:
+      Ref: AppDemoAccountName
+  Console.Url:
+    Label:
+      zh-cn: Web 访问地址
+      en: The Addresses of Web
+    Description:
+      zh-cn: Web 访问地址。
+      en: The Addresses of Web.
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}/login
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      Fn::Sub:
+        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - InstanceIds
+          Region:
+            Ref: ALIYUN::Region
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: Ecs Configuration
+            zh-cn: ECS 实例配置
+      - Parameters:
+          - DBInstanceClass
+          - AccountName
+          - DBPassword
+        Label:
+          default:
+            en: RDS Configuration
+            zh-cn: RDS 实例配置
+      - Parameters:
+          - AppDemoAccountName
+          - AppDemoPassword
+        Label:
+          default:
+            en: App Demo Account Configuration
+            zh-cn: 登录演示账户配置
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:technical-solution:ai:通过RocketMQ事务消息实现分布式事务-tech_solu_154
