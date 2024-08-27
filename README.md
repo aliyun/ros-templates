@@ -489,6 +489,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml)          | Data transmission from ECS self-built database to RDS database. |
 | [migrate-database-to-cloud.yml](documents/solution/database/migrate-database-to-cloud.yml)             | Migrate self-built database to cloud database. |
 | [rag-application.yml](documents/solution/database/rag-application.yml)             | Quickly build RAG applications using AnalyticDB and Streamlit. |
+| [through-RocketMQ-transaction-messages.yml](documents/solution/database/through-RocketMQ-transaction-messages.yml)             | Distributed transactions are implemented through RocketMQ transaction messages. |
 
 - iot
 

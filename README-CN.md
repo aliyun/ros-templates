@@ -486,6 +486,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml) | 网站数据库平滑迁移上云。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/smowdttc)                                              |
 | [migrate-database-to-cloud.yml](documents/solution/database/migrate-database-to-cloud.yml)             | 自建数据库迁移到云数据库。                                                                                                              |
 | [rag-application.yml](documents/solution/database/rag-application.yml)             | AnalyticDB和通义千问构建RAG应用。 |
+| [through-RocketMQ-transaction-messages.yml](documents/solution/database/through-RocketMQ-transaction-messages.yml)             | 通过RocketMQ事务消息实现分布式事务。 |
 
 - iot
 
