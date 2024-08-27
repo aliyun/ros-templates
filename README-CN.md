@@ -460,6 +460,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [drawing_with_tongyi_wanxiang.yml](documents/solution/ai/drawing_with_tongyi_wanxiang.yml)     | 通义万相的文本绘图与人像美化之旅。 |
 | [drawing_with_tongyi_wanxiang_new.yml](documents/solution/ai/drawing_with_tongyi_wanxiang_new.yml)     | 通义万相的文本绘图与人像美化之旅。 |
 | [AnalyticDB-and-Bailian-system.yml](documents/solution/ai/AnalyticDB-and-Bailian-system.yml)     | AnalyticDB与百炼搭建智能问答系统。 |
+| [pai-rec-deploy-recommendation-solution.yml](documents/solution/ai/pai-rec-deploy-recommendation-solution.yml)     | 使用PAI-Rec部署推荐方案。 |
 
 
 - data-analysis
