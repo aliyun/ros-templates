@@ -1,0 +1,284 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 从服务端获取sts token，并使用sts token生成签名，最后使用此签名上传文件到OSS
+  en: Obtain the STS token from the server, use the STS token to generate a signature, and finally upload the file to OSS using this signature.
+Parameters:
+  SystemDiskCategory:
+    Default: cloud_ssd
+    AllowedValues:
+      - cloud_efficiency
+      - cloud_ssd
+      - cloud
+      - cloud_essd
+      - ephemeral_ssd
+    Type: String
+    Description:
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+    Label:
+      zh-cn: 系统盘类别
+      en: System Disk Category
+  OSSBucketName:
+    Type: String
+    Label:
+      en: NewBucketName
+      zh-cn: 新建存储空间名称
+    Description:
+      en: Bucket names must be globally unique within the scope of OSS. The length
+        is 3~63 characters. Must start and end with a lowercase English letter or
+        number, and can contain lowercase English letters, numbers, and dashes (-).
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: testbucketname-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+  InstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+    Type: String
+    Description:
+      zh-cn: ECS实例类型，进入产品控制台确保当前实例可用, <font><a href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b>查看实例类型</b></font color='blue'></a>
+      en: The ECS instance type,go to the product console to ensure the current instance is available, <font><a href='https://www.alibabacloud.com/help/doc-detail/25378.html' target='_blank'><b>View instance types</b></font color='blue'></a>.
+    Label:
+      zh-cn: ECS实例类型
+      en: ECS Instance Type
+  Password:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    Type: String
+    Description:
+      zh-cn: 可用区Id,</font><a href='https://help.aliyun.com/document_detail/123712.html' target='_blank'><b> 查看可用区信息</b><font color='blue'></a>.
+      en: Available Zone ID,</font><a href='https://www.alibabacloud.com/help/doc-detail/123712.html' target='_blank'><b> View region and zone info</b><font color='blue'></a>.
+    Label:
+      zh-cn: 可用区ID
+      en: Zone ID
+Outputs:
+  UploadPath:
+    Description:
+      zh-cn: 客户端测试页面。可访问该链接测试文件上传。
+      en: Client html page.
+    Value:
+      Fn::Sub:
+        - http://${IP}
+        - IP:
+            Fn::GetAtt:
+              - EcsInstance
+              - PublicIp
+Resources:
+  UploadUser:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: ${OSSBucketName}-${ALIYUN::StackId}-user
+      Policies:
+        - PolicyName:
+            Fn::Join:
+              - '-'
+              - - StackId
+                - Ref: ALIYUN::StackId
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Action:
+                  - sts:AssumeRole
+                Resource:
+                  - '*'
+                Effect: Allow
+  UploadRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      Description: UploadRole
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              RAM:
+                - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+      MaxSessionDuration: 3600
+      Policies:
+        - PolicyName:
+            Fn::Join:
+              - '-'
+              - - StackId2
+                - Ref: ALIYUN::StackId
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Action:
+                  - oss:PutObject
+                Resource:
+                  - Fn::Sub: acs:oss:*:*:${OSSBucketName}/uploads/*
+                Effect: Allow
+      DeletionForce: true
+      RoleName:
+        Fn::Sub: ${OSSBucketName}-${ALIYUN::StackId}-role
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: 8000/8000
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 22/22
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 443/443
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupEgress:
+        - Priority: 1
+          PortRange: '-1/-1'
+          DestCidrIp: 0.0.0.0/0
+          NicType: internet
+          IpProtocol: all
+        - Priority: 1
+          PortRange: '-1/-1'
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+          IpProtocol: all
+      SecurityGroupName:
+        Fn::Sub: ${OSSBucketName}-${ALIYUN::StackId}-sg
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+          - UploadUser
+          - UserName
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName:
+        Fn::Sub: ${OSSBucketName}-${ALIYUN::StackId}-vsw
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+  UploadService:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            # 这里配置安装脚本
+            wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20240628/iylpyv/oss-upload-sts.zip
+            yum install unzip -y
+            unzip -o oss-upload-sts.zip
+            pip3 install Flask
+            pip3 install attr
+            pip3 install yarl
+            pip3 install async_timeout
+            pip3 install idna_ssl
+            pip3 install attrs
+            pip3 install aiosignal
+            pip3 install charset_normalizer
+            pip3 install alibabacloud_tea_openapi
+            pip3 install alibabacloud_sts20150401
+            pip3 install alibabacloud_credentials
+            export ALIBABA_CLOUD_ACCESS_KEY_ID=${AccessKey.AccessKeyId}
+            export ALIBABA_CLOUD_ACCESS_KEY_SECRET=${AccessKey.AccessKeySecret}
+            export YOUR_REGION_ID=${ALIYUN::Region}
+            export YOUR_ROLE_ARN=${UploadRole.Arn}
+            export YOUR_BUCKET=${OSSBucketName}
+            export YOUR_ROLE_SESSION_NAME=oss-upload-sts
+            export YOUR_OSS_REGION="oss-${ALIYUN::Region}"
+            sed -i.bak -e 's/bucket: "<YOUR_BUCKET>"/bucket: "{{ bucket }}"/' -e 's/region: "<YOUR_REGION>"/region: "{{ region }}"/' templates/index.html
+            sed -i "s/return render_template('index.html')/return render_template('index.html', bucket=os.environ.get('YOUR_BUCKET'), region=os.environ.get('YOUR_OSS_REGION'))/" main.py
+
+            nohup python3 main.py > output.log 2>&1 &
+          - OSSBucketName:
+              Ref: OSSBucketName
+      Type: RunShellScript
+      Sync: true
+      InstanceIds:
+        - Ref: EcsInstance
+      Timeout: 3000
+  OSSBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: OSSBucketName
+      CORSConfiguration:
+        CORSRule:
+          - AllowedHeader:
+              - '*'
+            AllowedOrigin:
+              - '*'
+            AllowedMethod:
+              - PUT
+            MaxAgeSeconds: 0
+      DeletionForce: true
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      UserData:
+        Ref: OSSBucketName
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      HostName: EcsInstance
+      SystemDiskSize: '40'
+      ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      AllocatePublicIP: 'true'
+      VSwitchId:
+        Ref: EcsVSwitch
+      Password:
+        Ref: Password
+      InstanceType:
+        Ref: InstanceType
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: ${OSSBucketName}-${ALIYUN::StackId}-vpc
+      CidrBlock: 192.168.0.0/16
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - OSSBucketName
+          - ZoneId
+          - InstanceType
+          - SystemDiskCategory
+          - Password
+    TemplateTags:
+      - acs:document-help:oss:客户端签名直传
