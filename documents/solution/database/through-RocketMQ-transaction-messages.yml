@@ -76,9 +76,6 @@ Parameters:
       en: 'Length 8-30, must contain three(Capital letters, lowercase letters, numbers, @ # $% ^ & * () _ + - = Special symbol in)'
       zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括! @ # $ % ^ & * () _ + - =）'
     AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
-    AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])((?=.*[!@#\$%\^&\*\(\)\-\+])|(?=.*[_\.,:;\-\?]))[a-zA-Z0-9!@#\$%\^&\*\(\)\-\+_\.,:;\-\?]{8,32}$
-    MinLength: '8'
-    MaxLength: '30'
   AppDemoAccountName:
     Type: String
     Label:
@@ -101,9 +98,7 @@ Parameters:
     ConstraintDescription:
       en: 'Length 8-30, must contain three(Capital letters, lowercase letters, numbers, @ # $% ^ & * () _ + - = Special symbol in)'
       zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括! @ # $ % ^ & * () _ + - =）'
-    AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])((?=.*[!@#\$%\^&\*\(\)\-\+])|(?=.*[_\.,:;\-\?]))[a-zA-Z0-9!@#\$%\^&\*\(\)\-\+_\.,:;\-\?]{8,32}$
-    MinLength: '8'
-    MaxLength: '30'
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
 Resources:
   Vpc:
     Type: ALIYUN::ECS::VPC
@@ -120,7 +115,7 @@ Resources:
       ZoneId:
         Ref: ZoneId
       VSwitchName:
-        Fn::Sub: vsw_app_${CommonName}
+        Fn::Sub: vsw_app_01_${CommonName}
   VSwitch2:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -130,7 +125,7 @@ Resources:
       ZoneId:
         Ref: ZoneId
       VSwitchName:
-        Fn::Sub: vsw_db_${CommonName}_2
+        Fn::Sub: vsw_app_02_${CommonName}
   VSwitch3:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -140,7 +135,17 @@ Resources:
       ZoneId:
         Ref: ZoneId
       VSwitchName:
-        Fn::Sub: vsw_mq_${CommonName}_3
+        Fn::Sub: vsw_db_${CommonName}
+  VSwitch4:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.3.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: vsw_mq_${CommonName}
   SecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
@@ -150,26 +155,29 @@ Resources:
         Fn::Sub: sg-${CommonName}
       SecurityGroupIngress:
         - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
+          SourceCidrIp: 0.0.0.0
           IpProtocol: tcp
-        # workbench white list
         - PortRange: 22/22
           SourceCidrIp: 47.96.60.0/24,118.31.243.0/24,8.139.112.0/24,8.139.99.192/26
           IpProtocol: tcp
   EcsInstance:
     Type: ALIYUN::ECS::InstanceGroup
+    Count: 2
     Properties:
       VpcId:
         Ref: Vpc
       ZoneId:
         Ref: ZoneId
       VSwitchId:
-        Ref: VSwitch1
+        Fn::Select:
+          - Ref: ALIYUN::Index
+          - - Ref: VSwitch1
+            - Ref: VSwitch2
       SecurityGroupId:
         Ref: SecurityGroup
       ImageId: aliyun_3_x64_20G_alibase_
       InstanceName:
-        Fn::Sub: ${CommonName}-ecs_adb
+        Fn::Sub: ${CommonName}-ecs-${ALIYUN::Index}
       InstanceType:
         Ref: InstanceType
       SystemDiskCategory: cloud_essd
@@ -184,7 +192,7 @@ Resources:
       VpcId:
         Ref: Vpc
       VSwitchId:
-        Ref: VSwitch2
+        Ref: VSwitch3
       DBInstanceClass:
         Ref: DBInstanceClass
       DBInstanceNetType: Intranet
@@ -226,7 +234,7 @@ Resources:
         VpcId:
           Ref: Vpc
         VSwitchId:
-          Ref: VSwitch3
+          Ref: VSwitch4
   Topic:
     Type: ALIYUN::ROCKETMQ5::Topic
     Properties:
@@ -255,45 +263,56 @@ Resources:
       ServiceName: CDT
   WaitConditionHandle:
     Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: {}
+    Properties: { }
   RosWaitCondition:
     Type: ALIYUN::ROS::WaitCondition
     Properties:
-      Count: 1
+      Count: 2
       Handle:
         Ref: WaitConditionHandle
       Timeout: 7200
   RunCommand:
     Type: ALIYUN::ECS::RunCommand
+    Count: 2
     DependsOn:
       - ConsumerGroup
     Properties:
       InstanceIds:
-        Fn::GetAtt:
-          - EcsInstance
-          - InstanceIds
+        Fn::Select:
+          - Ref: ALIYUN::Index
+          - Fn::GetAtt:
+              - EcsInstance
+              - InstanceIds
       Type: RunShellScript
       Sync: true
       Timeout: 7200
       CommandContent:
         Fn::Sub: |-
-            #!/bin/bash
-            cat << EOF >> ~/.bash_profile
-            export MYSQL_HOST=${Database.InnerConnectionString}
-            export MYSQL_DB=rocketmq_transaction_db
-            export MYSQL_USER=${AccountName}
-            export MYSQL_PASSWORD=${DBPassword}
-            export APP_DEMO_ROCKETMQ_ENDPOINT=${RocketMQ.VpcEndpoint}
-            export APP_DEMO_ROCKETMQ_USERNAME=${RocketMQ.UserName}
-            export APP_DEMO_ROCKETMQ_PASSWORD=${RocketMQ.Password}
-            export APP_DEMO_USERNAME="${AppDemoAccountName}"
-            export APP_DEMO_PASSWORD="${AppDemoPassword}"
-            export ROS_DEPLOY=true
-            EOF
-            source ~/.bash_profile
-            
-            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/rocketmq-transaction/install.sh|bash
-            ${WaitConditionHandle.CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+          #!/bin/bash
+          if [ ${ALIYUN::Index} -eq 0 ]; then
+            # 消费者
+            is_consumer=true
+          else
+            # 生产者
+            is_consumer=false
+          fi
+          cat << EOF >> ~/.bash_profile
+          export MYSQL_HOST=${Database.InnerConnectionString}
+          export MYSQL_DB=rocketmq_transaction_db
+          export MYSQL_USER=${AccountName}
+          export MYSQL_PASSWORD=${DBPassword}
+          export APP_DEMO_ROCKETMQ_ENDPOINT=${RocketMQ.VpcEndpoint}
+          export APP_DEMO_ROCKETMQ_USERNAME=${RocketMQ.UserName}
+          export APP_DEMO_ROCKETMQ_PASSWORD=${RocketMQ.Password}
+          export APP_DEMO_USERNAME="${AppDemoAccountName}"
+          export APP_DEMO_PASSWORD="${AppDemoPassword}"
+          export IS_CONSUMER=$is_consumer
+          export ROS_DEPLOY=true
+          EOF
+          source ~/.bash_profile
+          
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/rocketmq-transaction/install.sh|bash
+          ${WaitConditionHandle.CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
 Outputs:
   AppDemoAccountName:
     Description:
@@ -314,9 +333,11 @@ Outputs:
         - ServerAddress:
             Fn::Select:
               - 0
-              - Fn::GetAtt:
-                  - EcsInstance
-                  - PublicIps
+              - Fn::Select:
+                  - 1
+                  - Fn::GetAtt:
+                      - EcsInstance
+                      - PublicIps
   EcsLoginAddress:
     Description:
       zh-cn: ECS登录地址。
@@ -327,9 +348,11 @@ Outputs:
         - InstanceId:
             Fn::Select:
               - 0
-              - Fn::GetAtt:
-                  - EcsInstance
-                  - InstanceIds
+              - Fn::Select:
+                  - 1
+                  - Fn::GetAtt:
+                      - EcsInstance
+                      - InstanceIds
           Region:
             Ref: ALIYUN::Region
 Metadata:
