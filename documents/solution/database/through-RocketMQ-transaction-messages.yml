@@ -271,15 +271,14 @@ Resources:
       Handle:
         Ref: WaitConditionHandle
       Timeout: 7200
-  RunCommand:
+  ProductRunCommand:
     Type: ALIYUN::ECS::RunCommand
-    Count: 2
     DependsOn:
       - ConsumerGroup
     Properties:
       InstanceIds:
         Fn::Select:
-          - Ref: ALIYUN::Index
+          - 1
           - Fn::GetAtt:
               - EcsInstance
               - InstanceIds
@@ -289,13 +288,6 @@ Resources:
       CommandContent:
         Fn::Sub: |-
           #!/bin/bash
-          if [ ${ALIYUN::Index} -eq 0 ]; then
-            # 消费者
-            is_consumer=true
-          else
-            # 生产者
-            is_consumer=false
-          fi
           cat << EOF >> ~/.bash_profile
           export MYSQL_HOST=${Database.InnerConnectionString}
           export MYSQL_DB=rocketmq_transaction_db
@@ -306,11 +298,46 @@ Resources:
           export APP_DEMO_ROCKETMQ_PASSWORD=${RocketMQ.Password}
           export APP_DEMO_USERNAME="${AppDemoAccountName}"
           export APP_DEMO_PASSWORD="${AppDemoPassword}"
-          export IS_CONSUMER=$is_consumer
+          export IS_CONSUMER=false
           export ROS_DEPLOY=true
           EOF
           source ~/.bash_profile
           
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/rocketmq-transaction/install.sh|bash
+          ${WaitConditionHandle.CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+  ConsumerRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn:
+      - ConsumerGroup
+      - ProductRunCommand
+    Properties:
+      InstanceIds:
+        Fn::Select:
+          - 0
+          - Fn::GetAtt:
+              - EcsInstance
+              - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 7200
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          cat << EOF >> ~/.bash_profile
+          export MYSQL_HOST=${Database.InnerConnectionString}
+          export MYSQL_DB=rocketmq_transaction_db
+          export MYSQL_USER=${AccountName}
+          export MYSQL_PASSWORD=${DBPassword}
+          export APP_DEMO_ROCKETMQ_ENDPOINT=${RocketMQ.VpcEndpoint}
+          export APP_DEMO_ROCKETMQ_USERNAME=${RocketMQ.UserName}
+          export APP_DEMO_ROCKETMQ_PASSWORD=${RocketMQ.Password}
+          export APP_DEMO_USERNAME="${AppDemoAccountName}"
+          export APP_DEMO_PASSWORD="${AppDemoPassword}"
+          export IS_CONSUMER=true
+          export ROS_DEPLOY=true
+          EOF
+          source ~/.bash_profile
+
           curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/rocketmq-transaction/install.sh|bash
           ${WaitConditionHandle.CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
 Outputs:
