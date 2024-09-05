@@ -1,0 +1,500 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: High-availability architecture on the cloud-Basic version.
+  zh-cn: 云上高可用架构-基础版。
+Parameters:
+  CommonName:
+    Type: String
+    Default: high-availability
+  ZoneId1:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId2
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区1
+  ZoneId2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId1
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区2
+  InstanceType1:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+      DefaultValueStrategy: recent
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格1
+  InstanceType2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+      DefaultValueStrategy: recent
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格2
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+  DBUserName:
+    Type: String
+    ConstraintDescription:
+      en: >-
+        Consist of 2 to 32 characters of lowercase letters, underline. 
+        Must begin with a letter and be end with an alphanumeric character
+      zh-cn: >-
+        由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头。
+    Label:
+      zh-cn: RDS数据库账号
+      en: RDS DB Username
+    Default: high_availability
+    AllowedPattern: '^[a-z][a-z0-9_]{0,31}$'
+  DBPassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        RDS user password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        数据库账号密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: RDS Instance Password
+      zh-cn: RDS数据库密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-='
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: RDS Instance Class
+      zh-cn: RDS实例规格
+    AssociationProperty: 'ALIYUN::RDS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      ZoneId:
+        Ref: ZoneId
+      EngineVersion: '8.0'
+      DBInstanceStorageType: cloud_essd
+      Engine: MySQL
+      Category: HighAvailability
+  EnableCDT:
+    Type: Boolean
+    Label:
+      en: EnableCDT
+      zh-cn: 是否开通 CDT
+    Default: false
+Conditions:
+  EnableCDT:
+    Fn::Equals:
+      - Ref: EnableCDT
+      - true
+Resources:
+  AutoEnableCDT:
+    Type: 'ALIYUN::ROS::AutoEnableService'
+    Condition: EnableCDT
+    Properties:
+      ServiceName: CDT
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch1:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  VSwitch2:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.2.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  VSwitch3:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.3.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  VSwitch4:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.4.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  VSwitch5:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.5.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  VSwitch6:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.6.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 443/443
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance1:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchId:
+        Ref: VSwitch1
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_20240528.vhd
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs-1
+      InstanceType:
+        Ref: InstanceType1
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 0
+      Password:
+        Ref: InstancePassword
+  EcsInstance2:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchId:
+        Ref: VSwitch2
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_20240528.vhd
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs-2
+      InstanceType:
+        Ref: InstanceType2
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 0
+      Password:
+        Ref: InstancePassword
+  Alb:
+    Type: 'ALIYUN::ALB::LoadBalancer'
+    Properties:
+      LoadBalancerName:
+        Fn::Sub: ${CommonName}-alb
+      LoadBalancerEdition: Basic
+      VpcId:
+        Ref: Vpc
+      LoadBalancerBillingConfig:
+        PayType: PostPay
+      AddressType: Internet
+      AddressAllocatedMode: Fixed
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId1
+          VSwitchId:
+            Ref: VSwitch3
+        - ZoneId:
+            Ref: ZoneId2
+          VSwitchId:
+            Ref: VSwitch4
+  AlbServerGroup:
+    Type: 'ALIYUN::ALB::ServerGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ServerGroupType: Instance
+      ServerGroupName:
+        Fn::Sub: ${CommonName}-server-group
+      HealthCheckConfig:
+        HealthCheckConnectPort: 80
+        HealthCheckCodes:
+          - http_2xx
+          - http_3xx
+        HealthCheckProtocol: HTTP
+        HealthCheckEnabled: true
+        HealthCheckPath: /
+      StickySessionConfig:
+        StickySessionEnabled: false
+  AlbBackendServerAttachment:
+    Type: 'ALIYUN::ALB::BackendServerAttachment'
+    Properties:
+      ServerGroupId:
+        Ref: AlbServerGroup
+      Servers:
+        - ServerType: Ecs
+          ServerId:
+            Ref: EcsInstance1
+          Port: 80
+        - ServerType: Ecs
+          ServerId:
+            Ref: EcsInstance2
+          Port: 80
+  AlbListener:
+    Type: 'ALIYUN::ALB::Listener'
+    Properties:
+      ListenerPort: 80
+      DefaultActions:
+        - Type: ForwardGroup
+          ForwardGroupConfig:
+            ServerGroupTuples:
+              - ServerGroupId:
+                  Ref: AlbServerGroup
+      LoadBalancerId:
+        Ref: Alb
+      ListenerProtocol: HTTP
+  RdsInstance:
+    Type: 'ALIYUN::RDS::DBInstance'
+    Properties:
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      ZoneId:
+        Ref: ZoneId1
+      DBInstanceStorage: 40
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      VSwitchId:
+        Ref: VSwitch5
+      Engine: MySQL
+      VpcId:
+        Ref: Vpc
+      SlaveZoneIds:
+        - Auto
+      EngineVersion: '8.0'
+      SecurityIPList: '192.168.0.0/16'
+      MasterUsername:
+        Ref: DBUserName
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUserType: Super
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      CharacterSetName: utf8mb4
+      DBInstanceId:
+        Ref: RdsInstance
+      DBName: high_availability
+  NatGateway:
+    Type: 'ALIYUN::VPC::NatGateway'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch6
+      NatGatewayName:
+        Fn::Sub: ${CommonName}-nat
+      InternetChargeType: PayByLcu
+      EipBindMode: NAT
+  NatEip:
+    Type: 'ALIYUN::VPC::EIP'
+    Properties:
+      Name:
+        Fn::Sub: ${CommonName}-nat-eip
+      DeletionProtection: false
+      Isp: BGP
+      Bandwidth: 10
+      InternetChargeType: PayByTraffic
+  NatEipAssociation:
+    Type: 'ALIYUN::VPC::EIPAssociation'
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: NatEip
+  SnatEntry:
+    Type: 'ALIYUN::VPC::SnatEntry'
+    Properties:
+      SnatEntryName: public-network-access-in-vpc
+      SnatTableId:
+        Fn::GetAtt:
+          - NatGateway
+          - SNatTableId
+      SnatIp:
+        Fn::GetAtt:
+          - NatEipAssociation
+          - EipAddress
+      SourceCIDR: 0.0.0.0/0
+  PrepareData:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance1
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          
+          yum install -y mysql
+          
+          mkdir /data
+          cat << "EOF" > /data/script.sql
+          -- script.sql
+          USE high_availability;
+          CREATE TABLE `todo_list` (
+          `id` bigint NOT NULL COMMENT 'id',
+          `title` varchar(128) NOT NULL COMMENT 'title',
+          `desc` text NOT NULL COMMENT 'description',
+          `status` varchar(128) NOT NULL COMMENT 'status 未开始、进行中、已完成、已取消',
+          `priority` varchar(128) NOT NULL COMMENT 'priority 高、中、低',
+          `expect_time` datetime COMMENT 'expect time',
+          `actual_completion_time` datetime COMMENT 'actual completion time',
+          `gmt_created` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'create time',
+          `gmt_modified` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'modified time',
+          PRIMARY KEY (`id`)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+          ;
+          INSERT INTO todo_list
+          (id, title, `desc`, `status`, priority, expect_time)
+          value(1,  "创建一个应用", "使用阿里云解决方案搭建一个应用", "进行中", "高", "2024-04-01 00:00:00")
+          
+          EOF
+          
+          mysql -h${RdsInstance.InnerConnectionString} -u${DBUserName} -p${DBPassword} < /data/script.sql
+  InstallApp:
+    Type: 'ALIYUN::ECS::RunCommand'
+    DependsOn:
+     - PrepareData
+     - SnatEntry
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance1
+        - Ref: EcsInstance2
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+
+          cat << EOF >> ~/.bash_profile
+          export APPLETS_RDS_ENDPOINT=${RdsInstance.InnerConnectionString}
+          export APPLETS_RDS_USER=${DBUserName}
+          export APPLETS_RDS_PASSWORD=${DBPassword}
+          export APPLETS_RDS_DB_NAME=high_availability
+          export ROS_DEPLOY=true
+          EOF
+
+          source ~/.bash_profile
+
+          IMAGE_NAME="icms-default-registry.cn-hangzhou.cr.aliyuncs.com/solution/cloud-demo:latest" /bin/bash -c "$(curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/tech-solution/install-hablog.sh)"
+Outputs:
+  Console.WebUrl:
+    Description:
+      zh-cn: Web 访问地址。
+      en: The Addresses of Web.
+    Label:
+      zh-cn: Web 访问地址
+      en: Web Address
+    Value:
+      'Fn::Sub': 'http://${Alb.DNSName}'
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId1
+          - ZoneId2
+          - InstanceType1
+          - InstanceType2
+          - InstancePassword
+        Label:
+          default:
+            zh-cn: ECS 配置
+            en: ECS Configuration
+      - Parameters:
+          - DBUserName
+          - DBPassword
+          - DBInstanceClass
+        Label:
+          default:
+            zh-cn: RDS 数据库配置
+            en: RDS Configuration
+      - Parameters:
+          - EnableCDT
+        Label:
+          default:
+            zh-cn: 其他配置
+            en: Other Configuration
+    TemplateTags:
+      - acs:technical-solution:high-availability-architecture:云上高可用架构-基础版-tech_solu_133
+    Hidden:
+      - CommonName

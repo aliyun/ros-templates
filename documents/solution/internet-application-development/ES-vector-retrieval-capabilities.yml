@@ -1,0 +1,250 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  CommonName:
+    Type: String
+    Default: Elasticsearch
+  AppUserName:
+    ConstraintDescription:
+      zh-cn: 3 到 63 个字母组成。
+      en: 3 to 63 letters.
+    Description:
+      zh-cn: 在浏览器中登录示例应用程序时的用户名。
+      en: Username when logging into the sample application in the browser.
+    Label:
+      zh-cn: 登录用户名
+      en: Login Username
+    AllowedPattern: '^[a-zA-Z-]{3,63}$'
+    Type: String
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: demo-user-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+  AppPassword:
+    Type: String
+    NoEcho: true
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        在浏览器中登录示例应用程序时的密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  InstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
+  ElasticsearchPassword:
+    NoEcho: true
+    Type: String
+    Label:
+      en: Elasticsearch Instance Password
+      zh-cn: Elasticsearch实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, !@#$%^&*()_+-= Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-= 中的特殊符号）
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          default: ECS
+      - Parameters:
+          - ElasticsearchPassword
+        Label:
+          default: Elasticsearch
+      - Parameters:
+          - AppUserName
+          - AppPassword
+        Label:
+          default: APP
+    TemplateTags:
+      - acs:technical-solution:ai:使用Elasticsearch的向量检索能力进行个性化推荐-tech_solu_153
+    Hidden:
+      - CommonName
+Outputs:
+  Console@DemoUrl:
+    Description:
+      zh-cn: 应用程序访问域名。
+      en: URL of App.
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}/elasticsearch-demo
+        - PublicIp:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
+Resources:
+  InstallApp:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 7200
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash          
+          echo "#########################"
+          echo "# Install JDK"
+          echo "#########################"
+          cat << EOF >> ~/.bash_profile
+          export DEMO_ES_HOST='${Elasticsearch.Domain}'
+          export DEMO_ES_PORT=9200
+          export DEMO_ES_USERNAME=elastic
+          export DEMO_ES_PASSWORD='${ElasticsearchPassword}'
+          
+          export DEMO_USERNAME='${AppUserName}'
+          export DEMO_PASSWORD='${AppPassword}'
+          export ROS_DEPLOY=true
+          EOF
+          
+          source ~/.bash_profile
+          
+          echo "#########################"
+          echo "# Install App"
+          echo "#########################"
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/elasticsearch-server/install.sh|bash
+          
+          echo "#########################"
+          echo "#App Install Success"
+          echo "#########################"
+          
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: { }
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3720
+      Count: 1
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 100
+          PortRange: 22/22
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 100
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  EcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Fn::GetAtt:
+          - EcsVpc
+          - VpcId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      VSwitchId:
+        Ref: EcsVSwitch
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthOut: 5
+      ZoneId:
+        Ref: ZoneId
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+      CidrBlock: 192.168.0.0/16
+  Elasticsearch:
+    Type: ALIYUN::ElasticSearch::Instance
+    Properties:
+      InstanceChargeType: PostPaid
+      EnablePublic: true
+      KibanaNode:
+        Spec: elasticsearch.n4.small
+      VSwitchId:
+        Ref: EcsVSwitch
+      Version: 7.10_with_X-Pack
+      InstanceCategory: IS
+      ZoneCount: 1
+      ZoneId:
+        Ref: ZoneId
+      DataNode:
+        DiskType: cloud_essd
+        DiskSize: 20
+        Amount: 3
+        Spec: elasticsearch.sn1ne.large
+      Password:
+        Ref: ElasticsearchPassword

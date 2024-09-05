@@ -459,6 +459,8 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [ComfyUI-by-fc.yml](documents/solution/ai/ComfyUI-by-fc.yml)     | 通过函数计算部署ComfyUI以实现一个AIGC图像生成系统。  |
 | [drawing_with_tongyi_wanxiang.yml](documents/solution/ai/drawing_with_tongyi_wanxiang.yml)     | 通义万相的文本绘图与人像美化之旅。 |
 | [drawing_with_tongyi_wanxiang_new.yml](documents/solution/ai/drawing_with_tongyi_wanxiang_new.yml)     | 通义万相的文本绘图与人像美化之旅。 |
+| [AnalyticDB-and-Bailian-system.yml](documents/solution/ai/AnalyticDB-and-Bailian-system.yml)     | AnalyticDB与百炼搭建智能问答系统。 |
+| [pai-rec-deploy-recommendation-solution.yml](documents/solution/ai/pai-rec-deploy-recommendation-solution.yml)     | 使用PAI-Rec部署推荐方案。 |
 
 
 - data-analysis
@@ -471,6 +473,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [user-operations-analytics.yml](./documents/solution/data-analysis/user-operations-analytics.yml)                     | 基于AnalyticDB MySQL湖仓版的用户运营分析实践。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/adbmysql_uoap)   |
 | [cloud-native-enterprise-data-lake.yml](./documents/solution/data-analysis/cloud-native-enterprise-data-lake.yml)     | 云原生企业级数据湖。   ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/datalake)      |
 | [OLAP-analysis-based-on-Hologres.yml](./documents/solution/data-analysis/OLAP-analysis-based-on-Hologres.yml)     | 基于Hologres轻量高性能OLAP分析。                                                                               |
+| [quickly-build-large-screen.yml](./documents/solution/data-analysis/quickly-build-large-screen.yml)     | 快速搭建企业经营大屏。                                                                          |
 
 - database
 
@@ -484,6 +487,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml) | 网站数据库平滑迁移上云。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/smowdttc)                                              |
 | [migrate-database-to-cloud.yml](documents/solution/database/migrate-database-to-cloud.yml)             | 自建数据库迁移到云数据库。                                                                                                              |
 | [rag-application.yml](documents/solution/database/rag-application.yml)             | AnalyticDB和通义千问构建RAG应用。 |
+| [through-RocketMQ-transaction-messages.yml](documents/solution/database/through-RocketMQ-transaction-messages.yml)             | 通过RocketMQ事务消息实现分布式事务。 |
 
 - iot
 
@@ -537,7 +541,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | 模板                                                                                                                                   | 说明                     |
 |--------------------------------------------------------------------------------------------------------------------------------------|------------------------|
 | [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml) | 在ECS实例（CentOS 7）上搭建WordPress。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
-| [migrate-prometheus-to-cloud.yml](documents/solution/cloud-migration/migrate-prometheus-to-cloud.yml) | 自建Prometheus迁移云上Prometheus托管服务 ｜
+| [migrate-prometheus-to-cloud.yml](documents/solution/cloud-migration/migrate-prometheus-to-cloud.yml) | 自建Prometheus迁移云上Prometheus托管服务 ｜ |
 | [migrate-kafka-to-cloud.yml](documents/solution/cloud-migration/migrate-kafka-to-cloud.yml) | 自建Kafka迁移至云消息队列Kafka版。   |
 | [migrate-rabbitmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rabbitmq-to-cloud.yml) | 自建RabbitMQ迁移至云消息队列RabbitMQ版。   |
 | [migrate-rocketmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rocketmq-to-cloud.yml) | 自建RocketMQ集群迁移至云消息队列RocketMQ版。   |
@@ -587,6 +591,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [rapidly-enterprise-portal.yaml](documents/solution/internet-application-development/rapidly-enterprise-portal.yaml)                                                                   | 快速搭建企业门户网站。 |
 | [serverless-rabbitmq.yaml](documents/solution/internet-application-development/serverless-rabbitmq.yaml)                                                                                                    | 云消息队列 RabbitMQ 版 Serverless 系列优势和实践。 |
 | [websites-from-HTTP-to-HTTPS.yaml](documents/solution/internet-application-development/websites-from-HTTP-to-HTTPS.yaml)                                                                    | 从 HTTP 到 HTTPS 让网站更安全。 |
+| [ES-vector-retrieval-capabilities.yml](documents/solution/internet-application-development/ES-vector-retrieval-capabilities.yml)     | 使用Elasticsearch的向量检索能力进行个性化推荐。 |
 
 
 - security-and-compliance
