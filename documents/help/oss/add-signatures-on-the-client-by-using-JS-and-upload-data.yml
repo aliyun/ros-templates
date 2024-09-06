@@ -1,225 +1,254 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 创建ECS实例与OSS桶，配置安全组和VPC，通过JavaScript客户端签名实现OSS文件直传，包含用户访问控制与HTML测试页面。
-  en: Create ECS instances and OSS buckets, configure security groups and VPC, implement
-    direct file upload to OSS via JavaScript client-side signature, including user
-    access control and an HTML test page.
+  zh-cn: 从服务端获取sts token，并使用sts token生成签名，最后使用此签名上传文件到OSS
+  en: Obtain the STS token from the server, use the STS token to generate a signature, and finally upload the file to OSS using this signature.
 Parameters:
   OSSBucketName:
     Type: String
     Label:
-      en: OSS bucket name
-      zh-cn: 对象存储空间的名称
+      en: NewBucketName
+      zh-cn: 新建存储空间名称
     Description:
-      en: Name of OSS bucket, [2, 128] English.
-      zh-cn: 对象存储空间的名称，[2，128]英文。
-    Default: examplebucket
-    AllowedPattern: '[-_a-zA-Z0-9]{2,128}$'
-    MinLength: 2
-    MaxLength: 128
+      en: Bucket names must be globally unique within the scope of OSS. The length
+        is 3~63 characters. Must start and end with a lowercase English letter or
+        number, and can contain lowercase English letters, numbers, and dashes (-).
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: test-bucketname-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
   ZoneId:
     Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
     Label:
-      en: Zone ID
-      zh-cn: 可用区ID
-    Description:
-      en: Available Zone ID,</font><a href='https://www.alibabacloud.com/help/doc-detail/123712.html'
-        target='_blank'><b> View region and zone info</b><font color='blue'></a>.
-      zh-cn: 可用区Id,</font><a href='https://help.aliyun.com/document_detail/123712.html'
-        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>.
-    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+      en: Availability Zone
+      zh-cn: 可用区
   InstanceType:
     Type: String
-    Label:
-      en: ECS Instance Type
-      zh-cn: ECS实例类型
-    Description:
-      en: The ECS instance type,go to the product console to ensure the current instance
-        is available, <font><a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
-        target='_blank'><b>View instance types</b></font color='blue'></a>.
-      zh-cn: ECS实例类型，进入产品控制台确保当前实例可用, <font><a href='https://help.aliyun.com/document_detail/25378.html'
-        target='_blank'><b>查看实例类型</b></font color='blue'></a>
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
-      ZoneId: ZoneId
-  SystemDiskCategory:
-    Type: String
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
     Label:
-      en: System Disk Category
-      zh-cn: 系统盘类别
-    Description:
-      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
-        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
-        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
-        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
-        SSD Cloud Disk</font>]'
-      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
-        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
-        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
-        <font color=''green''>本地SSD盘</font>]'
-    Default: cloud_ssd
-    AllowedValues:
-    - cloud_efficiency
-    - cloud_ssd
-    - cloud
-    - cloud_essd
-    - ephemeral_ssd
+      en: Instance Type
+      zh-cn: 实例规格
   Password:
-    Type: String
-    Label:
-      en: Instance Password
-      zh-cn: 实例密码
-    Description:
-      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
-        letter and number. <br> special characters include（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/.
-      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：（）'~！@#$%^&*_-+=|{}[]:;'<>,.?/
-    ConstraintDescription:
-      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
-        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
-      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
-    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
-    MinLength: 8
-    MaxLength: 30
     NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
 Resources:
-  Vpc:
-    Type: ALIYUN::ECS::VPC
+  UploadUser:
+    Type: ALIYUN::RAM::User
     Properties:
-      CidrBlock: 10.0.0.0/8
-      VpcName:
-        Fn::Join:
-        - _
-        - - Vpc
-          - Ref: ALIYUN::StackId
-  SecurityGroup:
+      UserName:
+        Fn::Sub: ${OSSBucketName}-${ALIYUN::StackId}-user
+      Policies:
+        - PolicyName:
+            Fn::Join:
+              - '-'
+              - - StackId
+                - Ref: ALIYUN::StackId
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Action:
+                  - sts:AssumeRole
+                Resource:
+                  - '*'
+                Effect: Allow
+  UploadRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      Description: UploadRole
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              RAM:
+                - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+      MaxSessionDuration: 3600
+      Policies:
+        - PolicyName:
+            Fn::Join:
+              - '-'
+              - - StackId2
+                - Ref: ALIYUN::StackId
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Action:
+                  - oss:PutObject
+                Resource:
+                  - Fn::Sub: acs:oss:*:*:${OSSBucketName}/uploads/*
+                Effect: Allow
+      DeletionForce: true
+      RoleName:
+        Fn::Sub: ${OSSBucketName}-${ALIYUN::StackId}-role
+  EcsSecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
     Properties:
-      VpcId:
-        Ref: Vpc
-      SecurityGroupName:
-        Fn::Join:
-        - _
-        - - SecurityGroup
-          - Ref: ALIYUN::StackId
-      SecurityGroupType: normal
       SecurityGroupIngress:
-      - PortRange: -1/-1
-        IpProtocol: all
-        SourceCidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-      - PortRange: -1/-1
-        IpProtocol: all
-        DestCidrIp: 0.0.0.0/0
-  VSwitch:
+        - Priority: 1
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Sub: ${OSSBucketName}-${ALIYUN::StackId}-sg
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+          - UploadUser
+          - UserName
+  EcsVSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
+      VSwitchName:
+        Fn::Sub: ${OSSBucketName}-${ALIYUN::StackId}-vsw
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
       ZoneId:
         Ref: ZoneId
-      VpcId:
-        Fn::GetAtt:
-        - Vpc
-        - VpcId
-      CidrBlock: 10.0.10.0/24
-    DependsOn: Vpc
-  WebServer:
-    Type: ALIYUN::ECS::Instance
+  UploadService:
+    Type: ALIYUN::ECS::RunCommand
     Properties:
-      ZoneId:
-        Ref: ZoneId
-      VpcId:
-        Ref: Vpc
-      VSwitchId:
-        Ref: VSwitch
-      SecurityGroupId:
-        Ref: SecurityGroup
-      ImageId: ubuntu
-      AllocatePublicIP: true
-      InstanceType:
-        Ref: InstanceType
-      Password:
-        Ref: Password
-      SystemDiskCategory:
-        Ref: SystemDiskCategory
-      SystemDiskDiskName: SystemDisk
-      SystemDiskSize: 40
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            # 这里配置安装脚本
+            wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20240628/iylpyv/oss-upload-sts.zip
+            yum install unzip -y
+            unzip -o oss-upload-sts.zip
+            pip3 install Flask
+            pip3 install attr
+            pip3 install yarl
+            pip3 install async_timeout
+            pip3 install idna_ssl
+            pip3 install attrs
+            pip3 install aiosignal
+            pip3 install charset_normalizer
+            pip3 install alibabacloud_tea_openapi
+            pip3 install alibabacloud_sts20150401
+            pip3 install alibabacloud_credentials
+            export ALIBABA_CLOUD_ACCESS_KEY_ID=${AccessKey.AccessKeyId}
+            export ALIBABA_CLOUD_ACCESS_KEY_SECRET=${AccessKey.AccessKeySecret}
+            export YOUR_REGION_ID=${ALIYUN::Region}
+            export YOUR_ROLE_ARN=${UploadRole.Arn}
+            export YOUR_BUCKET=${OSSBucketName}
+            export YOUR_ROLE_SESSION_NAME=oss-upload-sts
+            export YOUR_OSS_REGION="oss-${ALIYUN::Region}"
+            sed -i.bak -e 's/bucket: "<YOUR_BUCKET>"/bucket: "{{ bucket }}"/' -e 's/region: "<YOUR_REGION>"/region: "{{ region }}"/' templates/index.html
+            sed -i "s/return render_template('index.html')/return render_template('index.html', bucket=os.environ.get('YOUR_BUCKET'), region=os.environ.get('YOUR_OSS_REGION'))/" main.py
+
+            nohup python3 main.py > output.log 2>&1 &
+          - OSSBucketName:
+              Ref: OSSBucketName
+      Type: RunShellScript
+      Sync: true
+      InstanceIds:
+        - Ref: EcsInstance
+      Timeout: 3000
   OSSBucket:
     Type: ALIYUN::OSS::Bucket
     Properties:
       BucketName:
         Ref: OSSBucketName
-      DeletionForce: true
       CORSConfiguration:
         CORSRule:
-        - AllowedHeader:
-          - '*'
-          AllowedMethod:
-          - POST
-          AllowedOrigin:
-          - '*'
-          MaxAgeSeconds: 0
-  InstanceRunCommand:
-    Type: ALIYUN::ECS::RunCommand
+          - AllowedHeader:
+              - '*'
+            AllowedOrigin:
+              - '*'
+            AllowedMethod:
+              - PUT
+            MaxAgeSeconds: 0
+      DeletionForce: true
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
     Properties:
-      InstanceIds:
-      - Ref: WebServer
-      Type: RunShellScript
-      CommandContent:
-        Fn::Sub:
-        - |
-          #!/bin/bash
-          sudo apt update
-          sudo apt-get install -y unzip
-          sudo apt-get install -y apache2
-
-          cd /var/www/html
-          wget https://gosspublic.alicdn.com/doc/oss-h5-upload-js-direct.zip
-          unzip oss-h5-upload-js-direct.zip
-          rm oss-h5-upload-js-direct.zip
-          cd oss-h5-upload-js-direct
-          sed -i 's/6MKOqxGiGU4AUk44/${AccessKey.AccessKeyId}/' upload.js
-          sed -i 's/ufu7nS8kS59awNihtjSonMETLI0KLy/${AccessKey.AccessKeySecret}/' upload.js
-          sed -i 's/post-test.oss-cn-hangzhou/${OSSBucketName}.oss-${RegionId}/' upload.js
-          sed -i 's/2020-01-01T12:00:00.000Z/2040-01-01T12:00:00.000Z/' upload.js
-          mv * /var/www/html
-        - OSSBucketName:
-            Ref: OSSBucketName
-          RegionId:
-            Ref: ALIYUN::Region
-      Timeout: 3600
-      Sync: true
-  User:
-    Type: ALIYUN::RAM::User
+      UserData:
+        Ref: OSSBucketName
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      HostName: EcsInstance
+      SystemDiskSize: '40'
+      ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      AllocatePublicIP: 'true'
+      VSwitchId:
+        Ref: EcsVSwitch
+      Password:
+        Ref: Password
+      InstanceType:
+        Ref: InstanceType
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
     Properties:
-      UserName:
-        Fn::Sub: create_by_document-${ALIYUN::StackId}
-      PolicyAttachments:
-        System:
-        - AliyunOSSFullAccess
-  AccessKey:
-    Type: ALIYUN::RAM::AccessKey
-    Properties:
-      UserName:
-        Ref: User
-Outputs:
-  UploadPath:
-    Description:
-      en: Client html page.
-      zh-cn: 客户端测试页面。可访问该链接测试文件上传。
-    Value:
-      Fn::Sub:
-      - http://${IP}
-      - IP:
-          Fn::GetAtt:
-          - WebServer
-          - PublicIp
+      VpcName:
+        Fn::Sub: ${OSSBucketName}-${ALIYUN::StackId}-vpc
+      CidrBlock: 192.168.0.0/16
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-    - Parameters:
-      - OSSBucketName
-      - ZoneId
-      - InstanceType
-      - SystemDiskCategory
-      - Password
+      - Parameters:
+          - OSSBucketName
+          - ZoneId
+          - InstanceType
+          - Password
     TemplateTags:
-    - acs:document-help:oss:JavaScript客户端签名直传
+      - acs:document-help:oss:客户端签名直传
+Outputs:
+  Console.Url:
+    Label:
+      zh-cn: Url
+      en: Url
+    Description:
+      zh-cn: 客户端测试页面。可访问该链接测试文件上传。
+      en: Client html page.
+    Value:
+      Fn::Sub:
+        - http://${IP}
+        - IP:
+            Fn::GetAtt:
+              - EcsInstance
+              - PublicIp
+  Console.Bucket:
+    Label:
+      zh-cn: Bucket
+      en: Bucket
+    Description:
+      zh-cn: 文件上传到的bucket控制台页面。可访问该链接查看上传情况。
+      en: Bucket console page, view upload status.
+    Value: 
+      Fn::Sub:
+        - https://oss.console.aliyun.com/bucket/oss-${Region}/${OSSBucketName}
+        - Region:
+            Ref: ALIYUN::Region
+          OSSBucketName:
+            Ref: OSSBucketName
