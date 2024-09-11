@@ -458,6 +458,9 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)  | Use the cloud-native AI suite to submit model fine-tuning training tasks and deploy GPU shared inference services.     |
 | [tf-chat-glm-6b.yml](documents/solution/ai/tf-chat-glm-6b.yml)   | The AI conversation robot is based on the ChatGLM-6B language model.                                               |
 | [tf-qwen-7b-chat.yml](documents/solution/ai/tf-qwen-7b-chat.yml) | The AI conversation robot is based on the Qwen-7B-Chat.                                                            |
+| [tf-qwen-audio-chat.yml](documents/solution/ai/tf-qwen-audio-chat.yml)                                                                                           | The AI conversation robot is based on the Qwen-Audio-Chat.                                                         |
+| [tf-qwen-vl-chat.yml](documents/solution/ai/tf-qwen-vl-chat.yml)                                                                                                 | The AI conversation robot is based on the Qwen-VL-Chat.                                                            |
+| [tf-stable-diffusion.yml](documents/solution/ai/tf-stable-diffusion.yml)                                                                                         | A personal version of Vincennes diagram service is built based on Stable Diffusion model.                          |
 | [exclusive-qa-service.yml](documents/solution/ai/exclusive-qa-service.yml)     | DashVector and Tongyi QianWen build exclusive Q&A service.     |
 | [discover-and-reach-high-value-users.yml](documents/solution/ai/discover-and-reach-high-value-users.yml)     | Discover and reach high value users.  |
 | [ComfyUI-by-fc.yml](documents/solution/ai/ComfyUI-by-fc.yml)     | Deploy ComfyUI through Function Computing to implement an AIGC image generation system.  |
