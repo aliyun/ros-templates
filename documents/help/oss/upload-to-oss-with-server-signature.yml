@@ -1,178 +1,197 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 创建VPC、安全组、ECS实例、OSS存储桶，配置服务器自动签署并直传文件至OSS，含客户端访问入口。
-  en: Create a Virtual Private Cloud (VPC), Security Groups, Elastic Compute Service
-    (ECS) instances, and Object Storage Service (OSS) buckets. Configure the server
-    for automatic file signing and direct upload to OSS, including client-side access
-    entry points.
+  zh-cn: 从服务器获取签名信息并上传数据到OSS。
+  en: Obtain signature information from the server and upload data to OSS.
 Parameters:
-  BucketName:
+  CommonName:
     Type: String
-    Label:
-      en: NewBucketName
-      zh-cn: 新建存储空间名称
-    Description:
-      en: Bucket names must be globally unique within the scope of OSS. The length
-        is 3~63 characters. Must start and end with a lowercase English letter or
-        number, and can contain lowercase English letters, numbers, and dashes (-).
-      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
-    AssociationProperty: AutoCompleteInput
+    Default: oss-server-sign
+  BucketName:
     AssociationPropertyMetadata:
       Length: 6
-      Prefix: testbucketname-
+      Prefix: test-bucketname-
       CharacterClasses:
         - Class: lowercase
           min: 1
+    Description:
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+      en: Bucket names must be globally unique within the scope of OSS. The length is 3~63 characters. Must start and end with a lowercase English letter or number, and can contain lowercase English letters, numbers, and dashes (-).
+    Label:
+      zh-cn: 新建存储空间名称
+      en: NewBucketName
     AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+    AssociationProperty: AutoCompleteInput
+    Type: String
   ZoneId:
     Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
     Label:
-      en: Zone ID
-      zh-cn: 可用区ID
-    Description:
-      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
-        or not.
-      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
-    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+      en: Availability Zone
+      zh-cn: 可用区
   InstanceType:
     Type: String
-    Label:
-      en: Instance Type
-      zh-cn: 实例类型
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
       ZoneId: ${ZoneId}
-  SystemDiskCategory:
-    Type: String
     Label:
-      en: System Disk Category
-      zh-cn: 系统盘类型
-    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
-    AssociationPropertyMetadata:
-      ZoneId: ${ZoneId}
-      InstanceType: ${InstanceType}
+      en: Instance Type
+      zh-cn: 实例规格
   Password:
-    Type: String
-    Label:
-      en: Login Password
-      zh-cn: 实例密码
-    Description:
-      en: |-
-        The password must be 8 to 32 characters in length. <br>
-        It must consist three of the the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
-        Special characters include <span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>.<br>
-      zh-cn: 长度为8-30位，需包含大写字母、小写字母、特殊符号和数字中的三个，允许的特殊字符包括<span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>。
-    Default: Null
-    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
-    MinLength: 8
-    MaxLength: 30
     NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+Outputs:
+  Console.Bucket:
+    Label:
+      zh-cn: Bucket
+      en: Bucket
+    Description:
+      zh-cn: 文件上传到的bucket控制台页面。可访问该链接查看上传情况。
+      en: Bucket console page, view upload status.
+    Value: 
+      Fn::Sub:
+        - https://oss.console.aliyun.com/bucket/oss-${Region}/${BucketName}
+        - Region:
+            Ref: ALIYUN::Region
+          BucketName:
+            Ref: BucketName
+  Console.OssClientAddress:
+    Label:
+      en: OSS Client Address
+      zh-cn: 客户端地址
+    Description:
+      zh-cn: 客户端地址，使用此地址可直接体验文件上传。
+      en: Client address, use this address to directly experience file upload.
+    Value:
+      Fn::Sub: 
+        - http://${ServerAddress}:3001/index.html
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - InstanceGroup
+                - PublicIps
+  
 Resources:
-  Vpc:
-    Type: ALIYUN::ECS::VPC
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
     Properties:
-      CidrBlock: 192.168.0.0/16
-  SecurityGroup:
-    Type: ALIYUN::ECS::SecurityGroup
-    Properties:
-      VpcId:
-        Ref: Vpc
-  VSwitch:
-    Type: ALIYUN::ECS::VSwitch
+      UserName:
+        Ref: User
+  InstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
     Properties:
       ZoneId:
         Ref: ZoneId
       VpcId:
-        Ref: Vpc
-      CidrBlock: 192.168.0.0/24
+          Ref: Vpc
+      VSwitchId:
+          Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20g_alibase_20240528.vhd
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      Password:
+        Ref: Password
   Bucket:
     Type: ALIYUN::OSS::Bucket
     Properties:
       BucketName:
         Ref: BucketName
-      DeletionForce: true
       CORSConfiguration:
         CORSRule:
           - AllowedHeader:
               - '*'
-            AllowedMethod:
-              - POST
             AllowedOrigin:
               - '*'
-  InstanceGroup:
-    Type: ALIYUN::ECS::InstanceGroup
+            AllowedMethod:
+              - POST
+      DeletionForce: true
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
     Properties:
       VpcId:
         Ref: Vpc
-      VSwitchId:
-        Ref: VSwitch
-      SecurityGroupId:
-        Ref: SecurityGroup
-      ImageId: centos_7
-      InstanceType:
-        Ref: InstanceType
-      SystemDiskCategory:
-        Ref: SystemDiskCategory
-      Password:
-        Ref: Password
-      IoOptimized: optimized
-      MaxAmount: 1
-      AllocatePublicIP: false
-  Eip:
-    Type: ALIYUN::VPC::EIP
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 3001/3001
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  Role:
+    Type: ALIYUN::RAM::Role
     Properties:
-      Name: create_by_document
-      InternetChargeType: PayByTraffic
-      Bandwidth: 5
-  EipAssociation:
-    Type: ALIYUN::VPC::EIPAssociation
+      RoleName:
+        Fn::Sub: ram-oss-test-create-by-${ALIYUN::StackId}
+      Policies:
+        - PolicyName:
+            Fn::Sub: policy-create-by-${ALIYUN::StackId}
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Action:
+                  - oss:PutObject
+                Resource:
+                  - Fn::Sub: acs:oss:*:*:${Bucket.Name}/*
+                Effect: Allow
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              RAM:
+                - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+  User:
+    Type: ALIYUN::RAM::User
     Properties:
-      InstanceId:
-        Fn::Select:
-          - 0
-          - Fn::GetAtt:
-              - InstanceGroup
-              - InstanceIds
-      AllocationId:
-        Fn::GetAtt:
-          - Eip
-          - AllocationId
-  SecurityGroupIngress_22:
-    Type: ALIYUN::ECS::SecurityGroupIngress
+      UserName:
+        Fn::Sub: user-create-by-${ALIYUN::StackId}
+      PolicyAttachments:
+        System:
+          - AliyunSTSAssumeRoleAccess
+  Vpc:
+    Type: ALIYUN::ECS::VPC
     Properties:
-      SecurityGroupId:
-        Ref: SecurityGroup
-      SourceCidrIp: 0.0.0.0/0
-      IpProtocol: tcp
-      NicType: intranet
-      PortRange: 22/22
-  SecurityGroupIngress_3001:
-    Type: ALIYUN::ECS::SecurityGroupIngress
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
     Properties:
-      SecurityGroupId:
-        Ref: SecurityGroup
-      SourceCidrIp: 0.0.0.0/0
-      IpProtocol: tcp
-      NicType: intranet
-      PortRange: 3001/3001
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
   ServerCommand:
     Type: ALIYUN::ECS::RunCommand
     Properties:
-      InstanceIds:
-        Fn::GetAtt:
-          - InstanceGroup
-          - InstanceIds
-      Type: RunShellScript
-      Sync: true
-      Timeout: 3600
       CommandContent:
-        Fn::Sub: |-
+        Fn::Sub: 
+        - |
           #!/bin/bash
           yum -y install unzip
-          
-          curl -o- https://gitee.com/mirrors/nvm/raw/v0.39.7/install.sh | bash
-          source /root/.bashrc
-          nvm install 16
+          yum install -y npm
           
           wget -O server-signed-direct-upload.zip 'https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20240626/xfnqmy/server-signed-direct-upload.zip'
           unzip -o server-signed-direct-upload.zip
@@ -186,66 +205,34 @@ Resources:
             roleArn: "${Role.Arn}",
           };
           EOF
-          sed -i 's/127.0.0.1/${Eip.EipAddress}/g' /root/server-signed-direct-upload/node-html-post-object/index.html
+          sed -i 's/127.0.0.1/${ServerAddress}/g' /root/server-signed-direct-upload/node-html-post-object/index.html
           cd /root/server-signed-direct-upload/node-html-post-object/
           source /root/.bashrc
-          nohup npm start > output.log 2>&1 &
+          npm config set registry https://registry.npmmirror.com
+          npm install
+          nohup node server/index.js > output.log 2>&1 &
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - InstanceGroup
+                - PublicIps
+      Type: RunShellScript
+      Sync: true
+      InstanceIds:
+        Fn::GetAtt:
+          - InstanceGroup
+          - InstanceIds
+      Timeout: 3600
     DependsOn:
-      - SecurityGroupIngress_3001
-      - SecurityGroupIngress_22
-      - EipAssociation
-  User:
-    Type: ALIYUN::RAM::User
-    Properties:
-      UserName:
-        Fn::Sub: user-create-by-${ALIYUN::StackId}
-      PolicyAttachments:
-        System:
-          - AliyunSTSAssumeRoleAccess
-  AccessKey:
-    Type: ALIYUN::RAM::AccessKey
-    Properties:
-      UserName:
-        Ref: User
-  Role:
-    Type: ALIYUN::RAM::Role
-    Properties:
-      RoleName:
-        Fn::Sub: ram-oss-test-create-by-${ALIYUN::StackId}
-      AssumeRolePolicyDocument:
-        Statement:
-          - Action: sts:AssumeRole
-            Effect: Allow
-            Principal:
-              RAM:
-                - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
-        Version: '1'
-      Policies:
-        - PolicyName:
-            Fn::Sub: policy-create-by-${ALIYUN::StackId}
-          PolicyDocument:
-            Version: '1'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - oss:PutObject
-                Resource:
-                  - Fn::Sub: acs:oss:*:*:${Bucket.Name}/*
-Outputs:
-  OssClientAddress:
-    Description:
-      en: Client address, use this address to directly experience file upload.
-      zh-cn: 客户端地址，使用此地址可直接体验文件上传。
-    Value:
-      Fn::Sub: http://${Eip.EipAddress}:3001/index.html
+      - SecurityGroup
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-    - Parameters:
-      - BucketName
-      - ZoneId
-      - InstanceType
-      - SystemDiskCategory
-      - Password
+      - Parameters:
+          - BucketName
+          - ZoneId
+          - InstanceType
+          - Password
     TemplateTags:
-    - acs:document-help:oss:服务端签名后直传
+      - acs:document-help:oss:服务端签名后直传

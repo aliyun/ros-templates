@@ -1,53 +1,39 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
   zh-cn: 创建RAM角色与用户，配置ECS实例，安装App服务器，开放安全组端口，通过EIP和7080端口获取STS临时Token。
-  en: Create RAM roles and users, configure ECS instances, install the application
-    server, open security group ports, and acquire STS temporary Tokens through EIP
-    on port 7080.
+  en: Create RAM roles and users, configure ECS instances, install the application server, open security group ports, and acquire STS temporary Tokens through EIP on port 7080.
 Parameters:
   ZoneId:
     Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
     Label:
-      en: Zone ID
-      zh-cn: 可用区ID
-    Description:
-      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch
-        or not.
-      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
-    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+      en: Availability Zone
+      zh-cn: 可用区
   InstanceType:
     Type: String
-    Label:
-      en: Instance Type
-      zh-cn: 实例类型
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
       ZoneId: ${ZoneId}
-  SystemDiskCategory:
-    Type: String
     Label:
-      en: System Disk Category
-      zh-cn: 系统盘类型
-    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
-    AssociationPropertyMetadata:
-      ZoneId: ${ZoneId}
-      InstanceType: ${InstanceType}
+      en: Instance Type
+      zh-cn: 实例规格
   Password:
-    Type: String
-    Label:
-      en: Login Password
-      zh-cn: 实例密码
-    Description:
-      en: |-
-        The password must be 8 to 32 characters in length. <br>
-        It must consist three of the the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
-        Special characters include <span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>.<br>
-      zh-cn: 长度为8-30位，需包含大写字母、小写字母、特殊符号和数字中的三个，允许的特殊字符包括<span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>。
-    Default:
-    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
-    MinLength: 8
-    MaxLength: 30
     NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
 Resources:
   Role:
     Type: ALIYUN::RAM::Role
@@ -56,46 +42,46 @@ Resources:
       Description: 访问OSS的权限
       AssumeRolePolicyDocument:
         Statement:
-        - Action: sts:AssumeRole
-          Effect: Allow
-          Principal:
-            RAM:
-            - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              RAM:
+                - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
         Version: '1'
       Policies:
-      - PolicyName: AliyunOSSTokenGeneratorRolePolicyByRos
-        Description: 此Policy由ROS创建，用于限制角色AliyunOSSTokenGeneratorRole的权限
-        PolicyDocument:
-          Version: '1'
-          Statement:
-          - Effect: Allow
-            Action:
-            - oss:*
-            Resource:
-            - "*"
+        - PolicyName: AliyunOSSTokenGeneratorRolePolicyByRos
+          Description: 此Policy由ROS创建，用于限制角色AliyunOSSTokenGeneratorRole的权限
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - oss:*
+                Resource:
+                  - '*'
   User:
     Type: ALIYUN::RAM::User
     Properties:
       UserName: AliyunOSSTokenGeneratorUserByRos
       Policies:
-      - PolicyName: AliyunOSSTokenGeneratorUserPolicyByRos
-        PolicyDocument:
-          Version: '1'
-          Statement:
-          - Effect: Allow
-            Action:
-            - sts:AssumeRole
-            Resource:
-            - Fn::GetAtt:
-              - Role
-              - Arn
+        - PolicyName: AliyunOSSTokenGeneratorUserPolicyByRos
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - Fn::GetAtt:
+                      - Role
+                      - Arn
   AccessKey:
     Type: ALIYUN::RAM::AccessKey
     Properties:
       UserName:
         Fn::GetAtt:
-        - User
-        - UserName
+          - User
+          - UserName
   Vpc:
     Type: ALIYUN::ECS::VPC
     Properties:
@@ -116,6 +102,8 @@ Resources:
   InstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
+      ZoneId:
+        Ref: ZoneId
       VpcId:
         Ref: Vpc
       VSwitchId:
@@ -125,12 +113,12 @@ Resources:
       ImageId: centos_7
       InstanceType:
         Ref: InstanceType
-      SystemDiskCategory:
-        Ref: SystemDiskCategory
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
       Password:
         Ref: Password
-      IoOptimized: optimized
-      MaxAmount: 1
       AllocatePublicIP: false
   Eip:
     Type: ALIYUN::VPC::EIP
@@ -143,21 +131,21 @@ Resources:
     Properties:
       InstanceId:
         Fn::Select:
-        - 0
-        - Fn::GetAtt:
-          - InstanceGroup
-          - InstanceIds
+          - 0
+          - Fn::GetAtt:
+              - InstanceGroup
+              - InstanceIds
       AllocationId:
         Fn::GetAtt:
-        - Eip
-        - AllocationId
+          - Eip
+          - AllocationId
   ServerCommand:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
         Fn::GetAtt:
-        - InstanceGroup
-        - InstanceIds
+          - InstanceGroup
+          - InstanceIds
       Type: RunShellScript
       Sync: true
       Timeout: 3600
@@ -212,64 +200,64 @@ Outputs:
       zh-cn: 角色的ARN。
     Value:
       Fn::GetAtt:
-      - Role
-      - Arn
+        - Role
+        - Arn
   AccessKeyId:
     Description: AccessKey ID.
     Value:
       Fn::GetAtt:
-      - AccessKey
-      - AccessKeyId
+        - AccessKey
+        - AccessKeyId
   ApplicationServerAddress:
     Description:
       en: Application server address.
       zh-cn: 应用服务端地址。
     Value:
-      Fn::Sub: "http://${Eip.EipAddress}:7080"
+      Fn::Sub: http://${Eip.EipAddress}:7080
   EcsInstanceId:
     Description:
       en: Ecs instance id.
       zh-cn: ECS实例id。
     Value:
       Fn::Select:
-      - 0
-      - Fn::GetAtt:
-        - InstanceGroup
-        - InstanceIds
+        - 0
+        - Fn::GetAtt:
+            - InstanceGroup
+            - InstanceIds
   EipAllocationId:
     Description:
       en: Eip allocation id.
       zh-cn: EIP实例id。
     Value:
       Fn::GetAtt:
-      - Eip
-      - AllocationId
+        - Eip
+        - AllocationId
   EcsLoginAddress:
     Description:
       en: Ecs login address.
       zh-cn: ECS登录地址。
     Value:
       Fn::Sub:
-      - 'https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}'
-      - Region:
-          Ref: ALIYUN::Region
-        InstanceId:
-          Fn::Select:
-          - 0
-          - Fn::GetAtt:
-            - InstanceGroup
-            - InstanceIds
+        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - Region:
+            Ref: ALIYUN::Region
+          InstanceId:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - InstanceGroup
+                  - InstanceIds
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-    - Parameters:
-      - ZoneId
-      - InstanceType
-      - SystemDiskCategory
-      - Password
-      Label:
-        default:
-          zh-cn: ECS实例配置信息
-          en: Instance
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - SystemDiskCategory
+          - Password
+        Label:
+          default:
+            zh-cn: ECS实例配置信息
+            en: Instance
     TemplateTags:
-    - acs:document-help:oss:快速搭建移动应用直传服务
+      - acs:document-help:oss:快速搭建移动应用直传服务
