@@ -9,62 +9,39 @@ Parameters:
   OSSBucketName:
     Type: String
     Label:
-      en: New OSS bucket name
-      zh-cn: 新建对象存储空间的名称
+      en: NewBucketName
+      zh-cn: 新建存储空间名称
     Description:
-      en: Name of new OSS bucket, [2, 128] English.
-      zh-cn: 新建对象存储空间的名称，[2，128]英文。
-    Default: examplebucket
-    AllowedPattern: '[-_a-zA-Z0-9]{2,128}$'
-    MinLength: 2
-    MaxLength: 128
+      en: Bucket names must be globally unique within the scope of OSS. The length
+        is 3~63 characters. Must start and end with a lowercase English letter or
+        number, and can contain lowercase English letters, numbers, and dashes (-).
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: test-bucketname-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
   ZoneId:
     Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
     Label:
-      en: Zone ID
-      zh-cn: 可用区ID
-    Description:
-      en: Available Zone ID,</font><a href='https://www.alibabacloud.com/help/doc-detail/123712.html'
-        target='_blank'><b> View region and zone info</b><font color='blue'></a>.
-      zh-cn: 可用区Id,</font><a href='https://help.aliyun.com/document_detail/123712.html'
-        target='_blank'><b> 查看可用区信息</b><font color='blue'></a>.
-    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+      en: Availability Zone
+      zh-cn: 可用区
   InstanceType:
     Type: String
-    Label:
-      en: ECS Instance Type
-      zh-cn: ECS实例类型
-    Description:
-      en: The ECS instance type,go to the product console to ensure the current instance
-        is available, <font><a href='https://www.alibabacloud.com/help/doc-detail/25378.html'
-        target='_blank'><b>View instance types</b></font color='blue'></a>.
-      zh-cn: ECS实例类型，进入产品控制台确保当前实例可用, <font><a href='https://help.aliyun.com/document_detail/25378.html'
-        target='_blank'><b>查看实例类型</b></font color='blue'></a>
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
-      ZoneId: ZoneId
-  SystemDiskCategory:
-    Type: String
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
     Label:
-      en: System Disk Category
-      zh-cn: 系统盘类别
-    Description:
-      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency:
-        <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD
-        Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud:
-        <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local
-        SSD Cloud Disk</font>]'
-      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font
-        color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd:
-        <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd:
-        <font color=''green''>本地SSD盘</font>]'
-    Default: cloud_ssd
-    AllowedValues:
-    - cloud_efficiency
-    - cloud_ssd
-    - cloud
-    - cloud_essd
-    - ephemeral_ssd
+      en: Instance Type
+      zh-cn: 实例规格
   Password:
     Type: String
     Label:
@@ -102,15 +79,22 @@ Resources:
         - _
         - - SecurityGroup
           - Ref: ALIYUN::StackId
-      SecurityGroupType: normal
       SecurityGroupIngress:
-      - PortRange: -1/-1
-        IpProtocol: all
-        SourceCidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-      - PortRange: -1/-1
-        IpProtocol: all
-        DestCidrIp: 0.0.0.0/0
+        - Priority: 1
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 22/22
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 8080/8080
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
   VSwitch:
     Type: ALIYUN::ECS::VSwitch
     Properties:
@@ -133,14 +117,13 @@ Resources:
         Ref: VSwitch
       SecurityGroupId:
         Ref: SecurityGroup
-      ImageId: ubuntu
+      ImageId: ubuntu_18
       AllocatePublicIP: true
       InstanceType:
         Ref: InstanceType
       Password:
         Ref: Password
-      SystemDiskCategory:
-        Ref: SystemDiskCategory
+      SystemDiskCategory: cloud_essd
       SystemDiskDiskName: SystemDisk
       SystemDiskSize: 40
   OSSBucket:
@@ -171,6 +154,10 @@ Resources:
           sudo apt update
           sudo apt-get install -y unzip
           sudo apt-get install -y python3-dev
+          sudo apt install -y python-pip
+          pip install pycryptodome
+          sudo apt-get install -y apache2
+          
           mkdir /home/aliyun
           cd /home/aliyun
           wget https://docs-aliyun.cn-hangzhou.oss.aliyun-inc.com/assets/attach/97721/cn_zh/1545016122500/aliyun-oss-appserver-python-master.zip
@@ -185,9 +172,7 @@ Resources:
           sed -i 's/88.88.88.88:8888/${PublicIP}:8080/' appserver.py
           sed -i '36d' appserver.py
           sed -i 's/encodestring/encodebytes/' appserver.py
-          pip install pycryptodome
-
-          sudo apt-get install -y apache2
+          
           cd /var/www/html
           wget https://docs-aliyun.cn-hangzhou.oss.aliyun-inc.com/assets/attach/86983/APP_zh/1537971352825/aliyun-oss-appserver-js-master.zip
           unzip aliyun-oss-appserver-js-master.zip
@@ -220,36 +205,34 @@ Resources:
       UserName:
         Ref: User
 Outputs:
-  ServerInstanceId:
+  Console.Bucket:
+    Label:
+      zh-cn: Bucket
+      en: Bucket
     Description:
-      en: The instance id of application server ecs instance.
-      zh-cn: 应用服务器ECS实例ID
-    Value:
-      Fn::GetAtt:
-      - WebServer
-      - InstanceId
-  ServerIP:
-    Description:
-      en: Application server address and port.
-      zh-cn: 应用服务器地址与端口
-    Value:
+      zh-cn: 文件上传到的bucket控制台页面。可访问该链接查看上传情况。
+      en: Bucket console page, view upload status.
+    Value: 
       Fn::Sub:
-      - ${IP}:8080
-      - IP:
-          Fn::GetAtt:
-          - WebServer
-          - PublicIp
-  UploadPath:
+        - https://oss.console.aliyun.com/bucket/oss-${Region}/${OSSBucketName}
+        - Region:
+            Ref: ALIYUN::Region
+          OSSBucketName:
+            Ref: OSSBucketName
+  Console.Url:
+    Label:
+      zh-cn: Url
+      en: Url
     Description:
-      en: Client html page.
       zh-cn: 客户端测试页面。可访问该链接测试文件上传。
+      en: Client html page.
     Value:
       Fn::Sub:
-      - http://${IP}
-      - IP:
-          Fn::GetAtt:
-          - WebServer
-          - PublicIp
+        - http://${IP}
+        - IP:
+            Fn::GetAtt:
+              - WebServer
+              - PublicIp
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -257,7 +240,6 @@ Metadata:
       - OSSBucketName
       - ZoneId
       - InstanceType
-      - SystemDiskCategory
       - Password
     TemplateTags:
     - acs:document-help:oss:Python服务端签名直传并设置上传回调
