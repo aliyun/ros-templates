@@ -37,7 +37,7 @@ Workspace:
     }
 
     resource "alicloud_vpc" "vpc" {
-      vpc_name   = "qwen-7b-vpc"
+      vpc_name   = "chat-glm-6b-vpc"
       cidr_block = "192.168.0.0/16"
     }
 
@@ -69,28 +69,30 @@ Workspace:
       instance_type              = var.instance_type
       system_disk_category       = "cloud_essd"
       image_id                   = "aliyun_3_x64_20G_alibase_20240528.vhd"
-      instance_name              = "qwen-7b"
+      instance_name              = "Chat-GLM-6B"
+      system_disk_size = 100
       vswitch_id                 = alicloud_vswitch.vswitch.id
       internet_max_bandwidth_out = 100
-      system_disk_size = 100
     }
 
     locals {
       command         = <<EOF
     #!/bin/bash
-    wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20231207/puju/deploy_qwen-7b-chat.sh
-    chmod +x deploy_qwen-7b-chat.sh
-    sed -i 's/@ 2>\&1/@ > output.log 2>\&1/' deploy_qwen-7b-chat.sh
-    ./deploy_qwen-7b-chat.sh
+    wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20230920/afjx/deploy_chatglm-6b.sh
+    chmod +x deploy_chatglm-6b.sh
+    ./deploy_chatglm-6b.sh
+    kill -9 $(ps aux | grep '[p]ython' | awk '{print $2}')
+    nohup streamlit run /root/ChatGLM-6B/web_demo2.py --server.port 7860 > output.log 2>&1 &
     EOF
       base_64_command = base64encode(local.command)
     }
 
     resource "alicloud_ecs_command" "command" {
-      name            = "qwen-7b-command"
+      name            = "chat-glm-6b-command"
       command_content = local.base_64_command
       type            = "RunShellScript"
       timeout         = 3600
+      working_dir = "/root"
     }
 
     resource "alicloud_ecs_invocation" "default" {
@@ -101,19 +103,17 @@ Workspace:
       }
     }
 
-
     output "Url" {
       description = <<EOT
       {
         "Label": "Web 访问地址",
-        "Description": "Qwen-7B-Chat 页面访问地址."
+        "Description": "ChatGLM-6B 页面访问地址."
       }
       EOT
       value = format("http://%s:7860", alicloud_instance.ecs.public_ip)
     }
-
-
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-    - acs:technical-solution:ai:tf-qwen-7b-chat
+    - acs:document-help:ecs:使用AMD CPU实例部署ChatGLM-6B
+
