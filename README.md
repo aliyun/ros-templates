@@ -374,16 +374,22 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - ecs
 
-| Template                                                          | Description                                                                                                               |
-|-------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)         | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
-| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)           | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                             |
-| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)     | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                             |
-| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml) | Manually build a WordPress website on a CentOS 7 ECS instance                                                             |
-| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | Deploy the MySQL service on an ECS instance (CentOS 8).                                                                           |
-| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml) | Bind an EIP to a secondary ENI in normal mode to bind multiple EIPs to a single ECS instance (CentOS 7).  |
-| [docker-alibaba-cloud-linux-2.yml](./documents/help/ecs/docker-alibaba-cloud-linux-2.yml)      | Deploy and use Docker on the ECS instance of Alibaba Cloud Linux 2.1903 LTS 64-bit operating system. |
-| [configure-IPv6-address-for-ecs.yml](./documents/help/ecs/configure-IPv6-address-for-ecs.yml)        | Configure the IPv6 address of the ECS instance. |
+| Template                                                                                      | Description                                                                                                               |
+|-----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)                                     | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)                                       | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                             |
+| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)                                 | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                             |
+| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml)                           | Manually build a WordPress website on a CentOS 7 ECS instance                                                             |
+| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml)                                   | Deploy the MySQL service on an ECS instance (CentOS 8).                                                                           |
+| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml)           | Bind an EIP to a secondary ENI in normal mode to bind multiple EIPs to a single ECS instance (CentOS 7).  |
+| [docker-alibaba-cloud-linux-2.yml](./documents/help/ecs/docker-alibaba-cloud-linux-2.yml)     | Deploy and use Docker on the ECS instance of Alibaba Cloud Linux 2.1903 LTS 64-bit operating system. |
+| [configure-IPv6-address-for-ecs.yml](./documents/help/ecs/configure-IPv6-address-for-ecs.yml) | Configure the IPv6 address of the ECS instance. |
+| [tf-chat-glm-6b.yml](documents/help/ecs/tf-chat-glm-6b.yml)                                   | The AI conversation robot is based on the ChatGLM-6B language model.                                               |
+| [tf-qwen-7b-chat.yml](documents/help/ecs/tf-qwen-7b-chat.yml)                              | The AI conversation robot is based on the Qwen-7B-Chat.                                                            |
+| [tf-qwen-audio-chat.yml](documents/help/ecs/tf-qwen-audio-chat.yml)                        | The AI conversation robot is based on the Qwen-Audio-Chat.                                                         |
+| [tf-qwen-vl-chat.yml](documents/help/ecs/tf-qwen-vl-chat.yml)                              | The AI conversation robot is based on the Qwen-VL-Chat.                                                            |
+| [tf-stable-diffusion.yml](documents/help/ecs/tf-stable-diffusion.yml)                      | A personal version of Vincennes diagram service is built based on Stable Diffusion model.                          |
+
 
 
 - ack
@@ -456,11 +462,6 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                   | Build a dialogue model based on ChatGLM and LangChain.                                       |
 | [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                   | Build a dialogue model based on Qwen and LangChain.                                       |
 | [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)  | Use the cloud-native AI suite to submit model fine-tuning training tasks and deploy GPU shared inference services.     |
-| [tf-chat-glm-6b.yml](documents/solution/ai/tf-chat-glm-6b.yml)   | The AI conversation robot is based on the ChatGLM-6B language model.                                               |
-| [tf-qwen-7b-chat.yml](documents/solution/ai/tf-qwen-7b-chat.yml) | The AI conversation robot is based on the Qwen-7B-Chat.                                                            |
-| [tf-qwen-audio-chat.yml](documents/solution/ai/tf-qwen-audio-chat.yml)                                                                                           | The AI conversation robot is based on the Qwen-Audio-Chat.                                                         |
-| [tf-qwen-vl-chat.yml](documents/solution/ai/tf-qwen-vl-chat.yml)                                                                                                 | The AI conversation robot is based on the Qwen-VL-Chat.                                                            |
-| [tf-stable-diffusion.yml](documents/solution/ai/tf-stable-diffusion.yml)                                                                                         | A personal version of Vincennes diagram service is built based on Stable Diffusion model.                          |
 | [exclusive-qa-service.yml](documents/solution/ai/exclusive-qa-service.yml)     | DashVector and Tongyi QianWen build exclusive Q&A service.     |
 | [discover-and-reach-high-value-users.yml](documents/solution/ai/discover-and-reach-high-value-users.yml)     | Discover and reach high value users.  |
 | [ComfyUI-by-fc.yml](documents/solution/ai/ComfyUI-by-fc.yml)     | Deploy ComfyUI through Function Computing to implement an AIGC image generation system.  |

@@ -374,16 +374,22 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - ecs
 
-| 模板                                                                   | 说明                                                               |
-|----------------------------------------------------------------------|------------------------------------------------------------------|
-| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)            | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
-| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)              | 使用Centos7系统创建ECS实例安装部署FTP服务。                                     |
-| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)        | 在ECS实例（CentOS 7）上部署Node.js环境。                                    |
-| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml)  | 在ECS实例（CentOS 7）上搭建WordPress。                                    |
-| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml) | 在ECS实例（CentOS 8）上部署MySQL服务。                                      |
-| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml) | 将弹性公网IP与辅助弹性网卡以普通模式绑定，实现单个ECS实例(CentOS 7)绑定多个EIP。                |
-| [docker-alibaba-cloud-linux-2.yml](./documents/help/ecs/docker-alibaba-cloud-linux-2.yml) | 部署并使用Docker（Alibaba Cloud Linux 2）。                              |
-| [configure-IPv6-address-for-ecs.yml](./documents/help/ecs/configure-IPv6-address-for-ecs.yml)        | 配置ECS实例的IPv6地址。|
+| 模板                                                                                            | 说明                                                               |
+|-----------------------------------------------------------------------------------------------|------------------------------------------------------------------|
+| [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)                                     | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)                                       | 使用Centos7系统创建ECS实例安装部署FTP服务。                                     |
+| [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)                                 | 在ECS实例（CentOS 7）上部署Node.js环境。                                    |
+| [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml)                           | 在ECS实例（CentOS 7）上搭建WordPress。                                    |
+| [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml)                                   | 在ECS实例（CentOS 8）上部署MySQL服务。                                      |
+| [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml)           | 将弹性公网IP与辅助弹性网卡以普通模式绑定，实现单个ECS实例(CentOS 7)绑定多个EIP。                |
+| [docker-alibaba-cloud-linux-2.yml](./documents/help/ecs/docker-alibaba-cloud-linux-2.yml)     | 部署并使用Docker（Alibaba Cloud Linux 2）。                              |
+| [configure-IPv6-address-for-ecs.yml](./documents/help/ecs/configure-IPv6-address-for-ecs.yml) | 配置ECS实例的IPv6地址。|
+| [tf-chat-glm-6b.yml](documents/help/ecs/tf-chat-glm-6b.yml)                                   | 部署基于ChatGLM-6B的AI对话机器人。                                                                           |
+| [tf-qwen-7b-chat.yml](documents/help/ecs/tf-qwen-7b-chat.yml)                              | 部署通义千问Qwen-7B-Chat。                                                                               |
+| [tf-qwen-audio-chat.yml](documents/help/ecs/tf-qwen-audio-chat.yml)                        | 部署通义千问Qwen-Audio-Chat。                                                                            |
+| [tf-qwen-vl-chat.yml](documents/help/ecs/tf-qwen-vl-chat.yml)                              | 部署通义千问Qwen-Al-Chat。                                                                               |
+| [tf-stable-diffusion.yml](documents/help/ecs/tf-stable-diffusion.yml)                      | 基于Stable Diffusion模型搭建个人版文生图服务。                                                                   |
+
 
  
 
@@ -455,11 +461,6 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [build-a-dialogue-model-based-on-Qwen-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-Qwen-and-LangChain.yml)                           | 基于通义千问和LangChain搭建对话模型。                                                                           |
 | [ack-ai-fine-tuning.yml](documents/solution/ai/ack-ai-fine-tuning.yml)                                                                                           | 使用云原生AI套件提交模型微调训练任务与部署GPU共享推理服务。  ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/one_gpu) |
 | [exclusive-qa-service.yml](documents/solution/ai/exclusive-qa-service.yml)                                                                                       | 向量检索与通义千问搭建专属问答服务。                                                                                |
-| [tf-chat-glm-6b.yml](documents/solution/ai/tf-chat-glm-6b.yml)                                                                                                   | 部署基于ChatGLM-6B的AI对话机器人。                                                                           |
-| [tf-qwen-7b-chat.yml](documents/solution/ai/tf-qwen-7b-chat.yml)                                                                                                 | 部署通义千问Qwen-7B-Chat。                                                                               |
-| [tf-qwen-audio-chat.yml](documents/solution/ai/tf-qwen-audio-chat.yml)                                                                                           | 部署通义千问Qwen-Audio-Chat。                                                                            |
-| [tf-qwen-vl-chat.yml](documents/solution/ai/tf-qwen-vl-chat.yml)                                                                                                 | 部署通义千问Qwen-Al-Chat。                                                                               |
-| [tf-stable-diffusion.yml](documents/solution/ai/tf-stable-diffusion.yml)                                                                                         | 基于Stable Diffusion模型搭建个人版文生图服务。                                                                   |
 | [discover-and-reach-high-value-users.yml](documents/solution/ai/discover-and-reach-high-value-users.yml)                                                         | 高价值用户挖掘及触达。                                                                                       |
 | [ComfyUI-by-fc.yml](documents/solution/ai/ComfyUI-by-fc.yml)                                                                                                     | 通过函数计算部署ComfyUI以实现一个AIGC图像生成系统。                                                                   |
 | [drawing_with_tongyi_wanxiang.yml](documents/solution/ai/drawing_with_tongyi_wanxiang.yml)                                                                       | 通义万相的文本绘图与人像美化之旅。                                                                                 |
