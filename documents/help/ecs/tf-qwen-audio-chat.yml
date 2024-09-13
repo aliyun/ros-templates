@@ -37,7 +37,7 @@ Workspace:
     }
 
     resource "alicloud_vpc" "vpc" {
-      vpc_name   = "chat-glm-6b-vpc"
+      vpc_name   = "qwen-audio-vpc"
       cidr_block = "192.168.0.0/16"
     }
 
@@ -69,37 +69,48 @@ Workspace:
       instance_type              = var.instance_type
       system_disk_category       = "cloud_essd"
       image_id                   = "aliyun_3_x64_20G_alibase_20240528.vhd"
-      instance_name              = "Chat-GLM-6B"
-      system_disk_size = 100
+      instance_name              = "qwen-audio"
       vswitch_id                 = alicloud_vswitch.vswitch.id
-      internet_max_bandwidth_out = 100
+      internet_max_bandwidth_out = 10
+      system_disk_size = 100
     }
 
     locals {
       command         = <<EOF
     #!/bin/bash
-    wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20230920/afjx/deploy_chatglm-6b.sh
-    chmod +x deploy_chatglm-6b.sh
-    ./deploy_chatglm-6b.sh
-    kill -9 $(ps aux | grep '[p]ython' | awk '{print $2}')
-    nohup streamlit run /root/ChatGLM-6B/web_demo2.py --server.port 7860 > output.log 2>&1 &
+    sudo dnf config-manager --add-repo=https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+    sudo dnf -y install dnf-plugin-releasever-adapter --repo alinux3-plus
+    sudo dnf -y install docker-ce --nobest
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    sudo docker pull registry.openanolis.cn/openanolis/pytorch-amd:1.13.1-23-zendnn4.1
+    sudo docker run -d --name pytorch-amd --net host -v $HOME:/root registry.openanolis.cn/openanolis/pytorch-amd:1.13.1-23-zendnn4.1 sh -c "tail -f /dev/null" &
+    wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/en-US/20231213/celp/deploy_qwen-audio-chat_amd-docker.sh
+    wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-6.1-amd64-static.tar.xz
+    sed -i 's/hwloc / /' deploy_qwen-audio-chat_amd-docker.sh
+    sed -i 's/"python-einops"/python-einops --skip-broken/' deploy_qwen-audio-chat_amd-docker.sh
+    sed -i 's/@ 2>\&1/@ > output.log 2>\&1/' deploy_qwen-audio-chat_amd-docker.sh
+    sudo docker exec -w /root pytorch-amd sh -c '
+    chmod +x ./deploy_qwen-audio-chat_amd-docker.sh
+    ./deploy_qwen-audio-chat_amd-docker.sh
+    '
     EOF
       base_64_command = base64encode(local.command)
     }
 
     resource "alicloud_ecs_command" "command" {
-      name            = "chat-glm-6b-command"
+      name            = "qwen-audio-command"
       command_content = local.base_64_command
       type            = "RunShellScript"
-      timeout         = 3600
-      working_dir = "/root"
+      timeout         = 7200
+      working_dir     = "/root"
     }
 
     resource "alicloud_ecs_invocation" "default" {
       command_id  = alicloud_ecs_command.command.id
       instance_id = [alicloud_instance.ecs.id]
       timeouts {
-        create = "3600s"
+        create = "7200s"
       }
     }
 
@@ -107,12 +118,13 @@ Workspace:
       description = <<EOT
       {
         "Label": "Web 访问地址",
-        "Description": "ChatGLM-6B 页面访问地址."
+        "Description": "Qwen Audio Chat页面访问地址."
       }
       EOT
       value = format("http://%s:7860", alicloud_instance.ecs.public_ip)
     }
+
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-    - acs:technical-solution:ai:tf-chat-glm-6b
+    - acs:document-help:ecs:使用AMD CPU实例部署通义千问Qwen-Audio-Chat

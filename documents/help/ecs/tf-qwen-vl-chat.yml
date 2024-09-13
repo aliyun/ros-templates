@@ -37,7 +37,7 @@ Workspace:
     }
 
     resource "alicloud_vpc" "vpc" {
-      vpc_name   = "qwen-7b-vpc"
+      vpc_name   = "qwen-vl-vpc"
       cidr_block = "192.168.0.0/16"
     }
 
@@ -69,51 +69,65 @@ Workspace:
       instance_type              = var.instance_type
       system_disk_category       = "cloud_essd"
       image_id                   = "aliyun_3_x64_20G_alibase_20240528.vhd"
-      instance_name              = "qwen-7b"
+      instance_name              = "qwen-vl"
       vswitch_id                 = alicloud_vswitch.vswitch.id
-      internet_max_bandwidth_out = 100
+      internet_max_bandwidth_out = 10
       system_disk_size = 100
     }
 
     locals {
       command         = <<EOF
     #!/bin/bash
-    wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20231207/puju/deploy_qwen-7b-chat.sh
-    chmod +x deploy_qwen-7b-chat.sh
-    sed -i 's/@ 2>\&1/@ > output.log 2>\&1/' deploy_qwen-7b-chat.sh
-    ./deploy_qwen-7b-chat.sh
+    sudo dnf config-manager --add-repo=https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+    sudo dnf -y install dnf-plugin-releasever-adapter --repo alinux3-plus
+    sudo dnf -y install docker-ce --nobest
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    sudo docker pull registry.openanolis.cn/openanolis/pytorch-amd:1.13.1-23-zendnn4.1
+    sudo docker run -d --name pytorch-amd --net host -v $HOME:/root registry.openanolis.cn/openanolis/pytorch-amd:1.13.1-23-zendnn4.1 sh -c "tail -f /dev/null" &
+    wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/en-US/20231213/owpj/deploy_qwen-vl-chat_amd-docker.sh
+    sed -i 's/hwloc / /' deploy_qwen-vl-chat_amd-docker.sh
+    sed -i 's/"python-einops"/python-einops --skip-broken/' deploy_qwen-vl-chat_amd-docker.sh
+    sed -i 's/@ 2>\&1/@ > output.log 2>\&1/' deploy_qwen-vl-chat_amd-docker.sh
+    sudo docker exec -w /root pytorch-amd sh -c '
+    chmod +x deploy_qwen-vl-chat_amd-docker.sh
+    ./deploy_qwen-vl-chat_amd-docker.sh
+    pip install -r Qwen-VL/requirements.txt
+    pip install -r Qwen-VL/requirements_web_demo.txt
+    pip install -r Qwen-VL/requirements_openai_api.txt
+    ./deploy_qwen-vl-chat_amd-docker.sh
+    '
     EOF
       base_64_command = base64encode(local.command)
     }
 
     resource "alicloud_ecs_command" "command" {
-      name            = "qwen-7b-command"
+      name            = "qwen-vl-command"
       command_content = local.base_64_command
       type            = "RunShellScript"
-      timeout         = 3600
+      timeout         = 7200
+      working_dir     = "/root"
     }
 
     resource "alicloud_ecs_invocation" "default" {
       command_id  = alicloud_ecs_command.command.id
       instance_id = [alicloud_instance.ecs.id]
       timeouts {
-        create = "3600s"
+        create = "7200s"
       }
     }
-
 
     output "Url" {
       description = <<EOT
       {
         "Label": "Web 访问地址",
-        "Description": "Qwen-7B-Chat 页面访问地址."
+        "Description": "Qwen VL Chat页面访问地址."
       }
       EOT
       value = format("http://%s:7860", alicloud_instance.ecs.public_ip)
     }
 
-
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-    - acs:technical-solution:ai:tf-qwen-7b-chat
+    - acs:document-help:ecs:使用AMD CPU实例部署通义千问Qwen-VL-Chat

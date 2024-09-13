@@ -1,0 +1,186 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Workspace:
+  main.tf: |-
+    variable "zone_id" {
+      type        = string
+      description = <<EOT
+      {
+        "AssociationProperty": "ZoneId",
+        "Label": {
+          "zh-cn": "可用区ID",
+          "en": "Zone ID"
+        }
+      }
+      EOT
+    }
+
+    variable "instance_type" {
+      type        = string
+      description = <<EOT
+      {
+        "Label": {
+            "zh-cn": "实例类型",
+            "en": "Instance Type"
+        },
+        "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
+        "AssociationPropertyMetadata": {
+          "Constraints": {
+            "Memory": [
+              64
+            ]
+          }
+        }
+      }
+      EOT
+      default     = "ecs.g8a.4xlarge"
+    }
+
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = "stable-diffusion-vpc"
+      cidr_block = "192.168.0.0/16"
+    }
+
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id     = alicloud_vpc.vpc.id
+      zone_id    = var.zone_id
+      cidr_block = "192.168.0.0/24"
+    }
+
+
+    resource "alicloud_security_group" "group" {
+      vpc_id = alicloud_vpc.vpc.id
+    }
+
+    resource "alicloud_security_group_rule" "rule" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "7860/7860"
+      priority          = 1
+      security_group_id = alicloud_security_group.group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    resource "alicloud_instance" "ecs" {
+      availability_zone          = var.zone_id
+      security_groups            = alicloud_security_group.group.*.id
+      instance_type              = var.instance_type
+      system_disk_category       = "cloud_essd"
+      image_id                   = "aliyun_3_x64_20G_alibase_20240528.vhd"
+      instance_name              = "stable-diffusion"
+      vswitch_id                 = alicloud_vswitch.vswitch.id
+      internet_max_bandwidth_out = 100
+      system_disk_size = 100
+    }
+
+    locals {
+      docker_command = <<EOF
+    #!/bin/bash
+    sudo dnf config-manager --add-repo=https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+    sudo dnf -y install dnf-plugin-releasever-adapter --repo alinux3-plus
+    sudo dnf -y install docker-ce --nobest
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    sudo docker pull registry.openanolis.cn/openanolis/pytorch-amd:1.13.1-23-zendnn4.1
+    sudo docker run -d --name pytorch-amd --net host -v $HOME:/root registry.openanolis.cn/openanolis/pytorch-amd:1.13.1-23-zendnn4.1 sh -c "tail -f /dev/null" &
+    sleep 3
+    EOF
+      command         = <<EOF
+    #!/bin/bash
+    sudo docker exec -w /root pytorch-amd sh -c '
+    yum install -y git git-lfs wget tmux mesa-libGL gperftools-libs  &&
+    git lfs install  &&
+    git clone -b v1.5.2 https://github.com/AUTOMATIC1111/stable-diffusion-webui.git   &&
+    mkdir stable-diffusion-webui/repositories && cd $_   &&
+    git clone https://github.com/Stability-AI/stablediffusion.git stable-diffusion-stability-ai   &&
+    git clone https://github.com/Stability-AI/generative-models.git generative-models   &&
+    git clone https://github.com/crowsonkb/k-diffusion.git k-diffusion   &&
+    git clone https://github.com/sczhou/CodeFormer.git CodeFormer   &&
+    git clone https://github.com/salesforce/BLIP.git BLIP   &&
+    git -C stable-diffusion-stability-ai checkout cf1d67a6fd5ea1aa600c4df58e5b47da45f6bdbf   &&
+    git -C generative-models checkout 5c10deee76adad0032b412294130090932317a87   &&
+    git -C k-diffusion checkout c9fe758757e022f05ca5a53fa8fac28889e4f1cf   &&
+    git -C CodeFormer checkout c5b4593074ba6214284d6acd5f1719b6c5d739af   &&
+    git -C BLIP checkout 48211a1594f1321b00f14c9f7a5b4813144b2fb9   &&
+    cd ~ && mkdir -p stable-diffusion-webui/models/Stable-diffusion   &&
+    wget "https://www.modelscope.cn/api/v1/models/AI-ModelScope/stable-diffusion-v1-5/repo?Revision=master&FilePath=v1-5-pruned-emaonly.safetensors" -O stable-diffusion-webui/models/Stable-diffusion/v1-5-pruned-emaonly.safetensors   &&
+    mkdir -p ~/stable-diffusion-webui/models/clip   &&
+    git clone --depth=1 https://gitee.com/modelee/clip-vit-large-patch14.git ~/stable-diffusion-webui/models/clip/clip-vit-large-patch14   &&
+    sed -i "s?openai/clip-vit-large-patch14?/root/stable-diffusion-webui/models/clip/clip-vit-large-patch14?g" ~/stable-diffusion-webui/repositories/stable-diffusion-stability-ai/ldm/modules/encoders/modules.py   &&
+    mkdir -p ~/.config/pip   &&
+    cat > ~/.config/pip/pip.conf <<EOX
+    [global]
+    index-url=http://mirrors.cloud.aliyuncs.com/pypi/simple/
+
+    [install]
+    trusted-host=mirrors.cloud.aliyuncs.com
+    EOX
+    pip install cython gfpgan open-clip-torch==2.8.0 httpx==0.24.1  &&
+    pip install git+https://github.com/openai/CLIP.git@d50d76daa670286dd6cacf3bcd80b5e4823fc8e1   &&
+    cat > /etc/profile.d/env.sh <<EOX
+    export OMP_NUM_THREADS=\$(nproc --all)
+    export GOMP_CPU_AFFINITY=0-\$(( \$(nproc --all) - 1 ))
+    EOX
+    source /etc/profile   &&
+    cd ~/stable-diffusion-webui   &&
+    venv_dir="-" ./webui.sh -f --skip-torch-cuda-test --exit   &&
+    export LD_PRELOAD=/usr/lib64/libtcmalloc.so.4   &&
+    export venv_dir="-"   &&
+    nohup python3 launch.py -f --skip-torch-cuda-test --skip-version-check --no-half --precision full --use-cpu all --listen > output.log 2>&1 &
+    sleep 10
+    '
+    EOF
+      base_64_docker_command = base64encode(local.docker_command)
+      base_64_command = base64encode(local.command)
+    }
+
+    resource "alicloud_ecs_command" "docker_command" {
+      name            = "stable-diffusion-docker-command"
+      command_content = local.base_64_docker_command
+      type            = "RunShellScript"
+      timeout         = 7200
+      working_dir = "/root"
+    }
+
+    resource "alicloud_ecs_command" "command" {
+      name            = "stable-diffusion-command"
+      command_content = local.base_64_command
+      type            = "RunShellScript"
+      timeout         = 7200
+      working_dir = "/root"
+    }
+
+    resource "alicloud_ecs_invocation" "invocation1" {
+      command_id  = alicloud_ecs_command.docker_command.id
+      instance_id = [alicloud_instance.ecs.id]
+      timeouts {
+        create = "7200s"
+      }
+    }
+
+    resource "alicloud_ecs_invocation" "invocation2" {
+      command_id  = alicloud_ecs_command.command.id
+      instance_id = [alicloud_instance.ecs.id]
+      timeouts {
+        create = "7200s"
+      }
+      depends_on = [alicloud_ecs_invocation.invocation1]
+    }
+
+
+    output "Url" {
+      description = <<EOT
+      {
+        "Label": "Web 访问地址",
+        "Description": "Stable Diffusion 页面访问地址."
+      }
+      EOT
+      value = format("http://%s:7860", alicloud_instance.ecs.public_ip)
+    }
+
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+    - acs:document-help:ecs:使用AMD CPU实例部署Stable Diffusion

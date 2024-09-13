@@ -4,6 +4,24 @@ Description:
   en: Create a CDN domain to accelerate OSS access, automatically enabling the CDN
     service, and configure the origin server and DNS resolution records.
 Parameters:
+  OSSBucketName:
+    Type: String
+    Label:
+      en: NewBucketName
+      zh-cn: 新建存储空间名称
+    Description:
+      en: Bucket names must be globally unique within the scope of OSS. The length
+        is 3~63 characters. Must start and end with a lowercase English letter or
+        number, and can contain lowercase English letters, numbers, and dashes (-).
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: test-bucketname-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
   Scope:
     Type: String
     Label:
@@ -26,16 +44,35 @@ Parameters:
       zh-cn: 加速域名是指接入CDN，用于加速源站的域名。该示例为oss.example.com。
       en: Accelerated domain name refers to the domain name of the access CDN used to accelerate the source site. The example is oss.example.com.
     Default: oss.example.com
-  OssDomain:
-    Type: String
-    Label:
-      zh-cn: 源站信息
-      en: Source station information
-    Description:
-      zh-cn: 需要加速的OSS Bucket域名（结构为BucketName.Endpoint）。
-      en: The OSS Bucket domain name that needs acceleration (structured as BucketName.Endpoint).
-    Default: examplebucket.oss-cn-hangzhou.aliyuncs.com
 Resources:
+  OSSBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: OSSBucketName
+      DeletionForce: true
+      CORSConfiguration:
+        CORSRule:
+        - AllowedHeader:
+          - '*'
+          AllowedMethod:
+          - POST
+          AllowedOrigin:
+          - '*'
+          MaxAgeSeconds: 0
+  DomainConfig:
+    DependsOn: Domain
+    Type: ALIYUN::CDN::DomainConfig
+    Properties:
+      FunctionList:
+        - FunctionArgs:
+            - ArgName: private_oss_auth
+              ArgValue: 'on'
+            - ArgName: perm_private_oss_tbl
+              ArgValue: ''
+          FunctionName: l2_oss_key
+      DomainNames:
+        Ref: DomainName
   OpenCdnService:
     Type: ALIYUN::ROS::AutoEnableService
     Properties:
@@ -44,16 +81,15 @@ Resources:
     Type: ALIYUN::CDN::Domain
     Properties:
       Sources:
-        Fn::Sub:
-          - '[{"content":"${content}", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
-          - content:
-              Ref: OssDomain
+        Fn::Sub: '[{"content":"${OSSBucketName}.oss-${ALIYUN::Region}.aliyuncs.com", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
       Scope:
         Ref: Scope
       CdnType: web
       DomainName:
         Ref: DomainName
-    DependsOn: OpenCdnService
+    DependsOn: 
+      - OpenCdnService
+      - OSSBucket
   DomainRecord:
     Type: ALIYUN::DNS::DomainRecord
     Properties:
@@ -83,17 +119,26 @@ Resources:
                     - Ref: DomainName
     DependsOn: Domain
 Outputs:
-  Cname:
+  Console.Cname:
+    Label: CNAME
     Description: CNAME
     Value:
       Fn::GetAtt:
         - Domain
         - Cname
+  Console.Bucket:
+    Label:
+      zh-cn: Bucket
+      en: Bucket
+    Description:
+      zh-cn: 文件上传到的bucket控制台页面。可访问该链接查看上传情况。
+      en: Bucket console page, view upload status.
+    Value: 
+      Fn::Sub: https://oss.console.aliyun.com/bucket/oss-${ALIYUN::Region}/${OSSBucketName}
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
       - Parameters:
           - DomainName
-          - OssDomain
     TemplateTags:
       - acs:document-help:oss:使用CDN加速OSS访问
