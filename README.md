@@ -376,14 +376,27 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 | Template                                                                                      | Description                                                                                                               |
 |-----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [lamp.yml](./documents/help/ecs/lamp.yml)    | Create a LAMP environment, supporting deployment on new instances or selection of existing instances, with configuration of VPC, security groups, and instance settings. Automate the installation of the LAMP stack, providing access to ECS login and Nginx/PHP information pages. |
+| [lamp-ubuntu.yml](./documents/help/ecs/lamp-ubuntu.yml)    | Create a LAMP environment in Ubuntu, supporting deployment on new instances or selection of existing instances, with configuration of VPC, security groups, and instance settings. Automate the installation of the LAMP stack, providing access to ECS login and Nginx/PHP information pages. |
+| [lnmp.yml](./documents/help/ecs/lnmp.yml)    | Create a new or optional existing Elastic Compute Service (ECS) instance, configure Virtual Private Cloud (VPC), security groups, and cloud disks, automatically install the LNMP stack, and provide an external access URL. |
 | [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)                                     | Deploy an LNMP environment on an ECS instance (CentOS 7), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
+| [lnmp-ubuntu.yml](./documents/help/ecs/lnmp-ubuntu.yml)    | Deploy an LNMP environment on an ECS instance (Ubuntu), where LNMP represents Linux, Nginx, MySQL, and PHP respectively. |
 | [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)                                       | Use Centos7 to create an ECS instance and install and deploy the FTP service.                                             |
 | [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)                                 | Deploy the Node.js environment on an ECS instance (CentOS 7).                                                             |
 | [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml)                           | Manually build a WordPress website on a CentOS 7 ECS instance                                                             |
+| [wordpress-on-ecs.yml](./documents/help/ecs/wordpress-on-ecs.yml)                            | Create a Virtual Private Cloud (VPC), Virtual Switch (VSwitch), Security Group, and Elastic Compute Service (ECS) instance, configure one-click deployment for WordPress, supporting both the creation of new or the selection of existing ECS instances. |
 | [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml)                                   | Deploy the MySQL service on an ECS instance (CentOS 8).                                                                           |
+| [hadoop.yml](./documents/help/ecs/hadoop.yml)  | Deploy the Hadoop environment.   |
+| [java-web.yml](./documents/help/ecs/java-web.yml)  | Deploy the Java Web environment.   |
+| [gitlab.yml](./documents/help/ecs/gitlab.yml)  | Deploy the GitLab service.   |
 | [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml)           | Bind an EIP to a secondary ENI in normal mode to bind multiple EIPs to a single ECS instance (CentOS 7).  |
+| [docker.yml](./documents/help/ecs/docker.yml)     | Create a ROS template for Docker environment, facilitating the creation of new or utilization of existing ECS instances, configuring VPC and security groups, with automated installation of Docker CE. |
 | [docker-alibaba-cloud-linux-2.yml](./documents/help/ecs/docker-alibaba-cloud-linux-2.yml)     | Deploy and use Docker on the ECS instance of Alibaba Cloud Linux 2.1903 LTS 64-bit operating system. |
 | [configure-IPv6-address-for-ecs.yml](./documents/help/ecs/configure-IPv6-address-for-ecs.yml) | Configure the IPv6 address of the ECS instance. |
+| [aiacc.yml](./documents/help/ecs/aiacc.yml) | Quickly implement AIGC painting based on the AIACC accelerator. |
+| [rapid-build-ai-robots-dialogue.yml](./documents/help/ecs/rapid-build-ai-robots-dialogue.yml) | Rapid build AI robots dialogue. |
+| [aigc-text-generation-video.yml](./documents/help/ecs/aigc-text-generation-video.yml) | AIGC text generation video. |
+| [aigc-text-generation-3d-model.yml](./documents/help/ecs/aigc-text-generation-3d-model.yml) | AIGC text generation 3D model. |
 | [tf-chat-glm-6b.yml](documents/help/ecs/tf-chat-glm-6b.yml)                                   | The AI conversation robot is based on the ChatGLM-6B language model.                                               |
 | [tf-qwen-7b-chat.yml](documents/help/ecs/tf-qwen-7b-chat.yml)                              | The AI conversation robot is based on the Qwen-7B-Chat.                                                            |
 | [tf-qwen-audio-chat.yml](documents/help/ecs/tf-qwen-audio-chat.yml)                        | The AI conversation robot is based on the Qwen-Audio-Chat.                                                         |
@@ -456,7 +469,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml) | LingJun LLAMA-2 Best Practice.                                                               |
 | [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                   | PAI AI painting solution |
 | [pai-lingjun-serverless-LLM-best-practice.yml](documents/solution/ai/pai-lingjun-serverless-LLM-best-practice.yml) | PAI LingJun Serverless LLM Best Practice.                                                    |
-| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml) | AIGC Text Generation 3D Model.                                                               |
+| [aigc-text-generation-3d-model-with-ecs.yml](documents/solution/ai/aigc-text-generation-3d-model-with-ecs.yml) | AIGC text generation 3D model.                                                               |
 | [use-pai-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-pai-to-deploy-stable-diffusion-for-AI-painting.yml) | How to quickly start Stable Diffusion on Alibaba Cloud and easily play with AI painting.     |
 | [use-gpu-ecs-to-deploy-chatGLM.yaml](documents/solution/ai/use-gpu-ecs-to-deploy-chatGLM.yaml) | Large model combines the AnalyticDB to build Chatbot.                                        |
 | [build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml](documents/solution/ai/build-a-dialogue-model-based-on-ChatGLM-and-LangChain.yml)                   | Build a dialogue model based on ChatGLM and LangChain.                                       |

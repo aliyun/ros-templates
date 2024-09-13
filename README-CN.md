@@ -376,16 +376,29 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 | 模板                                                                                            | 说明                                                               |
 |-----------------------------------------------------------------------------------------------|------------------------------------------------------------------|
+| [lamp.yml](./documents/help/ecs/lamp.yml)    | 创建LAMP环境，支持新实例部署或选择现有实例，配置VPC、安全组及实例设置，自动安装LAMP堆栈，提供ECS登录与Nginx、PHP信息页面访问。 [文档](https://help.aliyun.com/zh/ecs/use-cases/build-a-lamp-stack-on-a-centos-7-instance) |
+| [lamp-ubuntu.yml](./documents/help/ecs/lamp-ubuntu.yml)    | 在Ubuntu系统中创建LAMP环境，支持新实例部署或选择现有实例，配置VPC、安全组及实例设置，自动安装LAMP堆栈，提供ECS登录与Nginx、PHP信息页面访问。 [文档](https://help.aliyun.com/zh/ecs/use-cases/build-a-lamp-stack-on-ubuntu-instances) |
+| [lnmp.yml](./documents/help/ecs/lnmp.yml)    | 创建可选新或用已有ECS实例，配置VPC、安全组及云盘，自动安装LNMP环境，提供外部访问URL。 [文档](https://help.aliyun.com/zh/ecs/use-cases/manually-build-an-lnmp-environment-on-a-centos-instance) |
 | [lnmp-centos7.yml](./documents/help/ecs/lnmp-centos7.yml)                                     | 在 ECS 实例（CentOS 7）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 |
-| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)                                       | 使用Centos7系统创建ECS实例安装部署FTP服务。                                     |
+| [lnmp-ubuntu.yml](./documents/help/ecs/lnmp-ubuntu.yml)    | 在 ECS 实例（Ubuntu）上搭建 LNMP 环境，其中 LNMP 分别代表 Linux、Nginx、MySQL 和 PHP。 [文档](https://help.aliyun.com/zh/ecs/use-cases/build-an-lnmp-stack-on-a-ubuntu-instance) |
+| [ftp-centos7.yml](./documents/help/ecs/ftp-centos7.yml)                                       | 使用Centos7系统创建ECS实例安装部署FTP服务。 [文档](https://help.aliyun.com/zh/ecs/use-cases/manually-build-an-ftp-site-on-a-linux-instance)   |
 | [nodejs-centos7.yml](./documents/help/ecs/nodejs-centos7.yml)                                 | 在ECS实例（CentOS 7）上部署Node.js环境。                                    |
 | [wordpress-centos7.yml](./documents/help/ecs/wordpress-centos7.yml)                           | 在ECS实例（CentOS 7）上搭建WordPress。                                    |
+| [wordpress-on-ecs.yml](./documents/help/ecs/wordpress-on-ecs.yml)                            | 创建VPC、VSwitch、安全组及ECS实例，配置WordPress一键部署，支持新创或选用现有ECS实例。  [文档](https://help.aliyun.com/zh/ecs/use-cases/manually-build-a-wordpress-website-on-a-centos-7-ecs-instance)   |
 | [mysql-centos8.yml](./documents/help/ecs/mysql-centos8.yml)                                   | 在ECS实例（CentOS 8）上部署MySQL服务。                                      |
+| [hadoop.yml](./documents/help/ecs/hadoop.yml)  | 部署Hadoop环境。 [文档](https://help.aliyun.com/zh/ecs/use-cases/build-a-hadoop-environment)   |
+| [java-web.yml](./documents/help/ecs/java-web.yml)  | 部署Java Web环境。 [文档](https://help.aliyun.com/zh/ecs/use-cases/manually-deploy-a-java-web-environment-on-an-instance-that-runs-alibaba-cloud-linux)   |
+| [gitlab.yml](./documents/help/ecs/gitlab.yml)  | 部署GitLab服务。 [文档](https://help.aliyun.com/zh/ecs/use-cases/deploy-and-use-gitlab)   |
 | [ecs-bind-multi-eip-address.yml](documents/help/eip/ecs-bind-multi-eip-address.yml)           | 将弹性公网IP与辅助弹性网卡以普通模式绑定，实现单个ECS实例(CentOS 7)绑定多个EIP。                |
+| [docker.yml](./documents/help/ecs/docker.yml)     | 创建Docker环境的ROS模板，支持新建或使用现有ECS实例，配置VPC、安全组，自动安装Docker CE。 [文档](https://help.aliyun.com/zh/ecs/use-cases/install-and-use-docker-on-a-linux-ecs-instance) |
 | [docker-alibaba-cloud-linux-2.yml](./documents/help/ecs/docker-alibaba-cloud-linux-2.yml)     | 部署并使用Docker（Alibaba Cloud Linux 2）。                              |
-| [configure-IPv6-address-for-ecs.yml](./documents/help/ecs/configure-IPv6-address-for-ecs.yml) | 配置ECS实例的IPv6地址。|
-| [tf-chat-glm-6b.yml](documents/help/ecs/tf-chat-glm-6b.yml)                                   | 部署基于ChatGLM-6B的AI对话机器人。                                                                           |
-| [tf-qwen-7b-chat.yml](documents/help/ecs/tf-qwen-7b-chat.yml)                              | 部署通义千问Qwen-7B-Chat。                                                                               |
+| [configure-IPv6-address-for-ecs.yml](./documents/help/ecs/configure-IPv6-address-for-ecs.yml) | 配置ECS实例的IPv6地址。 [文档](https://help.aliyun.com/zh/ecs/user-guide/step-1-create-a-vpc-that-supports-ipv6-addressing) |
+| [aiacc.yml](./documents/help/ecs/aiacc.yml) | 基于AIACC加速器快速实现AIGC绘画。 [文档](https://help.aliyun.com/zh/ecs/use-cases/based-on-the-aiacc-accelerator-rapidly-aigc-painting) |
+| [rapid-build-ai-robots-dialogue.yml](./documents/help/ecs/rapid-build-ai-robots-dialogue.yml) | 快速搭建AI对话机器人。 [文档](https://help.aliyun.com/zh/ecs/use-cases/rapid-build-ai-robots-dialogue) |
+| [aigc-text-generation-video.yml](./documents/help/ecs/aigc-text-generation-video.yml) | AIGC文本生成视频。 [文档](https://help.aliyun.com/zh/ecs/use-cases/aigc-generate-video-text) |
+| [aigc-text-generation-3d-model.yml](./documents/help/ecs/aigc-text-generation-3d-model.yml) | AIGC文本生成3D模型。 [文档](https://help.aliyun.com/zh/ecs/use-cases/aigc-text-generated-3-d-model) |
+| [tf-chat-glm-6b.yml](documents/help/ecs/tf-chat-glm-6b.yml)                                   | 部署基于ChatGLM-6B的AI对话机器人。 [文档](https://help.aliyun.com/zh/ecs/use-cases/deploy-chatglm-6b-on-an-amd-based-instance) |
+| [tf-qwen-7b-chat.yml](documents/help/ecs/tf-qwen-7b-chat.yml)                              | 部署通义千问Qwen-7B-Chat。   [文档](https://help.aliyun.com/zh/ecs/use-cases/use-an-amd-instance-to-deploy-qwen-7b-chat)   |
 | [tf-qwen-audio-chat.yml](documents/help/ecs/tf-qwen-audio-chat.yml)                        | 部署通义千问Qwen-Audio-Chat。                                                                            |
 | [tf-qwen-vl-chat.yml](documents/help/ecs/tf-qwen-vl-chat.yml)                              | 部署通义千问Qwen-Al-Chat。                                                                               |
 | [tf-stable-diffusion.yml](documents/help/ecs/tf-stable-diffusion.yml)                      | 基于Stable Diffusion模型搭建个人版文生图服务。                                                                   |
@@ -424,11 +437,11 @@ ROS 模板的示例和最佳实践。模板分类如下：
 |------------------------------------------------------------------------------------------------------------------------------------------------------------------| --------------- |
 | [add-signatures-on-server-configure-upload-callback.yml](./documents/help/oss/add-signatures-on-server-configure-upload-callback.yml)                                 | 在服务端通过Java代码完成签名，并且设置上传回调，然后通过表单直传数据到OSS。 |
 | [add-signatures-on-the-client-by-using-JS-and-upload-data.yml](./documents/help/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml)                     | 基于POST Policy的使用规则在客户端通过JavaScript代码完成签名，然后通过表单直传数据到OSS。 |
-| [upload-to-oss-with-server-signature.yml](documents/help/oss/upload-to-oss-with-server-signature.yml) | 从服务器获取签名信息并上传数据到OSS。|
+| [upload-to-oss-with-server-signature.yml](documents/help/oss/upload-to-oss-with-server-signature.yml) | 从服务器获取签名信息并上传数据到OSS。 [文档](https://help.aliyun.com/zh/oss/use-cases/obtain-signature-information-from-the-server-and-upload-data-to-oss) |
 | [mobile-application-direct-transmission-service.yml](./documents/help/oss/mobile-application-direct-transmission-service.yml)                                       | 开通STS服务并配置应用服务器，通过输出的服务器地址可以获取临时的Token。|
-| [cdn-speeds-up-oss-access.yml](./documents/help/oss/cdn-speeds-up-oss-access.yml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 |
-| [use-function-compute-to-download-multiple-objects-as-a-package.yml](./documents/help/oss/use-function-compute-to-download-multiple-objects-as-a-package.yml)       | 使用函数计算将对象存储OSS上多个文件（Object）打包下载到本地。 |
-| [centOS-ecs-oos.yml](./documents/help/oss/centOS-ecs-oss.yml)                                                                                   | 基于CentOS的ECS实例实现OSS反向代理 |
+| [cdn-speeds-up-oss-access.yml](./documents/help/oss/cdn-speeds-up-oss-access.yml)                                                                                   | 使用CDN添加域名并解析域名，实现加速OSS的访问。 [文档](https://help.aliyun.com/zh/oss/user-guide/use-cdn-to-accelerate-access-to-oss) |
+| [use-function-compute-to-download-multiple-objects-as-a-package.yml](./documents/help/oss/use-function-compute-to-download-multiple-objects-as-a-package.yml)       | 使用函数计算将对象存储OSS上多个文件（Object）打包下载到本地。 [文档](https://help.aliyun.com/zh/oss/use-cases/use-function-compute-to-download-multiple-objects-as-a-package) |
+| [centOS-ecs-oos.yml](./documents/help/oss/centOS-ecs-oss.yml)                                                                                   | 基于CentOS的ECS实例实现OSS反向代理。 [文档](https://help.aliyun.com/zh/oss/use-cases/use-an-ecs-instance-that-runs-centos-to-configure-a-reverse-proxy-for-access-to-oss) |
 
 - vpc
 

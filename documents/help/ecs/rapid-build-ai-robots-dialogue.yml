@@ -1,0 +1,228 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Rapid build AI robots dialogue.
+  zh-cn: 快速搭建AI对话机器人
+Mappings:
+  Images:
+    v2.3.0:
+      cn-beijing: m-2ze2355f061213z7wkmd
+      cn-chengdu: m-2vc8gw95jt1a3pnekhaf
+      cn-guangzhou: m-7xv5jmgay1umv241fuhl
+      cn-hangzhou: m-bp1e796nsjeuruq879fs
+      cn-heyuan: m-f8zbcsng6b538is8kncl
+      cn-huhehaote: m-hp3dor1c0g6m42vkaqmc
+      cn-qingdao: m-m5eey29yp3ohwkcl08ig
+      cn-shanghai: m-uf69rd86195a1kq6tcca
+      cn-shenzhen: m-wz97ya51lhoajugj52fs
+      cn-wulanchabu: m-0jlay21qst1a1u7twuwp
+      cn-zhangjiakou: m-8vb16qkofm9zvs2ifq34
+Parameters:
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    Description:
+      en: This solution requires GPU computing type gn7i series servers. If there
+        are no instance specifications that meet the conditions, please change the
+        region.
+      zh-cn: 此方案需要 GPU 计算型 gn7i 系列服务器，如果没有满足条件的实例规格，请更换地域。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      SpotStrategy: SpotAsPriceGo
+    AllowedValues:
+    - ecs.gn7i-c16g1.4xlarge
+    - ecs.gn7i-c32g1.8xlarge
+    - ecs.gn7i-c48g1.12xlarge
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  UserName:
+    Type: String
+    Label:
+      en: User Name
+      zh-cn: 软件登录名
+    Default: admin
+  Password:
+    Type: String
+    Label:
+      en: Software Login Password
+      zh-cn: 软件登录密码
+    Description:
+      en: Software login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol
+        in)
+      zh-cn: 软件登录密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Ref: ALIYUN::StackName
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      SecurityGroupIngress:
+      - PortRange: 50001/50001
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      - PortRange: 22/22
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        NicType: internet
+      SecurityGroupEgress:
+      - PortRange: '-1/-1'
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: internet
+      - PortRange: '-1/-1'
+        Priority: 1
+        IpProtocol: all
+        DestCidrIp: 0.0.0.0/0
+        NicType: intranet
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName:
+        Ref: ALIYUN::StackName
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId:
+        Fn::FindInMap:
+        - Images
+        - v2.3.0
+        - Ref: ALIYUN::Region
+      IoOptimized: optimized
+      SystemDiskSize: 500
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      InternetMaxBandwidthOut: 100
+      InstanceType:
+        Ref: EcsInstanceType
+      AllocatePublicIP: true
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          cd /root/chatglm
+          git-lfs clone https://www.modelscope.cn/ZhipuAI/ChatGLM-6B.git chatglm-6b
+          git -C chatglm-6b checkout v1.0.16
+          sed -i '33c from .configuration_chatglm import ChatGLMConfig' chatglm-6b/modeling_chatglm.py
+          cd /root/chatglm/ChatGLM-6B
+          nohup /workspace/miniconda/bin/streamlit  run /root/chatglm/ChatGLM-6B/web_demo2.py --server.port 50001 &> /root/chatglm/ChatGLM-6B/log.txt &
+      Type: RunShellScript
+      Timeout: '30000'
+      Sync: true
+Outputs:
+  Endpoint:
+    Description:
+      en: The Addresses of WebUI.
+      zh-cn: WebUI地址。
+    Value:
+      Fn::Sub:
+      - http://${ServerAddress}:50001
+      - ServerAddress:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - PublicIps
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub:
+      - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+      - InstanceId:
+          Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - EcsInstanceGroup
+            - InstanceIds
+        Region:
+          Ref: ALIYUN::Region
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ImageId
+      - EcsInstanceType
+      - ZoneId
+      - InstancePassword
+      Label:
+        default:
+          en: Instance
+          zh-cn: ECS实例配置
+    - Parameters:
+      - UserName
+      - Password
+      Label:
+        default:
+          en: Login Information
+          zh-cn: 登录信息
+    TemplateTags:
+    - ' acs:document-help:ecs:快速搭建AI对话机器人'

@@ -1,0 +1,400 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 部署Hadoop环境。
+  en: Deploy the Hadoop environment.
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+    - Ref: InstanceSource
+    - CreateNew
+  UseExistedInstance:
+    Fn::Equals:
+    - Ref: InstanceSource
+    - UseExisted
+Parameters:
+  InstanceSource:
+    Type: String
+    Label:
+      zh-cn: 实例来源
+      en: Instance Source
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        CreateNew:
+          zh-cn: 创建新实例
+          en: Create New Instance
+        UseExisted:
+          zh-cn: 选择已有实例
+          en: Select Existed Instance
+    Default: CreateNew
+    AllowedValues:
+    - CreateNew
+    - UseExisted
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${InstanceSource}
+          - CreateNew
+    Default:
+  ImageId:
+    Type: String
+    Label:
+      en: Image of Instance
+      zh-cn: 实例镜像
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        aliyun_3_x64_20G_alibase_20240528.vhd:
+          zh-cn: Alibaba Cloud Linux 3
+          en: Alibaba Cloud Linux 3
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${InstanceSource}
+          - CreateNew
+    Default: aliyun_3_x64_20G_alibase_20240528.vhd
+    AllowedValues:
+    - aliyun_3_x64_20G_alibase_20240528.vhd
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${InstanceSource}
+          - CreateNew
+    Default:
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${InstanceSource}
+          - CreateNew
+    Default:
+    NoEcho: true
+    Confirm: true
+  EcsInstanceId:
+    Type: String
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Status: Running
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${InstanceSource}
+          - UseExisted
+    Default:
+  CommonName:
+    Type: String
+    Default: deploy-hadoop-by-ros
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Condition: CreateInstance
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Condition: CreateInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 8088/8088
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 9870/9870
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: '-1/-1'
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Condition: CreateInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  DeployHadoop:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Fn::If:
+        - UseExistedInstance
+        - Ref: EcsInstanceId
+        - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          if command -v java &> /dev/null; then
+          echo "当前环境已存在java，请选择创建一台新的ECS或者未安装Java的ECS进行部署。"
+          exit 0
+          fi
+
+          wget -c -t 10 https://download.java.net/openjdk/jdk8u41/ri/openjdk-8u41-b04-linux-x64-14_jan_2020.tar.gz
+          tar -zxvf openjdk-8u41-b04-linux-x64-14_jan_2020.tar.gz
+          sudo mv java-se-8u41-ri/ /usr/java8
+
+          sudo sh -c "echo 'export JAVA_HOME=/usr/java8' >> /etc/profile"
+          sudo sh -c 'echo "export PATH=\$PATH:\$JAVA_HOME/bin" >> /etc/profile'
+          sudo source /etc/profile
+
+          sudo wget -c -t 10 https://mirrors.bfsu.edu.cn/apache/hadoop/common/hadoop-3.2.4/hadoop-3.2.4.tar.gz 
+          sudo tar -zxvf hadoop-3.2.4.tar.gz -C /opt/
+          sudo mv /opt/hadoop-3.2.4 /opt/hadoop
+
+          sudo sh -c "echo 'export HADOOP_HOME=/opt/hadoop' >> /etc/profile"
+          sudo sh -c "echo 'export PATH=\$PATH:/opt/hadoop/bin' >> /etc/profile"
+          sudo sh -c "echo 'export PATH=\$PATH:/opt/hadoop/sbin' >> /etc/profile"
+          source /etc/profile
+
+          sudo sh -c 'echo "export JAVA_HOME=/usr/java8" >> /opt/hadoop/etc/hadoop/yarn-env.sh'
+          sudo sh -c 'echo "export JAVA_HOME=/usr/java8" >> /opt/hadoop/etc/hadoop/hadoop-env.sh'
+
+          sudo mv /opt/hadoop/etc/hadoop/core-site.xml /opt/hadoop/etc/hadoop/core-site.xml.bak
+
+          sudo cat > /opt/hadoop/etc/hadoop/core-site.xml << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+          <configuration>
+              <property>
+                  <name>hadoop.tmp.dir</name>
+                  <value>file:/opt/hadoop/tmp</value>
+                  <description>location to store temporary files</description>
+              </property>
+              <property>
+                  <name>fs.defaultFS</name>
+                  <value>hdfs://localhost:9000</value>
+              </property>
+          </configuration>
+          EOF
+
+          sudo mv /opt/hadoop/etc/hadoop/hdfs-site.xml /opt/hadoop/etc/hadoop/hdfs-site.xml.bak
+          sudo cat > /opt/hadoop/etc/hadoop/hdfs-site.xml << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+          <configuration>
+              <property>
+                  <name>dfs.replication</name>
+                  <value>1</value>
+              </property>
+              <property>
+                  <name>dfs.namenode.name.dir</name>
+                  <value>file:/opt/hadoop/tmp/dfs/name</value>
+              </property>
+              <property>
+                  <name>dfs.datanode.data.dir</name>
+                  <value>file:/opt/hadoop/tmp/dfs/data</value>
+              </property>
+          </configuration>
+          EOF
+
+
+          ssh-keygen -t rsa -N '' -q -f /root/.ssh/id_rsa
+
+          cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
+
+          sed -i '32 a HDFS_DATANODE_USER=root' /opt/hadoop/sbin/start-dfs.sh
+          sed -i '32 a HADOOP_SECURE_DN_USER=hdfs' /opt/hadoop/sbin/start-dfs.sh
+          sed -i '32 a HDFS_NAMENODE_USER=root' /opt/hadoop/sbin/start-dfs.sh
+          sed -i '32 a HDFS_SECONDARYNAMENODE_USER=root' /opt/hadoop/sbin/start-dfs.sh
+          sed -i '20 a HDFS_DATANODE_USER=root' /opt/hadoop/sbin/stop-dfs.sh
+          sed -i '20 a HADOOP_SECURE_DN_USER=hdfs' /opt/hadoop/sbin/stop-dfs.sh
+          sed -i '20 a HDFS_NAMENODE_USER=root' /opt/hadoop/sbin/stop-dfs.sh
+          sed -i '20 a HDFS_SECONDARYNAMENODE_USER=root' /opt/hadoop/sbin/stop-dfs.sh
+
+          sed -i '16 a YARN_RESOURCEMANAGER_USER=root' /opt/hadoop/sbin/start-yarn.sh
+          sed -i '16 a HADOOP_SECURE_DN_USER=yarn' /opt/hadoop/sbin/start-yarn.sh
+          sed -i '16 a YARN_NODEMANAGER_USER=root' /opt/hadoop/sbin/start-yarn.sh
+          sed -i '16 a YARN_RESOURCEMANAGER_USER=root' /opt/hadoop/sbin/stop-yarn.sh
+          sed -i '16 a HADOOP_SECURE_DN_USER=yarn' /opt/hadoop/sbin/stop-yarn.sh
+          sed -i '16 a YARN_NODEMANAGER_USER=root' /opt/hadoop/sbin/stop-yarn.sh
+
+          hadoop namenode -format
+          start-dfs.sh
+          start-yarn.sh
+  DsEcs:
+    Type: 'DATASOURCE::ECS::Instances'
+    Properties:
+      InstanceIds:
+      - Fn::If:
+        - UseExistedInstance
+        - Ref: EcsInstanceId
+        - Ref: EcsInstance
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DsEcs
+          - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_8088:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DsEcs
+          - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 8088/8088
+  SecurityGroupIngress_9870:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DsEcs
+          - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 9870/9870
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub:
+      - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${InstanceId}
+      - InstanceId:
+          Fn::If:
+          - UseExistedInstance
+          - Ref: EcsInstanceId
+          - Ref: EcsInstance
+  Console@Url:
+    Description:
+      en: YARN Web Address.
+      zh-cn: YARN 访问地址。
+    Value:
+      Fn::Sub:
+      - http://${PublicIp}:8088
+      - PublicIp:
+          Fn::Jq:
+          - First
+          - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+            end
+          - Fn::GetAtt:
+            - DsEcs
+            - Instances
+  Hadoop NameNode Web Page:
+    Description:
+      en: Hadoop NameNode Web Address.
+      zh-cn: Hadoop NameNode 访问页面。
+    Value:
+      Fn::Sub:
+      - http://${PublicIp}:9870
+      - PublicIp:
+          Fn::Jq:
+          - First
+          - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+            end
+          - Fn::GetAtt:
+            - DsEcs
+            - Instances
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - InstanceSource
+      - ZoneId
+      - ImageId
+      - InstanceType
+      - InstancePassword
+      - EcsInstanceId
+    TemplateTags:
+    - acs:document-help:ecs:部署Hadoop环境
+    Hidden:
+    - CommonName

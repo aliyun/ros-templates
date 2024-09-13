@@ -1,0 +1,338 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 部署Java Web环境。
+  en: Deploy the Java Web environment.
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+    - Ref: InstanceSource
+    - CreateNew
+  UseExistedInstance:
+    Fn::Equals:
+    - Ref: InstanceSource
+    - UseExisted
+Parameters:
+  InstanceSource:
+    Type: String
+    Label:
+      zh-cn: 实例来源
+      en: Instance Source
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        CreateNew:
+          zh-cn: 创建新实例
+          en: Create New Instance
+        UseExisted:
+          zh-cn: 选择已有实例
+          en: Select Existed Instance
+    Default: CreateNew
+    AllowedValues:
+    - CreateNew
+    - UseExisted
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${InstanceSource}
+          - CreateNew
+    Default:
+  ImageId:
+    Type: String
+    Label:
+      en: Image of Instance
+      zh-cn: 实例镜像
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        aliyun_3_x64_20G_alibase_20240528.vhd:
+          zh-cn: Alibaba Cloud Linux 3
+          en: Alibaba Cloud Linux 3
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${InstanceSource}
+          - CreateNew
+    Default: aliyun_3_x64_20G_alibase_20240528.vhd
+    AllowedValues:
+    - aliyun_3_x64_20G_alibase_20240528.vhd
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${InstanceSource}
+          - CreateNew
+    Default:
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${InstanceSource}
+          - CreateNew
+    Default:
+    NoEcho: true
+    Confirm: true
+  EcsInstanceId:
+    Type: String
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Status: Running
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${InstanceSource}
+          - UseExisted
+    Default:
+  CommonName:
+    Type: String
+    Default: deploy-java-web-by-ros
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Condition: CreateInstance
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Condition: CreateInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+      - PortRange: 22/22
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: 8080/8080
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+      - PortRange: '-1/-1'
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: icmp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Condition: CreateInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  DeployJavaWeb:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Fn::If:
+        - UseExistedInstance
+        - Ref: EcsInstanceId
+        - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          if command -v java &> /dev/null; then
+          echo "当前环境已存在java，请选择创建一台新的ECS或者未安装Java的ECS进行部署。"
+          exit 0
+          fi
+
+          sudo yum -y install java-1.8.0-openjdk-devel.x86_64
+          sudo echo "JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.412.b08-2.0.1.1.al8.x86_64" >>/etc/profile
+          sudo echo "PATH=$PATH:$JAVA_HOME/bin" >>/etc/profile
+          sudo echo "CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar" >>/etc/profile
+          sudo echo "export JAVA_HOME CLASSPATH PATH" >>/etc/profile
+          sudo source /etc/profile
+
+          sudo wget -c -t 10 https://help-static-aliyun-doc.aliyuncs.com/software/apache-tomcat-9.0.91.tar.gz  --no-check-certificate 
+          sudo tar -zxvf apache-tomcat-9.0.91.tar.gz
+          sudo mv apache-tomcat-9.0.91 /usr/local/tomcat/
+
+          sudo mv /usr/local/tomcat/conf/server.xml /usr/local/tomcat/conf/server.xml.bak
+          sudo cat > /usr/local/tomcat/conf/server.xml << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Server port="8006" shutdown="SHUTDOWN">
+          <Listener className="org.apache.catalina.core.JreMemoryLeakPreventionListener"/>
+          <Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener"/>
+          <Listener className="org.apache.catalina.core.ThreadLocalLeakPreventionListener"/>
+          <Listener className="org.apache.catalina.core.AprLifecycleListener"/>
+          <GlobalNamingResources>
+          <Resource name="UserDatabase" auth="Container"
+           type="org.apache.catalina.UserDatabase"
+           description="User database that can be updated and saved"
+           factory="org.apache.catalina.users.MemoryUserDatabaseFactory"
+           pathname="conf/tomcat-users.xml"/>
+          </GlobalNamingResources>
+          <Service name="Catalina">
+          <Connector port="8080"
+           protocol="HTTP/1.1"
+           connectionTimeout="20000"
+           redirectPort="8443"
+           maxThreads="1000"
+           minSpareThreads="20"
+           acceptCount="1000"
+           maxHttpHeaderSize="65536"
+           debug="0"
+           disableUploadTimeout="true"
+           useBodyEncodingForURI="true"
+           enableLookups="false"
+           URIEncoding="UTF-8"/>
+          <Engine name="Catalina" defaultHost="localhost">
+          <Realm className="org.apache.catalina.realm.LockOutRealm">
+          <Realm className="org.apache.catalina.realm.UserDatabaseRealm"
+            resourceName="UserDatabase"/>
+          </Realm>
+          <Host name="localhost" appBase="/data/wwwroot/default" unpackWARs="true" autoDeploy="true">
+          <Context path="" docBase="/data/wwwroot/default" debug="0" reloadable="false" crossContext="true"/>
+          <Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+          prefix="localhost_access_log." suffix=".txt" pattern="%h %l %u %t &quot;%r&quot; %s %b" />
+          </Host>
+          </Engine>
+          </Service>
+          </Server>
+          EOF
+
+          sudo echo "JAVA_OPTS='-Djava.security.egd=file:/dev/./urandom -server -Xms256m -Xmx496m -Dfile.encoding=UTF-8'" >> /usr/local/tomcat/bin/setenv.sh
+
+          sudo wget -c -t 10 https://help-static-aliyun-doc.aliyuncs.com/software/Tomcat-init.sh
+          sudo mv Tomcat-init.sh /etc/init.d/tomcat
+          chmod +x /etc/init.d/tomcat
+          sudo sed -i 's@^export JAVA_HOME=.*@export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.412.b08-2.0.1.1.al8.x86_64@' /etc/init.d/tomcat
+          sudo chkconfig --add tomcat
+          sudo chkconfig tomcat on
+          sudo service tomcat start
+
+          sudo mkdir -p /data/wwwroot/default
+
+          sudo echo "Tomcat test" > /data/wwwroot/default/index.jsp
+          sudo echo "`curl http://100.100.100.200/latest/meta-data/eipv4` grpc.tf-serving.service.com" >> /etc/hosts
+  DsEcs:
+    Type: 'DATASOURCE::ECS::Instances'
+    Properties:
+      InstanceIds:
+      - Fn::If:
+        - UseExistedInstance
+        - Ref: EcsInstanceId
+        - Ref: EcsInstance
+  SecurityGroupIngress_8080:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+        - First
+        - .[0].SecurityGroupIds[0]
+        - Fn::GetAtt:
+          - DsEcs
+          - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 8080/8080
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub:
+      - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${InstanceId}
+      - InstanceId:
+          Fn::If:
+          - UseExistedInstance
+          - Ref: EcsInstanceId
+          - Ref: EcsInstance
+  Console@Url:
+    Description:
+      en: Java Web Main Page.
+      zh-cn: Java Web主页。
+    Value:
+      Fn::Sub:
+      - http://${PublicIp}:8080
+      - PublicIp:
+          Fn::Jq:
+          - First
+          - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+            end
+          - Fn::GetAtt:
+            - DsEcs
+            - Instances
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - InstanceSource
+      - ZoneId
+      - ImageId
+      - InstanceType
+      - InstancePassword
+      - EcsInstanceId
+    TemplateTags:
+    - acs:document-help:ecs:部署Java Web环境
+    Hidden:
+    - CommonName
