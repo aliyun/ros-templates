@@ -1,10 +1,4 @@
 ROSTemplateFormatVersion: '2015-09-01'
-Description:
-  zh-cn: 创建预配置的ECS实例，搭载NGINX，支持付费方式选择，自动挂载磁盘，配置安全组允许HTTP访问，提供公网IP和访问端点。
-  en: Create pre-configured ECS instances equipped with NGINX, offering flexibility
-    in payment options, with automatic disk attachment, security group configuration
-    to permit HTTP access, provision of public IP addresses, and provision of access
-    endpoints.
 # 参数配置
 Parameters:
   PayType:
@@ -63,6 +57,31 @@ Parameters:
             Fn::Equals:
               - ${PayType}
               - PostPaid
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: ${InstanceChargeType}
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+    MinLength: 8
+    MaxLength: 30
   ZoneId:
     Type: String
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
@@ -90,31 +109,6 @@ Parameters:
     Label:
       en: VSwitch ID
       zh-cn: 交换机实例ID
-  EcsInstanceType:
-    Type: String
-    Label:
-      en: Instance Type
-      zh-cn: 实例类型
-    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
-    AssociationPropertyMetadata:
-      ZoneId: ${ZoneId}
-      InstanceChargeType: ${InstanceChargeType}
-  InstancePassword:
-    NoEcho: true
-    Type: String
-    Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
-      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
-    Label:
-      en: Instance Password
-      zh-cn: 实例密码
-    ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
-      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
-    AssociationProperty: ALIYUN::ECS::Instance::Password
-    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
-    MinLength: 8
-    MaxLength: 30
 # 资源配置
 Resources:
   EcsSecurityGroup:
@@ -131,28 +125,6 @@ Resources:
           SourceCidrIp: 0.0.0.0/0
           IpProtocol: tcp
           NicType: internet
-      # 安全组出端口
-      SecurityGroupEgress:
-        - PortRange: '-1/-1'
-          Priority: 1
-          IpProtocol: all
-          DestCidrIp: 0.0.0.0/0
-          NicType: internet
-        - PortRange: '-1/-1'
-          Priority: 1
-          IpProtocol: all
-          DestCidrIp: 0.0.0.0/0
-          NicType: intranet
-  # 定义waitCondition和waitConditionHandle来等待跳板机命令执行完毕部署成功
-  WaitCondition:
-    Type: ALIYUN::ROS::WaitCondition
-    Properties:
-      Count: 1
-      Handle:
-        Ref: WaitConditionHandle
-      Timeout: 300
-  WaitConditionHandle:
-    Type: ALIYUN::ROS::WaitConditionHandle
   EcsInstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
@@ -182,9 +154,6 @@ Resources:
       # 磁盘类型和大小
       SystemDiskCategory: cloud_essd
       SystemDiskSize: 200
-      DiskMappings:
-        - Category: cloud_essd
-          Size: 200
       MaxAmount: 1
       # 镜像
       ImageId: centos_7
@@ -196,47 +165,20 @@ Resources:
       # 公网开启
       AllocatePublicIP: true
       # 公网带宽
-      InternetMaxBandwidthOut: 100
-      # 启动脚本
-      # cloud-init执行用户命令
-      # /var/log/cloud-init.log /var/log/cloud-init-output.log 可以看到执行日志
-      # /var/lib/cloud/instance/scripts/part-001 为具体的脚本 可以sh 执行来排查问题
-      UserData:
-        Fn::Sub:
-          - |
-            #!/bin/bash
-            # 挂盘到/disk1
-            cat >> /root/InitDataDisk.sh << "EOF"
-            #!/bin/bash
-            echo "p
-            n
-            p
+      InternetMaxBandwidthOut: 1
+  ECSRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent: |-
+        #!/bin/bash
 
-
-
-            w
-            " |  fdisk -u /dev/vdb
-            EOF
-            /bin/bash /root/InitDataDisk.sh
-            rm -f /root/InitDataDisk.sh
-            mkfs -t ext4 /dev/vdb1
-            cp /etc/fstab /etc/fstab.bak
-            mkdir /disk1
-            echo `blkid /dev/vdb1 | awk '{print $2}' | sed 's/\\\"//g'` /disk1 ext4 defaults 0 0 >> /etc/fstab
-            mount -a
-
-            # 这里配置安装脚本
-            yum install -y nginx
-            # 配置启动脚本
-            /usr/sbin/nginx
-
-            # 执行成功回调WaitCondition结束waitCondition的等待
-            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
-          # 获取到waitConditionHandle的地址放到 ${CurlCli}变量里
-          - CurlCli:
-              Fn::GetAtt:
-                - WaitConditionHandle
-                - CurlCli
 # 定义输出
 Outputs:
   # 将公网ip做为http返回的地址显示在控制台
@@ -266,22 +208,17 @@ Metadata:
             en: PayType Configuration
             zh-cn: 付费类型配置
       - Parameters:
-          - ZoneId
-        Label:
-          default:
-            zh-cn: 可用区配置
-            en: Zone Configuration
-      - Parameters:
-          - VpcId
-          - VSwitchId
-        Label:
-          default:
-            zh-cn: 选择已有基础资源配置
-            en: Choose existing Infrastructure Configuration
-      - Parameters:
           - EcsInstanceType
           - InstancePassword
         Label:
           default:
             en: Instance
             zh-cn: ECS实例配置
+      - Parameters:
+          - ZoneId
+          - VpcId
+          - VSwitchId
+        Label:
+          default:
+            zh-cn: 选择已有基础资源
+            en: Choose existing Infrastructure
