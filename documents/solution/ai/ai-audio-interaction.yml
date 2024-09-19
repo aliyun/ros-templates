@@ -1,0 +1,411 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Live audio interaction with AI
+  zh-cn: AI智能体实时语音互动
+Parameters:
+  CommonName:
+    Type: String
+    Default: ai-audio-interaction
+  AppId:
+    Type: String
+    Label:
+      en: ID of ARTC application
+      zh-cn: ARTC应用ID
+  AppKey:
+    NoEcho: true
+    Type: String
+    Label:
+      en: KEY of ARTC application
+      zh-cn: ARTC应用KEY
+  AgentId:
+    Type: String
+    Label:
+      en: ID of AI agent
+      zh-cn: AI语音智能体ID
+  AgentRegion:
+    Type: String
+    Label:
+      en: Region of AI agent
+      zh-cn: 智能体所在地域
+    AssociationProperty: RegionId
+  InstanceType:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  SSLCert:
+    Type: String
+    Default: null
+    AssociationProperty: 'ALIYUN::OOS::File::FileUrl'
+    Label:
+      en: SSL certificate zip file
+      zh-cn: SSL证书压缩包
+    Description:
+      en: >-
+        Please upload the certificate file downloaded in the Certificate Management Service console.
+      zh-cn: >-
+        请直接上传在<a href="https://yundunnext.console.aliyun.com/?p=cas#/certExtend/free/
+        cn-hangzhou" target="_blank">数字证书管理服务控制台</a>下载的上述域名对应Nginx证书的原始压缩包。
+  DomainName:
+    Type: String
+    Label:
+      en: Website domain name
+      zh-cn: 网站域名
+    AssociationProperty: 'ALIYUN::DomainName'
+    Description:
+      en: >-
+        Please enter the subdomain name under the current account, such as example.aliyun.com.
+        If it is a domestic region, you need to fill in the registered 
+        domain name, otherwise the website will not be able to plan.
+      zh-cn: >-
+        请输入当前账号下的域名，例如example.aliyun.com。如果是境内地域则需要填写已完成备案的域名，否则会导致网站无法访问。
+    Default: null
+Rules:
+  CheckCert:
+    RuleCondition:
+      Fn::Not:
+        Fn::Equals:
+          - Ref: SSLCert
+          - null
+    Assertions:
+      - Assert:
+          Fn::Not:
+            Fn::Equals:
+              - Ref: DomainName
+              - null
+        AssertDescription: When a certificate is uploaded, the domain name is required.
+Conditions:
+  ConfigSSL:
+    Fn::And:
+      - DnsRecord
+      - Fn::Not:
+          Fn::Equals:
+            - Ref: SSLCert
+            - null
+  DnsRecord:
+    Fn::Not:
+      Fn::Equals:
+        - Ref: DomainName
+        - null
+  DomainPrefixIsNull:
+    Fn::And:
+      - DnsRecord
+      - Fn::Equals:
+          - null
+          - Fn::GetJsonValue:
+              - DomainPrefix
+              - Ref: DomainName
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: vpc_${CommonName}
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: vsw_${CommonName}
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Sub: sg-${CommonName}
+      SecurityGroupIngress:
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 443/443
+          IpProtocol: tcp
+        - SourceCidrIp: 0.0.0.0/0
+          PortRange: 22/22
+          IpProtocol: tcp
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+          Ref: EcsVpc
+      VSwitchId:
+          Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: aliyun_3_x64_20g_alibase_20240528.vhd
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      Password:
+        Ref: InstancePassword
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3000
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: create_by_ai-audio-${ALIYUN::StackId}
+      PolicyAttachments:
+        System:
+        - AliyunICEFullAccess
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Ref: User
+  DomainRecord:
+    Type: 'ALIYUN::DNS::DomainRecord'
+    Condition: DnsRecord
+    Properties:
+      Type: A
+      RR:
+        Fn::If:
+          - DomainPrefixIsNull
+          - '@'
+          - Fn::GetJsonValue:
+              - DomainPrefix
+              - Ref: DomainName
+      DomainName:
+        Fn::GetJsonValue:
+          - DomainName
+          - Ref: DomainName
+      Value:
+        Fn::Select:
+          - 0
+          - Fn::GetAtt:
+              - EcsInstanceGroup
+              - PublicIps
+  PrepareCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            cat << EOF >> ~/.bash_profile
+            export ACCESS_KEY="${AccessKey.AccessKeyId}"
+            export ACCESS_SECRET="${AccessKey.AccessKeySecret}"
+            export LIVE_MIC_APP_ID="${AppId}"
+            export LIVE_MIC_APP_KEY="${AppKey}"
+            export VOICE_CHAT_AI_AGENT_ID="${AgentId}"
+            export AI_AGENT_REGION="${AgentRegion}"
+            export ROS_DEPLOY=true
+            EOF
+
+            source ~/.bash_profile
+            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/auiaicall/install.sh|bash
+            # 执行成功回调WaitCondition结束waitCondition的等待
+            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+          - CurlCli:
+              Fn::GetAtt:
+                - WaitConditionHandle
+                - CurlCli
+
+  SSLConfig:
+    Type: ALIYUN::ECS::RunCommand
+    Condition: ConfigSSL
+    DependsOn: PrepareCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            function log_info() {
+                printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+            }
+            
+            function log_error() {
+                printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+            }
+            
+            function log_fatal() {
+                printf "\n========================================================================\n"
+                printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
+                printf "\n========================================================================\n"
+                exit $1
+            }
+            
+            function debug_exec(){
+                local cmd="$@"
+                log_info "$cmd"
+                eval "$cmd"
+                ret=$?
+                echo ""
+                log_info "$cmd, exit code: $ret"
+                return $ret
+            }
+                        
+            function download_and_check_cert_file() {
+                log_info "down load and check zip file."
+                yum install -y unzip
+                cd /etc/nginx/cert
+                if ! debug_exec "wget -O cert.zip '${SSLCert}'"; then
+                    log_fatal 3 "cannot download cert form ${SSLCert}"
+                fi
+                
+                if ! debug_exec unzip cert.zip ; then
+                    log_fatal 4 "the uploaded file is not in zip format."
+                fi
+                export PEM_FILE=`ls *.pem`
+                export KEY_FILE=`ls *.key`
+            
+                if [ -z "$PEM_FILE" ]; then
+                    log_fatal 5 "there are no files ending in .pem in the uploaded zip file." 
+                fi
+  
+                if [ -z "$KEY_FILE" ]; then
+                    log_fatal 5 "there are no files ending in .key in the uploaded zip file." 
+                fi              
+                echo "export PEM_FILE=$PEM_FILE" >> ~/.bash_profile
+                echo "export KEY_FILE=$KEY_FILE" >> ~/.bash_profile
+            }
+            
+            download_and_check_cert_file
+            
+            sed -i 's/server_name <域名>/server_name ${DomainName}/' /etc/nginx/conf.d/ai.conf
+            sed -i "s|cert/<证书文件名字>|cert/$PEM_FILE|g" /etc/nginx/conf.d/ai.conf
+            sed -i "s|cert/<证书私钥文件名字>|cert/$KEY_FILE|g" /etc/nginx/conf.d/ai.conf
+
+            cd /usr/sbin/
+            if ! debug_exec sudo ./nginx; then
+                log_fatal 6 "start nginx failed."
+            fi
+          - DomainName:
+              Fn::If:
+                - DomainPrefixIsNull
+                - Fn::GetJsonValue:
+                    - DomainName
+                    - Ref: DomainName
+                - Fn::Join:
+                    - '.'
+                    - - Fn::GetJsonValue:
+                          - DomainPrefix
+                          - Ref: DomainName
+                      - Fn::GetJsonValue:
+                          - DomainName
+                          - Ref: DomainName
+Outputs:
+  Console.WebUrl:
+    Label:
+      zh-cn: Web 访问地址(Ip)
+      en: The Addresses of Web(Ip)
+    Value:
+      'Fn::Sub':
+        - 'https://${ServerAddress}'
+        - ServerAddress:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstanceGroup
+                  - PublicIps
+  Console.WebDomainForHttps:
+    Label:
+      zh-cn: Web 访问地址(域名)
+      en: The Addresses of Web(Domain)
+    Value:
+      Fn::Sub:
+        - 'https://${DomainName}'
+        - DomainName:
+            Fn::If:
+              - DomainPrefixIsNull
+              - Fn::GetJsonValue:
+                  - DomainName
+                  - Ref: DomainName
+              - Fn::Join:
+                  - '.'
+                  - - Fn::GetJsonValue:
+                        - DomainPrefix
+                        - Ref: DomainName
+                    - Fn::GetJsonValue:
+                        - DomainName
+                        - Ref: DomainName
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: Ecs configuration
+            zh-cn: ECS 实例配置
+      - Parameters:
+          - AppId
+          - AppKey
+          - AgentId
+          - AgentRegion
+        Label:
+          default:
+            en: AI app configuration
+            zh-cn: AI应用配置
+      - Parameters:
+          - SSLCert
+          - DomainName
+        Label:
+          default:
+            en: SSL and domain configuration
+            zh-cn: SSL与域名配置
+    TemplateTags:
+      - acs:technical-solution:ai:AI智能体实时语音互动-tech_solu_159
+    Hidden:
+      - CommonName
+      
