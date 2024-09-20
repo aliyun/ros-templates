@@ -1,0 +1,152 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Workspace:
+  main.tf: |-
+    variable "zone_id" {
+      type        = string
+      description = <<EOT
+      {
+        "AssociationProperty": "ZoneId",
+        "Label": {
+          "zh-cn": "可用区ID",
+          "en": "Zone ID"
+        }
+      }
+      EOT
+    }
+
+    variable "instance_type" {
+      type        = string
+      description = <<EOT
+      {
+        "Label": {
+            "zh-cn": "实例类型",
+            "en": "Instance Type"
+        },
+        "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
+        "AssociationPropertyMetadata": {
+          "Constraints": {
+            "Memory": [
+              64
+            ],
+          "Architecture": "X86"
+          }
+        }
+      }
+      EOT
+      default     = "ecs.hfg8i.4xlarge"
+    }
+
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = "chat-glm2-6b-vpc"
+      cidr_block = "192.168.0.0/16"
+    }
+
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id     = alicloud_vpc.vpc.id
+      zone_id    = var.zone_id
+      cidr_block = "192.168.0.0/24"
+    }
+
+
+    resource "alicloud_security_group" "group" {
+      vpc_id = alicloud_vpc.vpc.id
+    }
+
+    resource "alicloud_security_group_rule" "rule" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "7860/7860"
+      priority          = 1
+      security_group_id = alicloud_security_group.group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    resource "alicloud_instance" "ecs" {
+      availability_zone          = var.zone_id
+      security_groups            = alicloud_security_group.group.*.id
+      instance_type              = var.instance_type
+      system_disk_category       = "cloud_essd"
+      image_id                   = "aliyun_3_x64_20G_alibase_20240528.vhd"
+      instance_name              = "Chat-GLM2-6B"
+      vswitch_id                 = alicloud_vswitch.vswitch.id
+      internet_max_bandwidth_out = 100
+      system_disk_size = 100
+    }
+
+
+    locals {
+      command         = <<EOF
+    #!/bin/bash
+    sudo dnf config-manager --add-repo=https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+    sudo dnf -y install dnf-plugin-releasever-adapter --repo alinux3-plus
+    sudo dnf -y install docker-ce --nobest
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    sudo docker pull intel/xfastertransformer:1.3.1
+    sudo docker run --name xFT -h xFT --privileged --shm-size=16g --network host -v /mnt:/mnt -w /mnt/xFasterTransformer intel/xfastertransformer:1.3.1 sh -c "tail -f /dev/null" &
+    sleep 5
+    sudo docker exec xFT sh -c '
+    apt update
+    apt install -y wget git git-lfs vim tmux
+    cd /root/xFasterTransformer
+    git lfs install
+    mkdir /mnt/data
+    cd /mnt/data
+    git clone --depth 1 https://www.modelscope.cn/ZhipuAI/chatglm2-6b.git /mnt/data/chatglm2-6b
+    python -c "import xfastertransformer as xft; xft.ChatGLM2Convert().convert(\"/mnt/data/chatglm2-6b\")"
+    mkdir -p ~/.config/pip
+    cat > ~/.config/pip/pip.conf <<EOX
+    [global]
+    index-url=http://mirrors.cloud.aliyuncs.com/pypi/simple/
+
+    [install]
+    trusted-host=mirrors.cloud.aliyuncs.com
+    EOX
+
+    cd /root/xFasterTransformer/examples/web_demo
+    pip install -r requirements.txt
+    cpu_count=$(lscpu | grep "^CPU(s):" | awk "{print \$NF}")
+    OMP_NUM_THREADS=$((cpu_count / 2))
+    export LD_PRELOAD=libiomp5.so
+    export GRADIO_SERVER_NAME="0.0.0.0"
+    cpu_list=$(seq -s, 0 2 $((cpu_count - 2)))
+    nohup numactl -C $cpu_list -m 0 python ChatGLM2.py -t /mnt/data/chatglm2-6b -m /mnt/data/chatglm2-6b-xft -d bf16 > output.log 2>&1 &
+    sleep 5
+    '
+    EOF
+      base_64_command = base64encode(local.command)
+    }
+
+
+    resource "alicloud_ecs_command" "command" {
+      name            = "chat-glm2-6b-command"
+      command_content = local.base_64_command
+      type            = "RunShellScript"
+      timeout         = 3600
+      working_dir = "/root"
+    }
+
+    resource "alicloud_ecs_invocation" "default" {
+      command_id  = alicloud_ecs_command.command.id
+      instance_id = [alicloud_instance.ecs.id]
+      timeouts {
+        create = "3600s"
+      }
+    }
+
+    output "Url" {
+      description = <<EOT
+      {
+        "Label": "Web 访问地址",
+        "Description": "ChatGLM2-6B Chat页面访问地址."
+      }
+      EOT
+      value = format("http://%s:7860", alicloud_instance.ecs.public_ip)
+    }
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+    - acs:document-help:ecs:使用基于英特尔CPU的c8i实例部署ChatGLM2-6B
