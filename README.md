@@ -404,6 +404,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [tf-qwen-audio-chat.yml](documents/help/ecs/tf-qwen-audio-chat.yml)                           | The AI conversation robot is based on the Qwen-Audio-Chat.                                                                                                                                                                                                                                     |
 | [tf-qwen-vl-chat.yml](documents/help/ecs/tf-qwen-vl-chat.yml)                                 | The AI conversation robot is based on the Qwen-VL-Chat.                                                                                                                                                                                                                                        |
 | [tf-stable-diffusion.yml](documents/help/ecs/tf-stable-diffusion.yml)                         | A personal version of Vincennes diagram service is built based on Stable Diffusion model.                                                                                                                                                                                                      |
+| [multi-websites.yml](documents/help/ecs/multi-websites.yml)                                   | Use lnmp to deploy multi-websites.                                                                                                                                                                             |
+
 
 - ack
 

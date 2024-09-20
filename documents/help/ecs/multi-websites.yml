@@ -1,0 +1,414 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 使用LNMP环境部署多个站点。
+  en: Use lnmp to deploy multi-websites by ros.
+Parameters:
+  InstanceSource:
+    Type: String
+    Default: CreateNew
+    Label:
+      zh-cn: 实例来源
+      en: Instance Source
+    AllowedValues:
+      - CreateNew
+      - UseExisted
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        CreateNew:
+          zh-cn: 创建新实例
+          en: Create New Instance
+        UseExisted:
+          zh-cn: 选择已有实例
+          en: Select Existed Instance
+  ZoneId:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  ImageId:
+    Type: String
+    Default: aliyun_3_x64_20G_alibase_20240528.vhd
+    Required: true
+    Label:
+      en: Image of Instance
+      zh-cn: 实例镜像
+    AllowedValues:
+      - aliyun_3_x64_20G_alibase_20240528.vhd
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        aliyun_3_x64_20G_alibase_20240528.vhd:
+          zh-cn: Alibaba Cloud Linux 3
+          en: Alibaba Cloud Linux 3
+      Visible:
+        Condition:
+            Fn::Equals:
+              - ${InstanceSource}
+              - CreateNew
+  InstanceType:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  InstancePassword:
+    Type: String
+    NoEcho: true
+    Default: null
+    Confirm: true
+    Required: true
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  EcsInstanceId:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    Description:
+      zh-cn: 创建ECS实例时，ECS实例ID。<br><b>注： <font color='blue'>该一键部署脚本仅支持Alibaba Cloud Linux 3，请勿选择其他操作系统的实例。</font></b>
+      en: ECS instance ID,<br><b>note： <font color='blue'>This one click deployment script only supports Alibaba Cloud Linux 3、CentOS 8.5和CentOS 7.9, please do not select instances of other operating systems</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Status: Running
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - UseExisted
+  CommonName:
+    Type: String
+    Default: use_lnmp_to_deploy_multi_websites_by_ros
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+      - Ref: InstanceSource
+      - CreateNew
+  UseExistedInstance:
+    Fn::Equals:
+      - Ref: InstanceSource
+      - UseExisted
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Condition: CreateInstance
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 443/443
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: '-1/-1'
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: icmp
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_443:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 443/443
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  ModuleInstallLNMP:
+    Version: default
+    Type: 'MODULE::ACS::OOS::Extension'
+    Properties:
+      EcsInstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+      PackageName: ACS-Extension-LNMP-One-Click-1853370294850618
+  DeployMultiWebsite:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn: ModuleInstallLNMP
+    Properties:
+      InstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          cd /usr/share/nginx/html
+          sudo mkdir -p /usr/share/nginx/html/Testpage-1
+          sudo mkdir -p /usr/share/nginx/html/Testpage-2
+          cat << "EOF" > /usr/share/nginx/html/Testpage-1/index.html
+          Test page 1
+          EOF
+          cat << "EOF" > /usr/share/nginx/html/Testpage-2/index.html
+          Test page 2
+          EOF
+          
+          cat << "EOF" > /etc/nginx/conf.d/Testpage-1.conf
+          server {
+            listen       80;
+            server_name  testpage1.com;    #此处使用测试域名。实际配置中使用您的服务器域名。
+            #charset koi8-r;
+            access_log  /var/log/nginx/b.access.log  main;
+            location / {
+                root   /usr/share/nginx/html;    #测试站点路径。即您的项目代码路径。
+                index  index.html index.htm;
+              }
+            #error_page  404              /404.html;
+            error_page   500 502 503 504  /50x.html;
+            location = /50x.html {
+                root   /usr/share/nginx/html;
+              }
+            }
+          EOF
+          cat << "EOF" > /etc/nginx/conf.d/Testpage-2.conf
+          server {
+            listen       80;
+            server_name  testpage2.com;    #此处使用测试域名。实际配置中使用您的服务器域名。
+            #charset koi8-r;
+            access_log  /var/log/nginx/b.access.log  main;
+            location / {
+                root   /usr/share/nginx/html;   #测试站点路径。即您的项目代码路径。
+                index  index.html index.htm;
+              }
+            }
+          EOF
+          
+          sudo systemctl restart nginx
+          
+          sudo echo "127.0.0.1 testpage1.com" >> /etc/hosts
+          sudo echo "127.0.0.1 testpage2.com" >> /etc/hosts
+  DsEcs:
+    Type: 'DATASOURCE::ECS::Instances'
+    Properties:
+      InstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub:
+        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Fn::If:
+              - UseExistedInstance
+              - Ref: EcsInstanceId
+              - Ref: EcsInstance
+  Console@NginxURL:
+    Label:
+      en: Nginx Main Page
+      zh-cn: Nginx主页
+    Description:
+      en: Nginx Main Page.
+      zh-cn: Nginx主页。
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}
+        - PublicIp:
+            Fn::Jq:
+              - First
+              - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress end
+              - Fn::GetAtt:
+                  - DsEcs
+                  - Instances
+  Console@PhpURL:
+    Description:
+      en: PHP Info Page.
+      zh-cn: PHP信息页面。
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}/phpinfo.php
+        - PublicIp:
+            Fn::Jq:
+              - First
+              - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+                end
+              - Fn::GetAtt:
+                  - DsEcs
+                  - Instances
+  Console@Testpage1:
+    Label:
+      en: Testpage1
+      zh-cn: 测试页面1
+    Description:
+      en: Testpage1.
+      zh-cn: 测试页面1。
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}/Testpage-1
+        - PublicIp:
+            Fn::Jq:
+              - First
+              - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+                end
+              - Fn::GetAtt:
+                  - DsEcs
+                  - Instances
+  Console@Testpage2:
+    Label:
+      en: Testpage2
+      zh-cn: 测试页面2
+    Description:
+      en: Testpage2.
+      zh-cn: 测试页面2。
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}/Testpage-2
+        - PublicIp:
+            Fn::Jq:
+              - First
+              - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress
+                end
+              - Fn::GetAtt:
+                  - DsEcs
+                  - Instances
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - InstanceSource
+          - ZoneId
+          - ImageId
+          - InstanceType
+          - InstancePassword
+          - EcsInstanceId
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:document-help:ecs:使用LNMP环境部署多个站点
