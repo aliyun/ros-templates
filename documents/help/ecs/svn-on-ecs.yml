@@ -1,0 +1,284 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 部署SVN环境。
+  en: Deploy the SVN environment.
+Parameters:
+  InstanceSource:
+    Type: String
+    Default: CreateNew
+    Label:
+      zh-cn: 实例来源
+      en: Instance Source
+    AllowedValues:
+      - CreateNew
+      - UseExisted
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        CreateNew:
+          zh-cn: 创建新实例
+          en: Create New Instance
+        UseExisted:
+          zh-cn: 选择已有实例
+          en: Select Existed Instance
+  ZoneId:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  ImageId:
+    Type: String
+    Default: aliyun_3_x64_20G_alibase_20240528.vhd
+    Required: true
+    Label:
+      en: Image of Instance
+      zh-cn: 实例镜像
+    AllowedValues:
+      - aliyun_3_x64_20G_alibase_20240528.vhd
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        aliyun_3_x64_20G_alibase_20240528.vhd:
+          zh-cn: Alibaba Cloud Linux 3
+          en: Alibaba Cloud Linux 3
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  InstanceType:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  InstancePassword:
+    Type: String
+    NoEcho: true
+    Default: null
+    Confirm: true
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  EcsInstanceId:
+    Type: String
+    Default: null
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    Description:
+      zh-cn: 创建ECS实例时，ECS实例ID。<br><b>注： <font color='blue'>该一键部署脚本仅支持Alibaba Cloud Linux 3，请勿选择其他操作系统的实例。</font></b>
+      en: ECS instance ID,<br><b>note： <font color='blue'>This one click deployment script only supports Alibaba Cloud Linux 3, please do not select instances of other operating systems</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Status: Running
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - UseExisted
+  CommonName:
+    Type: String
+    Default: deploy_svn_by_ros
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+      - Ref: InstanceSource
+      - CreateNew
+  UseExistedInstance:
+    Fn::Equals:
+      - Ref: InstanceSource
+      - UseExisted
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Condition: CreateInstance
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 3690/3690
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: '-1/-1'
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: icmp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  ModuleInstallSVN:
+    Version: default
+    Type: 'MODULE::ACS::OOS::Extension'
+    Properties:
+      EcsInstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+      PackageName: ACS-Extension-svn-1853370294850618
+  DsEcs:
+    Type: 'DATASOURCE::ECS::Instances'
+    Properties:
+      InstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_3690:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3690/3690
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub:
+        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Fn::If:
+              - UseExistedInstance
+              - Ref: EcsInstanceId
+              - Ref: EcsInstance
+  Console@Url:
+    Label:
+      en: URL of repository.
+      zh-cn: 仓库访问地址。
+    Description:
+      en: URL of repository.
+      zh-cn: 仓库访问地址。
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}
+        - PublicIp:
+            Fn::Jq:
+              - First
+              - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress end
+              - Fn::GetAtt:
+                  - DsEcs
+                  - Instances
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - InstanceSource
+          - ZoneId
+          - ImageId
+          - InstanceType
+          - InstancePassword
+          - EcsInstanceId
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:document-help:ecs:部署SVN环境

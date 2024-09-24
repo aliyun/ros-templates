@@ -1,0 +1,393 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 部署宝塔服务。
+  en: Deploy the BaoTa Panel Free service.
+Parameters:
+  InstanceSource:
+    Type: String
+    Default: CreateNew
+    Label:
+      zh-cn: 实例来源
+      en: Instance Source
+    AllowedValues:
+      - CreateNew
+      - UseExisted
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        CreateNew:
+          zh-cn: 创建新实例
+          en: Create New Instance
+        UseExisted:
+          zh-cn: 选择已有实例
+          en: Select Existed Instance
+  ZoneId:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  ImageId:
+    Type: String
+    Default: aliyun_3_x64_20G_alibase_20240819.vhd
+    Required: true
+    Label:
+      en: Image of Instance
+      zh-cn: 实例镜像
+    AllowedValues:
+      - aliyun_3_x64_20G_alibase_20240819.vhd
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        aliyun_3_x64_20G_alibase_20240819.vhd:
+          zh-cn: Alibaba Cloud Linux 3
+          en: Alibaba Cloud Linux 3
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  InstanceType:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  InstancePassword:
+    Type: String
+    NoEcho: true
+    Default: null
+    Confirm: true
+    Required: true
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  EcsInstanceId:
+    Type: String
+    Default: null
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Status: Running
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - UseExisted
+  CommonName:
+    Type: String
+    Default: deploy_baota_panel_free_by_ros
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+      - Ref: InstanceSource
+      - CreateNew
+  UseExistedInstance:
+    Fn::Equals:
+      - Ref: InstanceSource
+      - UseExisted
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Condition: CreateInstance
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 443/443
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 8888/8888
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: '-1/-1'
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: icmp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  ModuleInstallBaoTaPanelFree:
+    Version: default
+    Type: 'MODULE::ACS::OOS::Extension'
+    Properties:
+      EcsInstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+      PackageName: ACS-Extension-BaoTaPanelFree-One-Click-1853370294850618
+  GetBaoTaPanelLoginInfo:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn: ModuleInstallBaoTaPanelFree
+    Properties:
+      Type: RunShellScript
+      CommandContent:
+        Fn::Sub: |
+          #!/bin/sh
+          
+          PUBLIC_URL=`bt default | grep 外网面板地址 | awk -F " " '{print $2}'`
+          PRIVATE_URL=`bt default | grep 内网面板地址 | awk -F " " '{print $2}'`
+          USERNAME=`bt default | grep username | awk -F " " '{print $2}'`
+          PASSWORD=`bt default | grep password | awk -F " " '{print $2}'`
+          
+          ${GetBaoTaPanelLoginInfoWaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS", "data": "'$PUBLIC_URL'", "id": "PUBLIC_URL"}'
+          ${GetBaoTaPanelLoginInfoWaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS", "data": "'$PRIVATE_URL'", "id": "PRIVATE_URL"}'
+          ${GetBaoTaPanelLoginInfoWaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS", "data": "'$USERNAME'", "id": "USERNAME"}'
+          ${GetBaoTaPanelLoginInfoWaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS", "data": "'$PASSWORD'", "id": "PASSWORD"}'
+      InstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+      Timeout: 60
+  GetBaoTaPanelLoginInfoWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties:
+      Mode: Increment
+  GetBaoTaPanelLoginInfoWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    DependsOn: GetBaoTaPanelLoginInfo
+    Properties:
+      Handle:
+        Ref: GetBaoTaPanelLoginInfoWaitConditionHandle
+      Timeout: 60
+      Count: 4
+  DsEcs:
+    Type: 'DATASOURCE::ECS::Instances'
+    Properties:
+      InstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_443:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 443/443
+  SecurityGroupIngress_8888:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 8888/8888
+  SecurityGroupIngress_-1:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: icmp
+      NicType: intranet
+      PortRange: -1/-1
+
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub:
+        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Fn::If:
+              - UseExistedInstance
+              - Ref: EcsInstanceId
+              - Ref: EcsInstance
+  Console@PublicURL:
+    Description:
+      en: The public network can be accessed through this address.
+      zh-cn: 公网可通过此地址访问。
+    Label:
+      en: PublicURL
+      zh-cn: 公网面板地址
+    Value:
+      Fn::Jq:
+        - First
+        - .PUBLIC_URL
+        - Fn::GetAtt:
+            - GetBaoTaPanelLoginInfoWaitCondition
+            - Data
+
+  Console@PRIVATE_URL:
+    Description:
+      en: Internal network access can be accessed through this address.
+      zh-cn: 内网可通过此地址访问。
+    Label:
+      en: PRIVATE_URL
+      zh-cn: 内网面板地址
+    Value:
+      Fn::Jq:
+        - First
+        - .PRIVATE_URL
+        - Fn::GetAtt:
+            - GetBaoTaPanelLoginInfoWaitCondition
+            - Data
+  Console@USERNAME:
+    Description:
+      en: USERNAME
+      zh-cn: 默认用户名
+    Label:
+      en: USERNAME
+      zh-cn: 默认用户名
+    Value:
+      Fn::Jq:
+        - First
+        - .USERNAME
+        - Fn::GetAtt:
+            - GetBaoTaPanelLoginInfoWaitCondition
+            - Data
+  Console@PASSWORD:
+    Description:
+      en: The default initial password can only be obtained correctly before logging into the panel for the first time. Please use the bt 5 command to change the password at other times.
+      zh-cn: 默认初始密码仅在首次登录面板前能正确获取，其它时间请通过 bt 5 命令修改密码。
+    Label:
+      en: PASSWORD
+      zh-cn: 默认密码
+    NoEcho: true
+    Value:
+      Fn::Jq:
+        - First
+        - .PASSWORD
+        - Fn::GetAtt:
+            - GetBaoTaPanelLoginInfoWaitCondition
+            - Data
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - InstanceSource
+          - ZoneId
+          - ImageId
+          - InstanceType
+          - InstancePassword
+          - EcsInstanceId
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:document-help:ecs:部署宝塔服务
