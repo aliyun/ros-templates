@@ -1,0 +1,384 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 部署Django环境。
+  en: Deploy the Django environment.
+Parameters:
+  InstanceSource:
+    Type: String
+    Default: CreateNew
+    Label:
+      zh-cn: 实例来源
+      en: Instance Source
+    AllowedValues:
+      - CreateNew
+      - UseExisted
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        CreateNew:
+          zh-cn: 创建新实例
+          en: Create New Instance
+        UseExisted:
+          zh-cn: 选择已有实例
+          en: Select Existed Instance
+  ZoneId:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  ImageId:
+    Type: String
+    Default: aliyun_3_x64_20G_alibase_20240528.vhd
+    Required: true
+    Label:
+      en: Image of Instance
+      zh-cn: 实例镜像
+    AllowedValues:
+      - aliyun_3_x64_20G_alibase_20240528.vhd
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        aliyun_3_x64_20G_alibase_20240528.vhd:
+          zh-cn: Alibaba Cloud Linux 3
+          en: Alibaba Cloud Linux 3
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  InstanceType:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  InstancePassword:
+    Type: String
+    NoEcho: true
+    Default: null
+    Confirm: true
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - CreateNew
+  EcsInstanceId:
+    Type: String
+    Default: null
+    Label:
+      en: ECS Instance ID
+      zh-cn: ECS实例ID
+    Description:
+      zh-cn: 创建ECS实例时，ECS实例ID。<br><b>注： <font color='blue'>该一键部署脚本仅支持Alibaba Cloud Linux 3，请勿选择其他操作系统的实例。</font></b>
+      en: ECS instance ID,<br><b>note： <font color='blue'>This one click deployment script only supports Alibaba Cloud Linux 3, please do not select instances of other operating systems</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Status: Running
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${InstanceSource}
+            - UseExisted
+  CommonName:
+    Type: String
+    Default: deploy_django_by_ros
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+      - Ref: InstanceSource
+      - CreateNew
+  UseExistedInstance:
+    Fn::Equals:
+      - Ref: InstanceSource
+      - UseExisted
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Condition: CreateInstance
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: '-1/-1'
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: icmp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Condition: CreateInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+  DeployDjango:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          sudo yum -y install nginx python3-devel.x86_64
+          
+          
+          sudo pip3 install Django uwsgi
+          sudo mkdir /home/myblog && cd /home/myblog
+          
+          sudo /usr/local/bin/django-admin.py startproject uwsgi_project
+          
+          sudo sed -i 's/ALLOWED_HOSTS = \[\]/ALLOWED_HOSTS = \["*"\]/g' /home/myblog/uwsgi_project/uwsgi_project/settings.py
+          sudo mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+          sudo mv /etc/uwsgi.ini /etc/uwsgi.ini.bak
+          
+          cat << "EOF" > /etc/nginx/nginx.conf
+          user nginx;
+          worker_processes auto;
+          error_log /var/log/nginx/error.log;
+          pid /run/nginx.pid;
+          # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+          include /usr/share/nginx/modules/*.conf;
+          events {
+            worker_connections 1024;
+          }
+          http {
+            log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                              '$status $body_bytes_sent "$http_referer" '
+                              '"$http_user_agent" "$http_x_forwarded_for"';
+            access_log  /var/log/nginx/access.log  main;
+            sendfile            on;
+            tcp_nopush          on;
+            tcp_nodelay         on;
+            keepalive_timeout   65;
+            types_hash_max_size 4096;
+            include             /etc/nginx/mime.types;
+            default_type        application/octet-stream;
+            # Load modular configuration files from the /etc/nginx/conf.d directory.
+            # See http://nginx.org/en/docs/ngx_core_module.html#include
+            # for more information.
+            include /etc/nginx/conf.d/*.conf;
+            upstream django {
+                server 127.0.0.1:8001; #具体端口必须与您uWSGI配置文件中定义的端口一致
+            }
+            server {
+              listen       80; #设置的nginx访问端口
+              server_name  test;
+              charset      utf-8;
+              # Load configuration files for the default server block.
+              include /etc/nginx/default.d/*.conf;
+              location /static {
+                autoindex on;
+                alias /home/myblog/uwsgi_project/uwsgi_project/static; #具体目录以您现场具体部署的目录为准
+              }
+              location / {
+                uwsgi_pass 127.0.0.1:8001;
+                include uwsgi_params; #具体目录以您现场具体部署的目录为准
+                include /etc/nginx/uwsgi_params; #具体目录以您现场具体部署的目录为准
+                uwsgi_param UWSGI_SCRIPT iCourse.wsgi; #具体目录以您现场具体部署的目录为准
+                uwsgi_param UWSGI_CHDIR /iCourse; #具体目录以您现场具体部署的目录为准
+                index  index.html index.htm;
+                client_max_body_size 35m;
+                index index.html index.htm;
+              }
+              error_page 404 /404.html;
+                location = /40x.html {
+              }
+              error_page 500 502 503 504 /50x.html;
+                location = /50x.html {
+              }
+            }
+          }      
+          EOF
+          
+          cat << "EOF" > /etc/uwsgi.ini
+          [uwsgi]
+          socket = 127.0.0.1:8001
+          chdir = /home/myblog/uwsgi_project/
+          wsgi-file = uwsgi_project/wsgi.py
+          processes = 4
+          threads = 2
+          vacuum = true
+          buffer-size = 65536
+          EOF
+          
+          cat << "EOF" > /etc/systemd/system/uwsgi.service
+          [Unit]
+          Description=uwsgi service
+          After=network.target
+          [Service]
+          Type=simple
+          User=nginx
+          Group=nginx
+          ExecStart=/usr/local/bin/uwsgi --ini /etc/uwsgi.ini
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          sudo systemctl daemon-reload
+          sudo systemctl enable nginx.service
+          sudo systemctl restart nginx.service
+          sudo systemctl enable uwsgi.service
+          sudo systemctl restart uwsgi.service
+  DsEcs:
+    Type: 'DATASOURCE::ECS::Instances'
+    Properties:
+      InstanceIds:
+        - Fn::If:
+            - UseExistedInstance
+            - Ref: EcsInstanceId
+            - Ref: EcsInstance
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 22/22
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Condition: UseExistedInstance
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DsEcs
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub:
+        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Fn::If:
+              - UseExistedInstance
+              - Ref: EcsInstanceId
+              - Ref: EcsInstance
+  Console@DjangoUrl:
+    Description:
+      en: Django Service address.
+      zh-cn: Django服务访问地址。
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}
+        - PublicIp:
+            Fn::Jq:
+              - First
+              - if .[0].PublicIpAddress != [] then .[0].PublicIpAddress[0] else .[0].EipAddress.IpAddress end
+              - Fn::GetAtt:
+                  - DsEcs
+                  - Instances
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - InstanceSource
+          - ZoneId
+          - ImageId
+          - InstanceType
+          - InstancePassword
+          - EcsInstanceId
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:document-help:ecs:部署Django环境
