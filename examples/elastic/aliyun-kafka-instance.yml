@@ -2,305 +2,279 @@ ROSTemplateFormatVersion: '2015-09-01'
 Description:
   zh-cn: 创建一个可定制的阿里云Kafka实例，支持VPC、安全组、磁盘和付费模式配置，自动处理网络和安全资源。
   en: Create a customizable Alibaba Cloud Kafka instance that supports VPC, security group, disk and paid mode configuration, and automatically handles network and security resources.
-Conditions:
-  CreateSg:
-    Fn::Not:
-      Fn::Equals:
-      - null
-      - Ref: SecurityGroupName
-  CreateVpc:
-    Fn::Not:
-      Fn::Equals:
-      - null
-      - Ref: VpcCidrBlock
-  CreateVsw:
-    Fn::Not:
-      Fn::Equals:
-      - null
-      - Ref: VSwitchCidrBlock
 Parameters:
   VpcId:
-    Type: String
-    Label:
-      en: Existing VPC ID
-      zh-cn: 现有VPC的实例ID
-    Description:
-      en: Please search the ID starts with (vpc-xxx)from console-Virtual Private Cloud
-      zh-cn: 控制台-VPC-专有网络下查询
+    Default: null
     AssociationProperty: ALIYUN::ECS::VPC::VPCId
-    Default: null
-  VSwitchZoneId:
-    Type: String
-    Label:
-      en: VSwitch Zone ID
-      zh-cn: 交换机可用区
-    Description:
-      en: Availability ID for existing switches
-      zh-cn: 现有交换机的可用区ID
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
-  VSwitchId:
-    Type: String
-    Label:
-      en: VSwitch ID
-      zh-cn: 网络交换机ID
-    Description:
-      en: Please search the business VSwitch ID starts with(vsw-xxx)from console-Virtual
-        Private Cloud-VSwitches
-      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询
-    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
     AssociationPropertyMetadata:
-      VpcId: ${VpcId}
-      ZoneId: ${VSwitchZoneId}
-    Default: null
-  SecurityGroupId:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateVpc}
+            - false
     Type: String
     Label:
-      en: Business Security Group ID
-      zh-cn: 业务安全组ID
-    Description:
-      en: Please search the business security group ID starts with(sg-xxx)from console-ECS-Network
-        & Security
-      zh-cn: 现有业务安全组的实例ID,控制台-ECS-网络与安全-安全组下查询
-    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+      zh-cn: 专有网络VPC实例ID
+      en: VPC ID
+  WhetherCreateVpc:
+    Default: false
+    Type: Boolean
+    Label:
+      zh-cn: 是否新建VPC
+      en: WhetherCreateVpc
+  SpecType:
     AssociationPropertyMetadata:
-      VpcId: ${VpcId}
-    Default: null
-  VpcCidrBlock:
-    Type: String
+      ValueLabelMapping:
+        professional: 专业版（高写版）
+        normal: 标准版（高写版）
+        professionalForHighRead: 专业版（高读版）
     Label:
-      en: VPC CIDR Block
-      zh-cn: 专有网络网段
-    Description:
-      en: New proprietary network IP address segment range, recommended use of the
-        following IP address segments<br><font color='green'>[10.0.0.0/8]</font><br><font
-        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
-      zh-cn: 新建专有网络IP地址段范围，推荐使用以下的IP地址段<br><font color='green'>[10.0.0.0/8]</font><br><font
-        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
-    Default: null
-  VSwitchCidrBlock:
+      zh-cn: 规格类型
+      en: SpecType
     Type: String
-    Label:
-      en: VSwitch CIDR Block
-      zh-cn: 交换机网段
-    Description:
-      en: Must be a sub-network segment of the proprietary network and is not occupied
-        by other VSwitches.
-      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
-    Default: null
-  SecurityGroupName:
-    Type: String
-    Label:
-      en: Security Group Name
-      zh-cn: 安全组名称
-    Description:
-      en: 2 to 128 English or Chinese characters in length.Must start with size letters
-        or Chinese, not http:// and https://, can contain Numbers, dots (.), underscores
-        (_) and hyphens (-).
-      zh-cn: 长度为2~128个英文或中文字符。必须以大小字母或中文开头，不能以http://和https://开头,可包含数字、点（.）、下划线（_）和连字符（-）。
-    Default: null
+    AllowedValues:
+      - normal
+      - professional
+      - professionalForHighRead
   PayType:
-    Type: String
-    Label:
-      en: PayType
-      zh-cn: 付费类型
+    Default: Hour
     AssociationPropertyMetadata:
       ValueLabelMapping:
         Hour: 后付费（按量计费）
         Month: 预付费（包年包月）
-    Default: Hour
-    AllowedValues:
-    - Hour
-    - Month
-  SpecType:
-    Type: String
     Label:
-      en: SpecType
-      zh-cn: 规格类型
+      zh-cn: 付费类型
+      en: PayType
+    Type: String
+    AllowedValues:
+      - Hour
+      - Month
+  VpcCidrBlock:
     AssociationPropertyMetadata:
-      ValueLabelMapping:
-        normal: 标准版（高写版）
-        professional: 专业版（高写版）
-        professionalForHighRead: 专业版（高读版）
-    AllowedValues:
-    - normal
-    - professional
-    - professionalForHighRead
-  IoMaxSpec:
-    Type: String
-    Label:
-      en: IoMaxSpec
-      zh-cn: 流量规格
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateVpc}
+            - true
     Description:
-      en: IoMaxSpec，See detail：<b><a href='https://help.aliyun.com/document_detail/299957.htm?spm=a2c4g.11186623.0.0.259a2e02SFaXKD#concept-2102974'
-        target='_blank'><font color='blue'>Find the IoMaxSpec</font></a></b>
-      zh-cn: 流量规格, 详见：<b><a href='https://help.aliyun.com/document_detail/299957.htm?spm=a2c4g.11186623.0.0.259a2e02SFaXKD#concept-2102974'
-        target='_blank'><font color='blue'>查找流量规格</font></a></b>
-    Default: alikafka.hw.2xlarge
-  DiskType:
-    Type: String
+      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    Default: 192.168.0.0/16
     Label:
-      en: DiskType
-      zh-cn: 磁盘类型
+      zh-cn: 专有网络IPv4网段
+      en: VPC CIDR IPv4 Block
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+    Type: String
+  DiskType:
     AssociationPropertyMetadata:
       ValueLabelMapping:
         '0': 高效云盘
         '1': SSD
+    Label:
+      zh-cn: 磁盘类型
+      en: DiskType
+    Type: String
     AllowedValues:
-    - '0'
-    - '1'
-  DiskSize:
-    Type: Number
+      - '0'
+      - '1'
+  VSwitchId:
+    Default: null
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateVpc}
+            - false
+      VpcId: ${VpcId}
+      ZoneId: ${VSwitchZoneId}
+    Type: String
     Label:
-      en: DiskSize
-      zh-cn: 磁盘容量
+      zh-cn: 交换机实例ID
+      en: VSwitch ID
+  VSwitchZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
     Description:
-      en: 'Unit: GB.'
-      zh-cn: 单位：GB。
-    Default: 500
-    MinValue: 500
-    MaxValue: 96000
-  TopicQuota:
-    Type: Number
+      zh-cn: 现有交换机的可用区ID
+      en: Availability ID for existing switches
     Label:
-      en: TopicQuota
-      zh-cn: Topic的数量
+      zh-cn: 交换机可用区
+      en: VSwitch Zone ID
+  IoMaxSpec:
+    Default: alikafka.hw.2xlarge
+    Type: String
+    Description:
+      zh-cn: 流量规格, 详见：<b><a href='https://help.aliyun.com/document_detail/299957.htm?spm=a2c4g.11186623.0.0.259a2e02SFaXKD#concept-2102974' target='_blank'><font color='blue'>查找流量规格</font></a></b>
+      en: IoMaxSpec，See detail：<b><a href='https://help.aliyun.com/document_detail/299957.htm?spm=a2c4g.11186623.0.0.259a2e02SFaXKD#concept-2102974' target='_blank'><font color='blue'>Find the IoMaxSpec</font></a></b>
+    Label:
+      zh-cn: 流量规格
+      en: IoMaxSpec
+  VSwitchCidrBlock:
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateVpc}
+            - true
+      VpcCidrBlock: VpcCidrBlock
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    Default: 192.168.1.0/24
+    Label:
+      zh-cn: 交换机子网网段
+      en: VSwitch CIDR Block
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    Type: String
+  TopicQuota:
     Default: 50
-    MinValue: 50
+    Label:
+      zh-cn: Topic的数量
+      en: TopicQuota
+    Type: Number
     MaxValue: 79
-Resources:
-  KafkaInstance:
-    Type: ALIYUN::KAFKA::Instance
-    Properties:
-      DeployOption:
-        DeployModule: vpc
-        Name:
-          Fn::Join:
-          - '-'
-          - - StackId
-            - Ref: ALIYUN::StackId
-            - Kafka
-        SecurityGroup:
-          Fn::If:
-          - CreateSg
-          - Ref: SecurityGroup
-          - Ref: SecurityGroupId
-        VSwitchId:
-          Fn::If:
-          - CreateVsw
-          - Ref: VSwitch
-          - Ref: VSwitchId
-        VpcId:
-          Fn::If:
-          - CreateVpc
-          - Ref: Vpc
-          - Ref: VpcId
-        ZoneId:
-          Ref: VSwitchZoneId
-      DeployType: 5
-      DiskSize:
-        Ref: DiskSize
-      DiskType:
-        Ref: DiskType
-      IoMaxSpec:
-        Ref: IoMaxSpec
-      PayType:
-        Ref: PayType
-      SpecType:
-        Ref: SpecType
-      TopicQuota:
-        Ref: TopicQuota
-  SecurityGroup:
-    Type: ALIYUN::ECS::SecurityGroup
-    Condition: CreateSg
-    Properties:
-      VpcId:
-        Fn::If:
-        - CreateVpc
-        - Ref: Vpc
-        - Ref: VpcId
-      SecurityGroupEgress:
-      - DestCidrIp: 0.0.0.0/0
-        IpProtocol: all
-        NicType: internet
-        PortRange: -1/-1
-        Priority: 1
-      - DestCidrIp: 0.0.0.0/0
-        IpProtocol: all
-        NicType: intranet
-        PortRange: -1/-1
-        Priority: 1
-      SecurityGroupIngress:
-      - IpProtocol: all
-        NicType: internet
-        PortRange: -1/-1
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
-      - IpProtocol: all
-        NicType: intranet
-        PortRange: -1/-1
-        Priority: 1
-        SourceCidrIp: 0.0.0.0/0
-      SecurityGroupName:
-        Ref: SecurityGroupName
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: de0e55c1-4cf9-4647-bbdd-6e1c8deba4cd
-  VSwitch:
-    Type: ALIYUN::ECS::VSwitch
-    Condition: CreateVsw
-    Properties:
-      ZoneId:
-        Ref: VSwitchZoneId
-      VpcId:
-        Fn::If:
-        - CreateVpc
-        - Ref: Vpc
-        - Ref: VpcId
-      CidrBlock:
-        Ref: VSwitchCidrBlock
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: cc854ba9-a556-4503-8c21-e52165d2ecde
-  Vpc:
-    Type: ALIYUN::ECS::VPC
-    Condition: CreateVpc
-    Properties:
-      CidrBlock:
-        Ref: VpcCidrBlock
-    Metadata:
-      ALIYUN::ROS::Designer:
-        id: ccfeb4a0-28d4-4c68-949e-d7d920b5256c
+    MinValue: 50
+  DiskSize:
+    Description:
+      zh-cn: 单位：GB。
+      en: 'Unit: GB.'
+    Default: 500
+    MaxValue: 96000
+    MinValue: 500
+    Label:
+      zh-cn: 磁盘容量
+      en: DiskSize
+    Type: Number
 Outputs:
   KafkaInstanceId:
     Value:
       Fn::GetAtt:
-      - KafkaInstance
-      - InstanceId
+        - KafkaInstance
+        - InstanceId
+Conditions:
+  CreateVpcCondition:
+    Fn::Equals:
+      - true
+      - Ref: WhetherCreateVpc
+Resources:
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      ZoneId:
+        Ref: VSwitchZoneId
+    Condition: CreateVpcCondition
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: cc854ba9-a556-4503-8c21-e52165d2ecde
+  KafkaInstance:
+    Type: ALIYUN::KAFKA::Instance
+    Properties:
+      DeployType: 5
+      DeployOption:
+        VpcId:
+          Fn::If:
+            - CreateVpcCondition
+            - Ref: Vpc
+            - Ref: VpcId
+        Name:
+          Fn::Join:
+            - '-'
+            - - StackId
+              - Ref: ALIYUN::StackId
+              - Kafka
+        SecurityGroup:
+          Ref: SecurityGroup
+        ZoneId:
+          Ref: VSwitchZoneId
+        VSwitchId:
+          Fn::If:
+            - CreateVpcCondition
+            - Ref: VSwitch
+            - Ref: VSwitchId
+        DeployModule: vpc
+      PayType:
+        Ref: PayType
+      DiskType:
+        Ref: DiskType
+      DiskSize:
+        Ref: DiskSize
+      IoMaxSpec:
+        Ref: IoMaxSpec
+      TopicQuota:
+        Ref: TopicQuota
+      SpecType:
+        Ref: SpecType
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 1
+          IpProtocol: all
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          PortRange: '-1/-1'
+        - Priority: 1
+          IpProtocol: all
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+          PortRange: '-1/-1'
+      VpcId:
+        Fn::If:
+          - CreateVpcCondition
+          - Ref: Vpc
+          - Ref: VpcId
+      SecurityGroupEgress:
+        - Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: internet
+          PortRange: '-1/-1'
+        - Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+          PortRange: '-1/-1'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: de0e55c1-4cf9-4647-bbdd-6e1c8deba4cd
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+    Condition: CreateVpcCondition
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ccfeb4a0-28d4-4c68-949e-d7d920b5256c
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
-    - Parameters:
-      - VpcId
-      - VSwitchZoneId
-      - VSwitchId
-      - SecurityGroupId
-      - VpcCidrBlock
-      - VSwitchCidrBlock
-      - SecurityGroupName
-      Label:
-        default:
-          en: Infrastructure Configuration
-          zh-cn: 基础资源配置（必填）
-    - Parameters:
-      - PayType
-      - SpecType
-      - IoMaxSpec
-      - DiskType
-      - DiskSize
-      - TopicQuota
-      Label:
-        default:
-          en: Kafka Configuration
-          zh-cn: Kafka 配置（必填）
+      - Parameters:
+          - WhetherCreateVpc
+          - VpcId
+          - VSwitchZoneId
+          - VSwitchId
+          - VpcCidrBlock
+          - VSwitchCidrBlock
+        Label:
+          default:
+            zh-cn: 基础资源配置（必填）
+            en: Infrastructure Configuration
+      - Parameters:
+          - PayType
+          - SpecType
+          - IoMaxSpec
+          - DiskType
+          - DiskSize
+          - TopicQuota
+        Label:
+          default:
+            zh-cn: Kafka 配置（必填）
+            en: Kafka Configuration
     TemplateTags:
-    - acs:example:弹性计算:创建商业版Kafka实例
+      - acs:example:弹性计算:创建商业版Kafka实例
