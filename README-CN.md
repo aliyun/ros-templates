@@ -408,6 +408,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [multi-websites.yml](documents/help/ecs/multi-websites.yml)                                   | 使用LNMP环境部署多个站点。   [文档](https://help.aliyun.com/zh/ecs/use-cases/build-multiple-websites-on-a-linux-instance)                                                                          |
 | [baota-on-ecs.yml](documents/help/ecs/baota-on-ecs.yml)                                       | Linux系统安装宝塔面板。   [文档](https://help.aliyun.com/document_detail/464387.html)                                                                                                                                                                                     |
 | [svn-on-ecs.yml](documents/help/ecs/svn-on-ecs.yml)                                           | 部署和使用SVN。   [文档](https://help.aliyun.com/zh/ecs/use-cases/deploying-and-using-svn)                                                                                                                                                                                     |
+| [django-on-ecs.yml](documents/help/ecs/django-on-ecs.yml)                                     | 部署Django环境。 [文档](https://help.aliyun.com/zh/ecs/use-cases/use-nginx-and-uwsgi-to-deploy-a-django-project)                                                                                                                                                                                     |
 
 
 - ack
