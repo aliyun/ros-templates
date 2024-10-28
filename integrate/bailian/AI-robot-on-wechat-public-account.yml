@@ -40,14 +40,6 @@ Parameters:
       zh-cn: >-
         开发者ID是公众号开发识别码，配合开发者密码可调用公众号的接口能力，
         访问<a href="https://mp.weixin.qq.com" target="_blank">微信公众平台</a> - 【设置与开发】- 【基本配置】获取
-  PublicAccountType:
-    Type: String
-    Label:
-      en: Public Account Type
-      zh-cn: 公众号类型
-    AllowedValues:
-      - 'Uncertified'
-      - 'Certified'
   WeChatAppSecret:
     Type: String
     Default: null
@@ -91,15 +83,44 @@ Parameters:
     Label:
       zh-cn: EncodingAESKey
       en: Encoding AES Key
+  FlowStatus:
+    Type: String
+    Default: null
+    AllowedValues:
+      - 'Enable'
+      - 'Disable'
+    Label:
+      en: App Flow Status
+      zh-cn: 连接流状态
+Locals:
+  AppFlowValidation:
+    Type: DATASOURCE::AppFlow::Validation
+    Properties:
+      Type: user_auth
+      Rule: check_token
+      Value:
+        connectorId: connector-3c60c6e123e146fbb6f8
+        authConfig:
+          Fn::Sub: '{"appId": "${WeChatAppID}", "appSecret": "${WeChatAppSecret}"}'
+  PublicAccountType:
+    Type: Eval
+    Value:
+      Fn::Jq:
+        - First
+        - .wx_verify_info.qualification_verify
+        - Fn::GetAtt:
+            - AppFlowValidation
+            - Data
 Conditions:
   PublicAccountCertified:
     Fn::Equals:
       - Ref: PublicAccountType
-      - 'Certified'
+      - true
 Resources:
   AuthConfigForWeChat:
     Type: ALIYUN::AppFlow::UserAuthConfig
     Properties:
+      Visible: 3
       ConnectorId: 'connector-3c60c6e123e146fbb6f8'
       AuthConfigName:
         Fn::Sub: 'wechat-${ALIYUN::StackId}'
@@ -111,6 +132,7 @@ Resources:
   AuthConfigForBailian:
     Type: ALIYUN::AppFlow::UserAuthConfig
     Properties:
+      Visible: 3
       ConnectorId: 'connector-5e43ef26b53e4a158529'
       AuthConfigName:
         Fn::Sub: 'bailian-${ALIYUN::StackId}'
@@ -120,6 +142,10 @@ Resources:
   Flow:
     Type: ALIYUN::AppFlow::Flow
     Properties:
+      Visible: 3
+      From: bailian
+      FlowStatus:
+        Ref: FlowStatus
       FlowName: '微信公众号大模型回复（订阅号、服务号）'
       FlowDesc: '认证过的微信公众号使用大模型自动回复用户的留言'
       TemplateId:
@@ -202,5 +228,6 @@ Metadata:
         - WeChatAppSecret
         - WeChatToken
         - WeChatEncodingAESKey
+        - FlowStatus
     TemplateTags:
       - acs:integrate:bailian:10分钟让微信公众号成为智能客服
