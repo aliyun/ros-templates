@@ -123,7 +123,7 @@ Resources:
         - InstanceIds
       Type: RunShellScript
       Sync: true
-      Timeout: 1800
+      Timeout: 2400
       CommandContent: |
         #!/bin/bash
         echo "#########################"
@@ -138,9 +138,66 @@ Resources:
         echo "# Install Dify"
         echo "#########################"
         yum -y install git
-        git clone --depth 1 https://github.com/langgenius/dify.git /opt/dify
+        
+        REPO_URL="https://github.com/langgenius/dify.git"
+        TARGET_DIR="/opt/dify"
+        
+        max_attempts=30
+        attempt=0
+        
+        while (( attempt < max_attempts )); do
+          git clone --depth 1 "$REPO_URL" "$TARGET_DIR"
+          
+          if [ $? -eq 0 ]; then
+            echo "Cloning success！"
+            break
+          else
+            attempt=$((attempt + 1))
+            echo "Cloning failed! attempts: $attempt"
+            rm -rf "$TARGET_DIR"
+            sleep 5
+          fi
+        done
+        
+        if [ $attempt -ge $max_attempts ]; then
+            echo "The maximum number of attempts ($max_attempts) is reached."
+            exit 1
+        fi
+        
         cd /opt/dify/docker
-        docker compose up -d
+        echo '{
+                "registry-mirrors": [
+                  "https://docker.registry.cyou",
+                  "https://docker-cf.registry.cyou",
+                  "https://dockercf.jsdelivr.fyi",
+                  "https://docker.jsdelivr.fyi",
+                  "https://dockertest.jsdelivr.fyi",
+                  "https://mirror.aliyuncs.com",
+                  "https://dockerproxy.com",
+                  "https://mirror.baidubce.com",
+                  "https://docker.m.daocloud.io",
+                  "https://docker.nju.edu.cn",
+                  "https://docker.mirrors.sjtug.sjtu.edu.cn",
+                  "https://docker.mirrors.ustc.edu.cn",
+                  "https://mirror.iscas.ac.cn",
+                  "https://docker.rainbond.cc"
+                ]
+              }' | sudo tee /etc/docker/daemon.json
+        systemctl daemon-reload
+        systemctl restart docker
+        
+        attempt=0
+        until docker compose up -d; do
+          attempt=$((attempt + 1))
+          echo "Attempt $attempt failed! Retrying..."
+          
+          if [ $attempt -ge $max_attempts ]; then
+            echo "Reached maximum attempts. Exiting."
+            exit 1
+          fi
+        
+          sleep 5
+        done
         docker compose ps
 Outputs:
   DifyUrl:
