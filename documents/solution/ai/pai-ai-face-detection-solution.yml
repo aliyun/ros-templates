@@ -1,0 +1,228 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 一键部署PAI EAS人脸检测方案，涵盖VPC、VSwitch、安全组、ECS、PAI-EAS资源。
+  en: One-click deployment of the PAI EAS face detection solution, encompassing VPC, VSwitch,
+    Security Group, ECS, PAI-EAS resources.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID.
+      zh-cn: 可用区ID。
+    Description:
+      en: Zone ID.
+      zh-cn: 可用区ID。
+    AssociationProperty: ZoneId
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+  AppUserName:
+    ConstraintDescription:
+      zh-cn: 3 到 63 个字母或数字组成。
+      en: 3 to 63 letters.
+    Label:
+      zh-cn: 登录用户名
+      en: Login Username
+    AllowedPattern: '^[a-zA-Z0-9]{3,63}$'
+    Type: String
+  AppPassword:
+    Type: String
+    NoEcho: true
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        在浏览器中登录示例应用程序时的密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  PaiInstanceType:
+    AllowedPattern: (^ecs.*gn.*)|(^ml.*)
+    Type: String
+    Description:
+      zh-cn: PAI-EAS 使用的实例规格。
+      en: PAI-EAS instance type.
+    Label:
+      zh-cn: PAI-EAS实例规格
+      en: PAI-EAS instance type
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      VpcName: vpc
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName: vsw
+      CidrBlock: 192.168.0.0/24
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: sg
+      SecurityGroupType: normal
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_20240819.vhd
+      InstanceName: ecs
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+  InstanceRunCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      CommandContent:
+        'Fn::Sub':
+          - |
+            #!/bin/bash
+            cat << EOF >> ~/.bash_profile
+            export APP_USERNAME=${AppUsername}
+            export APP_PASSWORD=${AppPassword}
+            export FACE_DETECTION_SERVICE_URL=${Url}
+            export FACE_DETECTION_TOKEN=${Token}
+            EOF
+            source ~/.bash_profile
+            
+            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/face-detection/install.sh|bash
+
+          - AppUsername:
+              Ref: AppUserName
+            AppPassword:
+              Ref: AppPassword
+            Url:
+              Fn::GetAtt:
+                - EAS
+                - IntranetEndpoint
+            Token:
+              Fn::GetAtt:
+                - EAS
+                - AccessToken
+      Type: RunShellScript
+      Sync: True
+      InstanceIds:
+        'Fn::GetAtt':
+          - EcsInstanceGroup
+          - InstanceIds
+      Timeout: 2400
+  RandomString:
+    Type: 'ALIYUN::RandomString'
+    Properties:
+      length: 5
+      character_classes:
+        - class: lowercase
+          min: 1
+        - class: digits
+          min: 1
+  Workspace:
+    Type: ALIYUN::PAI::Workspace
+    Properties:
+      EnvTypes:
+        - dev
+        - prod
+      WorkspaceName:
+        Fn::Sub: face_detection_demo_${RandomString.value}
+  EAS:
+    Type: ALIYUN::PAI::Service
+    Properties:
+      ServiceConfig:
+        cloud:
+          computing:
+            instance_type:
+              Ref: PaiInstanceType
+            instances: Null
+          networking:
+            vpc_id:
+              Ref: Vpc
+            vswitch_id:
+              Ref: VSwitch
+            security_group_id:
+              Ref: SecurityGroup
+        containers:
+          - image:
+              Fn::Sub:
+                - eas-registry-vpc.${Region}.cr.aliyuncs.com/pai-eas/modelscope-inference:1.9.1
+                - Region:
+                    Ref: ALIYUN::Region
+            port: 8000
+            script: python app.py
+            env:
+              - name: MODEL_ID
+                value: iic/cv_resnet50_face-detection_retinaface
+              - name: TASK
+                value: face_detection
+              - name: REVISION
+                value: v2.0.2
+        metadata:
+          instance: 1
+          name:
+            Fn::Sub: face_detection_${RandomString.value}
+          enable_webservice: 'true'
+    DependsOn:
+      - Workspace
+
+Outputs:
+  Url:
+    Description:
+      en: Public Ip of ECS.
+      zh-cn: ECS公网IP。
+    Value:
+      Fn::Sub:
+        - http://${IP}
+        - IP:
+            Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - PublicIps
+
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+        - ZoneId
+        - EcsInstanceType
+        - PaiInstanceType
+        - AppUserName
+        - AppPassword
+    TemplateTags:
+    - acs:technical-solution:ai:PAI-EAS部署模型实现人脸检测与对比-tech_solu_163
