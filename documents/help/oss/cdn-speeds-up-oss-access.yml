@@ -3,12 +3,24 @@ Description:
   zh-cn: 创建CDN域加速OSS访问，自动开启CDN服务，配置源站及DNS解析记录。
   en: Create a CDN domain to accelerate OSS access, automatically enabling the CDN
     service, and configure the origin server and DNS resolution records.
+Conditions:
+  CreateBucketConditions:
+    Fn::Equals:
+    - true
+    - Ref: WhetherCreateBucket
 Parameters:
-  OSSBucketName:
+  WhetherCreateBucket:
+    Type: Boolean
+    Label:
+      en: WhetherCreateBucket
+      zh-cn: 是否新建OSS Bucket
+    Default: true
+  NewBucketName:
+    Default: null
     Type: String
     Label:
       en: NewBucketName
-      zh-cn: 新建存储空间名称
+      zh-cn: 新建OSS Bucket名称
     Description:
       en: Bucket names must be globally unique within the scope of OSS. The length
         is 3~63 characters. Must start and end with a lowercase English letter or
@@ -21,7 +33,26 @@ Parameters:
       CharacterClasses:
         - Class: lowercase
           min: 1
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${WhetherCreateBucket}
+          - true
     AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+  ExistBucketName:
+    Type: String
+    Label:
+      en: Exist BucketName
+      zh-cn: 选择已有OSS Bucket
+    AssociationProperty: ALIYUN::OSS::Bucket::BucketName
+    AssociationPropertyMetadata:
+      RegionId: ${ALIYUN::Region}
+      Visible:
+        Condition:
+          Fn::Equals:
+          - ${WhetherCreateBucket}
+          - false
+    Default: ''
   Scope:
     Type: String
     Label:
@@ -47,9 +78,13 @@ Parameters:
 Resources:
   OSSBucket:
     Type: ALIYUN::OSS::Bucket
+    Condition: CreateBucketConditions
     Properties:
       BucketName:
-        Ref: OSSBucketName
+        Fn::If:
+          - CreateBucketConditions
+          - Ref: NewBucketName
+          - Ref: ExistBucketName
       DeletionForce: true
       CORSConfiguration:
         CORSRule:
@@ -81,7 +116,10 @@ Resources:
     Type: ALIYUN::CDN::Domain
     Properties:
       Sources:
-        Fn::Sub: '[{"content":"${OSSBucketName}.oss-${ALIYUN::Region}.aliyuncs.com", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
+        Fn::If:
+          - CreateBucketConditions
+          - Fn::Sub: '[{"content":"${NewBucketName}.oss-${ALIYUN::Region}.aliyuncs.com", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
+          - Fn::Sub: '[{"content":"${ExistBucketName}.oss-${ALIYUN::Region}.aliyuncs.com", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
       Scope:
         Ref: Scope
       CdnType: web
@@ -134,7 +172,10 @@ Outputs:
       zh-cn: 文件上传到的bucket控制台页面。可访问该链接查看上传情况。
       en: Bucket console page, view upload status.
     Value: 
-      Fn::Sub: https://oss.console.aliyun.com/bucket/oss-${ALIYUN::Region}/${OSSBucketName}
+      Fn::If:
+        - CreateBucketConditions
+        - Fn::Sub: https://oss.console.aliyun.com/bucket/oss-${ALIYUN::Region}/${NewBucketName}
+        - Fn::Sub: https://oss.console.aliyun.com/bucket/oss-${ALIYUN::Region}/${ExistBucketName}    
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
