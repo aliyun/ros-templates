@@ -101,6 +101,7 @@ Parameters:
       en: Consisting of letters, numbers, and underline(_),
         is 8 to 32 characters long.
       zh-cn: 由字母、数字、下划线（_）组成，长度为8~32个字符。
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
     MinLength: 8
     MaxLength: 32
     NoEcho: true
@@ -328,6 +329,20 @@ Resources:
       ConsumerGroupName: mysql2redis_consumer_group
       SubscriptionInstanceId:
         Ref: SubscriptionInstance
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: { }
+    DependsOn:
+      - Whitelist
+      - SecurityGroupIngress_22
+      - SecurityGroupIngress_3306
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 7200
+      Count: 1
   InstallDTSMySQL2Redis:
     Type: ALIYUN::ECS::RunCommand
     Properties:
@@ -358,7 +373,21 @@ Resources:
           sed -i "s/your redis url/${RedisInstance.PublicConnectionString}/" $FilePath
           sed -i "s/your redis password/${RedisPassword}/" $FilePath
           mvn clean install
-          nohup java -jar target/subscribe-demo-1.0-SNAPSHOT-jar-with-dependencies.jar  >message.log 2>&1 &
+          LOG_FILE="message.log"
+          nohup java -jar target/subscribe-demo-1.0-SNAPSHOT-jar-with-dependencies.jar  >> $LOG_FILE 2>&1 &
+
+          while [ ! -f "$LOG_FILE" ]; do
+              echo "$(date '+%Y-%m-%d %H:%M:%S')  Wait for FILE $LOG_FILE to generate..." >> $LOG_FILE
+              sleep 60
+          done
+          echo "$(date '+%Y-%m-%d %H:%M:%S')  Program packaging complete." >> $LOG_FILE
+          
+          if grep -q "Error" "$LOG_FILE"; then
+              error_message=$(grep "Error" message.log | head -n 1)
+              ${WaitConditionHandle.CurlCli} --data-binary '{"status": "FAILURE", "reason": "An error message is displayed: $error_message. For details, log in to the ECS instance, see /root/subscribe-demo-master/message.log"}'
+          else
+              ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+          fi
     DependsOn:
       - Whitelist
       - SecurityGroupIngress_22
