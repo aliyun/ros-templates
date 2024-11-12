@@ -1,5 +1,5 @@
 ROSTemplateFormatVersion: '2015-09-01'
-Transform: Aliyun::Terraform-v1.2
+Transform: Aliyun::Terraform-v1.5
 Description:
   zh-cn: 构建两地三中心的高可用架构，包括两个地域的VPC、ECS、PolarDB集群、ALB负载均衡器以及CEN互联，实现异地多活与数据同步。
   en: Build a high-availability architecture with three centers in two places, including VPC, ECS, PolarDB cluster, ALB load balancer and CEN interconnection in two regions to achieve multi-activity and data synchronization in different places.
@@ -162,6 +162,82 @@ Workspace:
       ecs_password = var.ecs_password
       instance_name = "APP004"
     }
+    
+    resource "random_string" "s" {
+      length    = 10
+      lower     = true
+      min_lower = 10
+      special   = false
+    }
+    
+    locals {
+      tpl = <<EOF
+      {
+        "ROSTemplateFormatVersion": "2015-09-01",
+        "Parameters": {
+          "EcsInstanceId": {
+            "Type": "String"
+          }
+        },
+        "Resources": {
+          "ModuleInstallWordpress": {
+            "Version": "default",
+            "Type": "MODULE::ACS::OOS::Extension",
+            "Properties": {
+              "EcsInstanceIds": [
+                {
+                  "Ref": "EcsInstanceId"
+                }
+              ],
+              "PackageName": "ACS-Extension-WordPress-One-Click-1853370294850618"
+            }
+          }
+        }
+      }
+      EOF
+    }
+    
+    resource "alicloud_ros_stack" "stack1" {
+      provider = alicloud.user1_region1
+      stack_name = format("stack_%s_1", random_string.s.id)
+      template_body     = local.tpl
+      parameters {
+        parameter_key   = "EcsInstanceId"
+        parameter_value = module.ecs1.id
+      }
+    }
+    
+    resource "alicloud_ros_stack" "stack2" {
+      provider = alicloud.user1_region1
+      stack_name = format("stack_%s_2", random_string.s.id)
+      template_body     = local.tpl
+      parameters {
+        parameter_key   = "EcsInstanceId"
+        parameter_value = module.ecs2.id
+      }
+    }
+    
+    resource "alicloud_ros_stack" "stack3" {
+      provider = alicloud.user1_region2
+      stack_name = format("stack_%s_3", random_string.s.id)
+      template_body     = local.tpl
+      parameters {
+        parameter_key   = "EcsInstanceId"
+        parameter_value = module.ecs3.id
+      }
+    }
+    
+    resource "alicloud_ros_stack" "stack4" {
+      provider = alicloud.user1_region2
+      stack_name = format("stack_%s_4", random_string.s.id)
+      template_body     = local.tpl
+      parameters {
+        parameter_key   = "EcsInstanceId"
+        parameter_value = module.ecs4.id
+      }
+    }
+    
+    
 
     data "alicloud_polardb_node_classes" "data_polardb1" {
       provider = alicloud.user1_region1
@@ -249,7 +325,7 @@ Workspace:
       provider = alicloud.user1_region1
       vpc_id                 = module.vpc1.vpc_id
       address_type           = "Internet"
-      address_allocated_mode = "Dynamic"
+      address_allocated_mode = "Fixed"
       load_balancer_name     = "test_create_by_ros"
       load_balancer_edition  = "Basic"
       load_balancer_billing_config {
@@ -270,7 +346,7 @@ Workspace:
       provider = alicloud.user1_region2
       vpc_id                 = module.vpc2.vpc_id
       address_type           = "Internet"
-      address_allocated_mode = "Dynamic"
+      address_allocated_mode = "Fixed"
       load_balancer_name     = "test_create_by_ros"
       load_balancer_edition  = "Basic"
       load_balancer_billing_config {
@@ -690,6 +766,7 @@ Workspace:
       instance_name              = var.instance_name
       vswitch_id                 = var.vsw_id
       password                   = var.ecs_password
+      internet_max_bandwidth_out = 5
     }
 
     output "private_ip" {
