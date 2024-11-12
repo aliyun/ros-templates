@@ -47,9 +47,8 @@ Locals:
       Type: user_auth
       Rule: check_token
       Value:
-        connectorId: connector-3c60c6e123e146fbb6f8
-        authConfig:
-          Fn::Sub: '{"authConfigId": "${WeChatAuthConfigId}"}'
+        authConfigId:
+          Ref: WeChatAuthConfigId
   PublicAccountType:
     Type: Eval
     Value:
@@ -97,18 +96,49 @@ Resources:
           Ref: AuthConfigForBailian
         weixinAuthId:
           Ref: WeChatAuthConfigId
+  WeixinAuthConfigInfo:
+    Type: DATASOURCE::AppFlow::Validation
+    DependsOn: Flow
+    Properties:
+      Type: user_auth
+      Rule: check_token
+      Value:
+        authConfigId:
+          Ref: WeChatAuthConfigId
+      NotRaiseErrorWithCodes:
+        - '61003'
+      OutputOptions:
+        - 'RefreshAlways'
 Outputs:
-  Console@WebhookUrl:
+  WeixinQrcodeUrl:
     Description:
-      zh-cn: 消息接收地址。
-      en: Message receiving address.
+      zh-cn: 微信体验二维码。
+      en: WeChat experience QR code.
     Label:
-      zh-cn: Webhook Url
-      en: Webhook Url
+      zh-cn: 微信体验二维码
+      en: WeChat Experience QR code
     Value:
-      Fn::GetAtt:
-        - Flow
-        - WebhookAddress
+      Fn::Jq:
+        - First
+        - .qrcode_url
+        - Fn::GetAtt:
+            - WeixinAuthConfigInfo
+            - Data
+  WeixinAuthorizationStatus:
+    Description:
+      zh-cn: 微信公众号授权状态。
+      en: WeChat official account authorization status.
+    Label:
+      zh-cn: 授权状态
+      Fn::Jq:
+      en: Authorization Status
+    Value:
+      Fn::Jq:
+        - First
+        - 'if . == {} then "Canceled" else "Normal" end'
+        - Fn::GetAtt:
+            - WeixinAuthConfigInfo
+            - Data
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
