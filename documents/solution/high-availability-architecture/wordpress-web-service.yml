@@ -1,0 +1,382 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 在 ECS 实例上自动部署 WordPress并开启REST API，含VPC、安全组配置与MySQL、PHP环境搭建，提供公网访问 URL。
+  en: Automatically deploy WordPress on ECS instances and turn on the REST API, including configuring VPC and security groups,
+    setting up MySQL and PHP environments, and providing public network access urls.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: Zone ID.
+      zh-cn: 可用区ID
+    AssociationProperty: ZoneId
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+      - 192.168.0.0/16
+      - 172.16.0.0/12
+      - 10.0.0.0/8
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    Required: true
+    Default: 192.168.0.0/24
+
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      CommodityCode: bards
+  DBName:
+    Type: String
+    Label:
+      zh-cn: 数据库名称
+      en: DB Name
+    Description:
+      zh-cn: 数据库名称，由小写字母、数字及特殊字符（-_）组成，以字母开头，字母或数字结尾，最多64个字符。
+      en: Database name, consisting of lowercase letters, Numbers, and special characters (-_), starting with letters, ending with letters or Numbers, up to 64 characters.
+    Default: wordpress
+  DBUser:
+    Type: String
+    Label:
+      en: RDS DB Username
+      zh-cn: RDS数据库账号
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: dbuser
+    MinLength: 2
+    MaxLength: 16
+  DBPassword:
+    Type: String
+    Label:
+      en: RDS Database Password
+      zh-cn: RDS数据库密码
+    Description:
+      en: "The password must be 8 to 32 characters in length. <br>\nIt must contain\
+        \ the following character types: uppercase letters, lowercase letters, digits,\
+        \ and special characters. <br> \nSpecial characters include <span style=\"\
+        background:#E7E9EB;\"><b>!@#$%^&*()_+-=</b></span>.<br>\n<b>If you repeatedly\
+        \ provision in this tutorial on the same ECS instance, make sure that the\
+        \ MySQL database password is exactly the same as the password set when the\
+        \ template was executed for the first time. Otherwise, the result of provisioning\
+        \ is unavailable.</b>"
+      zh-cn: "长度为8~32位，需包含大写字母、小写字母、特殊字符、数字的任意三种，允许的特殊字符包括<span style=\"background:#E7E9EB;\"\
+        ><b>!@#$%^&*()_+-=</b></span>。<br>"
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+    NoEcho: true
+
+  WordPressUserName:
+    Type: String
+    Label:
+      en: WordPress User Name
+      zh-cn: WordPress用户名
+    Default: admin
+  WordPressUserPassword:
+    Type: String
+    Label:
+      en: WordPress User Password
+      zh-cn: WordPress用户密码
+    NoEcho: true
+  WordPressUserEmail:
+    Type: String
+    Label:
+      en: WordPress User Email
+      zh-cn: WordPress用户邮箱
+    Default: admin@example.com
+
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      VpcName: vpc
+      CidrBlock:
+        Ref: VpcCidrBlock
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName: vsw
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: sg
+      SecurityGroupType: normal
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 443/443
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 3306/3306
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_20240819.vhd
+      InstanceName: ecs
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+
+  InstallWordPress:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      Type: RunShellScript
+      Sync: true
+      Timeout: 2400
+      CommandContent:
+        Fn::Sub:
+        - |-
+          #!/bin/sh
+
+          ## 安装apache
+          yum -y install httpd httpd-manual mod_ssl mod_perl mod_auth_mysql sysbench
+            
+          ## 安装php
+          yum install -y yum-utils epel-release http://rpms.remirepo.net/enterprise/remi-release-7.rpm 
+          yum-config-manager --enable remi-php82
+          yum -y install php php-opcache php-mysqlnd php-pdo php-gd php-ldap php-odbc php-pear php-xml php-xmlrpc php-mbstring php-soap
+          
+          ## 下载wordpress并安装
+          wget https://cn.wordpress.org/wordpress-6.3.1-zh_CN.tar.gz
+          tar -xvf wordpress-6.3.1-zh_CN.tar.gz -C /var/www/html
+          mv /var/www/html/wordpress/* /var/www/html
+          chown -R apache:apache /var/www/html
+          chmod -R 755 /var/www/html/wordpress
+          mv /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
+          
+          ## 调整db连接配置
+          sed -i 's/localhost/${db_connection}/' /var/www/html/wp-config.php
+          sed -i 's/username_here/${db_username}/' /var/www/html/wp-config.php
+          sed -i 's/password_here/${db_password}/' /var/www/html/wp-config.php
+          sed -i 's/database_name_here/${db_name}/' /var/www/html/wp-config.php
+          
+          
+          cd /var/www/html
+          sudo cat <<EOF > .htaccess
+          # BEGIN WordPress
+          <IfModule mod_rewrite.c>
+          RewriteEngine On
+          RewriteCond %{HTTP:Authorization} ^(.*)
+          RewriteRule ^(.*) - [E=HTTP_AUTHORIZATION:%1]
+          RewriteBase /
+          RewriteRule ^index\.php$ - [L]
+          RewriteCond %{REQUEST_FILENAME} !-f
+          RewriteCond %{REQUEST_FILENAME} !-d
+          RewriteRule . /index.php [L]
+          </IfModule>
+          # END WordPress
+          EOF
+          sed -i 's/AllowOverride None/AllowOverride All/g' /etc/httpd/conf/httpd.conf
+          
+          wget https://downloads.wordpress.org/plugin/jwt-authentication-for-wp-rest-api.zip
+          yum -y install unzip
+          unzip jwt-authentication-for-wp-rest-api.zip -d jwt-authentication-for-wp-rest-api
+          cp -r ./jwt-authentication-for-wp-rest-api/jwt-authentication-for-wp-rest-api /var/www/html/wp-content/plugins
+          rm -rf jwt-authentication-for-wp-rest-api.zip
+          rm -rf jwt-authentication-for-wp-rest-api
+          wget https://gitee.com/qin-yangming/open-tools/raw/master/wp-cli.phar
+          chmod +x wp-cli.phar
+          mv wp-cli.phar /usr/local/bin/wp
+          SECRET_KEY=$(openssl rand -base64 32) && printf "define('JWT_AUTH_SECRET_KEY', '%s');\ndefine('JWT_AUTH_CORS_ENABLE', true);\n" "$SECRET_KEY" >> /var/www/html/wp-config.php
+          
+          ## 启动apache
+          systemctl start httpd
+          systemctl enable httpd
+          wp core install --url=${url} --title="Hello World" --admin_user=${wordpress_user_name} --admin_password=${wordpress_user_password} --admin_email=${wordpress_user_email} --skip-email --allow-root
+          
+          wp plugin activate jwt-authentication-for-wp-rest-api --allow-root --path=/var/www/html
+
+        - db_connection:
+            Fn::GetAtt:
+              - RdsDBInstance
+              - InnerConnectionString
+          db_username:
+            Ref: DBUser
+          db_password:
+            Ref: DBPassword
+          db_name:
+            Ref: DBName
+          url:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - PublicIps
+          wordpress_user_name:
+            Ref: WordPressUserName
+          wordpress_user_password:
+            Ref: WordPressUserPassword
+          wordpress_user_email:
+            Ref: WordPressUserEmail
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+    DependsOn:
+      - RdsAccountPrivilege
+
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage: 50
+      Engine: MySQL
+      EngineVersion: "8.0"
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      SecurityIPList: 0.0.0.0/0
+
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RdsDBInstance
+      CharacterSetName: utf8mb4
+      DBName:
+        Ref: DBName
+  RdsAccount:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      AccountName:
+        Ref: DBUser
+      AccountType: Normal
+      AccountPassword:
+        Ref: DBPassword
+      DBInstanceId:
+        Ref: RdsDBInstance
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RdsDBInstance
+      DBName:
+        Ref: DBName
+      AccountName:
+        Ref: RdsAccount
+
+
+Outputs:
+  Url:
+    Description:
+      en: Wordpress url.
+      zh-cn: Wordpress 博客访问地址。
+    Value:
+      Fn::Sub:
+        - http://${IP}/wp-admin
+        - IP:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+        - VpcCidrBlock
+        - VSwitchCidrBlock
+        - ZoneId
+      Label:
+        default:
+          en: VPC
+          zh-cn: 专有网络配置
+    - Parameters:
+      - EcsInstanceType
+      Label:
+        default:
+          en: ECS
+          zh-cn: ECS配置
+    - Parameters:
+        - DBInstanceClass
+        - DBName
+        - DBUser
+        - DBPassword
+      Label:
+        default:
+          en: RDS
+          zh-cn: RDS配置
+    - Parameters:
+        - WordPressUserName
+        - WordPressUserPassword
+        - WordPressUserEmail
+      Label:
+        default:
+          en: WordPress
+          zh-cn: WordPress配置
+    TemplateTags:
+    - acs:technical-solution:high-availability-architecture:10分钟搭建微信小程序

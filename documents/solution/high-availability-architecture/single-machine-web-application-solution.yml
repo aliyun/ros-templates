@@ -1,0 +1,431 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 本模板用于单机部署WEB应用，涉及：DNS、CDN、EIP、ECS、RDS、OSS、NAS等产品组合。
+  en: This template is used for single-node deployment of WEB applications,
+    including DNS, CDN, EIP, ECS, RDS, OSS, and NAS.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: Zone ID.
+      zh-cn: 可用区ID
+    AssociationProperty: ZoneId
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+      - 192.168.0.0/16
+      - 172.16.0.0/12
+      - 10.0.0.0/8
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    Required: true
+    Default: 192.168.0.0/24
+
+  WhetherInstallWordpress:
+    Default: true
+    Type: Boolean
+    Label:
+      zh-cn: 是否在ECS中安装WordPress服务
+      en: WhetherInstallWordpress
+
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      CommodityCode: bards
+  DbUser:
+    Type: String
+    Label:
+      en: RDS DB Username
+      zh-cn: RDS数据库账号
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: dbuser
+    MinLength: 2
+    MaxLength: 16
+  DbPassword:
+    Type: String
+    Label:
+      en: RDS Database Password
+      zh-cn: RDS数据库密码
+    Description:
+      en: "The password must be 8 to 32 characters in length. <br>\nIt must contain\
+        \ the following character types: uppercase letters, lowercase letters, digits,\
+        \ and special characters. <br> \nSpecial characters include <span style=\"\
+        background:#E7E9EB;\"><b>!@#$%^&*()_+-=</b></span>.<br>\n<b>If you repeatedly\
+        \ provision in this tutorial on the same ECS instance, make sure that the\
+        \ MySQL database password is exactly the same as the password set when the\
+        \ template was executed for the first time. Otherwise, the result of provisioning\
+        \ is unavailable.</b>"
+      zh-cn: "长度为8~32位，需包含大写字母、小写字母、特殊字符和数字，允许的特殊字符包括<span style=\"background:#E7E9EB;\"\
+        ><b>!@#$%^&*()_+-=</b></span>。<br>"
+    AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=]).{8,32}$
+    NoEcho: true
+  BucketName:
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: bucket-test-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    Description:
+      zh-cn: 3到63个字符，不以连字符(-)开头和结尾，可以包含小写字母、数字和连字符(-)；<br>备注：<font color='blue'><b>需要保证整个网络的唯一性，已经存在的无法创建</b></font>
+      en: '3 to 63 characters, not beginning and ending with a hyphen (-), can contain lowercase letters, Numbers and hyphens (-);<br>Note: <font color=''blue''><b>need whole network uniqueness, already existing can not be created.</b></font>'
+    MinLength: 3
+    Label:
+      zh-cn: OSS Bucket名称
+      en: Bucket Name
+    AllowedPattern: ^[a-z0-9]+[a-z0-9\-]*[a-z0-9]+$
+    ConstraintDescription:
+      zh-cn: 3 到 63 个字符，不以连字符 (-) 开头和结尾，可以包含小写字母、数字和连字符 (-)
+      en: 3 to 63 characters, not beginning and ending with a hyphen (-), can contain lowercase letters, Numbers and hyphens (-)
+    MaxLength: 63
+    AssociationProperty: AutoCompleteInput
+    Type: String
+
+  WhetherCreateCdn:
+    Default: false
+    Type: Boolean
+    Label:
+      zh-cn: 是否设置CDN加速
+      en: WhetherCreateCdn
+
+  Scope:
+    Type: String
+    Label:
+      zh-cn: 加速区域
+      en: Region
+    Description:
+      zh-cn: 加速区域含中国内地时（domestic或global），加速域名必须备案，且账号必须实名认证。
+      en: When the acceleration region includes mainland China（domestic or global）, the accelerated domain must be registered (ICP license), and the account must be verified (real-name authentication).
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateCdn}
+            - true
+    Default: overseas
+    AllowedValues:
+      - domestic
+      - overseas
+      - global
+
+  DomainName:
+    Type: String
+    Label:
+      zh-cn: 加速域名
+      en: Accelerated domain name
+    Description:
+      zh-cn: 加速域名是指接入CDN，用于加速源站的域名。例如oss.example.com。
+      en: Accelerated domain name refers to the domain name of the access CDN used to accelerate the source site. The example is oss.example.com.
+    Default: oss.example.com
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateCdn}
+            - true
+
+Conditions:
+  CreateCdn:
+    Fn::Equals:
+    - true
+    - Ref: WhetherCreateCdn
+
+  InstallWordpress:
+    Fn::Equals:
+    - true
+    - Ref: WhetherInstallWordpress
+
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      VpcName: vpc
+      CidrBlock:
+        Ref: VpcCidrBlock
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName: vsw
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: sg
+      SecurityGroupType: normal
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 3306/3306
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      Bandwidth: 5
+      InstanceChargeType: Postpaid
+      InternetChargeType: PayByTraffic
+  EipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::Select:
+          - 0
+          - Fn::GetAtt:
+              - EcsInstanceGroup
+              - InstanceIds
+      AllocationId:
+        Ref: Eip
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_20240819.vhd
+      InstanceName: ecs
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 0
+
+  Bucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+    DependsOn:
+      - AutoEnableOSS
+  NasFileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      ProtocolType: NFS
+      StorageType: Capacity
+      FileSystemType: standard
+  NasMountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
+      FileSystemId:
+        Fn::GetAtt:
+          - NasFileSystem
+          - FileSystemId
+      NetworkType: Vpc
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      AccessGroupName: DEFAULT_VPC_GROUP_NAME
+
+  ModuleInstallLAMP:
+    Type: 'MODULE::ACS::OOS::Extension'
+    Condition: InstallWordpress
+    Properties:
+      EcsInstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      PackageName: ACS-Extension-WordPress-One-Click-1853370294850618
+    Version: default
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage: 50
+      Engine: MySQL
+      EngineVersion: "8.0"
+      MasterUserPassword:
+        Ref: DbPassword
+      MasterUserType: Super
+      MasterUsername:
+        Ref: DbUser
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      SecurityIPList: 0.0.0.0/0
+
+  AutoEnableCDN:
+    Type: ALIYUN::ROS::AutoEnableService
+    Condition: CreateCdn
+    Properties:
+      ServiceName: CDN
+  AutoEnableOSS:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: OSS
+  Domain:
+    Type: ALIYUN::CDN::Domain
+    Condition: CreateCdn
+    Properties:
+      Sources:
+        Fn::Sub: '[{"content":"${BucketName}.oss-${ALIYUN::Region}.aliyuncs.com", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
+      Scope:
+        Ref: Scope
+      CdnType: web
+      DomainName:
+        Ref: DomainName
+    DependsOn:
+      - Bucket
+      - AutoEnableCDN
+  DomainConfig:
+    Type: ALIYUN::CDN::DomainConfig
+    Condition: CreateCdn
+    DependsOn: Domain
+    Properties:
+      FunctionList:
+        - FunctionArgs:
+            - ArgName: private_oss_auth
+              ArgValue: 'on'
+            - ArgName: perm_private_oss_tbl
+              ArgValue: ''
+          FunctionName: l2_oss_key
+      DomainNames:
+        Ref: DomainName
+  DomainRecord:
+    Type: ALIYUN::DNS::DomainRecord
+    Condition: CreateCdn
+    Properties:
+      Type: CNAME
+      RR:
+        Fn::Select:
+          - '0'
+          - Fn::Split:
+              - .
+              - Ref: DomainName
+      Value:
+        Fn::GetAtt:
+          - Domain
+          - Cname
+      DomainName:
+        Fn::Join:
+          - .
+          - - Fn::Select:
+                - '1'
+                - Fn::Split:
+                    - .
+                    - Ref: DomainName
+            - Fn::Select:
+                - '2'
+                - Fn::Split:
+                    - .
+                    - Ref: DomainName
+Outputs:
+  Url:
+    Description:
+      en: Wordpress url.
+      zh-cn: Wordpress 博客访问地址。
+    Value:
+      Fn::Sub:
+        - http://${IP}
+        - IP:
+            Fn::GetAtt:
+              - Eip
+              - EipAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+        - VpcCidrBlock
+        - VSwitchCidrBlock
+        - ZoneId
+      Label:
+        default:
+          en: VPC
+          zh-cn: 专有网络配置
+    - Parameters:
+      - EcsInstanceType
+      - WhetherInstallWordpress
+      Label:
+        default:
+          en: ECS
+          zh-cn: ECS配置
+    - Parameters:
+        - DBInstanceClass
+        - DbUser
+        - DbPassword
+      Label:
+        default:
+          en: RDS
+          zh-cn: RDS配置
+    - Parameters:
+        - BucketName
+      Label:
+        default:
+          en: OSS
+          zh-cn: OSS配置
+    - Parameters:
+      - WhetherCreateCdn
+      - Scope
+      - DomainName
+      Label:
+        default:
+          en: CDN
+          zh-cn: CDN配置
+    TemplateTags:
+    - acs:technical-solution:云知道:小型单机部署WEB应用解决方案
