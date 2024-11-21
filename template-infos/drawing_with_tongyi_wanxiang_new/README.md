@@ -79,3 +79,4 @@
    在[API-KEY管理](https://bailian.console.aliyun.com/?apiKey=1)页面，找到目标API-KEY，单击右侧 **操作** 列下的 **删除** ，根据页面提示进行删除。
 6. ceshi
 7. ceshi2
+8. ceshi3
