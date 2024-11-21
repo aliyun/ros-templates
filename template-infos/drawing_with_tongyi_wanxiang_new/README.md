@@ -77,7 +77,3 @@
 4. 在 **删除资源栈** 对话框，选择 **删除方式** 为 **释放资源** ，然后单击 **确定** ，根据提示完成资源释放。
 5. 删除百炼 **API-KEY** ：
    在[API-KEY管理](https://bailian.console.aliyun.com/?apiKey=1)页面，找到目标API-KEY，单击右侧 **操作** 列下的 **删除** ，根据页面提示进行删除。
-6. ceshi
-7. ceshi2
-8. ceshi3
-9. ceshi4
