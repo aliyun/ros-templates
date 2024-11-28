@@ -467,7 +467,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 - ai
 
 | Template                                                                                                                                                         | Description                                                                                                        |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------| ------------------------------------------------------------------------------------------------------------------ |
 | [use-function-compute-to-deploy-stable-diffusion-for-AI-painting.yml](documents/solution/ai/use-function-compute-to-deploy-stable-diffusion-for-ai-painting.yml) | Use Function Compute to deploy Stable Diffusion for AI Painting. Custom models is supported.                       |
 | [lingjun-LLAMA-2-best-practice.yml](documents/solution/ai/lingjun-LLAMA-2-best-practice.yml)                                                                     | LingJun LLAMA-2 Best Practice.                                                                                     |
 | [pai-ai-painting-solution.yml](documents/solution/ai/pai-ai-painting-solution.yml)                                                                               | PAI AI painting solution                                                                                           |
@@ -485,6 +485,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [drawing_with_tongyi_wanxiang_new.yml](documents/solution/ai/drawing_with_tongyi_wanxiang_new.yml)                                                               | Tongyi Wanxiang’s journey of text drawing and portrait beautification.                                             |
 | [AnalyticDB-and-Bailian-system.yml](documents/solution/ai/AnalyticDB-and-Bailian-system.yml)                                                                     | AnalyticDB and Bailian build intelligent question and answer system.                                               |
 | [pai-rec-deploy-recommendation-solution.yml](documents/solution/ai/pai-rec-deploy-recommendation-solution.yml)                                                   | Deploying a recommendation solution using PAI-Rec.                                                                 |
+| [ecs-ai-face-detection-solution.yml](documents/solution/ai/ecs-ai-face-detection-solution.yml)                                                                   | Deploying a face detection and comparison solution based on the Visual Intelligence Open Platform.                 |
 
 - data-analysis
 

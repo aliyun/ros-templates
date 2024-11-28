@@ -1,0 +1,137 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 一键部署基于视觉智能开放平台的人脸检测与对比方案，涵盖VPC、VSwitch、安全组、ECS。
+  en: One-click deployment of a face detection and comparison solution based on the Visual Intelligence Open Platform, covering VPC, VSwitch, Security Group, and ECS.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID.
+      zh-cn: 可用区ID。
+    Description:
+      en: Zone ID.
+      zh-cn: 可用区ID。
+    AssociationProperty: ZoneId
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      VpcName: vpc
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName: vsw
+      CidrBlock: 192.168.0.0/24
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: sg
+      SecurityGroupType: normal
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_20240819.vhd
+      InstanceName: ecs
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: create_by_solution-${ALIYUN::StackId}
+      PolicyAttachments:
+        System:
+          - AliyunVIAPIFullAccess
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Ref: User
+  InstanceRunCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          cat << EOF >> ~/.bash_profile
+          export ALIBABA_CLOUD_ACCESS_KEY_ID="${AccessKey.AccessKeyId}"
+          export ALIBABA_CLOUD_ACCESS_KEY_SECRET="${AccessKey.AccessKeySecret}"
+          EOF
+          source ~/.bash_profile
+          
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/face-detection/install.sh|bash
+      Type: RunShellScript
+      Sync: True
+      InstanceIds:
+        'Fn::GetAtt':
+          - EcsInstanceGroup
+          - InstanceIds
+      Timeout: 2400
+  RandomString:
+    Type: 'ALIYUN::RandomString'
+    Properties:
+      length: 5
+      character_classes:
+        - class: lowercase
+          min: 1
+        - class: digits
+          min: 1
+
+Outputs:
+  Url:
+    Description:
+      en: Public Ip of ECS.
+      zh-cn: ECS公网IP。
+    Value:
+      Fn::Sub:
+        - http://${IP}
+        - IP:
+            Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - PublicIps
+
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - EcsInstanceType
+    TemplateTags:
+      - acs:technical-solution:ai:基于视觉智能开放平台的人脸检测与对比-tech_solu_
