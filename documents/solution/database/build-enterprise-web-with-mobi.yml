@@ -1,0 +1,279 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 本模板用于低代码高效构建企业门户网站。
+  en: This template is used to efficiently build enterprise portals with low code.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: Zone ID.
+      zh-cn: 可用区ID
+    AssociationProperty: ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color=''green''>[10.0.0.0/8]</font><br><font
+        color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+      - 192.168.0.0/16
+      - 172.16.0.0/12
+      - 10.0.0.0/8
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    Required: true
+    Default: 192.168.1.0/24
+
+
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: Basic
+      InstanceChargeType: Postpaid
+      DBInstanceStorageType: cloud_essd
+      CommodityCode: bards
+  DbUserName:
+    Type: String
+    Label:
+      en: RDS DB Username
+      zh-cn: RDS数据库账号
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: db_user
+    MinLength: 2
+    MaxLength: 16
+  DbPassword:
+    Type: String
+    Label:
+      en: RDS Database Password
+      zh-cn: RDS数据库密码
+    Description:
+      en: "The password must be 8 to 32 characters in length. <br>\nIt must contain\
+        \ the following character types: uppercase letters, lowercase letters, digits,\
+        \ and special characters. <br> \nSpecial characters include <span style=\"\
+        background:#E7E9EB;\"><b>!@#$%^&*()_+-=</b></span>.<br>\n<b>If you repeatedly\
+        \ provision in this tutorial on the same ECS instance, make sure that the\
+        \ MySQL database password is exactly the same as the password set when the\
+        \ template was executed for the first time. Otherwise, the result of provisioning\
+        \ is unavailable.</b>"
+      zh-cn: "长度为8~32位，需包含大写字母、小写字母、特殊字符和数字，允许的特殊字符包括<span style=\"background:#E7E9EB;\"\
+        ><b>!@#$%^&*()_+-=</b></span>。<br>"
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+    NoEcho: true
+
+  DbName:
+    Type: String
+    Label:
+      en: RDS DB Name
+      zh-cn: RDS数据库名称
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: db_name
+    MinLength: 2
+    MaxLength: 16
+
+Locals:
+  MobiWorkspaces:
+    Type: DATASOURCE::MOBI::Workspaces
+
+  WorkspaceId:
+    Type: Eval
+    Value:
+      Fn::Select:
+        - 0
+        - Fn::GetAtt:
+          - MobiWorkspaces
+          - WorkspaceIds
+
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      VpcName: vpc
+      CidrBlock:
+        Ref: VpcCidrBlock
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName: vsw_001
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage: 50
+      Engine: MySQL
+      EngineVersion: "8.0"
+      MasterUserType: Normal
+      MasterUsername:
+        Ref: DbUserName
+      MasterUserPassword:
+        Ref: DbPassword
+      Category: Basic
+      DBInstanceStorageType: cloud_essd
+      AllocatePublicConnection: true
+      SecurityIPList:
+        Fn::Join:
+          - ','
+          - - Ref: VpcCidrBlock
+            - 101.200.211.106
+
+
+  DbBase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RdsDBInstance
+      CharacterSetName: utf8
+      DBName:
+        Ref: DbName
+      DBDescription: tutorial base
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RdsDBInstance
+      DBName:
+        Ref: DbName
+      AccountName:
+        Ref: DbUserName
+    DependsOn:
+      - DbBase
+  RandomString:
+    Type: ALIYUN::RandomString
+    Properties:
+      length: 7
+      character_classes:
+        - class: lowercase
+          min: 1
+        - class: digits
+          min: 1
+
+  Mobi:
+    Type: ALIYUN::MOBI::App
+    Properties:
+      AppName:
+        Fn::Sub: "test_${RandomString.value}"
+      AppIcon: -1
+      AppWorkspaceId:
+        Ref: WorkspaceId
+      AppType: Web
+      Template:
+        TemplateId: e1e78223-38c4-4184-972c-ac0eead93e11
+        ConnectionsContent:
+          Fn::Sub: |-
+            [
+              {
+                "name": "企业官网模板_${RandomString.value}",
+                "connectorType": {
+                  "kind": "mysql",
+                  "name": "mysql"
+                },
+                "folderId": "/",
+                "resourceRequirementId": "19031d9d-f598-452f-9143-b6785dff43ad",
+                "resourceObject": {
+                  "version": "1.0",
+                  "id": "19031d9d-f598-452f-9143-b6785dff43ad",
+                  "name": "企业官网模板_20241203160633",
+                  "type": "sql",
+                  "subType": "mysql",
+                  "connectionTemplates": {
+                    "dev": {
+                      "host": "${RdsDBInstance.PublicConnectionString}",
+                      "port": 3306,
+                      "database": "${DbName}",
+                      "username": "${DbUserName}",
+                      "password": "${DbPassword}"
+                    },
+                    "product": {
+                      "host": "${RdsDBInstance.PublicConnectionString}",
+                      "port": 3306,
+                      "database": "${DbName}",
+                      "username": "${DbUserName}",
+                      "password": "${DbPassword}"
+                    }
+                  }
+                }
+              }
+            ]
+
+Outputs:
+  PublicConnectionString:
+    Description:
+      zh-cn: 公网连接命令行。
+      en: Rds Public Connection command line.
+    Value:
+      Fn::Sub: mysql -h${RdsDBInstance.PublicConnectionString} -u${DbUserName} -P3306 -p
+  RdsPublicConnectionString:
+    Description:
+      zh-cn: 公网连接地址。
+      en: Rds Public Connection address.
+    Value:
+      Fn::GetAtt:
+        - RdsDBInstance
+        - PublicConnectionString
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+        - ZoneId
+        - VpcCidrBlock
+        - VSwitchCidrBlock
+      Label:
+        default:
+          en: VPC
+          zh-cn: 专有网络配置
+    - Parameters:
+        - DBInstanceClass
+        - DbUserName
+        - DbPassword
+        - DbName
+      Label:
+        default:
+          en: RDS
+          zh-cn: RDS配置
+    TemplateTags:
+    - acs:technical-solution:db:低代码高效构建企业门户网站
+
