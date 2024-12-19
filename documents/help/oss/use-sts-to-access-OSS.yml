@@ -1,0 +1,339 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 使用STS临时访问凭证访问OSS。
+  en: Use STS Temporary access credentials to access OSS.
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+      - Ref: SelectInstance
+      - false
+Parameters:
+  UserName:
+    Type: String
+    Description:
+      zh-cn: 自定义RAM用户名称。
+      en: Customize the RAM user name.
+    Label:
+      zh-cn: RAM用户名称
+      en: RAM User Name
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: RamOssTest-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+  RoleName:
+    Type: String
+    Description:
+      zh-cn: 自定义RAM角色名称。
+      en: Customize the RAM role name.
+    Label:
+      zh-cn: RAM角色名称
+      en: RAM Rol Name
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: RamOssTest-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+  SelectInstance:
+    Type: Boolean
+    Label:
+      en: Whether to select an existing Bucket
+      zh-cn: 是否选择已有Bucket
+    Default: true
+  ExistBucketName:
+    Type: String
+    Label:
+      en: Existing Bucket
+      zh-cn: 已有Bucket
+    AssociationProperty: ALIYUN::OSS::Bucket::BucketName
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectInstance}
+            - true
+    Default: ''
+  BucketName:
+    Type: String
+    Label:
+      zh-cn: 新建存储空间名称
+      en: NewBucketName
+    Description:
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+      en: Bucket names must be globally unique within the scope of OSS. The length is 3~63 characters. Must start and end with a lowercase English letter or number, and can contain lowercase English letters, numbers, and dashes (-).
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: my-bucketname-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectInstance}
+            - false
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+    Default: null
+  AccessControl:
+    Type: String
+    Label:
+      en: Access Control
+      zh-cn: 读写权限
+    Description:
+      en: Set the access permission of the bucket
+      zh-cn: 设置Bucket读写权限
+    Default: private
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectInstance}
+            - false
+    AllowedValues:
+      - private
+      - public-read
+      - public-read-write
+Resources:
+  RamUser:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Ref: UserName
+  RamAK:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+          - RamUser
+          - UserName
+    DependsOn: RamUser
+  AttachPolicyToUser:
+    Type: ALIYUN::RAM::AttachPolicyToUser
+    Properties:
+      PolicyType: System
+      UserName:
+        Fn::GetAtt:
+          - RamUser
+          - UserName
+      PolicyName: AliyunSTSAssumeRoleAccess
+    DependsOn: RamAK
+  MyBucket:
+    Condition: CreateInstance
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      AccessControl:
+        Ref: AccessControl
+      BucketName:
+        Ref: BucketName
+  Role:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName:
+        Ref: RoleName
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              RAM:
+                - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+              Service:
+                - fc.aliyuncs.com
+                - ram.aliyuncs.com
+      Policies:
+        - PolicyName:
+            Fn::Join:
+              - ''
+              - - Policy-
+                - Ref: ALIYUN::StackId
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - oss:PutObject
+                Resource:
+                  - 'Fn::Sub':
+                      - 'acs:oss:*:*:${BucketName}/*'
+                      - BucketName:
+                          Fn::If:
+                            - CreateInstance
+                            - Ref: BucketName
+                            - Ref: ExistBucketName
+  FCRamRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - fc.aliyuncs.com
+                - ram.aliyuncs.com
+        Version: '1'
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - log:*
+                Effect: Allow
+                Resource:
+                  - acs:log:*:*:*
+              - Action:
+                  - fc:*
+                Effect: Allow
+                Resource:
+                  - '*'
+              - Action:
+                  - ram:*
+                Effect: Allow
+                Resource:
+                  - '*'
+            Version: '1'
+          PolicyName:
+            Fn::Join:
+              - '-'
+              - - StackId
+                - Ref: ALIYUN::StackId
+      RoleName:
+        Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+  FcService:
+    Type: ALIYUN::FC::Service
+    Properties:
+      ServiceName:
+        Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+            - FC-Service
+      Role:
+        Fn::GetAtt:
+          - FCRamRole
+          - Arn
+  Function:
+    Type: ALIYUN::FC::Function
+    Properties:
+      ServiceName:
+        Fn::GetAtt:
+          - FcService
+          - ServiceName
+      FunctionName:
+        Fn::Join:
+          - '-'
+          - - AssumeRoleFunction
+            - Ref: ALIYUN::StackId
+      Handler: index.handler
+      Runtime: python3.9
+      Code:
+        SourceCode: |
+          #!/usr/bin/env python
+          # coding=utf-8
+          import json, time, urllib.request
+          from aliyunsdkcore.client import AcsClient
+          from aliyunsdkcore.acs_exception.exceptions import ClientException 
+          from aliyunsdkcore.acs_exception.exceptions  import ServerException 
+          from aliyunsdkcore.auth.credentials import AccessKeyCredential 
+          from aliyunsdkcore.auth.credentials import StsTokenCredential 
+          from aliyunsdksts.request.v20150401.AssumeRoleRequest import AssumeRoleRequest 
+          def handler(event, context):
+            event = json.loads(event)
+            creds = context.credentials
+            r_ps = event['ResourceProperties']
+
+            credentials = StsTokenCredential(r_ps['AKId'], r_ps['AKSecret'], creds.security_token)
+            client = AcsClient(region_id=context.region, credential=credentials)
+
+
+            if event['RequestType'] != 'Delete':
+              request = AssumeRoleRequest()
+              request.set_accept_format('json')
+              request.set_DurationSeconds(3600)
+              request.set_Policy(r_ps['RolePolicy'])
+              request.set_RoleArn(r_ps['RoleArn'])
+              request.set_RoleSessionName("RoleSessionName")
+  
+              response = client.do_action_with_exception(request)
+  
+              print(str(response, encoding='utf-8'))
+              response = json.loads(response)
+            result = {
+                  'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'],
+                  'StackId': event['StackId'],
+                  'Status': 'SUCCESS',
+                  'PhysicalResourceId': 'MyCustomResourceId',
+                  'Data': {}
+              }
+            if event['RequestType'] != 'Delete':
+                result['Data'] = response.get('Credentials')
+            headers = {'Content-type': 'application/json', 'Accept': 'application/json','Date': time.strftime('%a, %d %b %Y %X GMT', time.gmtime()), 'User-Agent': 'MyCustomUserAgent'}
+            req = urllib.request.Request(event['ResponseURL'], data=json.dumps(result).encode('utf-8'), headers=headers)
+            urllib.request.urlopen(req)
+  AssumeRoleCredentials:
+    Type: Custom::AssumeRole
+    DeletionPolicy: Retain
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - Function
+          - ARN
+      Parameters:
+        RolePolicy:
+          'Fn::Sub':
+            - "{\"Version\":\"1\",\"Statement\":[{\"Action\":[\"oss:PutObject\"],\"Resource\":[\"acs:oss:*:*:${BucketName}/src/*\"],\"Effect\":\"Allow\"}]}"
+            - BucketName:
+                Fn::If:
+                  - CreateInstance
+                  - Ref: BucketName
+                  - Ref: ExistBucketName
+        RoleArn:
+          Fn::GetAtt:
+            - Role
+            - Arn
+        AKId:
+          Fn::GetAtt:
+            - RamAK
+            - AccessKeyId
+        AKSecret:
+          Fn::GetAtt:
+            - RamAK
+            - AccessKeySecret
+        RoleSessionName:
+          Fn::Join:
+            - '-'
+            - - RoleSessionName
+              - Ref: ALIYUN::StackId
+      Timeout: 120
+Outputs:
+  AssumeRoleCredentials:
+    Value:
+      Fn::GetAtt:
+        - AssumeRoleCredentials
+        - Outputs
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - SelectInstance
+          - ExistBucketName
+          - BucketName
+          - AccessControl
+        Label:
+          default: OSS
+      - Parameters:
+          - UserName
+          - RoleName
+        Label:
+          default: RAM
+    TemplateTags:
+      - acs:document-help:oss:使用STS临时访问凭证访问OSS
