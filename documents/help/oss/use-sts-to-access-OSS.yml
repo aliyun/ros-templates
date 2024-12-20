@@ -7,6 +7,14 @@ Conditions:
     Fn::Equals:
       - Ref: SelectInstance
       - false
+  CreateManagePolicy:
+    Fn::Equals:
+      - Ref: SelectOSSFullAccess
+      - false
+  AttachPolicy:
+    Fn::Equals:
+      - Ref: SelectOSSFullAccess
+      - true
 Parameters:
   UserName:
     Type: String
@@ -44,6 +52,15 @@ Parameters:
       en: Whether to select an existing Bucket
       zh-cn: 是否选择已有Bucket
     Default: true
+  SelectOSSFullAccess:
+    Type: Boolean
+    Label:
+      en: Whether to use AliyunOSSFullAccess
+      zh-cn: 是否选择使用AliyunOSSFullAccess
+    Description:
+      zh-cn: 如果选择授予AliyunOSSFullAccess，则RAM角色拥有OSS的管理权限。<b><font color='red'>该权限有极高风险</font></b>，建议配置细粒度的自定义权限策略。
+      en: If you choose to grant AliyunOSSFullAccess, the RAM role has administrative rights for OSS.<b><font color='red'>This permission is risky</font></b>. You are advised to configure a fine-grained user-defined permission policy.
+    Default: true
   ExistBucketName:
     Type: String
     Label:
@@ -57,6 +74,28 @@ Parameters:
             - ${SelectInstance}
             - true
     Default: ''
+  PolicyDocument:
+    Type: Json
+    Label:
+      en: Custom Policy Document
+      zh-cn: 自定义权限
+    Description:
+      zh-cn: 本示例默认值将授权RAM角色上传文件（Action为oss:PutObject）到examplebucket的权限。<b>您需要根据实际业务场景，替换默认值中的<font color='red'>examplebucket</font>，改为上述选择的存量或者新建Bucket名称，以及具体的Action</b>。关于权限策略的示例，请参见<a href='https://help.aliyun.com/zh/oss/user-guide/common-examples-of-ram-policies' target='_blank'><b><font color='blue'>OSS的RAM Policy的常见示例</font></b></a>。
+      en: This example default will grant the RAM role permission to upload a file (Action is oss:PutObject) to examplebucket. <b> You need to replace <font color='red'>examplebucket</font> with the selected stock or the name of a new Bucket and the specific Action</b> based on actual service scenarios. An example of a permission policy, Please see <a href = "https://help.aliyun.com/zh/oss/user-guide/common-examples-of-ram-policies" target="_blank"> <b><font color='blue'> Common examples of OSS 'RAM Policy </font></b></a>.
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectOSSFullAccess}
+            - false
+    Default:
+      Version: '1'
+      Statement:
+        - Effect: Allow
+          Action:
+            - oss:PutObject
+          Resource:
+            - acs:oss:*:*:examplebucket/*
   BucketName:
     Type: String
     Label:
@@ -143,29 +182,27 @@ Resources:
             Principal:
               RAM:
                 - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
-              Service:
-                - fc.aliyuncs.com
-                - ram.aliyuncs.com
-      Policies:
-        - PolicyName:
-            Fn::Join:
-              - ''
-              - - Policy-
-                - Ref: ALIYUN::StackId
-          PolicyDocument:
-            Version: '1'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - oss:PutObject
-                Resource:
-                  - 'Fn::Sub':
-                      - 'acs:oss:*:*:${BucketName}/*'
-                      - BucketName:
-                          Fn::If:
-                            - CreateInstance
-                            - Ref: BucketName
-                            - Ref: ExistBucketName
+  AttachPolicyToRole:
+    Condition: AttachPolicy
+    Type: ALIYUN::RAM::AttachPolicyToRole
+    Properties:
+      PolicyName: AliyunOSSFullAccess
+      PolicyType: System
+      RoleName:
+        Ref: Role
+  ManagePolicy:
+    Condition: CreateManagePolicy
+    Type: ALIYUN::RAM::ManagedPolicy
+    Properties:
+      PolicyName:
+        Fn::Join:
+          - ''
+          - - Policy-
+            - Ref: ALIYUN::StackId
+      PolicyDocument:
+        Ref: PolicyDocument
+      Roles:
+        - Ref: Role
   FCRamRole:
     Type: ALIYUN::RAM::Role
     Properties:
@@ -258,7 +295,6 @@ Resources:
               request = AssumeRoleRequest()
               request.set_accept_format('json')
               request.set_DurationSeconds(3600)
-              request.set_Policy(r_ps['RolePolicy'])
               request.set_RoleArn(r_ps['RoleArn'])
               request.set_RoleSessionName("RoleSessionName")
   
@@ -288,14 +324,6 @@ Resources:
           - Function
           - ARN
       Parameters:
-        RolePolicy:
-          'Fn::Sub':
-            - "{\"Version\":\"1\",\"Statement\":[{\"Action\":[\"oss:PutObject\"],\"Resource\":[\"acs:oss:*:*:${BucketName}/src/*\"],\"Effect\":\"Allow\"}]}"
-            - BucketName:
-                Fn::If:
-                  - CreateInstance
-                  - Ref: BucketName
-                  - Ref: ExistBucketName
         RoleArn:
           Fn::GetAtt:
             - Role
@@ -333,6 +361,8 @@ Metadata:
       - Parameters:
           - UserName
           - RoleName
+          - SelectOSSFullAccess
+          - PolicyDocument
         Label:
           default: RAM
     TemplateTags:
