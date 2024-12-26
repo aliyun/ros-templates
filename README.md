@@ -581,6 +581,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [classic-architecture-on-the-cloud.yml](documents/solution/high-availability-architecture/classic-architecture-on-the-cloud.yml)                 | Classic architecture on the cloud.                                |
 | [elastic-application-with-ess.yml](documents/solution/high-availability-architecture/elastic-application-with-ess.yml)                           | Improve application availability through ALB+ESS.                 |
 | [serverless-high-availability-architecture.yml](documents/solution/high-availability-architecture/serverless-high-availability-architecture.yml) | Serverless high availability architecture.                        |
+| [build-high-performance-flash-sale-system.yaml](documents/solution/high-availability-architecture/build-high-performance-flash-sale-system.yaml) | Build a high-performance flash sale system.                        |
 
 - ops-on-cloud
 
