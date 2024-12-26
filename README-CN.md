@@ -580,6 +580,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [classic-architecture-on-the-cloud.yml](documents/solution/high-availability-architecture/classic-architecture-on-the-cloud.yml)                 | 云上经典架构。                                                                               |
 | [elastic-application-with-ess.yml](documents/solution/high-availability-architecture/elastic-application-with-ess.yml)                           | 通过 ALB+ESS 提升应用的可用性。                                                              |
 | [serverless-high-availability-architecture.yml](documents/solution/high-availability-architecture/serverless-high-availability-architecture.yml) | Serverless 高可用架构。                                                                      |
+| [build-high-performance-flash-sale-system.yaml](documents/solution/high-availability-architecture/build-high-performance-flash-sale-system.yaml) | 构建高性能秒杀系统。                                                                     |
 
 - ops-on-cloud
 
