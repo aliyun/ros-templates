@@ -582,6 +582,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [elastic-application-with-ess.yml](documents/solution/high-availability-architecture/elastic-application-with-ess.yml)                           | Improve application availability through ALB+ESS.                 |
 | [serverless-high-availability-architecture.yml](documents/solution/high-availability-architecture/serverless-high-availability-architecture.yml) | Serverless high availability architecture.                        |
 | [build-high-performance-flash-sale-system.yaml](documents/solution/high-availability-architecture/build-high-performance-flash-sale-system.yaml) | Build a high-performance flash sale system.                        |
+| [end-to-end-full-link-tracking-and-diagnosis.yaml](documents/solution/high-availability-architecture/end-to-end-full-link-tracking-and-diagnosis.yaml) | End-to-end full-link tracking and diagnosis.                        |
 
 - ops-on-cloud
 
