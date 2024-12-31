@@ -3,6 +3,32 @@ Description:
   zh-cn: 本模板用于低代码高效构建企业门户网站。
   en: This template is used to efficiently build enterprise portals with low code.
 Parameters:
+  DBInstanceId:
+    Type: String
+    Label:
+      en: RdsInstanceId
+      zh-cn: 数据库实例Id
+    Description:
+      en: The id of RDS instance, make sure the instance has entered the running state
+      zh-cn: 数据库实例Id，请确保实例已经进入运行中的状态。
+    Default: null
+    Required: true
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateRds}
+            - 使用已有RDS
+  WhetherCreateRds:
+    Type: String
+    Label: 是否新建云数据库（RDS）
+    AllowedValues:
+      - 新建RDS
+      - 使用已有RDS
+    Default: 新建RDS
+    Required: true
+
   ZoneId:
     Type: String
     Label:
@@ -11,9 +37,16 @@ Parameters:
     Description:
       en: Zone ID.
       zh-cn: 可用区ID
+    Default: null
+    Required: true
     AssociationProperty: ZoneId
     AssociationPropertyMetadata:
       AutoSelectFirst: true
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateRds}
+            - 新建RDS
   VpcCidrBlock:
     Type: String
     Label:
@@ -30,6 +63,12 @@ Parameters:
       - 192.168.0.0/16
       - 172.16.0.0/12
       - 10.0.0.0/8
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateRds}
+            - 新建RDS
   VSwitchCidrBlock:
     Type: String
     Label:
@@ -41,6 +80,12 @@ Parameters:
     AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
     Required: true
     Default: 192.168.1.0/24
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateRds}
+            - 新建RDS
 
 
   DBInstanceClass:
@@ -48,6 +93,8 @@ Parameters:
     Label:
       en: Instance Class
       zh-cn: 实例规格
+    Default: null
+    Required: true
     AssociationProperty: ALIYUN::RDS::Instance::InstanceType
     AssociationPropertyMetadata:
       ZoneId: ${ZoneId}
@@ -57,6 +104,11 @@ Parameters:
       InstanceChargeType: Postpaid
       DBInstanceStorageType: cloud_essd
       CommodityCode: bards
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${WhetherCreateRds}
+            - 新建RDS
   DbUserName:
     Type: String
     Label:
@@ -67,6 +119,7 @@ Parameters:
         with a letter and be end with an alphanumeric character.
       zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
     Default: db_user
+    Required: true
     MinLength: 2
     MaxLength: 16
   DbPassword:
@@ -98,8 +151,19 @@ Parameters:
         with a letter and be end with an alphanumeric character.
       zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
     Default: db_name
+    Required: true
     MinLength: 2
     MaxLength: 16
+
+Conditions:
+  CreateRds:
+    Fn::Equals:
+      - 新建RDS
+      - Ref: WhetherCreateRds
+  NotCreateRds:
+    Fn::Equals:
+      - 使用已有RDS
+      - Ref: WhetherCreateRds
 
 Locals:
   MobiWorkspaces:
@@ -116,12 +180,14 @@ Locals:
 
 Resources:
   Vpc:
+    Condition: CreateRds
     Type: 'ALIYUN::ECS::VPC'
     Properties:
       VpcName: vpc
       CidrBlock:
         Ref: VpcCidrBlock
   VSwitch:
+    Condition: CreateRds
     Type: 'ALIYUN::ECS::VSwitch'
     Properties:
       ZoneId:
@@ -132,6 +198,7 @@ Resources:
       CidrBlock:
         Ref: VSwitchCidrBlock
   RdsDBInstance:
+    Condition: CreateRds
     Type: ALIYUN::RDS::DBInstance
     Properties:
       ZoneId:
@@ -145,11 +212,6 @@ Resources:
       DBInstanceStorage: 50
       Engine: MySQL
       EngineVersion: "8.0"
-      MasterUserType: Normal
-      MasterUsername:
-        Ref: DbUserName
-      MasterUserPassword:
-        Ref: DbPassword
       Category: Basic
       DBInstanceStorageType: cloud_essd
       AllocatePublicConnection: true
@@ -158,13 +220,52 @@ Resources:
           - ','
           - - Ref: VpcCidrBlock
             - 101.200.211.106
+  Account:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Fn::If:
+          - CreateRds
+          - Ref: RdsDBInstance
+          - Ref: DBInstanceId
+      AccountType: Normal
+      AccountPassword:
+        Ref: DbPassword
+      AccountName:
+        Ref: DbUserName
+  DBInstanceSecurityIps:
+    Type: ALIYUN::RDS::DBInstanceSecurityIps
+    Condition: NotCreateRds
+    Properties:
+      DBInstanceId:
+        Fn::If:
+          - CreateRds
+          - Ref: RdsDBInstance
+          - Ref: DBInstanceId
+      DBInstanceIPArrayAttribute: 101.200.211.106
+    DependsOn:
+      - Connection
 
+  Connection:
+    Type: ALIYUN::RDS::Connection
+    Condition: NotCreateRds
+    Properties:
+      DBInstanceId:
+        Ref: DBInstanceId
+      Port: 3306
+      ConnectionStringPrefix:
+        Fn::Sub: ${DBInstanceId}o
+    DependsOn:
+      - RdsAccountPrivilege
 
   DbBase:
     Type: ALIYUN::RDS::Database
     Properties:
       DBInstanceId:
-        Ref: RdsDBInstance
+        Fn::If:
+          - CreateRds
+          - Ref: RdsDBInstance
+          - Ref: DBInstanceId
       CharacterSetName: utf8
       DBName:
         Ref: DbName
@@ -174,12 +275,20 @@ Resources:
     Properties:
       AccountPrivilege: ReadWrite
       DBInstanceId:
-        Ref: RdsDBInstance
+        Fn::If:
+          - CreateRds
+          - Ref: RdsDBInstance
+          - Ref: DBInstanceId
       DBName:
-        Ref: DbName
+        Fn::GetAtt:
+          - DbBase
+          - DBName
       AccountName:
-        Ref: DbUserName
+        Fn::GetAtt:
+          - Account
+          - AccountName
     DependsOn:
+      - Account
       - DbBase
   RandomString:
     Type: ALIYUN::RandomString
@@ -203,51 +312,52 @@ Resources:
       Template:
         TemplateId: e1e78223-38c4-4184-972c-ac0eead93e11
         ConnectionsContent:
-          Fn::Sub: |-
-            [
-              {
-                "name": "企业官网模板_${RandomString.value}",
-                "connectorType": {
-                  "kind": "mysql",
-                  "name": "mysql"
-                },
-                "folderId": "/",
-                "resourceRequirementId": "7dfe969b-1d54-4cbc-a8fd-209000b30ad0",
-                "resourceObject": {
-                  "version": "1.0",
-                  "id": "7dfe969b-1d54-4cbc-a8fd-209000b30ad0",
-                  "name": "企业官网模板_20241203160633",
-                  "type": "sql",
-                  "subType": "mysql",
-                  "connectionTemplates": {
-                    "dev": {
-                      "host": "${RdsDBInstance.PublicConnectionString}",
-                      "port": 3306,
-                      "database": "${DbName}",
-                      "username": "${DbUserName}",
-                      "password": "${DbPassword}"
-                    },
-                    "product": {
-                      "host": "${RdsDBInstance.PublicConnectionString}",
-                      "port": 3306,
-                      "database": "${DbName}",
-                      "username": "${DbUserName}",
-                      "password": "${DbPassword}"
+          Fn::Sub:
+            - |-
+              [
+                {
+                  "name": "企业官网模板_${RandomString.value}",
+                  "connectorType": {
+                    "kind": "mysql",
+                    "name": "mysql"
+                  },
+                  "folderId": "/",
+                  "resourceRequirementId": "7dfe969b-1d54-4cbc-a8fd-209000b30ad0",
+                  "resourceObject": {
+                    "version": "1.0",
+                    "id": "7dfe969b-1d54-4cbc-a8fd-209000b30ad0",
+                    "name": "企业官网模板_20241203160633",
+                    "type": "sql",
+                    "subType": "mysql",
+                    "connectionTemplates": {
+                      "dev": {
+                        "host": "${PublicConnectionString}",
+                        "port": 3306,
+                        "database": "${DbName}",
+                        "username": "${DbUserName}",
+                        "password": "${DbPassword}"
+                      },
+                      "product": {
+                        "host": "${PublicConnectionString}",
+                        "port": 3306,
+                        "database": "${DbName}",
+                        "username": "${DbUserName}",
+                        "password": "${DbPassword}"
+                      }
                     }
                   }
                 }
-              }
-            ]
-
+              ]
+            - PublicConnectionString:
+                Fn::If:
+                  - CreateRds
+                  - Fn::GetAtt:
+                      - RdsDBInstance
+                      - PublicConnectionString
+                  - Fn::GetAtt:
+                      - Connection
+                      - ConnectionString
 Outputs:
-  RdsPublicConnectionString:
-    Description:
-      zh-cn: 公网连接地址。
-      en: Rds Public Connection address.
-    Value:
-      Fn::GetAtt:
-        - RdsDBInstance
-        - PublicConnectionString
   MobiUrl:
     Description:
       zh-cn: Mobi地址。
@@ -263,6 +373,8 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
     - Parameters:
+        - WhetherCreateRds
+    - Parameters:
         - ZoneId
         - VpcCidrBlock
         - VSwitchCidrBlock
@@ -271,6 +383,7 @@ Metadata:
           en: VPC
           zh-cn: 专有网络配置
     - Parameters:
+        - DBInstanceId
         - DBInstanceClass
         - DbUserName
         - DbPassword
