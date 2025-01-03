@@ -582,6 +582,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [serverless-high-availability-architecture.yml](documents/solution/high-availability-architecture/serverless-high-availability-architecture.yml) | Serverless 高可用架构。                                                                      |
 | [build-high-performance-flash-sale-system.yaml](documents/solution/high-availability-architecture/build-high-performance-flash-sale-system.yaml) | 构建高性能秒杀系统。                                                                     |
 | [end-to-end-full-link-tracking-and-diagnosis.yaml](documents/solution/high-availability-architecture/end-to-end-full-link-tracking-and-diagnosis.yaml) | 端到端全链路追踪诊断。                                                               |
+| [optimizing-complex-query-performance.yaml](documents/solution/high-availability-architecture/optimizing-complex-query-performance.yaml) | 电商业务复杂查询性能优化。                                                           |
 
 - ops-on-cloud
 
