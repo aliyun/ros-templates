@@ -1,0 +1,328 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 电商业务复杂查询性能优化。
+  en: Optimizing Complex Query Performance in E-commerce.
+Parameters:
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+  ECSInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Description:
+      en: <font color='blue'><b>Before selecting a model, please confirm whether the model is in stock in the current availability zone. To save testing costs, it is recommended to use a model with 2 cores and 4G memory, for example:ecs.c7.large</b></font>.
+      zh-cn: <font color='blue'><b>选择机型前请先确认当前可用区下该机型是否有库存，为节省测试成本，推荐使用2核4G内存的规格，例如：ecs.c7.large</b></font>。
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+  ECSPassword:
+    Type: String
+    Label:
+      en: root account password
+      zh-cn: root 账号密码
+    Description:
+      en: Server root account login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 服务器root账号登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+  PolarDBNodeClass:
+    Type: String
+    Label:
+      en: PolarDB Node Class
+      zh-cn: PolarDB Mysql资源规格
+    Description:
+      en: <font color='blue'><b>Before selecting a model, please confirm whether the model is in stock in the current availability zone. To save testing costs, it is recommended to use a model with 2 cores and 4G memory, for example:polar.mysql.g2.medium</b></font>, see detail:<a href='https://help.aliyun.com/zh/polardb/polardb-for-mysql/how-to-select-generic-and-exclusive-specifications' target='_blank'><b><font color='red'>Specification inquiry</font></b></a>.
+      zh-cn: <font color='blue'><b>选择机型前请先确认当前可用区下该机型是否有库存，为节省测试成本，推荐使用2核4G内存的规格，例如：polar.mysql.g2.medium</b></font>，<a href='https://help.aliyun.com/zh/polardb/polardb-for-mysql/how-to-select-generic-and-exclusive-specifications' target='_blank'><b><font color='red'>规格查询</font></b></a>。
+    AssociationProperty: ALIYUN::POLARDB::DBCluster::DBNodeClass
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+    Default: polar.mysql.g2.large
+  PolarAccountName:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库帐号
+    Description:
+      en: Maximum 16 characters,Consists of a lowercase letter, a number, an underscore, a letter beginning, a letter or a number ending.<br><b>note： <font color='blue'>Keywords cannot be used, e.g.:admin/root</font></b>
+      zh-cn: 最长16个字符, 由小写字母，数字、下划线组成、字母开头，字母或数字结尾。<br><b>注： <font color='blue'>关键字不能用，如：admin/root</font></b>
+    Default: polardb_admin
+  PolarDBName:
+    Type: String
+    Label:
+      en: Database Name
+      zh-cn: 数据库名
+    Description:
+      en: The value can contain up to 64 lowercase letters, digits, hyphens (-), and underscores (_). It must start with a letter or digit and end with a letter or digit.
+      zh-cn: 由小写字母、数字、中划线（-）、下划线（_）组成，字母或数字开头，字母或数字结尾，最长64个字符。
+    Default: polardb_db
+  DBAccountPassword:
+    Type: String
+    Label:
+      en: DB password
+      zh-cn: 数据库密码
+    Description:
+      en: Length 8-32 characters, can contain size letters, Numbers and special symbols (including:!@#$%^&*-+=_).
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    ConstraintDescription:
+      en: Length 8-32, can contain size letters, Numbers and special symbols (including:!@#$%^&*-+=_).
+      zh-cn: 长度8-32,可包含大小字母、数字及特殊符号（包含：!@#$%^&*-+=_）。
+    MinLength: '8'
+    MaxLength: '32'
+    NoEcho: true
+Resources:
+  VPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: VPC-${ALIYUN::StackId}
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: vsw_001-${ALIYUN::StackId}
+      VpcId:
+        Ref: VPC
+      CidrBlock: 192.168.1.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+      SecurityGroupName:
+        Fn::Sub: SecurityGroup-${ALIYUN::StackId}
+  ECSInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceType:
+        Ref: ECSInstanceType
+      IoOptimized: optimized
+      MaxAmount: 1
+      Password:
+        Ref: ECSPassword
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      InternetMaxBandwidthOut: 50
+  PolarDBCluster:
+    Type: ALIYUN::POLARDB::DBCluster
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VPC
+      VSwitchId:
+        Ref: VSwitch
+      DBType: MySQL
+      SecurityGroupIds:
+        - Ref: SecurityGroup
+      ClusterNetworkType: VPC
+      DBVersion: '8.0'
+      DBMinorVersion: 8.0.1
+      ProxyType: GENERAL
+      DBNodeNum: 2
+      DBNodeClass:
+        Ref: PolarDBNodeClass
+      HotStandbyCluster: 'OFF'
+      CreationCategory: Normal
+      SecurityIPList: 192.168.0.0/16
+      PayType: Postpaid
+  PolarDBInstance:
+    Type: ALIYUN::POLARDB::DBInstance
+    Properties:
+      CharacterSetName: utf8
+      DBClusterId:
+        Ref: PolarDBCluster
+      DBName:
+        Ref: PolarDBName
+    DependsOn:
+      - PolarDBCluster
+  PolarDBAccount:
+    Type: ALIYUN::POLARDB::Account
+    Properties:
+      AccountName:
+        Ref: PolarAccountName
+      AccountPassword:
+        Ref: DBAccountPassword
+      AccountType: Normal
+      DBClusterId:
+        Ref: PolarDBCluster
+      DBName:
+        Ref: PolarDBName
+    DependsOn: PolarDBInstance
+  PolarDBAccountPrivilege:
+    Type: ALIYUN::POLARDB::AccountPrivilege
+    Properties:
+      DBClusterId:
+        Ref: PolarDBCluster
+      AccountPrivilege: ReadWrite
+      DBName:
+        Ref: PolarDBName
+      AccountName:
+        Ref: PolarAccountName
+    DependsOn:
+      - PolarDBInstance
+      - PolarDBAccount
+  DBNodes:
+    Type: ALIYUN::POLARDB::DBNodes
+    Properties:
+      DBClusterId:
+        Ref: PolarDBCluster
+      Amount: 1
+      ImciSwitch: "ON"
+    DependsOn:
+      - PolarDBAccountPrivilege
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 1200
+    DependsOn:
+      - PolarDBCluster
+      - PolarDBAccountPrivilege
+      - DBNodes
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Fn::Select:
+            - 0
+            - Fn::GetAtt:
+                - ECSInstanceGroup
+                - InstanceIds
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          cat << EOF >> ~/.bash_profile
+          export DB_HOST="${PolarDBCluster.ClusterConnectionString}"
+          export DB_USER="${PolarAccountName}"
+          export DB_PASSWORD="${DBAccountPassword}"
+          export DB_NAME="${PolarDBName}"
+          export ROS_DEPLOY=true
+          EOF
+          
+          source ~/.bash_profile
+          
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/complex-query/data-init.sh | bash
+          
+          cat << EOF >> ./create_columnar_index.py
+          import os
+          import pymysql
+          from dbutils.pooled_db import PooledDB
+          
+          db_config = {
+              'host': os.getenv('DB_HOST', ''),
+              'user': os.getenv('DB_USER', ''),
+              'password': os.getenv('DB_PASSWORD', ''),
+              'database': os.getenv('DB_NAME', ''),
+              'charset': 'utf8mb4',
+              'cursorclass': pymysql.cursors.DictCursor
+          }
+          
+          connection_pool = PooledDB(
+              creator=pymysql,
+              maxconnections=100,
+              mincached=1,
+              maxcached=10,
+              maxshared=0,
+              blocking=True,
+              **db_config
+          )
+          
+          def create_columnar_index(database_name):
+              try:
+                  connection = connection_pool.connection()
+                  with connection.cursor() as cursor:
+                      # 执行创建列式索引的命令
+                      create_index_query = f"CREATE COLUMNAR INDEX FOR TABLES IN {database_name};"
+                      cursor.execute(create_index_query)
+                      print("Columnar index created successfully.")
+          
+              except Exception as e:
+                  print(f"Error: {e}")
+              finally:
+                  if connection:
+                      connection.close()
+          
+          if __name__ == "__main__":
+              database_name = os.getenv('DB_NAME', '')
+              if not database_name:
+                  print("Database name is not set. Please set the DB_NAME environment variable.")
+              else:
+                  create_columnar_index(database_name)
+          EOF
+          sudo -E python3 create_columnar_index.py
+          
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/complex-query/install.sh | bash
+          
+          # 执行成功回调WaitCondition结束waitCondition的等待
+          ${WaitConditionHandle.CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+      Type: RunShellScript
+      Timeout: '1200'
+    DependsOn:
+      - DBNodes
+      - PolarDBAccountPrivilege
+Outputs:
+  Address:
+    Description:
+      en: Web service address.
+      zh-cn: Web服务地址。
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}
+        - PublicIp:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - ECSInstanceGroup
+                  - PublicIps
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - ECSInstanceType
+          - ECSPassword
+        Label:
+          default:
+            zh-cn: ECS 配置
+            en: ECS Configuration
+      - Parameters:
+          - PolarDBNodeClass
+          - PolarDBName
+          - PolarAccountName
+          - DBAccountPassword
+        Label:
+          default:
+            zh-cn: PolarDB 配置
+            en: PolarDB Configuration
+    TemplateTags:
+      - acs:technical-solution:high-availability-architecture:电商业务复杂查询性能优化-tech_solu_190
