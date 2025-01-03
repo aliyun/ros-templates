@@ -123,3 +123,5 @@
 
 * 删除云服务器 ECS实例、云原生数据仓库 AnalyticDB PostgreSQL 版实例、安全组、交换机、专有网络 VPC，可以在[ROS控制台](https://ros.console.aliyun.com/overview)找到目标资源栈，单击删除，选择**删除方式**为**释放资源**。
 * 删除百炼应用，需要登录[百炼控制台我的应用](https://bailian.console.aliyun.com/app-center#/app-center)页面，在应用卡片底部选择**更多**,点击**删除应用**。在**数据管理**页面和**数据应用** > **知识索引**页面，找到上传的数据和创建的知识库，单击**删除**。
+
+test
