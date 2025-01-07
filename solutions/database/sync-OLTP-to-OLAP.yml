@@ -1,0 +1,167 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Parameters:
+  RdsAccountName:
+    Type: String
+    Label:
+      zh-cn: 用户名称
+      en: Account Name
+    Description:
+      zh-cn: RDS MySQL管理员用户名称
+      en: RDS Account Name
+    Default: db_user
+  RdsAccountPassword:
+    Type: String
+    NoEcho: true
+    Label:
+      zh-cn: RDS MySQL管理员用户密码
+      en: RDS DB Account Password
+    Description:
+      zh-cn: |-
+        长度为8~32个字符。由大写英文字母、小写英文字母、数字、特殊字符中的任意三种组成。支持的特殊字符如下：
+        !@#$&amp;%^*()_+-= 。
+      en: |-
+        The length is 8 ~ 32 characters. It is composed of uppercase English letters, lowercase English letters, numbers and special characters. The special characters supported are as follows:
+        !@#$& amp;%^* ()_+-=  .
+  AdbAccountName:
+    Type: String
+    Label:
+      zh-cn: 用户名称
+      en: Account Name
+    Description:
+      zh-cn: AnalyticDB MySQL管理员用户名称
+      en: AnalyticDB Account Name
+    Default: adb_admin
+  AdbAccountPassword:
+    Type: String
+    NoEcho: true
+    Label:
+      zh-cn: AnalyticDB MySQL用户密码
+      en: AnalyticDB MySQL DB Account Password
+    Description:
+      zh-cn: |-
+        长度为8~32个字符。由大写英文字母、小写英文字母、数字、特殊字符中的任意三种组成。支持的特殊字符如下：
+        !@#$&amp;%^*()_+-= 。
+      en: |-
+        The length is 8 ~ 32 characters. It is composed of uppercase English letters, lowercase English letters, numbers and special characters. The special characters supported are as follows:
+        !@#$& amp;%^* ()_+-=  .
+  CommonName:
+    Type: String
+    Default: AnalyticDB_MySQL
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: HighAvailability
+      InstanceChargeType: Postpaid
+      DBInstanceStorageType: cloud_essd
+Description:
+  zh-cn: 本模板使用DTS实现一键数据同步，灵活配置云数据库 RDS MySQL版实例与云原生数据仓库 AnalyticDB MySQL 版集群之间的数据表实时同步。
+  en: This template uses DTS to achieve one-click data synchronization, allowing for flexible configuration of real-time data table synchronization between cloud database RDS MySQL instances and cloud-native data warehouse AnalyticDB MySQL clusters.
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: vpc_${CommonName}
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: vsw_${CommonName}
+  RDS:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceNetType: Intranet
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      DBInstanceStorage: 100
+      Engine: MySQL
+      EngineVersion: "8.0"
+      SecurityIPList: 192.168.0.0/16
+  RdsAccount:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: RDS
+      AccountType: Super
+      AccountName:
+        Ref: RdsAccountName
+      AccountPassword:
+        Ref: RdsAccountPassword
+  AnalyticDB:
+    Type: ALIYUN::ADBLake::DBCluster
+    Properties:
+      DBClusterNetworkType: VPC
+      ReservedNodeSize: 8
+      ReservedNodeCount: 3
+      ZoneId:
+        Ref: ZoneId
+      VPCId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      ProductForm: IntegrationForm
+      PayType: Postpaid
+      DBClusterVersion: "5.0"
+      ComputeResource: 16ACU
+      StorageResource: 24ACU
+  AdbAccount:
+    Type: ALIYUN::ADB::Account
+    Properties:
+      DBClusterId:
+        Ref: AnalyticDB
+      AccountType: Super
+      AccountName:
+        Ref: AdbAccountName
+      AccountPassword:
+        Ref: AdbAccountPassword
+
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+        - ZoneId
+        - DBInstanceClass
+        - RdsAccountName
+        - RdsAccountPassword
+      Label:
+        default:
+          en: RDS Configuration
+          zh-cn: RDS配置
+    - Parameters:
+        - AdbAccountName
+        - AdbAccountPassword
+      Label:
+        default:
+          en: AnalyticDB Configuration
+          zh-cn: AnalyticDB配置
+    Hidden:
+      - CommonName
+    TemplateTags:
+    - acs:technical-solution:db:OLTP数据库与OLAP数据库实现数据同步
