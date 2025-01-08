@@ -1,20 +1,11 @@
-
-
-**一键部署**
---------
-
-40
-
-https://www.aliyun.com/solution/tech-solution/mdsad
-
-### **方案概览**
+## **方案概览**
 
 视频、图文类多媒体数据量快速增长，内容不断丰富，多媒体数据存储与分发解决方案融合对象存储OSS、内容分发CDN 、智能媒体管理IMM等产品能力，解决客户多媒体数据存储、处理、加速、分发等业务问题，进而实现低成本、高稳定性的业务目标。本技术解决方案以搭建一个多媒体数据存储与分发服务为例，为您演示：
 
 * 如何搭建一个多媒体数据存储与分发服务
 * 模拟多媒体数据处理和加速分发
 
-### **方案架构**
+## **方案架构**
 
 方案提供的默认设置完成部署后在阿里云上搭建的网站运行环境如下图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与下图相似。
 
@@ -26,9 +17,9 @@ https://www.aliyun.com/solution/tech-solution/mdsad
 * 1个内容分发网络CDN：用于加速访问对象存储OSS中存储的资源。
 * 1个智能媒体管理IMM：提供图像和视频存储、处理、分析、搜索等多种功能，帮助用户更好地管理和利用海量的多媒体数据。
 * 1个域名：已经完成备案的域名。
+## **方案部署**
 ### **部署准备**
 
-10
 
 开始部署前，请按以下指引完成账号申请、账号充值、服务开通。
 
@@ -51,7 +42,6 @@ https://www.aliyun.com/solution/tech-solution/mdsad
 3. 开通[对象存储OSS](https://common-buy.aliyun.com/?commodityCode=oss)、[内容分发网络CDN](https://common-buy.aliyun.com/?spm=5176.7933777.J_3537169050.3.c285496eAAPwa9&commodityCode=cdn#/open)、[智能媒体管理IMM](https://common-buy.aliyun.com/?spm=5176.166693.J_5253785160.2.79cb31a6rLGbiD&commodityCode=imm#/open)。并准备好已经完成备案的域名。
 ### **一键部署**
 
-15
 
 一键部署基于阿里云资源编排服务ROS（Resource Orchestration Service）实现，ROS模板已定义好脚本，可自动化地完成云资源的创建和配置，提高资源的创建和部署效率。
 
@@ -100,7 +90,6 @@ https://www.aliyun.com/solution/tech-solution/mdsad
    8. 单击**确定**，完成配置。
 ### **验证及清理**
 
-15
 
 #### **方案验证**
 

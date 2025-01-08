@@ -1,17 +1,8 @@
-
-
-**技术解决方案部署**
-------------
-
-90
-
-https://www.aliyun.com/solution/tech-solution/pai\_ugs
-
-### **方案概览**
+## **方案概览**
 
 高价值用户挖掘及触达方案实现营销触达全链路。本方案使用阿里云机器学习平台 PAI 的强大算法能力，通过对用户数据的计算和预测，辅助客户对人群营销决策的判断，在用户召回，流失预测，高价值用户寻找等多个运营场景，帮助客户降低成本，提高效率；客户可通过短信的方式触达用户，完成营销触达的全链路操作。
 
-#### **方案架构**
+### **方案架构**
 
 以下为您展示本技术方案的架构。![用户增长解决方案.jpg](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/1445303961/p711571.jpg)
 
@@ -27,9 +18,9 @@ https://www.aliyun.com/solution/tech-solution/pai\_ugs
 
 本部署文档以一份示例数据为例，为您示例将清洗好符合要求的运营数据存储至阿里云 OSS 后，如何通过 PAI 用户增长实现待运营人群的智能圈选、智能运营。
 
+## **方案部署**
 ### **部署准备**
 
-5
 
 #### **准备账号**
 
@@ -67,8 +58,6 @@ https://www.aliyun.com/solution/tech-solution/pai\_ugs
 2. 开通成功后，单击**进入 PAI 控制台**。
 ### **规划网络和资源**
 
-5
-
 #### **规划云资源**
 
 请参考表格中的说明和方案默认示例值为每个规划项做详细规划，并在实际部署时将默认示例值修改为您的实际规划。未提及的规划项请保持默认值。
@@ -85,7 +74,6 @@ https://www.aliyun.com/solution/tech-solution/pai\_ugs
 
 ### **部署资源**
 
-10
 
 规划好资源后，请按照以下步骤部署方案中的所有资源。
 
@@ -121,7 +109,6 @@ https://www.aliyun.com/solution/tech-solution/pai\_ugs
      population\_output/task1 目录需为一个空目录，否则后续使用智能圈选人群功能时，配置会报错。
 ### **准备数据**
 
-10
 
 本示例为您演示如何使用 PAI 提供的智能圈选人群的功能，对目标用户数据进行智能筛选过滤，帮助您高效找到目标人群。
 
@@ -144,7 +131,6 @@ https://www.aliyun.com/solution/tech-solution/pai\_ugs
 3. 为 OSS Bucket 添加`pai=plugin`标签，具体操作，详情请参见[管理存储空间标签](https://help.aliyun.com/zh/oss/user-guide/manage-bucket-tags#concept-1925905)。
 ### **创建运营活动及运营策略**
 
-30
 
 #### **1、创建运营活动**
 
@@ -194,7 +180,6 @@ https://www.aliyun.com/solution/tech-solution/pai\_ugs
    * 您可以在**输出数据**配置的 OSS 目录，找到名为 **output.csv** 的文件，该文件即为圈选出的人群数据，CSV 文件不包含表头，各字段含义，详情请参见[策略训练任务数据说明](https://help.aliyun.com/zh/pai/user-guide/data-description-of-strategic-training-jobs#section-iv2-xh1-mfu)。
 ### **创建签名和模板（需审核）**
 
-15
 
 创建短信发送计划之前，您需要创建签名，用来审核您是否具有发送短信的资质。签名审核通过后，您可以通过创建模板来编辑短信发送的内容。
 
@@ -241,7 +226,6 @@ https://www.aliyun.com/solution/tech-solution/pai\_ugs
    您需要等待大约24小时，才能审核完成。您可以在**模板管理**页签，查看审核状态，当**审核状态**为**审核通过**后，您可以继续创建触达计划。
 ### **创建短信发送计划**
 
-10
 
 用户增长插件基于机器学习算法提供用户圈选和触达能力。针对高风险的流失用户，您可以基于用户增长插件功能，通过控制台创建短信发送计划进行流失用户的触达和召回。
 
@@ -259,7 +243,6 @@ https://www.aliyun.com/solution/tech-solution/pai\_ugs
 2. 创建完成后，系统会按照发送时间，向目标人群发送短信。
 ### **完成及清理**
 
-5
 
 #### **方案验证**
 
