@@ -1,0 +1,344 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 在 ECS 实例上自动部署 WordPress并安装Resume Builder简历模版插件，含VPC、安全组配置与MySQL、PHP环境搭建，提供公网访问 URL。
+  en: Automatically deploy WordPress on ECS instances and Install the Resume Builder resume template plugin, including configuring VPC and security groups, setting up MySQL and PHP environments, and providing public network access urls.
+Parameters:
+  WordPressUserPassword:
+    NoEcho: true
+    Type: String
+    Label:
+      zh-cn: WordPress用户密码
+      en: WordPress User Password
+  EcsInstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+  DBPassword:
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    NoEcho: true
+    Type: String
+    Description:
+      zh-cn: 长度为8~32位，需包含大写字母、小写字母、特殊字符、数字的任意三种，允许的特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>。<br>
+      en: |-
+        The password must be 8 to 32 characters in length. <br>
+        It must contain the following character types: uppercase letters, lowercase letters, digits, and special characters. <br> 
+        Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>.<br>
+        <b>If you repeatedly provision in this tutorial on the same ECS instance, make sure that the MySQL database password is exactly the same as the password set when the template was executed for the first time. Otherwise, the result of provisioning is unavailable.</b>
+    Label:
+      zh-cn: RDS数据库密码
+      en: RDS Database Password
+  InstancePassword:
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+    Default: Null
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    NoEcho: true
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+  ZoneId:
+    AssociationProperty: ZoneId
+    Type: String
+    Description:
+      zh-cn: 可用区ID
+      en: Zone ID.
+    Label:
+      zh-cn: 可用区ID
+      en: Zone ID
+  WordPressUserName:
+    Default: admin
+    Type: String
+    Label:
+      zh-cn: WordPress用户名
+      en: WordPress User Name
+  WordPressUserEmail:
+    Default: admin@example.com
+    Type: String
+    Label:
+      zh-cn: WordPress用户邮箱
+      en: WordPress User Email
+  DBUser:
+    Default: dbuser
+    MinLength: 2
+    MaxLength: 16
+    Label:
+      zh-cn: RDS数据库账号
+      en: RDS DB Username
+    ConstraintDescription:
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin with a letter and be end with an alphanumeric character.
+    Type: String
+  DBInstanceClass:
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      Engine: MySQL
+      Category: HighAvailability
+      CommodityCode: bards
+      DBInstanceStorageType: cloud_essd
+      ZoneId: ${ZoneId}
+      EngineVersion: '8.0'
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Class
+  DBName:
+    Default: wordpress
+    Type: String
+    Description:
+      zh-cn: 数据库名称，由小写字母、数字及特殊字符（-_）组成，以字母开头，字母或数字结尾，最多64个字符。
+      en: Database name, consisting of lowercase letters, Numbers, and special characters (-_), starting with letters, ending with letters or Numbers, up to 64 characters.
+    Label:
+      zh-cn: 数据库名称
+      en: DB Name
+Outputs:
+  Url:
+    Description:
+      zh-cn: Wordpress 博客访问地址。
+      en: Wordpress url.
+    Value:
+      Fn::Sub:
+        - http://${IP}/wp-admin
+        - IP:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - PublicIps
+Resources:
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 443/443
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - Priority: 1
+          PortRange: 3306/3306
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+      SecurityGroupType: normal
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: sg
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      Engine: MySQL
+      Category: HighAvailability
+      DBInstanceStorage: 50
+      DBInstanceStorageType: cloud_essd
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      EngineVersion: '8.0'
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList: 0.0.0.0/0
+  InstallWordPress:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      CommandContent:
+        Fn::Sub:
+          - |-
+            #!/bin/bash
+
+            cat << EOF >> ~/.bash_profile
+            export DB_NAME=${db_name}
+            export DB_USERNAME=${db_username}
+            export DB_PASSWORD=${db_password}
+            export DB_CONNECTION=${db_connection}
+            export ROS_DEPLOY=true
+            EOF
+
+            source ~/.bash_profile
+
+            curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/develop-your-wechat-mini-program-in-10-minutes/install.sh|bash
+
+
+            ## 调整db连接配置
+            sed -i 's/localhost/${db_connection}/' /var/www/html/wp-config.php
+            sed -i 's/username_here/${db_username}/' /var/www/html/wp-config.php
+            sed -i 's/password_here/${db_password}/' /var/www/html/wp-config.php
+            sed -i 's/database_name_here/${db_name}/' /var/www/html/wp-config.php
+
+            cd /var/www/html
+            sudo cat <<EOF > .htaccess
+            # BEGIN WordPress
+            <IfModule mod_rewrite.c>
+            RewriteEngine On
+            RewriteCond %{HTTP:Authorization} ^(.*)
+            RewriteRule ^(.*) - [E=HTTP_AUTHORIZATION:%1]
+            RewriteBase /
+            RewriteRule ^index\.php$ - [L]
+            RewriteCond %{REQUEST_FILENAME} !-f
+            RewriteCond %{REQUEST_FILENAME} !-d
+            RewriteRule . /index.php [L]
+            </IfModule>
+            # END WordPress
+            EOF
+            sed -i 's/AllowOverride None/AllowOverride All/g' /etc/httpd/conf/httpd.conf
+            wget https://gitee.com/qin-yangming/open-tools/raw/master/wp-cli.phar
+            chmod +x wp-cli.phar
+            mv wp-cli.phar /usr/local/bin/wp
+            wget https://downloads.wordpress.org/plugin/resume-builder.zip
+            yum -y install unzip
+            unzip resume-builder.zip -d resume-builder
+            cp -r ./resume-builder/resume-builder /var/www/html/wp-content/plugins
+            rm -rf resume-builder.zip
+            rm -rf resume-builder
+            wp core install --url=${url} --title="Personal Resume" --admin_user=${wordpress_user_name} --admin_password=${wordpress_user_password} --admin_email=${wordpress_user_email} --skip-email --allow-root
+
+            wp plugin activate resume-builder --allow-root --path=/var/www/html
+
+            systemctl restart httpd
+          - db_connection:
+              Fn::GetAtt:
+                - RdsDBInstance
+                - InnerConnectionString
+            url:
+              Fn::Select:
+                - 0
+                - Fn::GetAtt:
+                    - EcsInstanceGroup
+                    - PublicIps
+            db_password:
+              Ref: DBPassword
+            wordpress_user_name:
+              Ref: WordPressUserName
+            wordpress_user_password:
+              Ref: WordPressUserPassword
+            db_name:
+              Ref: DBName
+            db_username:
+              Ref: DBUser
+            wordpress_user_email:
+              Ref: WordPressUserEmail
+      Type: RunShellScript
+      Sync: true
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      Timeout: 2400
+    DependsOn:
+      - RdsAccountPrivilege
+  RdsAccount:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: RdsDBInstance
+      AccountPassword:
+        Ref: DBPassword
+      AccountType: Normal
+      AccountName:
+        Ref: DBUser
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      CharacterSetName: utf8mb4
+      DBInstanceId:
+        Ref: RdsDBInstance
+      DBName:
+        Ref: DBName
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: vpc
+      CidrBlock: 192.168.0.0/16
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Ref: Vpc
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SystemDiskSize: 40
+      ImageId: centos_7_9
+      InternetMaxBandwidthOut: 5
+      VSwitchId:
+        Ref: VSwitch
+      Password:
+        Ref: InstancePassword
+      InstanceName: ecs
+      InstanceType:
+        Ref: EcsInstanceType
+      ZoneId:
+        Ref: ZoneId
+      MaxAmount: 1
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName: vsw
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+  RdsAccountPrivilege:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RdsDBInstance
+      DBName:
+        Ref: DBName
+      AccountName:
+        Ref: RdsAccount
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            zh-cn: 网络配置
+            en: NetWork Config
+      - Parameters:
+          - EcsInstanceType
+          - InstancePassword
+        Label:
+          default:
+            zh-cn: ECS配置
+            en: ECS Config
+      - Parameters:
+          - DBInstanceClass
+          - DBName
+          - DBUser
+          - DBPassword
+        Label:
+          default:
+            zh-cn: RDS配置
+            en: RDS Config
+      - Parameters:
+          - WordPressUserName
+          - WordPressUserPassword
+          - WordPressUserEmail
+        Label:
+          default:
+            zh-cn: WordPress配置
+            en: WordPress Config
+    TemplateTags:
+      - acs:technical-solution: 部署WordPress并预安装个人简历模版插件
