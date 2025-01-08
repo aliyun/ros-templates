@@ -1,0 +1,195 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Description:
+  zh-cn: 基于 AnalyticDB 构建游戏日志数据湖仓分析
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+  InstancePassword:
+    Type: String
+    NoEcho: true
+    Default: null
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  BucketName:
+    Type: String
+    Label:
+      en: BucketName
+      zh-cn: OSS存储空间名称
+    Description:
+      en: Bucket names must be globally unique within the scope of OSS. The length
+        is 3~63 characters. Must start and end with a lowercase English letter or
+        number, and can contain lowercase English letters, numbers, and dashes (-).
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: test-adb-oss-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  Vsw:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+  InstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: Vsw
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      InternetMaxBandwidthOut: 5
+      InstanceType:
+        Ref: InstanceType
+      AllocatePublicIP: true
+      Password:
+        Ref: InstancePassword
+  KafkaInstance:
+    Type: ALIYUN::KAFKA::Instance
+    Properties:
+      DeployType: 5
+      PayType: Serverless
+      ServerlessConfig:
+        ReservedPublishCapacity: 60
+        ReservedSubscribeCapacity: 50
+      SpecType: normal
+      DeployOption:
+        DeployModule: vpc
+        ZoneId:
+          Ref: ZoneId
+        VpcId:
+          Ref: Vpc
+        VSwitchId:
+          Ref: Vsw
+        ServiceVersion: 3.3.1
+        IsSetUserAndPassword: False
+        Config:
+          enable.acl: false
+          kafka.log.retention.hours: 72
+          kafka.message.max.bytes: 10485760
+        SelectedZones:
+          - Ref: ZoneId
+        VSwitchIds:
+          - Ref: Vsw
+  Topic:
+    Type: ALIYUN::KAFKA::Topic
+    Properties:
+      InstanceId:
+        Ref: KafkaInstance
+      Topic: user_log
+      Remark: user_log
+      PartitionNum: 3
+  Command:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - InstanceGroup
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 2400
+      CommandContent:
+        Fn::Sub: |
+          #!/bin/bash
+          yum install -y java
+          yum install -y git
+          git clone https://gitee.com/qin-yangming/aps-kafka-test.git
+          cd aps-kafka-test
+          nohup java -jar aps-kafka-test-1.0-SNAPSHOT.jar game ${KafkaInstance.DomainEndpoint} user_log 30 500 1000 &
+  Bucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      AccessControl: private
+      BucketName:
+        Ref: BucketName
+  AnalyticDB:
+    Type: ALIYUN::ADBLake::DBCluster
+    Properties:
+      DBClusterNetworkType: VPC
+      ReservedNodeSize: 8
+      ReservedNodeCount: 3
+      ZoneId:
+        Ref: ZoneId
+      VPCId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: Vsw
+      ProductForm: IntegrationForm
+      PayType: Postpaid
+      DBClusterVersion: "5.0"
+      ComputeResource: 16ACU
+      StorageResource: 24ACU
+Outputs:
+  DomainEndpoint:
+    Value:
+      Fn::GetAtt:
+        - KafkaInstance
+        - DomainEndpoint
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - BucketName
+        Label:
+          default: OSS
+      - Parameters:
+          - SubDomainNamePrefix
+          - DomainName
+        Label:
+          default: Domain
+    TemplateTags:
+      - acs:technical-solution:云知道:基于AnalyticDB构建游戏日志数据湖仓分析

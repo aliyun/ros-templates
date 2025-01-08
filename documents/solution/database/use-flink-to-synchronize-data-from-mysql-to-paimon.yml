@@ -1,0 +1,249 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Description:
+  zh-cn: 配置Flink CDC YAML作业实现MySQL到Paimon的数据同步
+  en: Configure the Flink CDC YAML job to synchronize data from MySQL to Paimon
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: RDS Instance Class
+      zh-cn: RDS实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId:
+        Ref: ZoneId
+      EngineVersion: '8.0'
+      DBInstanceStorageType: cloud_essd
+      Engine: MySQL
+      Category: Basic
+      CommodityCode: bards
+  DbUserName:
+    Type: String
+    Label:
+      en: RDS DB Username
+      zh-cn: RDS数据库账号
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: db_user
+    Required: true
+    MinLength: 2
+    MaxLength: 16
+  DbPassword:
+    Type: String
+    Label:
+      en: RDS Database Password
+      zh-cn: RDS数据库密码
+    Description:
+      en: "The password must be 8 to 32 characters in length. <br>\nIt must contain\
+        \ the following character types: uppercase letters, lowercase letters, digits,\
+        \ and special characters. <br> \nSpecial characters include <span style=\"\
+        background:#E7E9EB;\"><b>!@#$%^&*()_+-=</b></span>.<br>\n<b>If you repeatedly\
+        \ provision in this tutorial on the same ECS instance, make sure that the\
+        \ MySQL database password is exactly the same as the password set when the\
+        \ template was executed for the first time. Otherwise, the result of provisioning\
+        \ is unavailable.</b>"
+      zh-cn: "长度为8~32位，需包含大写字母、小写字母、特殊字符和数字，允许的特殊字符包括<span style=\"background:#E7E9EB;\"\
+        ><b>!@#$%^&*()_+-=</b></span>。<br>"
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+    NoEcho: true
+  BucketName:
+    Type: String
+    Label:
+      en: BucketName
+      zh-cn: OSS存储空间名称
+    Description:
+      en: Bucket names must be globally unique within the scope of OSS. The length
+        is 3~63 characters. Must start and end with a lowercase English letter or
+        number, and can contain lowercase English letters, numbers, and dashes (-).
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: paimon-oss-test-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+  DirectoryName:
+    Description:
+      en: Bucket directory name
+      zh-cn: Bucket 文件目录名称
+    Type: String
+    Required: true
+    Default: warehouse
+  FlinkInstanceName:
+    Type: String
+    Label:
+      en: Flink instance name
+      zh-cn: Flink实例名称
+    Description:
+      en: The name must be 1 to 60 bytes in length, The name must start and end with
+        a lowercase letter.The name can contain only lowercase letters, digits, and
+        hyphens (-).;<br><b>note：<font color='blue'>A instance name must be globally
+        unique within Flink. The name cannot be changed after the flink instance is
+        created.</b></font>
+      zh-cn: 长度为1~60个字符，必须以小写字母开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能再创建。</b></font>
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 3
+      Prefix: instance-create-by-ros-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: test-vpc
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      VSwitchName: test-vsw
+      ZoneId:
+        Ref: ZoneId
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage: 50
+      Engine: MySQL
+      EngineVersion: "8.0"
+      Category: Basic
+      DBInstanceStorageType: cloud_essd
+      SecurityIPList: 192.168.0.0/16
+  Account:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: RdsDBInstance
+      AccountType: Super
+      AccountPassword:
+        Ref: DbPassword
+      AccountName:
+        Ref: DbUserName
+  DbBase1:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RdsDBInstance
+      CharacterSetName: utf8
+      DBName: tpc_ds
+  DbBase2:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RdsDBInstance
+      CharacterSetName: utf8
+      DBName: user_db1
+  DbBase3:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RdsDBInstance
+      CharacterSetName: utf8
+      DBName: user_db2
+  DbBase4:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RdsDBInstance
+      CharacterSetName: utf8
+      DBName: user_db3
+  Bucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      AccessControl: private
+      BucketName:
+        Ref: BucketName
+  Directory:
+    Type: ALIYUN::OSS::Directory
+    Properties:
+      BucketName:
+        Ref: Bucket
+      DeletionForce: true
+      DirectoryName:
+        Ref: DirectoryName
+  FlinkInstance:
+    Type: ALIYUN::Flink::Instance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchIds:
+        - Ref: VSwitch
+      InstanceName:
+        Ref: FlinkInstanceName
+      ChargeType: Postpaid
+      Bucket:
+        Ref: Bucket
+Outputs:
+  MySQL_USER:
+    Description:
+      zh-cn: RDS MySQL 的用户名称。
+      en: Rds MySQL user name.
+    Value:
+      Ref: DbUserName
+  MySQL_PW:
+    Description:
+      zh-cn: RDS MySQL 的用户密码。
+      en: Rds MySQL user password.
+    Value:
+      Ref: DbPassword
+    NoEcho: true
+  MySQL_HOST:
+    Description:
+      zh-cn: 内网连接地址。
+      en: Rds Inner Connection address.
+    Value:
+      Fn::GetAtt:
+        - RdsDBInstance
+        - InnerConnectionString
+  AK_URL:
+    Description:
+      zh-cn: AK 创建地址。
+      en: AK address.
+    Value: https://ram.console.aliyun.com/profile/access-keys
+
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+        Label:
+          default: 可用区配置
+      - Parameters:
+          - DBInstanceClass
+          - DbUserName
+          - DbPassword
+        Label:
+          default: 数据库配置
+      - Parameters:
+          - BucketName
+          - DirectoryName
+          - FlinkInstanceName
+        Label:
+          default: Bucket&Flink配置
+    TemplateTags:
+      - acs:technical-solution:data-analysis:配置Flink CDC YAML作业实现MySQL到Paimon的数据同步
