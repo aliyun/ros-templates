@@ -1,13 +1,4 @@
-
-
-**一键部署**
---------
-
-30
-
-https://www.aliyun.com/solution/tech-solution/ecnap
-
-### **方案概览**
+## **方案概览**
 
 对于企业从IDC搬迁到云上，前期进行整体的网络设计，需要构建基于业务逻辑的云上网络整体架构，为业务上云奠定基础。随着企业规模和业务的增长，需要优化已有的网络架构，保障业务的安全、稳定及未来发展的可持续性。企业用户往往面临以下的场景：
 
@@ -15,7 +6,7 @@ https://www.aliyun.com/solution/tech-solution/ecnap
 * 内网互访流量经过防火墙进行安全审计，提高业务安全性。
 * 网络架构具备较高的可扩展性和可持续性。
 
-#### **方案架构**
+### **方案架构**
 
 方案提供的默认设置完成部署后在阿里云上搭建的网站运行环境如下图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与下图相似。
 
@@ -31,9 +22,9 @@ https://www.aliyun.com/solution/tech-solution/ecnap
 
 其中，VPC-PRD1和VPC-PRD2互通需要经过VPC-SEC中的模拟防火墙审计，VPC-PRD3作为独立业务不允许与其他VPC互通。本方案中不涉及模拟防火墙审计的代码部分，仅涉及网络搭建。
 
+## **方案部署**
 ### **部署准备**
 
-10
 
 开始部署前，请按以下指引完成账号申请、账号充值、RAM用户创建和授权。
 
@@ -119,16 +110,14 @@ https://www.aliyun.com/solution/tech-solution/ecnap
 **一、通过配置IP转发设置，验证模拟防火墙**
 
 1. 登录VPC\_SEC的ECS实例，执行以下命令启用允许转发。当前命令临时生效，重启后会丢失。关于如何登录ECS实例，请参见[ECS远程连接方式概述](https://help.aliyun.com/zh/ecs/user-guide/connect-to-instance#concept-tmr-pgx-wdb)。
-
-```
-echo 1 > /proc/sys/net/ipv4/ip_forward
-```
+    ```
+    echo 1 > /proc/sys/net/ipv4/ip_forward
+    ```
 
 2. 执行以下命令，查看ip转发功能开启情况。
-
-```
-sysctl net.ipv4.ip_forward
-```
+    ```
+    sysctl net.ipv4.ip_forward
+    ```
 **说明** 
 
 如果返回值为 `1`，则表示已启用 IP 转发。VPC\_PRD1的ECS实例与VPC\_PRD2、VPC\_SEC之间是互通的。
@@ -139,11 +128,11 @@ sysctl net.ipv4.ip_forward
 
 1. 登录VPC\_PRD1的ECS实例，执行**ping**命令，如下图，测试与VPC\_PRD2、VPC\_SEC之间的连通性。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0743538271/p855222.png)
 
-收到回复报文，则表示VPC\_PRD1与VPC\_PRD2之间可以正常通信；
-
-```
-ping <网络实例下ECS实例的IP地址>
-```
+    收到回复报文，则表示VPC\_PRD1与VPC\_PRD2之间可以正常通信；
+    
+    ```
+    ping <网络实例下ECS实例的IP地址>
+    ```
 
 2. 登录VPC\_PRD3中的ECS实例执行**ping**命令，如下图，发现无法ping通其他ECS，达到了隔离的效果。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0743538271/p855218.png)
 
