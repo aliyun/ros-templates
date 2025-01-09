@@ -205,7 +205,7 @@ Resources:
             wp core install --url=${url} --title="Personal Resume" --admin_user=${wordpress_user_name} --admin_password=${wordpress_user_password} --admin_email=${wordpress_user_email} --skip-email --allow-root
             
             wp plugin activate resume-builder --allow-root --path=/var/www/html
-            
+            chmod -R 777  /var/www/html/wp-content/uploads
             systemctl restart httpd
           - url:
               'Fn::Jq':
@@ -223,6 +223,44 @@ Resources:
             db_username: wordpress
             wordpress_user_email:
               Ref: WordPressUserEmail
+      Type: RunShellScript
+      Sync: true
+      InstanceIds:
+        Fn::GetAtt:
+          - DS_Instances
+          - InstanceIds
+      Timeout: 2400
+  ConfigDomain:
+    Type: ALIYUN::ECS::RunCommand
+    Condition: DnsRecord
+    DependsOn:
+      - InstallWordPress
+    Properties:
+      CommandContent:
+        Fn::Sub:
+          - |-
+            #!/bin/bash
+            echo "define('WP_HOME','${Domain}');" >> /var/www/html/wp-config.php
+            echo "define('WP_SITEURL','${Domain}');" >> /var/www/html/wp-config.php
+            chmod -R 777  /var/www/html/wp-content/uploads
+            systemctl restart httpd
+          - Domain:
+              Fn::Sub:
+                - 'http://${DomainName}'
+                - DomainName:
+                    Fn::If:
+                      - DomainPrefixIsNull
+                      - Fn::GetJsonValue:
+                          - DomainName
+                          - Ref: DomainName
+                      - Fn::Join:
+                          - '.'
+                          - - Fn::GetJsonValue:
+                                - DomainPrefix
+                                - Ref: DomainName
+                            - Fn::GetJsonValue:
+                                - DomainName
+                                - Ref: DomainName
       Type: RunShellScript
       Sync: true
       InstanceIds:
