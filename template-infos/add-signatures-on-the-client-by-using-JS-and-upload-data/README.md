@@ -1,4 +1,4 @@
-![image](https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/template-infos/add-signatures-on-the-client-by-using-JS-and-upload-data/icon.png)
+![image](https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/template-infos/add-signatures-on-the-client-by-using-JS-and-upload-data/icon.svg)
 
 ## 自动化部署
 1. 点击[部署链接](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/documents/help/oss/add-signatures-on-the-client-by-using-JS-and-upload-data.yml&hideStepRow=true&hideStackConfig=true&pageTitle=客户端签名直传&isSimplified=true&balanceIntercept=true)进入部署页面。
