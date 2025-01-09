@@ -1,0 +1,2 @@
+
+window.pageStartTime = Date.now();
