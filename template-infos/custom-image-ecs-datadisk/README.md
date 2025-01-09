@@ -1,5 +1,17 @@
 ![image](https://img.alicdn.com/imgextra/i4/O1CN0109Avt726MNR2KLaP2_!!6000000007647-2-tps-530-480.png)
 
+## 部署说明
+模板示例修改说明：
+
+- 该模板适用于计算巢中ISV通过自定义镜像部署软件的场景，您可以基于该示例，在创建ISV服务时配置镜像分发实现多地域创建不同镜像的ECS服务器。
+
+如何使用模板示例创建资源栈：
+
+- 如果您使用RAM用户，使用模板前请确保已开通ECS、VPC服务并已得到授权。
+
+- 点击“创建资源栈”进行部署，根据参数的描述，填写或选择参数。
+
+- 资源栈创建完成后，通过资源栈输出页面查询EcsInstanceId。
 ## 自动化部署
 1. 点击[部署链接](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/examples/isv/custom-image-ecs-datadisk.yml&hideStepRow=true&hideStackConfig=true&pageTitle=自定义镜像创建单实例ECS云服务器(添加数据盘)&isSimplified=true&balanceIntercept=true)进入部署页面。
 2. 在**配置模板参数**步骤中，根据控制台提示输入参数信息，确认安全信息后点击**下一步：检查并确认**进入参数确认页面。
