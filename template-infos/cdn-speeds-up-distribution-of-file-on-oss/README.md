@@ -59,7 +59,8 @@
 
 **一、通过浏览器URL地址并查看请求头，验证静态资源缓存策略**
 
-1. 登录[OSS控制台](https://oss.console.aliyun.com/)，在左侧导航栏中的历史访问路径， 点击之前创建的Bucket名称，进入文件列表，点击上一步所创建的文件目录。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2770679271/p863042.png)
+1. 登录[OSS控制台](https://oss.console.aliyun.com/)，在左侧导航栏中的历史访问路径， 点击之前创建的Bucket名称，进入文件列表，点击上一步所创建的文件目录。
+![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2770679271/p863042.png)
 2. 点击上传文件按钮，其他配置保持不变，在**待上传文件**，拖拽图片上传，本示例以 \_MG\_0090.jpg为准。
 3. 打开浏览器，访问CDN资源URL地址。示例：http://image.example.com/image\_data/\_MG\_0090.jpg
    
@@ -77,7 +78,8 @@
 **二、通过网络拨测工具对比优化前后访问，验证静态资源加速效果**
 
 1. 访问[一次性拨测工具](https://cloudmonitor.console.aliyun.com/disposableTest)，设置区域为境外。
-2. 下面第一张截图是优化之前（直接访问源站）的数据，第二张截图是优化以后（经过CDN加速）的数据，可以看到经过CDN加速以后，数据传输速度更快、耗时更短。![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/5532093961/p711906.png)![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/5532093961/p711904.png)
+2. 下面第一张截图是优化之前（直接访问源站）的数据，第二张截图是优化以后（经过CDN加速）的数据，可以看到经过CDN加速以后，数据传输速度更快、耗时更短。
+![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/5532093961/p711906.png)![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/5532093961/p711904.png)
 #### **清理资源**
 
 在本方案中，您在对象存储 OSS中上传文件、在CDN中创建加速域名，测试完方案后，您可以在ROS控制台直接删除资源栈并删除相关资源；也可以参考以下方式，手动处理对应产品的资源，避免继续产生费用：
