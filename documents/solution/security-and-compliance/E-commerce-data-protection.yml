@@ -1,0 +1,228 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Parameters:
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Default: ecs.c7.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+  RdsAccountName1:
+    Type: String
+    Label:
+      zh-cn: 用户1名称
+      en: Account1 Name
+    Description:
+      zh-cn: RDS MySQL用户1名称
+      en: RDS Account1 Name
+    Default: sddp_em01
+  RdsAccountName2:
+    Type: String
+    Label:
+      zh-cn: 用户2名称
+      en: Account2 Name
+    Description:
+      zh-cn: RDS MySQL用户2名称
+      en: RDS Account2 Name
+    Default: sddp_em02
+  RdsAccountName3:
+    Type: String
+    Label:
+      zh-cn: 用户3名称
+      en: Account3 Name
+    Description:
+      zh-cn: RDS MySQL用户3名称
+      en: RDS Account3 Name
+    Default: sddp_em03
+  RdsAccountPassword:
+    Type: String
+    NoEcho: true
+    Label:
+      zh-cn: RDS MySQL用户密码
+      en: RDS DB Account Password
+    Description:
+      zh-cn: |-
+        长度为8~32个字符。由大写英文字母、小写英文字母、数字、特殊字符中的任意三种组成。支持的特殊字符如下：
+        !@#$&amp;%^*()_+-= 。
+      en: |-
+        The length is 8 ~ 32 characters. It is composed of uppercase English letters, lowercase English letters, numbers and special characters. The special characters supported are as follows:
+        !@#$& amp;%^* ()_+-=  .
+  CommonName:
+    Type: String
+    Default: AnalyticDB_MySQL
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: Basic
+      InstanceChargeType: Postpaid
+      DBInstanceStorageType: cloud_essd
+Description:
+  zh-cn: 本模板使用DTS实现一键数据同步，灵活配置云数据库 RDS MySQL版实例与云原生数据仓库 AnalyticDB MySQL 版集群之间的数据表实时同步。
+  en: This template uses DTS to achieve one-click data synchronization, allowing for flexible configuration of real-time data table synchronization between cloud database RDS MySQL instances and cloud-native data warehouse AnalyticDB MySQL clusters.
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: vpc_${CommonName}
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: vsw_${CommonName}
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          NicType: intranet
+          PortRange: 22/22
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          NicType: intranet
+          PortRange: 80/80
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs_adb
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      Password:
+        Ref: InstancePassword
+  RDS:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceNetType: Intranet
+      Category: Basic
+      DBInstanceStorageType: cloud_essd
+      DBInstanceStorage: 50
+      Engine: MySQL
+      EngineVersion: "8.0"
+      SecurityIPList: 192.168.0.0/16
+  RdsAccount1:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: RDS
+      AccountType: Normal
+      AccountName:
+        Ref: RdsAccountName1
+      AccountPassword:
+        Ref: RdsAccountPassword
+  RdsAccount2:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: RDS
+      AccountType: Normal
+      AccountName:
+        Ref: RdsAccountName2
+      AccountPassword:
+        Ref: RdsAccountPassword
+  RdsAccount3:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: RDS
+      AccountType: Normal
+      AccountName:
+        Ref: RdsAccountName3
+      AccountPassword:
+        Ref: RdsAccountPassword
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: ECS Configuration
+            zh-cn: ECS配置
+      - Parameters:
+          - DBInstanceClass
+          - RdsAccountName1
+          - RdsAccountName2
+          - RdsAccountName3
+          - RdsAccountPassword
+        Label:
+          default:
+            en: RDS Configuration
+            zh-cn: RDS配置
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:technical-solution:security-and-compliance:电商数据护航-tech_solu_185
