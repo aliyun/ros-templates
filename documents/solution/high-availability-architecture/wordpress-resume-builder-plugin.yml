@@ -1,6 +1,6 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 在已创建的 ECS 实例上自动部署 WordPress并安装Resume Builder简历模版插件，外部访问时请在安全组中添加 80 入方向的访问规则，提供公网访问 URL。
+  zh-cn: 在已创建的 ECS 实例上自动部署 WordPress并安装Resume Builder简历模版插件，提供公网访问 URL。
   en: Automatically deploy WordPress on an already created ECS instance and install the Resume Builder template plugin. When accessing from the outside, please add an inbound access rule for port 80 in the security group, and provide the public access URL.
 Parameters:
   CreateDNSRecord:
@@ -154,9 +154,12 @@ Resources:
             EOF
             
             source ~/.bash_profile
-            
+            systemctl disable docker.socket || true
+            systemctl disable docker || true
+            systemctl stop docker.socket || true
+            systemctl stop docker || true
+            systemctl disable harbor.service || true
             curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/develop-your-wechat-mini-program-in-10-minutes/install.sh|bash
-            
             
             # 安装MySQL
             wget http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
@@ -205,7 +208,9 @@ Resources:
             wp core install --url=${url} --title="Personal Resume" --admin_user=${wordpress_user_name} --admin_password=${wordpress_user_password} --admin_email=${wordpress_user_email} --skip-email --allow-root
             
             wp plugin activate resume-builder --allow-root --path=/var/www/html
+            echo "ServerName ${IP}" >> /etc/httpd/conf/httpd.conf
             chmod -R 777  /var/www/html/wp-content/uploads
+            chmod 755 /var/www/html/.htaccess
             systemctl restart httpd
           - url:
               'Fn::Jq':
@@ -223,6 +228,13 @@ Resources:
             db_username: wordpress
             wordpress_user_email:
               Ref: WordPressUserEmail
+            IP:
+              'Fn::Jq':
+                - First
+                - '.[0].PublicIpAddress[0]'
+                - 'Fn::GetAtt':
+                    - DS_Instances
+                    - Instances
       Type: RunShellScript
       Sync: true
       InstanceIds:
@@ -268,6 +280,20 @@ Resources:
           - DS_Instances
           - InstanceIds
       Timeout: 2400
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Fn::Jq:
+          - First
+          - .[0].SecurityGroupIds[0]
+          - Fn::GetAtt:
+              - DS_Instances
+              - Instances
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
