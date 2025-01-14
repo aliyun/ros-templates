@@ -72,6 +72,15 @@ Parameters:
       en: |-
         The length is 8 ~ 32 characters. It is composed of uppercase English letters, lowercase English letters, numbers and special characters. The special characters supported are as follows:
         !@#$& amp;%^* ()_+-=  .
+  DBName:
+    Type: String
+    Label:
+      zh-cn: 数据库名称
+      en: DB Name
+    Description:
+      zh-cn: 数据库名称，由小写字母、数字及特殊字符（-_）组成，以字母开头，字母或数字结尾，最多64个字符。
+      en: Database name, consisting of lowercase letters, Numbers, and special characters (-_), starting with letters, ending with letters or Numbers, up to 64 characters.
+    Default: sddp
   CommonName:
     Type: String
     Default: AnalyticDB_MySQL
@@ -171,6 +180,14 @@ Resources:
       Engine: MySQL
       EngineVersion: "8.0"
       SecurityIPList: 192.168.0.0/16
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RDS
+      CharacterSetName: utf8mb4
+      DBName:
+        Ref: DBName
   RdsAccount1:
     Type: ALIYUN::RDS::Account
     Properties:
@@ -201,6 +218,100 @@ Resources:
         Ref: RdsAccountName3
       AccountPassword:
         Ref: RdsAccountPassword
+  RdsAccountPrivilege1:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RDS
+      DBName:
+        Ref: DBName
+      AccountName:
+        Ref: RdsAccountName1
+    DependsOn:
+      - RdsAccount1
+  RdsAccountPrivilege2:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RDS
+      DBName:
+        Ref: DBName
+      AccountName:
+        Ref: RdsAccountName2
+    DependsOn:
+      - RdsAccount2
+  RdsAccountPrivilege3:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RDS
+      DBName:
+        Ref: DBName
+      AccountName:
+        Ref: RdsAccountName3
+    DependsOn:
+      - RdsAccount3
+  InstallApp:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      Type: RunShellScript
+      Sync: true
+      Timeout: 2400
+      CommandContent:
+        Fn::Sub:
+          - |-
+            #!/bin/bash     
+            cat << EOF >> ~/.bash_profile
+            export ENC_ALGO=AES_128_GCM
+            export MEK=`openssl rand -hex 16`
+            export DB_NAME=${db_name}
+            export MYSQL_USERNAME=${db_username}
+            export MYSQL_PASSWORD=${db_password}
+            export MYSQL_URL=${db_connection}:${db_port}/${db_name}
+            EOF
+            
+            source ~/.bash_profile
+            wget http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+            rpm -ivh mysql-community-release-el7-5.noarch.rpm
+            yum -y install mysql-community-client --nogpgcheck
+            
+            cat > setup_mysql.sql << \EOF
+            USE `${db_name}`;
+            CREATE TABLE `users` (
+              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+              `username` varchar(32) NOT NULL COMMENT '用户名',
+              `phone` varchar(11) NOT NULL COMMENT '手机号',
+              PRIMARY KEY (`id`)
+            ) ENGINE = InnoDB;
+            EOF
+            
+            chmod +x setup_mysql.sql
+            mysql -u${db_username} -p${db_password} -h${db_connection} -D${db_name} -P${db_port} < setup_mysql.sql
+            
+            curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/database-encryption/install.sh | bash
+          - db_connection:
+              Fn::GetAtt:
+                - RDS
+                - InnerConnectionString
+            db_port:
+              Fn::GetAtt:
+                - RDS
+                - InnerPort
+            db_username:
+              Ref: RdsAccountName3
+            db_password:
+              Ref: RdsAccountPassword
+            db_name:
+              Ref: DBName
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+    DependsOn:
+      - RdsAccountPrivilege3
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -214,6 +325,7 @@ Metadata:
             zh-cn: ECS配置
       - Parameters:
           - DBInstanceClass
+          - DBName
           - RdsAccountName1
           - RdsAccountName2
           - RdsAccountName3
@@ -226,3 +338,17 @@ Metadata:
       - CommonName
     TemplateTags:
       - acs:technical-solution:security-and-compliance:电商数据护航-tech_solu_185
+Outputs:
+  Url:
+    Description:
+      en: App url.
+      zh-cn: App访问地址。
+    Value:
+      Fn::Sub:
+        - http://${IP}
+        - IP:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
