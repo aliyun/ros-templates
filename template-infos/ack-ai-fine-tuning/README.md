@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 大模型训练和推理是机器学习和深度学习领域的重要应用，但企业和个人往往面临着 GPU 管理复杂、资源利用率低，以及 AI 作业全生命周期管理中工程效率低下等挑战。本方案通过创建ACK集群Pro版，使用云原生AI套件提交模型微调训练任务与部署GPU 共享推理服务。适用于机器学习和深度学习任务中的以下场景：
 
@@ -7,11 +7,10 @@
 * AI 作业生命周期管理：命令行工具 Arena 实现 AI 作业生命周期管理，包括模型训练、模型评测、模型推理等环节。Arena 可以完全屏蔽底层资源和环境管理、任务调度、GPU 分配和监控的复杂性，兼容主流AI框架和工具，例如 TensorFlow ，还提供多种语言 SDK ，便于您二次开发。
 * GPU 共享推理：支持 GPU 共享调度能力和显存隔离能力，可将多个推理服务部署在同一块GPU 卡上，提高 GPU 的利用率的同时也能保证推理服务的稳定运行。
 
-### **方案架构**
+### 方案架构
 
-方案提供的默认设置完成部署后在阿里云上搭建的网站运行环境如下图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与下图相似。
+方案提供的默认设置完成部署后在阿里云上搭建的网站运行环境如架构图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与架构图相似。
 
-![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2349753071/p751182.png)
 
 本方案的技术架构包括以下基础设施和云服务：
 
@@ -21,13 +20,13 @@
 * 云原生AI套件：容器服务 Kubernetes 版提供的云原生AI 技术和产品方案，以 Kubernetes 容器服务为底座，支持大模型训练及 GPU 共享推理服务部署。
 * 1 个 NAS 实例：可共享访问，弹性扩展，高可靠，高性能的分布式文件系统，支持共享访问。
 
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 
 开始部署前，请按以下指引完成账号申请、账号充值、RAM 用户创建和授权。
 
-#### **准备账号**
+#### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。本方案的云资源支持按量付费，且默认设置均采用按量付费引导操作。请确保您的账户余额大于等于 100 元。
@@ -60,7 +59,7 @@
    3. 单击[云资源访问权限](https://ram.console.aliyun.com/role/authorization?request=%7B%22Services%22%3A%5B%7B%22Service%22%3A%22CS%22%2C%22Roles%22%3A%5B%7B%22RoleName%22%3A%22AliyunCSManagedLogRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedLogRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedCmsRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedCmsRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedCsiRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedCsiRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedVKRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedVKRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSClusterRole%22%2C%22TemplateId%22%3A%22Cluster%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSServerlessKubernetesRole%22%2C%22TemplateId%22%3A%22ServerlessKubernetes%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSKubernetesAuditRole%22%2C%22TemplateId%22%3A%22KubernetesAudit%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedNetworkRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedNetworkRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSDefaultRole%22%2C%22TemplateId%22%3A%22Default%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedKubernetesRole%22%2C%22TemplateId%22%3A%22ManagedKubernetes%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedArmsRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedArmsRole%22%7D%5D%7D%5D%2C%22ReturnUrl%22%3A%22https%3A%2F%2Fcs.console.aliyun.com%2F%22%7D)，然后单击**同意授权**。
       
       此页权限为可供容器服务 ACK 使用的角色。授权后，ACK 拥有对您云资源相应的访问权限。
-### **一键部署**
+### 一键部署
 
 
 您可以通过下方提供的 ROS 一键部署链接，来自动化地完成以下资源的创建和配置。部署完成后，您可以参见教程实现并体验如何训练大模型以及部署 GPU 共享推理服务。
@@ -68,7 +67,7 @@
 * 创建一个名为 ai-test 的ACK集群Pro版
 * 创建一个容量型 NAS 实例
 
-#### **ROS 部署前置资源**
+#### ROS 部署前置资源
 
 1. 单击[一键部署](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/service_template/technical-solution/ack-ai-fine-tuning.yml&pageTitle=一键训练大模型及部署GPU共享推理服务&disableRollback=true&hideStepRow=true&hideStackConfig=true&isSimplified=true&disabltion=true&productNavBar=disabled&balanceIntercept=true&disableNavigation=true)前往 ROS 控制台，系统自动打开使用新资源创建资源栈的面板。在页面最上方选择部署地域，例如华东 1（杭州），然后设置配置项，单击**创建**。
    
@@ -103,7 +102,7 @@
 4. 在部署页面，参考下图所示完成设置。然后单击**部署云原生 AI 套件**。
    
    ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/3441429271/p857186.png)
-### **配置NAS共享存储并下载数据**
+### 配置NAS共享存储并下载数据
 
 
 1. 查找 NAS 实例的挂载点
@@ -185,7 +184,7 @@
     
     ![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/4691512961/p706469.png)
 
-### **方案验证**
+### 方案验证
 
 
 **一、提交并监控训练任务，验证模型训练成功**
@@ -371,7 +370,7 @@ curl -X POST http://172.16.xx.xx:8080/predictions/bloom_inference -H "Content-ty
   }
 ]
 ```
-### **完成及清理**
+### 完成及清理
 
 5
 

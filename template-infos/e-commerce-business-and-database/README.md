@@ -1,5 +1,3 @@
-![image](https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/template-infos/e-commerce-business-and-database/icon.png)
-
 ## 自动化部署
 1. 点击[部署链接](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/documents/solution/product-details-page/e-commerce-business-and-database.yml&hideStepRow=true&hideStackConfig=true&pageTitle=电商行业业务及数据库上云&isSimplified=true&balanceIntercept=true)进入部署页面。
 2. 在**配置模板参数**步骤中，根据控制台提示输入参数信息，确认安全信息后点击**下一步：检查并确认**进入参数确认页面。

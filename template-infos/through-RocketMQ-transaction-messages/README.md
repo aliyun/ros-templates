@@ -6,9 +6,8 @@
 
 本方案旨在利用云消息队列RocketMQ版来实现一个高效、可靠的分布式事务处理系统。分布式事务在微服务架构中尤为重要，它确保了跨多个服务或数据库的操作能够保持一致性和完整性。RocketMQ的事务消息功能为这一需求提供了一种优雅的解决方案，它通过预提交、提交/回滚的两阶段提交模型来保证消息与业务操作的最终一致性。同时，该架构还利用专有网络VPC、交换机和安全组等基础设施，实现了私有网络下的系统通信。
 
-方案提供的默认设置完成部署后在阿里云上搭建的高可用架构如下图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与下图相似。
+方案提供的默认设置完成部署后在阿里云上搭建的高可用架构如架构图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与架构图相似。
 
-![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/1604316271/p845114.png)
 
 本方案的技术架构包括以下基础设施和云服务：
 
@@ -32,17 +31,17 @@
 6. 若服务端未收到发送者提交的二次确认结果，将对消息生产者发起消息回查，生产者需检查本地事务最终结果并再次提交二次确认到服务端。
 7. 消费端处理消息，对RDS进行操作，完成整个分布式事务流程。
 
-## **方案部署**
+## 方案部署
 ### 部署准备
 
 
 开始部署前，请按以下指引完成账号申请、账号充值。
 
-### **准备账号**
+### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。本方案的云资源支持按量付费，且默认设置均采用按量付费引导操作。如果确定任何一个云资源采用按量付费方式部署，账户余额必须大于等于100元。
-### **一键部署**
+### 一键部署
 
 
 一键部署基于阿里云资源编排服务ROS（Resource Orchestration Service）实现，ROS模板已定义好脚本，可自动化地完成云资源的创建和配置，提高资源的创建和部署效率。ROS模板完成的内容包括：
@@ -63,7 +62,7 @@
 1. 单击[一键部署](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/service_template/technical-solution/through-RocketMQ-transaction-messages.yml&hideStepRow=true&hideStackConfig=true&pageTitle=通过RocketMQ事务消息实现分布式事务&disableRollback=false&isSimplified=true&disableNavigation=true&productNavBar=disabled)，在顶部导航栏选择地域。
 2. 在配置页面修改**资源栈名称**，按需选择和配置参数。
 3. 当**资源栈信息**页面的**状态**显示为**创建成功**时表示一键配置完成。
-### **验证及清理**
+### 验证及清理
 
 
 #### 方案验证

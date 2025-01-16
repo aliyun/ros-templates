@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 大语言模型（LLM）作为自然语言处理领域的核心技术，具有丰富的自然语言处理能力。但其训练语料库具有一定的局限性，一般由普适知识、常识性知识，如维基百科、新闻、小说，和各种领域的专业知识组成。导致 LLM 在处理特定领域的知识表示和应用时存在一定的局限性，特别对于垂直领域内，或者企业内部等私域专属知识。
 
@@ -6,7 +6,7 @@
 
 接下来我们将基于[中文突发事件语料库](https://github.com/shijiebei2009/CEC-Corpus/)（CEC Corpus）演示关于突发事件新闻报道的知识问答。
 
-## **方案架构**
+## 方案架构
 
 本方案主要分为 3 个阶段：
 
@@ -23,13 +23,13 @@
 * 1 个安全组：提供网络安全访问。
 * 1 台云服务器 ECS ：部署示例应用。
 * 1 个向量检索服务：DashVector 向量检索服务。
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 
 **准备账号**
 
-#### **准备账号**
+#### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。本方案的云资源支持按量付费，且默认设置均采用按量付费引导操作。如果确定任何一个云资源采用按量付费方式部署，账户余额必须大于等于 100 元。
@@ -47,7 +47,7 @@
    2. 前往 DashVector [API-Key 管理](https://dashvector.console.aliyun.com/api-key)，点击**创建新的 API-KEY** ，并复制保存。
    3. 切换到左侧 **Cluster 列表**，单击**创建免费 Cluster** ，创建一个免费的向量检索服务Cluster 。（体验本方案建议采用免费 Cluster ，创建后 30 个自然日到期会自动释放，删除所有数据。如有重要业务数据，请及时转移到付费 Cluster 或者将免费试用 Cluster 升配为付费 Cluster。）
 2. 单击 Cluster 列表右侧**操作**栏中的**详情**，获取 Cluster 的访问端口 **Endpoint** 。
-### **一键部署**
+### 一键部署
 
 
 单击[一键部署](https://ros.console.aliyun.com/cn-hangzhou/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/service_template/technical-solution/exclusive-qa-service.yml&hideStepRow=true&hideStackConfig=true&pageTitle=向量检索与通义千问搭建专属问答服务&disableRollback=false&isSimplified=true&dtrue&productNavBar=disabled&disableNavigation=true&balanceIntercept=true)前往 ROS 控制台，填入您在部署准备中获取的**百炼 API-KEY** 和 **DashVector API-KEY** 。本模板会自动创建一个免费的 DashVector 集群。同时，还会额外创建一个抢占式 ECS 实例，用于前端效果展示。按照本文选择规格，约花费 0.471 元/小时。具体产生的费用根据您选择的 ECS 规格而不同，以控制台显示为准。
@@ -58,10 +58,10 @@
 
 ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/5556182171/p790685.png)
 
-### **完成及清理**
+### 完成及清理
 
 
-#### **方案验证**
+#### 方案验证
 
 1. 在创建成功的资源栈单击**输出**页签，获取到 **WebUrl** 。
    

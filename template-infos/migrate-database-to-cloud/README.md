@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 本方案将引导您将网站的自建数据库平滑迁移至云数据库RDS。
 
@@ -6,7 +6,7 @@
 
 **本方案的体验预计产生费用不超过3元（假设资源运行时间不超过1小时）**。如果您调整了资源规格、使用时长，或执行了本方案以外的操作，可能导致费用发生变化，请以控制台显示的实际价格和最终账单为准。
 
-### **方案架构**
+### 方案架构
 
 * 由RDS实现数据库可靠性、可用性、安全性的保障。
 * 应用部署在ECS上，通过内网（VPC）访问RDS。
@@ -15,10 +15,10 @@
 ![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/4679742171/p710973.png)
 
 
-## **方案部署**
-### **部署资源**
+## 方案部署
+### 部署资源
 
-#### **一键部署资源**
+#### 一键部署资源
 
 您可以通过一键部署模板，快速创建一个云服务器ECS实例和一个云数据库RDS实例，ECS实例上已经部署了网站以及自建数据库。本方案以WordPress网站为例。
 
@@ -81,7 +81,7 @@
 
 ![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/3713311961/p702385.png)
 
-#### **查看已部署的资源**
+#### 查看已部署的资源
 
 在资源页面，您可以查看上述步骤所生成的ECS实例、RDS实例、WordPress网站访问地址等。
 
@@ -99,7 +99,7 @@
    | WPUserForDTS | ECS自建MySQL数据库账号和密码，该账号用于数据库（**源库**）在DTS中运行数据迁移任务。 | USERNAME: dtssync1  PASSWORD: P@ssw0rd |
    | RDSUserDTS | RDS数据库高权限账号和密码，用于数据库（**目标库**）在DTS中运行数据迁移任务。 | USERNAME: dbuser  PASSWORD: 用户自定义 |
    | RDSInternalAddress | RDS实例内网连接地址，用于WordPress网站连接至RDS实例。 | rm-bp\*\*\*\*\*.mysql.rds.aliyuncs.com |
-### **网站安装及浏览**
+### 网站安装及浏览
 
 **一、安装**WordPress**网站**
 
@@ -107,7 +107,7 @@
 
 1. 访问[资源编排管理控制台](https://ros.console.aliyun.com/cn-hangzhou/stacks?resourceGroupId=)，在资源栈列表中单击刚创建的资源栈。
 2. 在资源栈顶部单击**输出**页签，并在**输出关键字**列表中找到**ECSWordPressUrl**参数对应的值，单击进入网站。![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/3713311961/p702428.png)
-3. 在WordPress安装页面，填写网站相关信息，然后单击**Install WordPress**。如下图所示：
+3. 在WordPress安装页面，填写网站相关信息，然后单击**Install WordPress**。如架构图所示：
    
    请记住设置的网站管理员用户名和密码，用于登录网站管理页面。![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/3713311961/p702396.png)![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/7644448271/p855823.png)
 
@@ -115,7 +115,7 @@
 
 1. 返回[资源编排管理控制台](https://ros.console.aliyun.com/cn-hangzhou/stacks?resourceGroupId=)，在资源栈列表中单击刚创建的资源栈。
 2. 单击**输出**页签中**ECSWordPressUrl**参数对应的值，即可进入网站浏览。
-### **迁移数据库**
+### 迁移数据库
 
 现在，您可以使用DTS数据传输服务，配置源库和目标库信息，开始迁移数据库的库表结构、全量数据和增量数据。
 
@@ -161,8 +161,7 @@
    
    单击迁移任务ID可以查看具体进度。当您看到如下界面，表示存量数据已迁移完成，增量数据会实时同步。此时您可以进入下一步，验证RDS里的数据。
    
-   ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/8152855071/p759604.png)
-### **方案验证**
+### 方案验证
 
 **一、通过查看RDS实例中的数据，验证数据迁移结果**
 
@@ -223,12 +222,12 @@
    
    以上仅为本示例教程的切换步骤，关于生产环境的切换和回滚方案，请参见[业务切换流程](https://help.aliyun.com/zh/dts/user-guide/switch-workloads-to-the-destination-database-1)。
 
-#### **验证切换后的服务可用性**
+#### 验证切换后的服务可用性
 
 1. 返回[资源编排管理控制台](https://ros.console.aliyun.com/cn-hangzhou/stacks?resourceGroupId=)，在资源栈列表中单击刚创建的资源栈。
 2. 单击**输出**页签中**ECSWordPressUrl**参数对应的值，进入网站浏览，可观察到网站与切换前保持一致。如下图![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/7644448271/p856031.png)
 3. 在网站新增一条评论，再次查看RDS实例中`wp_comments`表的数据，执行查询语句可以看到增加的评论。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/7644448271/p856098.png)
-### **清理资源**
+### 清理资源
 
 完成教程后，建议及时释放不需要的资源，包括DTS数据迁移任务和ECS实例等。
 

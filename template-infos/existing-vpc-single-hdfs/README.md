@@ -1,5 +1,3 @@
-![image](https://img.alicdn.com/imgextra/i3/O1CN01HPtWMz1GINtBcJvs8_!!6000000000599-2-tps-641-423.png)
-
 ## 自动化部署
 1. 点击[部署链接](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/examples/elastic/existing-vpc-single-hdfs.yml&hideStepRow=true&hideStackConfig=true&pageTitle=&isSimplified=true&balanceIntercept=true)进入部署页面。
 2. 在**配置模板参数**步骤中，根据控制台提示输入参数信息，确认安全信息后点击**下一步：检查并确认**进入参数确认页面。

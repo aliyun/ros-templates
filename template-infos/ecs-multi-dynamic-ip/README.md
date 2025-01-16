@@ -1,5 +1,3 @@
-![image](https://img.alicdn.com/tfs/TB16mDkgaNj0u4jSZFyXXXgMVXa-948-611.png)
-
 ## 自动化部署
 1. 点击[部署链接](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/examples/elastic/ecs-multi-dynamic-ip.yml&hideStepRow=true&hideStackConfig=true&pageTitle=&isSimplified=true&balanceIntercept=true)进入部署页面。
 2. 在**配置模板参数**步骤中，根据控制台提示输入参数信息，确认安全信息后点击**下一步：检查并确认**进入参数确认页面。

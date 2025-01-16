@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 消息队列 RabbitMQ 版由阿里云基于 AMQP 标准协议自研，完全兼容 RabbitMQ 开源生态以及多语言客户端，打造分布式、高吞吐、低延迟、高可扩展的云消息服务。开箱即用，用户无需部署免运维，轻松实现快速上云，阿里云提供全托管服务，更专业、更可靠、更安全。
 
@@ -14,12 +14,12 @@
 2. Exchange 根据消息属性将消息路由到 Queue 进行存储；
 3. 消费者从 Queue 拉取消息进行消费。
 
-## **方案部署**
+## 方案部署
 ### 部署准备
 
 开始部署前，请按以下指引完成账号申请、账号充值。
 
-#### **准备账号**
+#### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册并进行个人实名认证。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。本方案的云资源支持按量付费，且默认设置均采用按量付费引导操作。
@@ -66,7 +66,7 @@ ROS控制台目前不支持设置静态用户名和密码的步骤，用户可�
 4. 返回如下页面，您可查看到创建的用户名和密码。
 ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/8073891271/p826039.png)
 
-### **方案验证**
+### 方案验证
 
 
 **一、通过Java实现消息收发，验证RabbitMQ消息流转**
@@ -395,13 +395,13 @@ public class ConcurrentProducerTest {
 
 可以看到，当前队列的消息处理耗时为22ms，消息堆积在4分钟内完成发送，消息处理延时则最大为37ms。这表明，RabbitMQ能够在高并发场景下处理大量并发消息的发送和接收，保持高效的消息传递。低延时的表现确保了实时性要求较高的应用场景能够正常运行。
 
-### **完成及清理**
+### 完成及清理
 
 点击[ROS控制台](https://ros.console.aliyun.com/cn-hangzhou/stacks)，在**资源栈列表**中找到创建的实例，点击**删除**，清理创建的资源。
 
 ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/8073891271/p826051.png)
 
-#### **自建迁移上云（可选）**
+#### 自建迁移上云（可选）
 
 如果您希望从开源 RabbitMQ 迁移到云消息队列 RabbitMQ 版，请参见[开源RabbitMQ迁移上云](https://help.aliyun.com/zh/apsaramq-for-rabbitmq/use-cases/migrate-open-source-rabbitmq-clusters-to-the-cloud)。
 

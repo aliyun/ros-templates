@@ -1,14 +1,13 @@
-## **方案概览**
+## 方案概览
 
 当您因业务需要，服务部署分布在多个阿里云地域的同时，又希望能够实现跨地域的服务高可用，则可以使用阿里云应用型负载均衡 ALB 以及云企业网 CEN 等产品来实现跨地域的负载均衡。
 
 本技术方案将为您演示如何配置跨地域负载均衡。
 
-### **方案架构**
+### 方案架构
 
-方案提供的默认设置（如地域、VPC、安全组、vSwitch、实例名称等）完成部署后在阿里云上搭建的网站运行环境如下图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与下图相似。
+方案提供的默认设置（如地域、VPC、安全组、vSwitch、实例名称等）完成部署后在阿里云上搭建的网站运行环境如架构图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与架构图相似。
 
-![ALB.jpg](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0535633961/p712894.jpg)
 
 方案为了简化架构，暂不体现可用区及vSwitch、安全组等。
 
@@ -20,13 +19,13 @@
 * 3个云服务器ECS实例：ECS实例是云上的虚拟计算服务器，内含vCPU、内存、操作系统、网络、磁盘等基础组件。您可以使用阿里云提供的控制台、SDK等工具创建和管理ECS实例，像使用本地服务器一样管理ECS实例的状态、应用等，还可以灵活地升级计算、存储等能力。
 * 1个应用型负载均衡ALB实例：ALB实例是一种高可用、高性能的负载均衡服务，可以用于将流量分发到多个云服务器、容器等资源上，从而提高应用的可用性和响应速度。ALB支持丰富的负载均衡算法、会话保持、安全策略和流量控制等功能，可以根据业务需求进行灵活配置。同时，ALB还支持多协议转发，如HTTP、HTTPS等，可以满足不同场景的负载均衡需求。
 
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 
 开始部署前，请按以下指引完成账号申请、服务开通等准备工作。
 
-#### **准备账号**
+#### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。针对CEN跨域流量，您可使用云数据传输CDT降低流量成本，如您未开通强烈建议您[快速入门](https://help.aliyun.com/zh/cdt/upgrade-to-cdt-billing)，仅开通CDT不收取任何费用。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。
@@ -173,7 +172,7 @@
       
       ```
    3. RAM用户的使用请参见[创建RAM用户](https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user)、[创建自定义权限策略](https://help.aliyun.com/zh/ram/user-guide/create-a-custom-policy)、[为RAM用户授权](https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user)。
-### **一键部署**
+### 一键部署
 
 
 一键配置基于阿里云资源编排服务ROS（Resource Orchestration Service）实现，旨在帮助开发者通过IaC（Infrastructure as Code）的方式体验资源的自动化配置。
@@ -190,11 +189,11 @@
    
    ![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2446821961/p702707.png)
 8. 单击**输出**页签，可查看到**ALB域名**。复制用于后续验证。
-### **验证及清理**
+### 验证及清理
 
 5
 
-#### **方案验证**
+#### 方案验证
 
 **一、通过执行请求命令，验证跨地域的负载均衡**
 

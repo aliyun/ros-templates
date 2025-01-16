@@ -24,7 +24,7 @@ Pod水平自动扩缩HPA（Horizontal Pod Autoscaler）：Kubernetes内置组件
 
 默认HPA只支持基于CPU和内存的自动伸缩，并不能满足全部业务场景的运维需求，以IO密集型系统为例，CPU和内存并不是系统的唯一瓶颈。本教程将介绍如何实现基于QPS数据的应用弹性伸缩，更多应用弹性伸缩场景，请参见[容器水平伸缩](https://help.aliyun.com/document_detail/2746980.html)。
 
-## **方案部署**
+## 方案部署
 ### 部署准备
 
 
@@ -59,10 +59,10 @@ Pod水平自动扩缩HPA（Horizontal Pod Autoscaler）：Kubernetes内置组件
 
 ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/7033829171/p813909.png)
 
-### **验证及清理**
+### 验证及清理
 
 
-#### **方案验证**
+#### 方案验证
 
 **一、通过访问应用服务，验证容器服务的可用性**
 
@@ -106,7 +106,7 @@ Pod水平自动扩缩HPA（Horizontal Pod Autoscaler）：Kubernetes内置组件
 7. 在节点池详情页面，选择**伸缩活动**，查看节点池的弹性伸缩执行情况，随着Pod数目的增加，节点数目从2扩容到3，之后随着Pod数目的降低，节点数目从3缩容到2，节点池的弹性伸缩已经生效。
    
    ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/7033829171/p813861.png)
-#### **清理资源**
+#### 清理资源
 
 如果您无需继续使用，请尽快删除资源，避免继续产生费用：
 

@@ -1,10 +1,10 @@
-## **方案概览**
+## 方案概览
 
 在移动设备占主导地位的今天，企业开发移动应用App可以帮助企业更好地适应数字时代的挑战，企业可以通过App为用户提供更便捷、更具互动性和更个性化的服务，帮助企业扩宽市场渠道、获得数据反馈，从而增加收入和竞争优势。使用阿里云移动研发平台开发您的App，可以帮您减轻技术负担，让您能更专注于业务核心，快速构建高可靠、高性能的移动应用，并且可以高效迭代您的移动应用。
 
-## **方案架构**
+## 方案架构
 
-方案提供的默认设置完成部署后在阿里云上搭建的移动应用架构如下图所示。![APP搭建架构图优化@2x](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/7447757171/p808216.png)
+方案提供的默认设置完成部署后在阿里云上搭建的移动应用架构如架构图所示。![APP搭建架构图优化@2x](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/7447757171/p808216.png)
 
 本方案的技术架构包括以下基础设施和云服务：
 
@@ -23,17 +23,17 @@
   + 1个域名：用于为App后端程序提供访问域名。
   + 移动研发平台EMAS：提供一站式的App客户端应用研发运营管理服务，涵盖开发、测试、运维、运营等应用全生命周期。
   + 云效：一站式 DevOps 平台，支持通过流水线构建持续交付的研发流程。用于持续构建和部署App服务端。
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 
 开始部署前，请按以下指引完成账号申请、账号充值。
 
-### **准备账号**
+### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册并进行个人实名认证。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。本方案的云资源支持按量付费，且默认设置均采用按量付费引导操作。如果确定任何一个云资源采用按量付费方式部署，账户余额都必须大于等于100元。
-### **一键部署**
+### 一键部署
 
 
 一键部署基于阿里云资源编排服务ROS（Resource Orchestration Service）实现，ROS模板已定义好脚本，可自动化地完成云资源的创建和配置，提高资源的创建和部署效率。ROS模板完成的内容包括：
@@ -52,14 +52,13 @@
    1. 单击[一键部署](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/service_template/technical-solution/efficiently-build-app-on-the-cloud.yml&hideStepRow=true&hideStackConfig=true&pageTitle=移动开发秘籍：云上高效构建APP&disableRollback=false&isSimplified=true&disableNavigation=true&productNavBar=disabled)，在顶部导航栏选择地域。
    2. 在配置页面修改**资源栈名称**，按需选择和配置参数。
    3. 当**资源栈信息**页面的**状态**显示为**创建成功**时表示一键配置完成。
-### **部署服务端**
+### 部署服务端
 
 
-#### **创建流水线**
+#### 创建流水线
 
 1. 进入[云效控制台](https://devops.console.aliyun.com/organizations?channel=yy_fangan)，单击**立即使用**，按操作步骤创建您的企业、选择您的角色之后，点击开始工作。
    
-   ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0756675171/p783938.png)
 2. 进入[流水线Flow](https://flow.aliyun.com/my?page=1&channel=yy_fangan)，点击**流水线**->**我的流水线**。
    
    ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0756675171/p793300.png)
@@ -130,26 +129,26 @@
 
 1. 登录[ECS控制台](https://ecs.console.aliyun.com/server/region/cn-hangzhou)，在实例列表中找到之前创建的ECS实例，在**IP地址**列，复制公网IP。
 2. 粘贴到浏览器地址栏访问，看到如下页面表示服务已经正常启动。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0756675171/p799452.png)
-### **通过EMAS构建和发布移动App**
+### 通过EMAS构建和发布移动App
 
 
 #### Android App
 
-##### **云构建配置**
+##### 云构建配置
 
-##### **1.1 创建代码仓库**
+##### 1.1 创建代码仓库
 
 1. 打开[云效codeup](https://codeup.aliyun.com/)，在代码管理页面右上角，单击**导入库**。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819287.png)
 2. 在**导入代码库**弹出框，选中**URL导入**，在源代码仓库地址填入`https://atomgit.com/aliyun_solution/emas-android-demo.git`，单击**确定**。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/8075040271/p818259.png)
 3. 导入成功后，在页面右上角单击**克隆/下载**，复制HTTPS地址。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/3423950271/p819290.png)
 4. 将代码克隆下载到本地。具体操作可参考[快速入门](https://help.aliyun.com/document_detail/153707.html)。
 
-##### **1.2 创建项目**
+##### 1.2 创建项目
 
 1. 登录[EMAS控制台](https://emas.console.aliyun.com/)。
 2. 如果是第一次使用EMAS，单击**立即创建项目**，如果已有项目，单击左侧**添加项目**。在右侧弹出框中，输入**项目名称**和**项目描述**，单击**创建并进入**。
 
-##### **1.3 创建应用**
+##### 1.3 创建应用
 
 1. 进入项目详情页后，单击**立即添加应用**，输入**应用名称**、**应用类型**选择**Native**、**平台**选择**Android**，**PackageName**填入`com.example.emas_android_demo`，然后单击**创建应用**。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819300.png)
 2. 下载配置文件，按照提示添加到本地项目中。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819330.png)
@@ -162,7 +161,7 @@
 5. 打开本地项目，找到项目目录下app/src/main/assets下的appConfig.properties文件，填入appName、appKey和appSecret。serverUrl填入`http://[云服务器公网IP]`。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/7447757171/p805347.png)
 6. 提交代码到远程仓库。具体操作可以参考[快速入门](https://help.aliyun.com/document_detail/153707.html)。
 
-##### **1.4 创建云构建**
+##### 1.4 创建云构建
 
 1. 在项目概览页面，在右侧单击**云构建**。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819320.png)
 2. 在云构建页面，单击**配置应用**。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819334.png)
@@ -198,7 +197,7 @@
 8. 单击**保存并运行**。
 9. 运行成功后，可以在页面左侧产物，扫码或手动下载安装包到手机。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819353.png)
 
-##### **云发布配置**
+##### 云发布配置
 
 1. 新建发布包流水线
    
@@ -246,25 +245,25 @@
 4. 查看手机上安装的App，可以看到更新提示。![android](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/3687757171/p808238.png)
 #### iOS App
 
-#### **前提条件**
+#### 前提条件
 
 * 需要您已经注册成为apple开发者，并且导出了开发者p12证书。详细操作参考[apple文档](https://developer.apple.com/cn/support/account/)。
 
-#### **云构建配置**
+#### 云构建配置
 
-#### **1.1 创建代码仓库**
+#### 1.1 创建代码仓库
 
 1. 打开[云效codeup](https://codeup.aliyun.com/)，在代码管理页面右上角，单击**导入库**。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819287.png)
 2. 在**导入代码库**弹出框，选中**URL导入**，在源代码仓库地址填入`https://atomgit.com/aliyun_solution/emas-ios-demo.git`，单击**确定**。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/8075040271/p818259.png)
 3. 导入成功后，在页面右上角单击**克隆/下载**，复制HTTPS地址。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819302.png)
 4. 将代码克隆下载到本地。具体操作可参考[快速入门](https://help.aliyun.com/document_detail/153707.html#23b3736063w86)。
 
-#### **1.2 创建项目**
+#### 1.2 创建项目
 
 1. 登录[EMAS控制台](https://emas.console.aliyun.com/)。
 2. 如果是第一次使用EMAS，单击**立即创建项目**，如果已有项目，单击左侧**添加项目**。在右侧弹出框中，输入**项目名称**和**项目描述**，然后单击**创建并进入**。
 
-#### **1.3 创建应用**
+#### 1.3 创建应用
 
 1. 进入项目详情页后，单击左上角的**添加应用**，输入**应用名称**、**应用类型**选择**Native**、**平台**选择**iOS**，**PackageName**填入`com.aliyun.emasdemo`，然后单击**创建应用**。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819300.png)
 2. 下载配置文件，按照提示添加到本地项目中。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819390.png)
@@ -272,7 +271,7 @@
 4. 提交代码到远程仓库。具体操作可以参考[快速入门](https://help.aliyun.com/document_detail/153707.html#fbeec96063oss)。
 5. 添加SDK，示例代码中已完成项目配置修改，无需在修改项目配置代码。
 
-#### **1.4 创建云构建**
+#### 1.4 创建云构建
 
 1. 在项目概览页面，在右侧单击**云构建**。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819388.png)
 2. 在云构建页面，单击**配置应用**。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819391.png)
@@ -324,15 +323,15 @@
    
    ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2423950271/p819407.png)
 
-#### **云发布配置**
+#### 云发布配置
 
 对于iOS应用，因平台限制，云发布仅对应用版本及发布状态进行管理。
 
-### **申请域名与证书（可选）**
+### 申请域名与证书（可选）
 
 20
 
-#### **域名申请和备案**
+#### 域名申请和备案
 
 1. 创建域名信息模板并实名认证
    
@@ -476,7 +475,7 @@
    | **主机记录** | 根据域名前缀填写主机记录。本方案以顶级域名为例，例如`example.com`，输入**@**。 | @ |
    | **记录值** | 填写ECS实例的公网ID。 | 10.0.x.x |
    | **TTL** | 域名的更新周期，保留默认值。 | 10分钟 |
-#### **申请SSL证书**
+#### 申请SSL证书
 
 1. 领取免费证书额度。
    
@@ -516,7 +515,7 @@
       **说明** 
       
       如果您未选中**快捷签发**，创建证书申请后，您将获得一个证书（对应要申请的证书）。您需要在该证书**操作**列，单击**证书申请**，填写证书申请信息并提交审核后，再按照该步骤进行验证。
-#### **安装SSL证书**
+#### 安装SSL证书
 
 1. 下载SSL证书。
    
@@ -663,7 +662,7 @@
    2. 如果网页地址栏出现小锁标志，表示证书已经安装成功。
       
       ![image..png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0756675171/p784961.png)
-### **清理和后续**
+### 清理和后续
 
 10
 
@@ -676,7 +675,7 @@
 3. 在**资源栈**页面的顶部选择部署的资源栈所在地域，找到资源栈，然后在其右侧**操作**列，单击**删除**。
 4. 在**删除资源栈**对话框，选择**删除方式**为**释放资源**，然后单击**确定**，根据提示完成资源释放。
 
-#### **删除流水线**
+#### 删除流水线
 
 1. 删除云效的流水线。
    
@@ -688,11 +687,11 @@
    1. 打开[codeup](https://codeup.aliyun.com/)。
    2. 进入仓库主页，点击左下角的**设置**->**基本设置**->**删除代码库**。
 
-#### **删除移动研发平台应用**
+#### 删除移动研发平台应用
 
 1. 登录[EMAS控制台](https://emas.console.aliyun.com/products)，在项目列表单击项目卡片右上角删除图标。
 
-#### **后续**
+#### 后续
 
 * 应法规要求，App上线前需要完成App备案，您可以参考[链接](https://wanwang.aliyun.com/qualificationrec/bazszl)进行App备案。
 * 为了您的服务安全，建议您使用Web应用防火墙保护您的App后端服务。
