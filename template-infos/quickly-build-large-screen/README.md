@@ -1,12 +1,11 @@
-## **方案概览**
+## 方案概览
 
 随着数字化建设快速推进，企业每天都在产生海量的经营数据，如何从这些纷繁复杂的业务数据中洞察趋势、辅助决策，成为了企业现代化管理的一项关键挑战。阿里云DataV数据可视化平台提供一站式企业经营数据大屏建设方案，支持`30+`数据源类型，可接入日常经营数据，提供监控大屏、PC看板、移动端看板等覆盖全端的经营数据实时监控与分析决策能力。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/6951214271/p826752.png)
 
-## **方案架构**
+## 方案架构
 
-按照本方案提供的配置完成部署后，会在阿里云上搭建一个如下图所示的运行环境。实际部署时，您可根据具体的资源规划调整部分配置，但最终的运行环境将与下图展示的架构相似。
+按照本方案提供的配置完成部署后，会在阿里云上搭建一个如架构图所示的运行环境。实际部署时，您可根据具体的资源规划调整部分配置，但最终的运行环境将与架构图展示的架构相似。
 
-![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/7203395271/p846783.png)
 
 本方案的相关资源及技术架构如下：
 
@@ -18,8 +17,8 @@
   
   本方案将RDS MySQL数据接入DataV，作为DataV的RDS MySQL数据源，并在DataV创建PC数据看板，通过相关组件进行数据的适配及展示，快速搭建企业经营大屏。
 
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 开始部署前，请按以下指引完成账号申请、账号充值。
 
@@ -36,12 +35,12 @@
    | --- | --- | --- | --- |
    | 云数据库RDS MySQL | 本教程示例使用`mysql.n1e.small.1`（MySQL8.0基础系列）规格。 | 按量付费 | * 计费详情，请参见[计费概览](https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/billing-overview)。 * 更多关于RDS MySQL实例的选型，请参见[产品系列概述](https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/overview-11)。 |
    | DataV数据可视化 | 本教程示例使用**专业版试用**。 **说明**  * **专业版试用**为新用户（即未开通过DataV产品的用户）专享。若您已购买非**个人版**DataV产品，则可直接进入控制台开始本实验。 * **个人版**DataV产品，不支持通过数据源接入数据。 | **9.9元** | 更多关于DataV的规格介绍及计费方式，请参见[规格说明](https://help.aliyun.com/zh/datav/datav-7-0/product-overview/datav-editions)、[计费方式](https://help.aliyun.com/zh/datav/datav-7-0/product-overview/billing-methods-for-datav-7)。 |
-### **部署资源**
+### 部署资源
 
 
 您需按照规划好的方案部署资源。一键部署基于阿里云资源编排服务ROS（Resource Orchestration Service）实现，ROS模板已定义好脚本，可自动化地完成云资源的创建和配置，提高资源的创建和部署效率。本方案中仅支持通过ROS模板完成云数据库RDS MySQL的创建，DataV服务的资源部署仍需手动完成。具体操作如下。
 
-#### **创建云数据库RDS MySQL**（单击即可展开查看详情）
+#### 创建云数据库RDS MySQL（单击即可展开查看详情）
 
 1. 单击[一键部署](https://ros.console.aliyun.com/cn-shanghai/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/service_template/technical-solution/quickly-build-large-screen.yml&hideStepRow=true&hideStackConfig=true&pageTitle=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BA%E4%BC%81%E4%B8%9A%E7%BB%8F%E8%90%A5%E5%A4%A7%E5%B1%8F&disableRollback=false&isSimplified=true&disableNavigation=true&productNavBar=disabled)，在顶部导航栏选择地域。示例选择**华东1（杭州）**。
 2. 按需配置**资源栈名称**及模板参数。
@@ -122,9 +121,9 @@
    -- 调用存储过程生成数据
    CALL GenerateBillData();
    ```
-#### **开通DataV服务并创建数据源**（单击即可展开查看详情）
+#### 开通DataV服务并创建数据源（单击即可展开查看详情）
 
-##### **开通DataV服务**
+##### 开通DataV服务
 
 **说明** 
 
@@ -134,7 +133,7 @@
 1. 进入[DataV购买页面](https://common-buy.aliyun.com/?commodityCode=datav&accounttraceid=0293b10e21ac482eb81653cba8959ab0jebz)。
 2. 选择**试用版本** > **专业版试用**。
 3. 单击**立即购买**，完成支付，成功开通试用版DataV服务。
-##### **创建RDS MySQL数据源**
+##### 创建RDS MySQL数据源
 
 您需要将RDS MySQL数据库创建为DataV的数据源，以便DataV通过该数据源访问数据库的数据。
 
@@ -154,9 +153,9 @@
    | **域名**及**端口** | * 域名：RDS MySQL实例所绑定专有网络的内网地址。 * 端口：RDS MySQL实例所绑定专有网络的内网端口。 您可在[RDS实例列表](https://rdsnext.console.aliyun.com/rdsList/basic?spm=a2c4g.11186623.0.0.4c5d4fa0BACSmz)，单击目标实例名称，进入实例详情页，按下图步骤查看。image |
    | **用户名**及**密码** | 数据库登录账号及密码。本文示例数据库账号为`user_test`，密码为您自定义的数据库密码。 |
    | **数据库** | 单击**获取数据列表**，在下拉框选择已创建的数据库。本文示例为`mysqltest`。 |
-### **快速创建大屏并展示数据**
+### 快速创建大屏并展示数据
 
-#### **步骤一：快速创建大屏**
+#### 步骤一：快速创建大屏
 
 DataV支持**通过空白看板创建大屏**、**通过模板快速创建大屏**、**通过Copilot智能创建大屏**，您可按需选择。本文以通过模板快速创建大屏示例。
 
@@ -177,7 +176,7 @@ DataV Copilot支持通过对话的方式输入业务需求及相关指标，Data
 
 看板创建后，将自动跳转至画布编辑器页面，您可按需接入数据源并配置画布信息。
 
-#### **步骤二：接入数据源数据**
+#### 步骤二：接入数据源数据
 
 **说明** 
 
@@ -375,11 +374,11 @@ DataV Copilot支持通过对话的方式输入业务需求及相关指标，Data
 5. 查看最新组件数据。
    
    配置完成后，您即可看到看板中轮播列表已接入您的数据。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/6951214271/p828901.png)
-#### **步骤三：修改组件样式**
+#### 步骤三：修改组件样式
 
 若组件样式不符合您的业务需要，您也可进入看板编辑页面，按下图步骤进行修改。详情请参见[配置项说明](https://help.aliyun.com/zh/datav/datav-7-0/user-guide/configuration-items)。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/6951214271/p828399.png)
 
-#### **步骤四：发布及部署大屏**
+#### 步骤四：发布及部署大屏
 
 数据大屏创建完成后，您需要将其发布上线，部署至相关设备使用。
 
@@ -394,7 +393,7 @@ DataV Copilot支持通过对话的方式输入业务需求及相关指标，Data
    * 可按需配置访问权限（例如，密码验证、通过Token验证）。通常，如需与其他系统整合并控制访问权限，可开启Token验证。
    * 可在发布快照区域，查看大屏发布版本，也可执行新增版本、回滚至历史版本等管理操作。
 3. 获取大屏访问信息后（例如，访问地址），您可将其投放至渲染主机、PC、手机等设备进行访问。
-### **清理资源**
+### 清理资源
 
 
 在本方案中，您通过一键部署创建了一个云数据库RDS MySQL，并手动开通了试用版DataV产品。方案执行完成后，您可参考以下规则处理对应产品，避免继续产生费用：

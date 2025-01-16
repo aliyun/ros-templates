@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 随着网络技术的不断发展，您的 Web 应用如果没有流量入口的防护，会面临如下风险：
 
@@ -10,23 +10,22 @@
 
 如何高效灵活地避免以上问题，防护您的 Web 应用，我们推荐您使用[阿里云 Web 应用防火墙](https://www.aliyun.com/product/waf)（Web Application Firewall，简称 WAF）。WAF 通过对网站或者 App 的业务流量进行恶意特征识别及防护，在对流量进行清洗和过滤后，将正常、安全的流量返回给服务器，避免网站服务器被恶意入侵导致性能异常等问题，从而保障网站的业务安全和数据安全。
 
-## **方案架构**
+## 方案架构
 
-WAF 支持为 ECS 实例开启安全防护。将 ECS 实例接入 WAF 后，实例所有的 Web 业务流量将被指定网关牵引到 WAF 进行检测。WAF 过滤 Web 应用攻击后，将正常的业务流量转发回 ECS 服务器。具体网络架构如下图所示。
+WAF 支持为 ECS 实例开启安全防护。将 ECS 实例接入 WAF 后，实例所有的 Web 业务流量将被指定网关牵引到 WAF 进行检测。WAF 过滤 Web 应用攻击后，将正常的业务流量转发回 ECS 服务器。具体网络架构如架构图所示。
 
-![tech_solu_106@2x.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/6094701171/p782240.png)
 
 本方案的技术架构包括以下基础设施和云服务：
 
 * 云服务器 ECS：部署了 Web 应用。
 * WAF 3.0 按量付费版：用于防护 Web 应用。
 
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册并完成个人实名认证。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。为节省成本，本方案默认选择使用按量付费，使用按量付费资源需要确保账户余额不小于 100 元。选用最低规格的按量计费 ECS 实例，并在体验结束后释放资源，产生的费用不超过 5 元。实际费用以控制台账单为准。
-### **一键部署**
+### 一键部署
 
 
 一键部署基于阿里云资源编排服务 ROS（Resource Orchestration Service）实现，ROS 模板已定义好脚本，可自动化地完成云资源的创建和配置，提高资源的创建和部署效率。
@@ -59,7 +58,7 @@ WAF 支持为 ECS 实例开启安全防护。将 ECS 实例接入 WAF 后，实�
   + 实例被释放
 * **ECS**引流是对EIP或公网IP进行的引流。
 * **ECS**解绑EIP后引流会被自动删除。
-#### **操作步骤**
+#### 操作步骤
 
 1. [登录 Web 应用防火墙 3.0 控制台。](https://yundunnext.console.aliyun.com/?p=wafnew)
 2. 在左侧导航栏，单击**接入管理**。
@@ -78,7 +77,7 @@ WAF 支持为 ECS 实例开启安全防护。将 ECS 实例接入 WAF 后，实�
    ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/6094701171/p782089.png)
    
    如果您希望继续使用 WAF 3.0 的更多防护功能，请参见[图说防护配置](https://help.aliyun.com/zh/waf/web-application-firewall-3-0/user-guide/protection-configuration)。
-### **验证及清理**
+### 验证及清理
 
 
 **方案验证**
@@ -101,7 +100,7 @@ WAF 支持为 ECS 实例开启安全防护。将 ECS 实例接入 WAF 后，实�
 ![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/6014798271/p858809.png)
 
 2. 可以看到之前 SQL 注入攻击触发的拦截，基于这些详细的数据和图表展示，可以及时发现和处理潜在的安全威胁，并且制定有效的安全策略。
-#### **清理资源**
+#### 清理资源
 
 在本方案中，您创建了 1 个 ECS 实例、1 个 WAF 实例。体验完方案后，您可以参考以下规则处理对应产品的资源，避免继续产生费用。
 

@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 通过本教程，您将学习如何在阿里云应用型负载均衡ALB上部署七层负载均衡服务，将来自客户端的请求分发至后端ECS上，同时利用阿里云弹性伸缩（ESS）产品实现服务器资源的动态调整能力，这不仅可以提高应用的高可用性和吞吐量，还能提升资源利用率、减小应用响应时间。
 
@@ -19,7 +19,7 @@
 * 1个弹性伸缩ESS：提供云服务器ECS弹性伸缩服务。
 * 2-3台云服务器ECS：由弹性伸缩ESS创建并部署Nginx服务，作为Web站点。（本教程以最小化资源实例为例，在两个不同可用区各初始化一台ECS实例，并配置定时弹性伸缩任务扩容和缩容第三台ECS实例）
 
-## **方案部署**
+## 方案部署
 ### 部署准备
 
 
@@ -38,7 +38,7 @@
    | **资源领取入口** | **本教程配置** |
    | --- | --- |
    | [开通云数据传输CDT](https://cdt.console.aliyun.com/overview) | CDT每月赠送200GB免费公网流量（其中20GB全地域可用，180GB仅限海外地域可用），可用于抵扣云服务器ECS、弹性公网IP、应用型负载均衡ALB的公网流量，超出部分采用阶梯计费，详情参考[CDT公网流量计费规则](https://help.aliyun.com/document_detail/410942.html)。 |
-### **一键部署**
+### 一键部署
 
 
 单击[一键部署](https://ros.console.aliyun.com/cn-hangzhou/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/service_template/technical-solution/elastic-application-with-ess.yml&hideStepRow=true&hideStackConfig=true&pageTitle=随需而动：自动弹性，稳定交付&disableRollback=false&isSimplified=true&disableNavigation=true&productNavBar=disabled&balanceIntercept=true)前往ROS控制台，选择两个ECS实例规格和可用区（注意需要选择两个不同的可用区），填写期望自动扩容和缩容的时间（自动扩缩容时间不要晚于当前时间）。具体产生的费用根据您选择的ECS规格而不同，以控制台显示为准。
@@ -49,7 +49,7 @@
 
 ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/3571395171/p801370.png)
 
-### **验证及清理**
+### 验证及清理
 
 
 #### 方案验证

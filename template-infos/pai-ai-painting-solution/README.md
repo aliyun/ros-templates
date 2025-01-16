@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 本方案介绍了使用模型在线服务 PAI-EAS 部署 [Stable-Diffusion-WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui)，并在 WebUI 进行 AI 绘画的详细过程。完成本方案的部署及体验，预计产生费用不超过 15 元。（假设您选择最低规格 PAI-EAS 资源，且资源运行时间不超过 40 分钟。如调整了资源规格，请以控制台显示的实际报价以及最终账单为准）。
 
@@ -10,7 +10,7 @@ Stable Diffusion 是一种基于潜在扩散模型的文本到图像生成模型
 * 企业级功能：前后端分离改造，支持多用户对多 GPU 的集群调度；支持用户隔离；支持账单拆分。
 * 插件及优化：支持 PAI-Blade 性能优化工具；提供 FileBrowser 插件，允许用户在桌面端上传和下载云端模型、图片；提供自研的 ModelZoo 插件，支持开源模型下载加速。
 
-### **方案架构**
+### 方案架构
 
 在实际部署时，您可以按本方案提供的默认设置完成部署。部署完成后，运行架构如下：
 
@@ -28,8 +28,8 @@ Stable Diffusion 是一种基于潜在扩散模型的文本到图像生成模型
 
 相对于一键部署，您还可以通过手动部署进行自定义部分设置，从而更好的满足您的实际需求，详情请参见[手动部署 Stable Diffusion WebUI 服务](https://help.aliyun.com/zh/pai/use-cases/manually-deploy-the-stable-diffusion-webui-service)。
 
-## **方案部署**
-### **部署资源**
+## 方案部署
+### 部署资源
 
 
 资源编排 ROS 可以通过 YAML 或 JSON 文件描述所需的云资源及其依赖关系，然后自动化地创建和配置这些资源。您可以通过下方提供的 ROS 一键部署链接，自动化地完成以下资源的创建和配置：

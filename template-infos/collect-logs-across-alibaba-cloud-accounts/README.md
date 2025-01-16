@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 当您希望在统一的位置收集多个账号里的应用日志、或需要进行合并不同账号下的云产品日志进行数据分析时，需要进行跨阿里云账号采集日志。
 
@@ -7,7 +7,7 @@
 * 如何通过Logtail跨账号采集ECS服务器日志。
 * 如何通过日志审计服务跨账号采集对象存储OSS日志。
 
-## **方案架构**
+## 方案架构
 
 ![跨账号日志采集.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/5329403961/p711572.png)
 
@@ -21,13 +21,13 @@
 * 2个云服务器ECS：2个阿里云账号分别部署1个云服务器ECS，用于产生相关日志数据进行采集。
 * 2个日志服务SLS：2个阿里云账号分别开通1个日志服务SLS，用于互相采集数据进行分析。
 * 2个对象存储OSS：2个阿里云账号分别开通1个对象存储OSS，用于产生相关日志进行采集。
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 
 开始部署前，请按以下指引完成账号申请、账号充值、RAM用户创建和授权。
 
-### **准备账号**
+### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册。阿里云账号是您使用云资源的付费实体，本方案需要申请两个阿里云账号。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。
@@ -51,7 +51,7 @@
    | 对象存储OSS | AliyunOSSFullAccess | 管理对象存储OSS的权限 |
    
    创建RAM用户并进行授权的操作指引请参见[创建RAM用户及授权](https://help.aliyun.com/zh/sls/create-a-ram-user-and-authorize-the-ram-user-to-access-log-service)。
-### **一键部署**
+### 一键部署
 
 
 一键部署基于阿里云资源编排服务ROS（Resource Orchestration Service）实现，ROS模板已定义好脚本，可自动化地完成云资源的创建和配置，提高资源的创建和部署效率。ROS模板完成的内容包括：
@@ -110,14 +110,14 @@
    * 选择**鉴权模式**为**User-defined**，输入**AccessKey ID**和**AccessKey Secret**，并单击**创建**。AccessKey说明，请参见[自定义鉴权管理模式](https://help.aliyun.com/zh/sls/user-guide/configure-multi-account-collection#section-5kq-v6q-6ea)。
      
      当**资源栈信息**页签的状态栏变成**已创建**时，表示已完成资源和模型部署。
-### **完成及清理**
+### 完成及清理
 
 
-### **方案验证**
+### 方案验证
 
 完成跨账号日志采集后，您可以通过日志服务控制台查看相关数据。
 
-#### **通过Logtail跨账号采集ECS日志**
+#### 通过Logtail跨账号采集ECS日志
 
 1. 登录。
 2. 进入目标project，在日志库列表中，单击目标logstore。
@@ -125,7 +125,7 @@
 
 ![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0318299861/p696374.png)
 
-#### **通过日志审计服务跨账号采集云产品日志**
+#### 通过日志审计服务跨账号采集云产品日志
 
 1. 登录。
 2. 在**日志应用**区域的**审计与安全**页签下，单击**日志审计服务**。

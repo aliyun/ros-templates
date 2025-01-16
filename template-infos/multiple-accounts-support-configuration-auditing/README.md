@@ -1,12 +1,11 @@
-## **方案概览**
+## 方案概览
 
 多账号配置统一合规审计为企业的各中心管理团队提供一种面向多账号的合规管理方案，从上而下地实施统一的合规基线并强制管理资源，可中心化地持续检测所有业务的合规状态。提升中心管理团队工作的可见性和可控性，切实起到监管效力和规避潜在风险作用。
 
-### **方案架构**
+### 方案架构
 
-企业采用多账号架构后，在配置审计中基于[资源目录](https://help.aliyun.com/zh/resource-management/resource-directory/product-overview/resource-directory-overview)的组织结构创建[账号组](https://help.aliyun.com/document_detail/211534.html)，圈定合规管理的账号范围，再对账号组创建合规规则，以实现跨账号的资源合规审计。多账号资源合规审计的架构如下图所示。
+企业采用多账号架构后，在配置审计中基于[资源目录](https://help.aliyun.com/zh/resource-management/resource-directory/product-overview/resource-directory-overview)的组织结构创建[账号组](https://help.aliyun.com/document_detail/211534.html)，圈定合规管理的账号范围，再对账号组创建合规规则，以实现跨账号的资源合规审计。多账号资源合规审计的架构如架构图所示。
 
-![多账号配置统一合规审计.jpg](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0160954961/p719385.jpg)
 
 本方案的优势如下：
 
@@ -20,13 +19,13 @@
   
   配置审计将您各地域的资源整合为一份完整清单，并通过资源列表和资源详情 API 快速的将云上资源配置集成到企业的 CMDB 中，实现企业对资源的统一管理。
 
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 
 开始部署前，请按以下指引完成账号申请、账号充值、资源目录开通等准备工作。
 
-#### **准备账号**
+#### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成账号注册。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。
@@ -49,7 +48,7 @@
 2. 在[资源管理控制台](https://resourcemanager.console.aliyun.com/)，搭建企业的组织结构。您可以创建新的成员，也可以邀请已有的阿里云账号加入组织。
    
    管理账号在资源目录中至少准备 2 个成员。具体操作，请参见[创建资源夹](https://help.aliyun.com/zh/resource-management/resource-directory/user-guide/create-a-folder#task-hjk-vq1-dhb)、[创建成员](https://help.aliyun.com/zh/resource-management/resource-directory/user-guide/create-a-member#task-tzh-bs1-dhb)和[邀请阿里云账号加入资源目录](https://help.aliyun.com/zh/resource-management/resource-directory/user-guide/invite-an-alibaba-cloud-account-to-join-a-resource-directory#task-2039327)。
-### **规划资源**
+### 规划资源
 
 
 **说明** 
@@ -62,12 +61,12 @@
 | --- | --- | --- |
 | 对象存储 OSS | 2 | 本方案需要为 2 个成员各创建一个存储空间，用于检测存储空间是否合规。创建存储空间时，默认**读写权限**为**私有**。 |
 
-### **部署资源**
+### 部署资源
 
 
 规划好资源后，请按照以下步骤部署方案中的所有资源。
 
-#### **一键部署**
+#### 一键部署
 
 单击[一键部署](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/service_template/technical-solution/multiple-accounts-support-configuration-auditing.yml&hideStepRow=true&pageTitle=%E4%BC%81%E4%B8%9A%E5%A4%9A%E8%B4%A6%E5%8F%B7%E9%85%8D%E7%BD%AE%E7%BB%9F%E4%B8%80%E5%90%88%E8%A7%84%E5%AE%A1%E8%AE%A1&disableRollback=false&isSimplified=true&dion=true&productNavBar=disabled)前往 ROS 控制台，在控制台资源栈页面配置模板参数，根据页面提示完成创建。
 
@@ -83,7 +82,7 @@
 
 ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/5220940171/p779691.png)
 
-#### **手动部署**
+#### 手动部署
 
 1. **开通配置审计**
    管理账号在使用配置审计之前，必须先开通配置审计服务，才能获取跨地域的资源清单，并对资源进行合规审计。
@@ -124,10 +123,10 @@
    4. 在**设置基本属性**页面，先设置合规包名称，其他参数均保持默认值，然后单击**下一步**。
    5. 在**选择规则**页面，先从合规包模板中选择目标规则，然后单击**下一步**。
    6. 在**设置规则参数**页面，先为规则设置参数，然后单击**确定**。
-### **完成及清理**
+### 完成及清理
 
 
-#### **方案验证**
+#### 方案验证
 
 **通过登录管理账号查看合规审计监控页面，验证统一合规审计功能**
 

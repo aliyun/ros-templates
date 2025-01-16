@@ -1,5 +1,3 @@
-![image](https://img.alicdn.com/imgextra/i4/O1CN0109Avt726MNR2KLaP2_!!6000000007647-2-tps-530-480.png)
-
 ## 部署说明
 模板示例修改说明：
 

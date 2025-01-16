@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 微服务场景下，随着业务不断迭代，新功能上线时通常会涉及到多个应用需要同时发布新版本。在新版本正式上线之前，往往需要同时对多个应用进行灰度验证，确认无误后再将应用正式上线。MSE微服务治理提供全链路灰度能力，让您在不修改业务代码的情况下实现全链路流量控制，端到端构建从网关到多个后端服务的全链路灰度。
 
@@ -8,9 +8,9 @@
 * 如何搭建业务应用的基线环境，包括部署后端业务应用的基线版本，将后端业务应用接入MSE微服务治理并通过MSE云原生网关暴露应用A。完成后，测试基线版本流量是否正常。
 * 如何搭建业务应用的灰度环境，包括后端业务应用的灰度版本并创建灰度环境泳道。完成后，测试灰度版本的流量路由链路是否正常。
 
-### **方案架构**
+### 方案架构
 
-方案提供的默认设置（如地域、VPC、ACK集群、MSE网关实例、MSE Nacos等）完成部署后在阿里云上搭建的网站运行环境如下图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与下图相似。![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/1827572961/p709625.png)
+方案提供的默认设置（如地域、VPC、ACK集群、MSE网关实例、MSE Nacos等）完成部署后在阿里云上搭建的网站运行环境如架构图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与架构图相似。![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/1827572961/p709625.png)
 
 本方案的技术架构包括以下基础设施和云服务：
 
@@ -21,13 +21,13 @@
 * MSE微服务治理：无侵入增强主流Spring Cloud、Apache Dubbo等开源微服务框架，提供丰富的服务治理和流量防护功能，将中间件与业务解耦。
 * MSE注册配置中心：全托管的注册配置中心，兼容[Nacos](https://help.aliyun.com/zh/mse/product-overview/edition-features)、[ZooKeeper](https://help.aliyun.com/zh/mse/product-overview/features-of-zookeeper-editions)、[Eureka](https://help.aliyun.com/zh/mse/support/)，具备丰富完善的监控报警、控制台运维操作和引擎类型。您可以根据原有业务依赖进行选择，本方案将以MSE Nacos为例演示。
 
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 
 开始部署前，请按以下指引完成账号申请、账号充值、RAM用户创建和授权。
 
-#### **准备账号**
+#### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。
@@ -72,7 +72,7 @@
    3. 单击[云资源访问权限](https://ram.console.aliyun.com/role/authorization?request=%7B%22Services%22%3A%5B%7B%22Service%22%3A%22CS%22%2C%22Roles%22%3A%5B%7B%22RoleName%22%3A%22AliyunCSManagedLogRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedLogRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedCmsRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedCmsRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedCsiRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedCsiRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedVKRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedVKRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSClusterRole%22%2C%22TemplateId%22%3A%22Cluster%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSServerlessKubernetesRole%22%2C%22TemplateId%22%3A%22ServerlessKubernetes%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSKubernetesAuditRole%22%2C%22TemplateId%22%3A%22KubernetesAudit%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedNetworkRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedNetworkRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSDefaultRole%22%2C%22TemplateId%22%3A%22Default%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedKubernetesRole%22%2C%22TemplateId%22%3A%22ManagedKubernetes%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedArmsRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedArmsRole%22%7D%5D%7D%5D%2C%22ReturnUrl%22%3A%22https%3A%2F%2Fcs.console.aliyun.com%2F%22%7D)，然后单击**同意授权**。
       
       此页权限为可供容器服务 ACK使用的角色。授权后，ACK拥有对您云资源相应的访问权限。
-### **一键部署**
+### 一键部署
 
 
 您可以通过下方提供的ROS一键部署链接，来自动化地完成以下资源的创建和配置。部署完成后，您可以参见教程实现并体验如何通过MSE微服务治理完成ACK应用的全链路灰度。
@@ -82,7 +82,7 @@
 * 开通MSE注册配置中心并创建MSE Nacos实例
 * 关联MSE Nacos与MSE云原生网关
 
-#### **1、ROS部署前置资源**
+#### 1、ROS部署前置资源
 
 1. 打开[一键配置模板链接](https://ros.console.aliyun.com/cn-beijing/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/service_template/technical-solution/mse-realizes-full-link-grayscale.yml&pageTitle=MSE%E5%AE%9E%E7%8E%B0%E5%85%A8%E9%93%BE%E8%B7%AF%E7%81%B0%E5%BA%A6&isSimplified=True&productNavBar=disabled&disableRollback=false)前往ROS控制台，系统自动打开并停留在**配置模板参数**页面，请在配置资源栈前在页面上方选择地域。本方案示例地域为华东1（杭州）。
 2. 在**配置模板参数**页面，配置基础信息，确认无误后单击**创建**。
@@ -95,7 +95,7 @@
    | **ACK配置** | * Worker节点规格：支持选择多个**实例规格**。可通过**vCPU**、**内存**筛选**实例规格**，也可选择**架构**和**分类**。本方案选择通用型实例规格即可。关于ECS选型的最佳实践请参见[实例规格选型指导](https://help.aliyun.com/zh/ecs/user-guide/best-practices-for-instance-type-selection)。 * Worker节点系统盘磁盘类型：系统盘可选的类型与选择的实例规格相关。查询实例规格支持的云盘类型，请参见[实例规格族](https://help.aliyun.com/zh/ecs/user-guide/overview-of-instance-families#concept-sx4-lxv-tdb)。本方案保持默认即可。 * Worker节点系统盘大小(GB)：保持默认即可。 | * 通用型 g6 4 vCPU 16GiB * cloud\_essd * 120 |
    | **MSE配置** | 注册配置中心实例MSE Nacos的名称。本方案中的MSE Nacos名称默认为**test**。如您的账号下已存在同名MSE Nacos实例，请更改该名称，避免名称重复导致的资源栈创建失败。 | test |
 3. 当**资源栈信息**页面的**状态**显示为**创建成功**时表示一键配置完成。
-#### **2、开通MSE微服务治理**
+#### 2、开通MSE微服务治理
 
 1. 访问[MSE微服务治理开通页面](https://common-buy.aliyun.com/?commodityCode=mse_basic_public_cn)，单击**微服务治理**页签，配置商品类型为**按量付费**、版本为**专业版**，然后在**服务协议**区域，仔细阅读并勾选服务协议，然后单击**立即开通**，开通微服务治理专业版。详细信息，请参见[开通MSE微服务治理](https://help.aliyun.com/zh/mse/product-overview/activate-microservices-governance)。
 2. 开通成功后，单击**管理控制台**，在欢迎访问页面单击**立即授权**，然后单击**确定**。
@@ -261,7 +261,6 @@ ACK应用部署成功后，您需要在MSE微服务治理控制台接入该应�
    * **标签名**为**opensergo.io/canary**。
    * **标签值**为空。
      
-     ![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/5040748861/p689806.png)
      
      正常情况下，云原生网关默认为导入的Nacos的服务添加以上base版本，且base版本的**实例数**大于0。
      
@@ -287,7 +286,7 @@ ACK应用部署成功后，您需要在MSE微服务治理控制台接入该应�
    ```
    
    ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0646630371/p866521.png)
-### **搭建灰度环境**
+### 搭建灰度环境
 
 20
 
@@ -395,9 +394,9 @@ ACK应用部署成功后，您需要在MSE微服务治理控制台接入该应�
    | **路由规则** | **选择已在网关创建的基线路由**：选择此前创建的路由。 | test |
    | **灰度模式** | **按内容灰度** |
    | **条件列表**：单击下方的**+ 添加新的规则条件**，新增规则条件，配置**参数类型**、**参数**、**条件**和**值**。 | * **参数类型**：Header * **参数**：canary * **条件**：== * **值**：gray |
-### **完成及清理**
+### 完成及清理
 
-#### **方案验证**
+#### 方案验证
 
 **一、通过对比基线和灰度版本流量路由，验证MSE微服务的全链路灰度能力**
 

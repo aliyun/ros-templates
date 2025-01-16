@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 2020年12月08日，CentOS官方宣布了停止维护CentOS Linux的计划，并推出了CentOS Stream项目。阿里云上CentOS Linux公共镜像来源于CentOS官方，当CentOS Linux停止维护后，阿里云将会同时停止对该操作系统的支持。操作系统停止维护会带来一系列安全的影响。操作系统迁移方案主要适用于以下应用场景：
 
@@ -11,11 +11,10 @@
 
 本方案将以一个部署了WordPress的云服务器为例，为您演示如何通过服务器迁移中心SMC来为ECS迁移操作系统，并保持原有应用正常运行。
 
-### **方案架构**
+### 方案架构
 
-方案提供的默认设置完成部署后在阿里云上搭建的网站运行环境如下图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与下图相似。
+方案提供的默认设置完成部署后在阿里云上搭建的网站运行环境如架构图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与架构图相似。
 
-![操作系统迁移.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/4739723961/p712232.png)
 
 本方案的技术架构包括以下基础设施和云服务：
 
@@ -24,8 +23,8 @@
 * 服务器迁移中心SMC：用于创建管理迁移任务。
 * 云盘快照服务：用于迁移前对ECS进行备份。
 
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 
 开始部署前，请按以下指引完成账号申请、账号充值、相关服务开通、RAM用户创建和授权。
@@ -43,7 +42,7 @@
    2. **开通快照服务**
       
       ![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/9030009071/p769594.png)
-### **准备迁移源**
+### 准备迁移源
 
 
 您可以通过如下步骤，创建一个CentOS 7镜像且运行WordPress网站的ECS实例。
@@ -60,7 +59,7 @@
    ![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/1744054961/p718830.png)
 5. 根据提示完成注册安装后，填写上一步注册的邮件和密码登录WordPress管理后台。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/9908580371/p868258.png)
 6. 点击管理页面左上角站点图标，进入网站浏览。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/9908580371/p868274.png)![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/9908580371/p868276.png)可看到网站安装成功，并且成功访问。
-### **迁移操作系统**
+### 迁移操作系统
 
 
 #### 迁移实施
@@ -91,10 +90,10 @@
 
 如果您希望将已有的ECS实例作为迁移源，请在迁移前参考[SMC 操作系统迁移限制说明](https://help.aliyun.com/zh/ecs/user-guide/migrate-the-operating-system-of-an-ecs-instance-1#section-8bd-lsl-sft)，评估迁移可行性。
 
-### **完成及清理**
+### 完成及清理
 
 
-#### **方案验证**
+#### 方案验证
 
 **一、通过监控迁移过程，验证迁移任务的执行状态**
 

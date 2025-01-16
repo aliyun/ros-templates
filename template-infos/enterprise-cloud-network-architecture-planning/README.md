@@ -41,9 +41,9 @@
      | **序号** | **产品**         | **费用来源** | **规格**            | **地域**  | **预估费用参考** | **相关文档**                                                              |
      |--------|----------------|----------|-------------------|---------|------------|-----------------------------------------------------------------------|
      | 1      | 云服务器ECS        | 实例费      | ecs.s6-c1m1.small | 华东1（杭州） | 0.115元/时   | [按量付费](https://help.aliyun.com/zh/ecs/pay-as-you-go-1)                |
-     | 系统盘费   | 0.02元/时        |
+     | -      | -              | 系统盘费     | -                 | -       | 0.02元/时    | -                                                                     |
      | 2      | 云企业网CEN转发路由器TR | 连接费      | -                 | 华东1（杭州） | 0.35元/个    | [计费说明](https://help.aliyun.com/zh/cen/product-overview/billing-rules) |
-     | 流量处理费  | 0.13元/GB       |
+     | -      | -              | 流量处理费    | -                 | -       | 0.13元/GB   | -                                                                     |
 
 3. 创建用于方案部署的RAM用户。
    
@@ -120,7 +120,7 @@
 
 完成上述操作后，VPC\_PRD1、VPC\_PRD2之间互访可以通过**ping**测试连通性，流量会通过VPC\_SEC中转，符合期望的安全互访需求。
 
-1. 登录VPC\_PRD1的ECS实例，执行**ping**命令，如下图，测试与VPC\_PRD2、VPC\_SEC之间的连通性。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0743538271/p855222.png)
+1. 登录VPC\_PRD1的ECS实例，执行**ping**命令，如架构图，测试与VPC\_PRD2、VPC\_SEC之间的连通性。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0743538271/p855222.png)
 
     收到回复报文，则表示VPC\_PRD1与VPC\_PRD2之间可以正常通信；
     
@@ -128,7 +128,7 @@
     ping <网络实例下ECS实例的IP地址>
     ```
 
-2. 登录VPC\_PRD3中的ECS实例执行**ping**命令，如下图，发现无法ping通其他ECS，达到了隔离的效果。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0743538271/p855218.png)
+2. 登录VPC\_PRD3中的ECS实例执行**ping**命令，如架构图，发现无法ping通其他ECS，达到了隔离的效果。![image](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0743538271/p855218.png)
 
 **三、查看路由表详情，验证访问过程**
 

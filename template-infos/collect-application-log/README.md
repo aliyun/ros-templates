@@ -1,15 +1,14 @@
-## **方案概览**
+## 方案概览
 
 应用业务日志监控与告警是指基于阿里云日志服务满足用户数据采集，完成监控、告警的需求。本技术解决方案以模拟教育类应用服务日志的日志库作为样例，将会演示：
 
 * 如何实现一个监控看板
 * 如何根据业务日志触发邮件告警
 
-## **方案架构**
+## 方案架构
 
-方案提供的默认设置完成部署后在阿里云上搭建的网站运行环境如下图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与下图相似。
+方案提供的默认设置完成部署后在阿里云上搭建的网站运行环境如架构图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与架构图相似。
 
-![业务日志备份 3✅@2x.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2901546171/p803163.png)
 
 本方案包括如下基础设施和云服务：
 
@@ -19,14 +18,14 @@
   
   + 2个ECS实例，用于部署模拟业务客户端，模拟写入业务日志
   + 1个日志库：通过已收集日志进行查询和分析，产出监控看板，配置告警规则
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 10
 
 开始部署前，请按以下指引完成账号申请、账号充值。
 
-### **准备账号**
+### 准备账号
 
 * 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。
 * [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。
@@ -40,7 +39,7 @@
 | 云服务器 ECS | 规格：ecs.e-c1m1.large  存储空间：40 GB（高效云盘） | 华东1（杭州） | 配置费用：0.27元/小时  公网流量费用：0.800 元/GB |
 | 按量费用：约0.57 元/小时  公网流量费用：0.800 元/GB | | | |
 
-### **一键部署**
+### 一键部署
 
 15
 
@@ -59,7 +58,7 @@
    1. 单击[一键部署](https://ros.console.aliyun.com/cn-hangzhou/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/service_template/technical-solution/collect-application-log.yml&hideStepRow=true&hideStackConfig=true&pageTitle=实时可观测，即时应对风险&disableRollback=false&isSimplified=true&disableNavigation=true&productNavBar=disabled&balanceIntercept=true)，并选择地域。
    2. 在**配置模板参数**页面修改资源栈名称，配置ECS实例和日志项目名称，然后单击**创建**开始一键配置。
    3. 当**资源栈信息**页面的**状态**显示为**创建成功**时表示一键配置完成。
-### **方案验证**
+### 方案验证
 
 20
 
@@ -151,7 +150,7 @@
    
    1. 等待约2分钟后，再点击**告警中心**中**告警规则**下新增的告警规则标题，查看告警运行情况，检查是否有告警触发（如遇异常提示，请等待约1分钟后重试）。![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/1921395171/p793133.png)
    2. 当存在告警触发时，检查个人邮箱**收件箱**（如收件箱不存在邮件可查看垃圾邮件列表），可以看到标题为**日志服务告警**的邮件，正文内容带有近15分钟登录失败次数等信息。
-### **清理资源**
+### 清理资源
 
 10
 

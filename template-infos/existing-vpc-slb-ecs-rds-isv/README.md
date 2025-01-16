@@ -1,5 +1,3 @@
-![image](https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/template-infos/existing-vpc-slb-ecs-rds-isv/icon.png)
-
 ## 部署说明
 模板示例修改说明：
 

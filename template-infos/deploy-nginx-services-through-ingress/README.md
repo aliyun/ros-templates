@@ -1,4 +1,4 @@
-## **方案概览**
+## 方案概览
 
 容器服务 Kubernetes 版 ACK（Container Service for Kubernetes）提供丰富的集群及应用的管理运维功能，支持企业级容器化应用的全生命周期管理。在自建Kubernetes集群中，手动部署集群步骤较为复杂，集群应用的运维管理往往需要您手动维护和探索。ACK支持在控制台快速创建集群，接入日志服务 SLS（Simple Log Service）提供日志采集方案和看板。
 
@@ -8,11 +8,10 @@
 * 如何创建Service发布Nginx应用并通过Nginx Ingress组件暴露服务。
 * 如何在SLS控制台查看Nginx Access日志。
 
-### **方案架构**
+### 方案架构
 
-方案提供的默认设置完成部署后在阿里云上部署、发布并监控Nginx应用的架构如下图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与下图相似。
+方案提供的默认设置完成部署后在阿里云上部署、发布并监控Nginx应用的架构如架构图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与架构图相似。
 
-![使用YAML部署.jpg](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/8008323961/p712204.jpg)
 
 本方案的技术架构包括以下基础设施和云服务：
 
@@ -21,13 +20,13 @@
 * ACK集群：简单、低成本、高可用的Kubernetes集群，支持应用管理，无需您管理控制面板。
 * 日志服务SLS：提供日志采集服务以及可视化看板。
 
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 
 开始部署前，请按以下指引完成账号申请、账号充值、RAM用户创建和授权。
 
-#### **准备账号**
+#### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。
@@ -70,7 +69,7 @@
    3. 单击[云资源访问权限](https://ram.console.aliyun.com/role/authorization?request=%7B%22Services%22%3A%5B%7B%22Service%22%3A%22CS%22%2C%22Roles%22%3A%5B%7B%22RoleName%22%3A%22AliyunCSManagedLogRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedLogRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedCmsRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedCmsRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedCsiRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedCsiRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedVKRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedVKRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSClusterRole%22%2C%22TemplateId%22%3A%22Cluster%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSServerlessKubernetesRole%22%2C%22TemplateId%22%3A%22ServerlessKubernetes%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSKubernetesAuditRole%22%2C%22TemplateId%22%3A%22KubernetesAudit%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedNetworkRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedNetworkRole%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSDefaultRole%22%2C%22TemplateId%22%3A%22Default%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedKubernetesRole%22%2C%22TemplateId%22%3A%22ManagedKubernetes%22%7D%2C%7B%22RoleName%22%3A%22AliyunCSManagedArmsRole%22%2C%22TemplateId%22%3A%22AliyunCSManagedArmsRole%22%7D%5D%7D%5D%2C%22ReturnUrl%22%3A%22https%3A%2F%2Fcs.console.aliyun.com%2F%22%7D)，然后单击**同意授权**。
       
       此页权限为可供容器服务 ACK使用的角色。授权后，ACK拥有对您云资源相应的访问权限。
-### **一键部署**
+### 一键部署
 
 
 您可以通过下方提供的ROS一键部署链接，来自动化地完成以下资源的创建和配置。部署完成后，您可以参见教程实现并体验如何通过MSE微服务治理完成ACK应用的全链路灰度。
@@ -78,7 +77,7 @@
 * 创建一个ACK Pro版集群
 * 开通日志服务SLS
 
-#### **ROS部署前置资源**
+#### ROS部署前置资源
 
 1. 单击[一键配置](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/service_template/technical-solution/deploy-nginx-services-through-ingress.yml&pageTitle=部署Nginx并通过Ingress暴露和监控服务&isSimplified=True&productNavBar=disabled&disableRollback=false)前往ROS控制台，系统自动打开并停留在**配置模板参数**页面，请在配置资源栈前在页面上方选择地域。本方案示例地域为华东1（杭州）。
 2. 在**配置模板参数**页面，配置基础信息，确认无误后单击**创建**。
@@ -151,10 +150,10 @@ Nginx是一个开源反向代理服务器，部署Nginx应用并创建Service后
    * 规则：**域名**置空，设置**路径**为`/`，匹配规则为默认，设置服务名称为上文创建的服务名称，即nginxservice，**端口**自动绑定为80。
    
    等待1分钟左右，**路由**列表的**端点**列将显示路由的IP。在浏览器中输入端点IP，显示以下页面，表明路由创建成功。![Nginx](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/9781067061/p189883.png)
-### **完成及清理**
+### 完成及清理
 
 
-#### **方案验证**
+#### 方案验证
 
 Nginx应用成功发布并对外暴露后，Nginx Ingress Controller支持将所有HTTP请求日志记录到标准输出中。可以通过**Ingress概览**或者**日志服务**的**仪表盘**监控Nginx Ingress实时状态。
 

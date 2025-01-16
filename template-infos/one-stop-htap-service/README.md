@@ -1,14 +1,13 @@
-## **方案概览**
+## 方案概览
 
 在面对大规模业务数据的在线统计分析需求时，传统的数据库往往难以满足高性能和实时分析的要求，随着ClickHouse社区的不断发展壮大，越来越多的开发者寄希望于通过将MySQL的数据同步到ClickHouse进行加速分析，虽然ClickHouse官方推出了MaterializedMySQL的方式，然而如何将MySQL的数据简单方便、快速灵活地同步到ClickHouse却是一个比较繁琐的问题，需要依赖大量的黑屏操作来配置同步。
 
 本解决方案通过产品化融合MySQL和ClickHouse，实现用户可视化和白屏化操作数据一键同步，灵活地配置MySQL与ClickHouse数据表的实时同步，构建更易用、更好用的一站式HTAP（混合事务/分析处理）解决方案。利用ClickHouse的在线实时分析能力，解决大规模业务数据的在线统计分析，如业务报表统计、交互式运营分析、对账以及实时数仓等业务场景，实现事务在线处理和在线分析的一体化。
 
-### **方案架构**
+### 方案架构
 
-方案提供的默认设置（如地域、VPC、安全组、vSwitch、实例名称等）完成部署后在阿里云上搭建的RDS MySQL实时数据同步到云数据库 ClickHouse 进行加速分析的架构图如下图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与下图相似。
+方案提供的默认设置（如地域、VPC、安全组、vSwitch、实例名称等）完成部署后在阿里云上搭建的RDS MySQL实时数据同步到云数据库 ClickHouse 进行加速分析的架构图如架构图所示。实际部署时您可以根据资源规划修改部分设置，但最终形成的运行环境与架构图相似。
 
-![c5b570e594975b128c52b34ffb34f30a.jpg](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/2696453961/p710275.jpg)
 
 本方案的技术架构包括以下基础设施和云服务：
 
@@ -16,13 +15,13 @@
 * 1个专有网络 VPC：RDS MySQL 实例和云数据库 ClickHouse 实例必须在同一个 VPC 网络环境中。
 * 1个 RDS MySQL 实例：RDS MySQL 实例，用于日常在线业务（OLTP）系统的数据库存取操作等。
 * 1个云数据库 ClickHouse 实例：云数据库 ClickHouse 实例，用于将 RDS MySQL 实例的数据同步到云数据库 ClickHouse 中，实现针对 MySQL 数据的加速访问，用于实时报表、运营分析等 OLAP 业务。
-## **方案部署**
-### **部署准备**
+## 方案部署
+### 部署准备
 
 
 开始部署前，请按以下指引完成账号申请、服务开通、网络规划、资源规划等准备工作。
 
-#### **准备账号**
+#### 准备账号
 
 1. 如果您还没有阿里云账号，请访问[阿里云账号注册页面](https://account.aliyun.com/register/qr_register.htm)，根据页面提示完成注册。阿里云账号是您使用云资源的付费实体，因此是部署方案的必要前提。
 2. [为阿里云账号充值](https://help.aliyun.com/document_detail/324650.html)。
@@ -49,7 +48,7 @@
    创建RAM用户的操作指引请参见[创建RAM用户](https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user)。
    
    为RAM用户授权的操作指引请参见[为RAM用户授权](https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user)。
-### **一键部署**
+### 一键部署
 
 
 资源编排（ROS）可以让您通过YAML或JSON文件清晰简洁地描述所需的云资源及其依赖关系，然后自动化地创建和配置这些资源。您可以通过下方提供的ROS一键部署链接，来自动化地完成这些资源的创建和配置。
@@ -90,7 +89,7 @@
    
    ![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/0349702961/p706062.png)
 5. 单击资源页签，找到已创建的RDS实例和ClickHouse实例，单击实例ID，获取RDS和ClickHouse的连接地址，分别登录到云数据库 RDS MySQL 实例和云数据库 ClickHouse 实例进行查询性能的体验。
-### **方案验证**
+### 方案验证
 
 
 **一、通过执行复杂查询命令，验证云数据库ClickHouse高性能查询**
@@ -149,7 +148,7 @@
    **说明** 
    
    检查当前正在进行的同步任务，可以查看同步状态、同步库表对象，同时也可以**修改同步任务**等
-### **清理资源**
+### 清理资源
 
 
 在本方案中，您创建了1个专有网络VPC、1台交换机、1个云数据库 RDS MySQL 实例、1个云数据库 ClickHouse 实例。测试完方案后，您可以在[ROS控制台](https://ros.console.aliyun.com/overview)找到目标资源栈，然后直接删除资源栈即可（删除时，**删除方式**选择为**释放资源**）。
