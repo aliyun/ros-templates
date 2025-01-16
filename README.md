@@ -616,6 +616,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [serverless-rabbitmq.yaml](documents/solution/internet-application-development/serverless-rabbitmq.yaml)                                                   | Cloud Message Queue RabbitMQ version Serverless series advantages and practices.   |
 | [websites-from-HTTP-to-HTTPS.yaml](documents/solution/internet-application-development/websites-from-HTTP-to-HTTPS.yaml)                                   | Making websites more secure from HTTP to HTTPS.                                    |
 | [ES-vector-retrieval-capabilities.yml](documents/solution/internet-application-development/ES-vector-retrieval-capabilities.yml)                           | Using Elasticsearch's vector search capabilities for personalized recommendations. |
+| [data-protection-against-ransomware-attacks.yml](documents/solution/internet-application-development/data-protection-against-ransomware-attacks.yml)                           | Data protection:Data protection against ransomware attacks. |
 
 - security-and-compliance
 
