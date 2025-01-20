@@ -19,5 +19,5 @@
 - 单击**输出**页签，可查看输出信息，可用于部署验证。
 
 ## 清理资源
-1. 在[资源栈列表](https://ros.console.aliyun.com/stacks)中选择之前创建的资源栈。
+1. 在[资源栈列表](https://ros.console.aliyun.com/region/stacks)中选择之前创建的资源栈。
 2. 单击其右侧**操作**列的**删除**并确认，可一键删除所有创建的资源。
