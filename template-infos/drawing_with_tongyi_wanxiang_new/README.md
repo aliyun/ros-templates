@@ -40,12 +40,12 @@
 
 **注意：一定要保存好配置应用登录信息的用户名和密码，这是登录示例应用的唯一口令。**
 
-![image.png](2.png)
+![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/3356686171/p804562.png)
 
 开始创建后，等待约5分钟左右，显示创建成功。
 如出现以下情况：请单击 **开通链接** 开通OSS服务，即可继续创建。
-![image.png](3.png)
-![image.png](4.png)
+![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/4922044271/p839477.png)
+![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/3356686171/p804563.png)
 
 ## 完成及清理
 
@@ -53,7 +53,7 @@
 
 * 单击资源栈的 **输出** 页签，再单击体验地址对应的URL进行访问。
 
-![image.png](5.png)
+![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/3356686171/p804565.png)
 
 * 在浏览器中打开体验地址后，在登录页面上输入之前配置的用户名和密码，然后进行登录。
 
@@ -63,7 +63,7 @@
 
 * 现在您即可开始体验通义万向API。
 
-![image.png](6.png)
+![image.png](https://help-static-aliyun-doc.aliyuncs.com/assets/img/zh-CN/5246427271/p852713.png)
 
 ### 清理资源
 
