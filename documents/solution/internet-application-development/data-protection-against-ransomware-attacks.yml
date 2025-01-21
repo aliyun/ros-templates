@@ -1,0 +1,196 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 数据守护:防勒索攻击数据保障。
+  en: Data protection:Data protection against ransomware attacks.
+Parameters:
+  CreateSASInstance:
+    Type: Boolean
+    Label:
+      en: Whether to purchase host protection anti-ransomware service.
+      zh-cn: 是否购买主机防护防勒索服务
+    Description:
+      en: If you have already purchased the host protection and anti-ransomware service, please deselect it.
+      zh-cn: 如果已经购买主机防护防勒索服务，请取消选择。
+    Default: true
+  CommonName:
+    Type: String
+    Default: data-protection
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Default: ecs.c6.large
+  InstancePassword:
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    NoEcho: true
+  DbPassword:
+    Type: String
+    Label:
+      en: RDS Database Password
+      zh-cn: RDS数据库密码
+    Description:
+      en: "New password for the MySQL root user: at least 8 characters and contains uppercase letters, lowercase letters, numbers, and special characters (e.g.!). Any three of @#$%^&*_+)."
+      zh-cn: "MySQL root用户的新密码：至少8个字符，且包含大写字母、小写字母、数字和特殊字符（例如：!@#$%^&*_+）中的任意三种。"
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+    NoEcho: true
+Conditions:
+  IsCreateSASInstance:
+    Fn::Equals:
+      - Ref: CreateSASInstance
+      - true
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-VPC_HZ
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw_001
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-SecurityGroup_1
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      SystemDiskSize: 40
+      Password:
+        Ref: InstancePassword
+  WaitConditionHandle:
+    Type: 'ALIYUN::ROS::WaitConditionHandle'
+    Properties: { }
+  RosWaitCondition:
+    Type: 'ALIYUN::ROS::WaitCondition'
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3600
+  RunCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          
+          export MYSQL_NEW_PWD='${DbPassword}'
+          export ROS_DEPLOY=true
+          curl -sSfL https://help-static-aliyun-doc.aliyuncs.com/install-script/anti-ransomware/install.sh | bash
+          
+          ls -l /data
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+  SASInstance:
+    Type: ALIYUN::SAS::Instance
+    Condition: IsCreateSASInstance
+    DependsOn: RunCommand
+    Properties:
+      AntiRansomwareManageService: false
+      PeriodUnit: Month
+      Period: 1
+      Edition: Value-added Plan
+      AutoPay: true
+      AntiRansomware: 10
+Outputs:
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - InstanceIds
+          Region:
+            Ref: 'ALIYUN::Region'
+  SasAddress:
+    Description:
+      zh-cn: 云安全中心地址。
+      en: Sas address.
+    Value:
+      Fn::Sub: https://yundun.console.aliyun.com/?p=sas#/virusRob/${ALIYUN::Region}
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+          - DbPassword
+        Label:
+          en: Infrastructure Configuration
+          zh-cn: 基础资源配置
+      - Parameters:
+          - CreateSASInstance
+        Label: SAS
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:数据守护：防勒索攻击数据保障-tech_solu_197
+    Hidden:
+      - CommonName

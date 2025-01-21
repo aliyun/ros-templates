@@ -615,6 +615,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [serverless-rabbitmq.yaml](documents/solution/internet-application-development/serverless-rabbitmq.yaml)                                                   | 云消息队列 RabbitMQ 版 Serverless 系列优势和实践。                                            |
 | [websites-from-HTTP-to-HTTPS.yaml](documents/solution/internet-application-development/websites-from-HTTP-to-HTTPS.yaml)                                   | 从 HTTP 到 HTTPS 让网站更安全。                                                               |
 | [ES-vector-retrieval-capabilities.yml](documents/solution/internet-application-development/ES-vector-retrieval-capabilities.yml)                           | 使用 Elasticsearch 的向量检索能力进行个性化推荐。                                             |
+| [data-protection-against-ransomware-attacks.yml](documents/solution/internet-application-development/data-protection-against-ransomware-attacks.yml)                           | 数据守护:防勒索攻击数据保障。                                            |
 
 - security-and-compliance
 
