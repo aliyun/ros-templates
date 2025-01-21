@@ -616,6 +616,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [websites-from-HTTP-to-HTTPS.yaml](documents/solution/internet-application-development/websites-from-HTTP-to-HTTPS.yaml)                                   | 从 HTTP 到 HTTPS 让网站更安全。                                                               |
 | [ES-vector-retrieval-capabilities.yml](documents/solution/internet-application-development/ES-vector-retrieval-capabilities.yml)                           | 使用 Elasticsearch 的向量检索能力进行个性化推荐。                                             |
 | [data-protection-against-ransomware-attacks.yml](documents/solution/internet-application-development/data-protection-against-ransomware-attacks.yml)                           | 数据守护:防勒索攻击数据保障。                                            |
+| [upgrade-the-front-end-separation-architecture.yml](documents/solution/internet-application-development/upgrade-the-front-end-separation-architecture.yml)                           | 10分钟完成前后端分离架构升级（ECS版）。                                          |
 
 - security-and-compliance
 

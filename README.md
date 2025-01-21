@@ -617,6 +617,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [websites-from-HTTP-to-HTTPS.yaml](documents/solution/internet-application-development/websites-from-HTTP-to-HTTPS.yaml)                                   | Making websites more secure from HTTP to HTTPS.                                    |
 | [ES-vector-retrieval-capabilities.yml](documents/solution/internet-application-development/ES-vector-retrieval-capabilities.yml)                           | Using Elasticsearch's vector search capabilities for personalized recommendations. |
 | [data-protection-against-ransomware-attacks.yml](documents/solution/internet-application-development/data-protection-against-ransomware-attacks.yml)                           | Data protection:Data protection against ransomware attacks. |
+| [upgrade-the-front-end-separation-architecture.yml](documents/solution/internet-application-development/upgrade-the-front-end-separation-architecture.yml)                           | Complete front-end separation architecture upgrade in 10 minutes (ECS version). |
 
 - security-and-compliance
 

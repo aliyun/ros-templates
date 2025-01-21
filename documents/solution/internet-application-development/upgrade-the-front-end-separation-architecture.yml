@@ -1,0 +1,230 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 10分钟完成前后端分离架构升级（ECS版）。
+  en: Complete front-end separation architecture upgrade in 10 minutes (ECS version).
+Parameters:
+  CommonName:
+    Type: String
+    Default: front-end-separation-architecture
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Default: ecs.c6.large
+  InstancePassword:
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-VPC_HZ
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw_001
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-SecurityGroup_1
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      SystemDiskSize: 40
+      Password:
+        Ref: InstancePassword
+  WaitConditionHandle:
+    Type: 'ALIYUN::ROS::WaitConditionHandle'
+    Properties: { }
+  RosWaitCondition:
+    Type: 'ALIYUN::ROS::WaitCondition'
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3600
+  RunCommand:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            export ROS_DEPLOY=true
+            
+            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/java.sh | bash
+            
+            curl -I http://localhost:8080/api/getEcsReleaseNotes
+            
+            sudo yum install -y nginx
+            sudo yum install -y unzip
+            sudo wget -O $HOME/pages.zip https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/pages.zip
+            sudo unzip -o $HOME/pages.zip
+            sudo chmod -R a+rx $HOME/dist/
+            sudo cp -r $HOME/dist/* /usr/share/nginx/html
+            
+            sudo mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+            cat << "EOF" > /etc/nginx/nginx.conf
+            user nginx;
+            worker_processes auto;
+            error_log /var/log/nginx/error.log;
+            pid /run/nginx.pid;
+            
+            # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+            include /usr/share/nginx/modules/*.conf;
+            
+            events {
+                worker_connections 1024;
+            }
+            
+            http {
+                log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                                  '$status $body_bytes_sent "$http_referer" '
+                                  '"$http_user_agent" "$http_x_forwarded_for"';
+            
+                access_log  /var/log/nginx/access.log  main;
+            
+                sendfile            on;
+                tcp_nopush          on;
+                tcp_nodelay         on;
+                keepalive_timeout   65;
+                types_hash_max_size 4096;
+            
+                include             /etc/nginx/mime.types;
+                default_type        application/octet-stream;
+            
+                # Load modular configuration files from the /etc/nginx/conf.d directory.
+                # See http://nginx.org/en/docs/ngx_core_module.html#include
+                # for more information.
+                include /etc/nginx/conf.d/*.conf;
+            
+                server {
+                    listen       80 default_server;
+                    listen       [::]:80;
+                    server_name  _;
+                    root         /usr/share/nginx/html;
+            
+                    # Load configuration files for the default server block.
+                    include /etc/nginx/default.d/*.conf;
+            
+                    location / {
+                      root /usr/share/nginx/html;
+                      index index.html;
+                    }
+                    
+                    location /api/{
+                      proxy_pass  http://${PrivateIp}:8080/api/; 
+                    }
+            
+                    error_page 404 /error.html;
+                    location = /error.html {
+                        root /usr/share/nginx/html;
+                    }
+            
+                    error_page 500 502 503 504 /50x.html;
+                        location = /50x.html {
+                    }
+                }
+            }    
+            EOF
+            
+            sudo systemctl start nginx
+            sudo systemctl enable nginx
+            
+            ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+          - PrivateIp:
+              'Fn::Select':
+                - 0
+                - Fn::GetAtt:
+                    - EcsInstance
+                    - PrivateIps
+Outputs:
+  EcsInstanceUrl:
+    Description:
+      en: Public IP address of the cloud server ECS.
+      zh-cn: 云服务器ECS的公网IP地址。
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}
+        - PublicIp:
+            Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          en: Infrastructure Configuration
+          zh-cn: 基础资源配置
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:10分钟完成前后端分离架构升级（ECS版）-tech_solu_195
+    Hidden:
+      - CommonName
