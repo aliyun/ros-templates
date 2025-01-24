@@ -1,5 +1,17 @@
 ROSTemplateFormatVersion: "2015-09-01"
 Parameters:
+  PolarDBNodeClass:
+    Type: String
+    Label:
+      en: Polardb MySQL Node Specifications
+      zh-cn: Polardb MySQL 节点规格
+    Default: polar.mysql.g2.medium
+    AssociationProperty: ALIYUN::POLARDB::DBCluster::DBNodeClass
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      DBVersion: "8.0"
+      DBType: MySQL
+      PayType: Postpaid
   RdsAccountName:
     Type: String
     Label:
@@ -22,7 +34,7 @@ Parameters:
   AdbAccountName:
     Type: String
     Label:
-      zh-cn: AnalyticDB MySQ L用户名称
+      zh-cn: AnalyticDB MySQL 用户名称
       en: AnalyticDB MySQL Account Name
     Default: adb_admin
   AdbAccountPassword:
@@ -62,6 +74,21 @@ Parameters:
       Category: HighAvailability
       InstanceChargeType: Postpaid
       DBInstanceStorageType: cloud_essd
+  PolardbAccountName:
+    Type: String
+    Description: The name of the database account to be used.
+    Default: db_user
+    Label:
+      zh-cn: Polardb MySQL 用户名称
+      en: Polardb MySQL Account Name
+  PolardbAccountPassword:
+    Type: String
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+    Label:
+      zh-cn: Polardb MySQL 用户密码
+      en: Polardb MySQL DB Account Password
 Description:
   zh-cn: 本模板使用DTS实现一键数据同步，灵活配置云数据库 RDS MySQL版实例与云原生数据仓库 AnalyticDB MySQL 版集群之间的数据表实时同步。
   en: This template uses DTS to achieve one-click data synchronization, allowing for flexible configuration of real-time data table synchronization between cloud database RDS MySQL instances and cloud-native data warehouse AnalyticDB MySQL clusters.
@@ -82,6 +109,16 @@ Resources:
         Ref: ZoneId
       VSwitchName:
         Fn::Sub: vsw_${CommonName}
+  PolardbAccount:
+    Type: ALIYUN::POLARDB::Account
+    Properties:
+      DBClusterId:
+        Ref: PolardbCluster
+      AccountName:
+        Ref: PolardbAccountName
+      AccountPassword:
+        Ref: PolardbAccountPassword
+      AccountType: Super
   RDS:
     Type: ALIYUN::RDS::DBInstance
     Properties:
@@ -140,6 +177,25 @@ Resources:
     Type: ALIYUN::ROS::AutoEnableService
     Properties:
       ServiceName: PrivateLink
+  PolardbCluster:
+    Type: ALIYUN::POLARDB::DBCluster
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityIPList: 192.168.0.0/16
+      LoosePolarLogBin: 'ON'
+      DBType: MySQL
+      ClusterNetworkType: VPC
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      DBVersion: '8.0'
+      DBNodeClass:
+        Ref: PolarDBNodeClass
+      PayType: Postpaid
+      DBNodeNum: 2
+      StorageType: PSL4
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -164,15 +220,25 @@ Metadata:
         default:
           en: AnalyticDB MySQL Configuration
           zh-cn: AnalyticDB MySQL 配置
+    - Parameters:
+        - PolarDBNodeClass
+        - PolardbAccountName
+        - PolardbAccountPassword
+      Label:
+        default:
+          en: PolarDB MySQL Configuration
+          zh-cn: PolarDB MySQL 配置
     Hidden:
       - CommonName
     TemplateTags:
-    - acs:technical-solution:db:无缝集成 MySQL，解锁秒级 OLAP 分析性能极限
+    - acs:technical-solution:db:构建OLAP全场景，揭秘实时/离线数仓一体化架构
     Outputs:
       - RDS MySQL的用户名称
       - RDS MySQL的用户密码
       - AnalyticDB MySQL的用户名称
       - AnalyticDB MySQL的用户密码
+      - PolarDB MySQL的用户名称
+      - PolarDB MySQL的用户密码
 Outputs:
   RDS MySQL的用户名称:
     Description:
@@ -211,5 +277,24 @@ Outputs:
       en: AnalyticDB MySQL user password.
     Value:
       Ref: AdbAccountPassword
+    NoEcho: true
+  PolarDB MySQL的用户名称:
+    Description:
+      zh-cn: PolarDB MySQL的用户名称。
+      en: PolarDB MySQL user name.
+    Label:
+      zh-cn: PolarDB MySQL的用户名称。
+      en: PolarDB MySQL user name.
+    Value:
+      Ref: PolardbAccountName
+  PolarDB MySQL的用户密码:
+    Description:
+      zh-cn: PolarDB MySQL的用户密码。
+      en: PolarDB MySQL user password.
+    Label:
+      zh-cn: PolarDB MySQL的用户密码。
+      en: PolarDB MySQL user password.
+    Value:
+      Ref: PolardbAccountPassword
     NoEcho: true
 
