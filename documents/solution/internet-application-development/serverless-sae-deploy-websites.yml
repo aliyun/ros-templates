@@ -1,0 +1,280 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Parameters:
+  CommonName:
+    Type: String
+    Default: hz
+  ZoneId1:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: VSwitch1 Availability Zone1
+      zh-cn: 交换机1使用的可用区
+  ZoneId2:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: VSwitch2 Availability Zone2
+      zh-cn: 交换机2使用可用区
+  SaeNamespaceName:
+    Type: String
+    Default: ns_hz
+    Label:
+      en: SAE Namespace
+      zh-cn: SAE命名空间名称
+  SaeNamespaceId:
+    Type: String
+    Default: nshz
+    Label:
+      en: SAE Namespace ID
+      zh-cn: SAE命名空间ID
+Description:
+  zh-cn: 本模板采用Serverless应用引擎SAE完成前后端分离架构部署网站服务。
+  en: This template uses the Serverless App Engine (SAE) to complete the deployment of a website service with a separated front-end and back-end architecture.
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: vpc_${CommonName}
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: vsw_001_${CommonName}
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.2.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName:
+        Fn::Sub: vsw_002_${CommonName}
+  SaeNamespace:
+    Type: ALIYUN::SAE::Namespace
+    Properties:
+      NamespaceName:
+        Ref: SaeNamespaceName
+      NamespaceId:
+        Fn::Sub:
+          - '${ALIYUN::Region}:${SaeNamespaceId}'
+          - SaeNamespaceId:
+              Ref: SaeNamespaceId
+  IntranetClb:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName:
+        Fn::Sub: clb_001_${CommonName}
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch1
+      LoadBalancerSpec: slb.s2.medium
+      AddressType: intranet
+  InternetClb:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      LoadBalancerName:
+        Fn::Sub: clb_002_${CommonName}
+      LoadBalancerSpec: slb.s2.medium
+      AddressType: internet
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: sg-${CommonName}
+  SAEBackendApp:
+    Type: 'ALIYUN::SAE::Application'
+    Properties:
+      AppName: backend
+      SaeVersion: v2
+      AutoConfig: false
+      VpcId:
+        Ref: Vpc
+      SecurityGroupId:
+        Ref: SecurityGroup
+      VSwitchId:
+        Fn::Sub:
+          - '${VSwitch1},${VSwitch2}'
+          - VSwitch1:
+              Fn::GetAtt:
+                - VSwitch1
+                - VSwitchId
+            VSwitch2:
+              Fn::GetAtt:
+                - VSwitch2
+                - VSwitchId
+      Replicas: 2
+      NamespaceId:
+        Ref: SaeNamespace
+      Cpu: 1000
+      Memory: 2048
+      PackageType: Image
+      Jdk: Dragonwell 21
+      ImageUrl:
+        Fn::Sub: registry.${ALIYUN::Region}.aliyuncs.com/sae-serverless-demo/sae-demo:web-springboot-hellosae-v1.0
+      ProgrammingLanguage: java
+      AppSource: micro_service
+  SAEFrontendApp:
+    Type: 'ALIYUN::SAE::Application'
+    DependsOn:
+      - ConfigMapBackendApp
+    Properties:
+      AppName: frontend
+      ConfigMapMountDesc:
+        Fn::Sub:
+          - |
+            [{"ConfigMapId":${ConfigMapId},"Key":"nginx.conf","MountPath":"/etc/nginx/nginx.conf"}]
+          - ConfigMapId:
+              Fn::GetAtt:
+                - ConfigMapBackendApp
+                - ConfigMapId
+      SaeVersion: v2
+      AutoConfig: false
+      VpcId:
+        Ref: Vpc
+      SecurityGroupId:
+        Ref: SecurityGroup
+      VSwitchId:
+        Fn::Sub:
+          - '${VSwitch1},${VSwitch2}'
+          - VSwitch1:
+              Fn::GetAtt:
+                - VSwitch1
+                - VSwitchId
+            VSwitch2:
+              Fn::GetAtt:
+                - VSwitch2
+                - VSwitchId
+      Replicas: 2
+      NamespaceId:
+        Ref: SaeNamespace
+      Cpu: 1000
+      Memory: 2048
+      PackageType: Image
+      ImageUrl:
+        Fn::Sub: registry.${ALIYUN::Region}.aliyuncs.com/sae-serverless-demo/sae-demo:web-dashboard-hellosae-v1.0
+      ProgrammingLanguage: other
+      AppSource: micro_service
+  Sleep1:
+    Type: ALIYUN::ROS::Sleep
+    DependsOn: SAEBackendApp
+    Properties:
+      CreateDuration: 60
+  Sleep2:
+    Type: ALIYUN::ROS::Sleep
+    DependsOn: SAEFrontendApp
+    Properties:
+      CreateDuration: 60
+  BackendAppBindClb:
+    Type: 'ALIYUN::SAE::SlbBinding'
+    DependsOn:
+      - Sleep1
+    Properties:
+      IntranetSlbId:
+        Fn::GetAtt:
+          - IntranetClb
+          - LoadBalancerId
+      Intranet: '[{"port": 8080, "targetPort": 8080, "protocol": "HTTP"}]'
+      AppId:
+        Fn::GetAtt:
+          - SAEBackendApp
+          - AppId
+  FrontendAppBindClb:
+    Type: 'ALIYUN::SAE::SlbBinding'
+    DependsOn:
+      - Sleep2
+    Properties:
+      InternetSlbId:
+        Fn::GetAtt:
+          - InternetClb
+          - LoadBalancerId
+      Internet: '[{"port": 80, "targetPort": 80, "protocol": "HTTP"}]'
+      AppId:
+        Fn::GetAtt:
+          - SAEFrontendApp
+          - AppId
+  ConfigMapBackendApp:
+    Type: 'ALIYUN::SAE::ConfigMap'
+    Properties:
+      NamespaceId:
+        Ref: SaeNamespace
+      Name: nginx
+      Data:
+        nginx.conf:
+          Fn::Sub:
+            - |
+              user nginx; worker_processes auto; error_log /var/log/nginx/error.log; pid /run/nginx.pid;
+              events {
+                worker_connections 1024;
+              }
+              http {
+                  server_tokens off;
+                  include       mime.types;
+                  charset       utf-8;
+                  server {
+                      listen 80;
+              
+                   location / {
+                      root   /usr/share/nginx/html;
+                      index  index.html;
+                      try_files $uri $uri/ /index.html;
+                    }
+              
+                   location /saeTest/ {
+                      proxy_pass  http://${SlbAddress}:8080/saeTest/; 
+                    }  
+               }
+              }
+            - SlbAddress:
+                Fn::GetAtt:
+                  - IntranetClb
+                  - IpAddress
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId1
+          - ZoneId2
+        Label:
+          default:
+            en: Network Configuration
+            zh-cn: 网络配置
+      - Parameters:
+          - SaeNamespaceName
+          - SaeNamespaceId
+        Label:
+          default:
+            en: SAE Configuration
+            zh-cn: SAE配置
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:前后端分离架构升级(SAE版)-tech_solu_195
+Outputs:
+  INTERNET_CLB_ADDRESS:
+    Label:
+      zh-cn: CLB公网访问地址。
+      en: CLB Address.
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}:80
+        - ServerAddress:
+            Fn::GetAtt:
+              - InternetClb
+              - IpAddress
+
+
