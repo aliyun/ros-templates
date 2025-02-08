@@ -618,6 +618,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [ES-vector-retrieval-capabilities.yml](documents/solution/internet-application-development/ES-vector-retrieval-capabilities.yml)                           | Using Elasticsearch's vector search capabilities for personalized recommendations. |
 | [data-protection-against-ransomware-attacks.yml](documents/solution/internet-application-development/data-protection-against-ransomware-attacks.yml)                           | Data protection:Data protection against ransomware attacks. |
 | [upgrade-the-front-end-separation-architecture.yml](documents/solution/internet-application-development/upgrade-the-front-end-separation-architecture.yml)                           | Complete front-end separation architecture upgrade in 10 minutes (ECS version). |
+| [deploy-SSL-certificates-to-Nginx-applications.yml](documents/solution/internet-application-development/deploy-SSL-certificates-to-Nginx-applications.yml)                           | Deploy SSL certificates to Nginx applications. |
 
 - security-and-compliance
 
