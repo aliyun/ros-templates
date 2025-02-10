@@ -618,6 +618,8 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [data-protection-against-ransomware-attacks.yml](documents/solution/internet-application-development/data-protection-against-ransomware-attacks.yml)                           | 数据守护:防勒索攻击数据保障。                                            |
 | [upgrade-the-front-end-separation-architecture.yml](documents/solution/internet-application-development/upgrade-the-front-end-separation-architecture.yml)                           | 10分钟完成前后端分离架构升级（ECS版）。                                          |
 | [deploy-SSL-certificates-to-Nginx-applications.yml](documents/solution/internet-application-development/deploy-SSL-certificates-to-Nginx-applications.yml)                           | 部署SSL证书至Nginx应用。                                          |
+| [deploy-SSL-certificates-to-SpringBoot-applications.yml](documents/solution/internet-application-development/deploy-SSL-certificates-to-SpringBoot-applications.yml)                           | 部署SSL证书至Spring Boot应用。 |
+| [deploy-SSL-certificates-to-Tomcat-applications.yml](documents/solution/internet-application-development/deploy-SSL-certificates-to-Tomcat-applications.yml)                           | 部署SSL证书至Tomcat应用。 |
 
 - security-and-compliance
 
