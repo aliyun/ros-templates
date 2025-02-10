@@ -619,6 +619,8 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [data-protection-against-ransomware-attacks.yml](documents/solution/internet-application-development/data-protection-against-ransomware-attacks.yml)                           | Data protection:Data protection against ransomware attacks. |
 | [upgrade-the-front-end-separation-architecture.yml](documents/solution/internet-application-development/upgrade-the-front-end-separation-architecture.yml)                           | Complete front-end separation architecture upgrade in 10 minutes (ECS version). |
 | [deploy-SSL-certificates-to-Nginx-applications.yml](documents/solution/internet-application-development/deploy-SSL-certificates-to-Nginx-applications.yml)                           | Deploy SSL certificates to Nginx applications. |
+| [deploy-SSL-certificates-to-SpringBoot-applications.yml](documents/solution/internet-application-development/deploy-SSL-certificates-to-SpringBoot-applications.yml)                           | Deploy SSL certificates to Spring Boot applications. |
+| [deploy-SSL-certificates-to-Tomcat-applications.yml](documents/solution/internet-application-development/deploy-SSL-certificates-to-Tomcat-applications.yml)                           | Deploy SSL certificates to Tomcat applications. |
 
 - security-and-compliance
 
