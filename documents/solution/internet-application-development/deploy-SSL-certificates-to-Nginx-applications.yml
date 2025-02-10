@@ -1,0 +1,539 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 部署SSL证书至Nginx应用。
+  en: Deploy SSL certificates to Nginx applications.
+Parameters:
+  SolutionName:
+    Type: String
+    Default: 部署SSL证书至Nginx应用
+  CommonName:
+    Type: String
+    Default: http-to-https
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Default: ecs.c6.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+  CertificateId:
+    AssociationProperty: ALIYUN::CAS::Certificate::CertificateId
+    Type: String
+    Label:
+      en: SSL Certificate Id
+      zh-cn: SSL证书
+    Description:
+      en: The certificate is bound to a wildcard certificate. For example, if *.example.com is selected, www is added by default. Is a prefix, for example, www.example.com.
+      zh-cn: 如果您选择通配符域名的证书，如*.example.com，默认会将证书部署到主机记录为www的域名上，即：www.example.com
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 443/443
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      Password:
+        Ref: InstancePassword
+  InstallNginx:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          
+          # script exit code:
+          # 0 - success
+          # 1 - unsupported system
+          # 2 - network not available
+          # 3 - failed install nginx
+          
+          # 环境变量配置
+          export PATH=/usr/local/bin:$PATH
+          
+          # 网络检查地址
+          NETWORK_CHECk_ADDR="help-static-aliyun-doc.aliyuncs.com"
+          
+          function unsupported_system() {
+              log_fatal 1 "Unsupported System: $1"
+          }
+          
+          function log_info() {
+              printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_error() {
+              printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+          }
+          
+          function log_fatal() {
+              printf "\n========================================================================\n"
+              printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
+              printf "\n========================================================================\n"
+              exit $1
+          }
+          
+          function debug_exec(){
+              local cmd="$@"
+              log_info "$cmd"
+              eval "$cmd"
+              ret=$?
+              echo ""
+              log_info "$cmd, exit code: $ret"
+              return $ret
+          }
+          
+          function check_network_available() {
+              log_info "ping $NETWORK_CHECk_ADDR ..."
+              if ! debug_exec ping -c 4 $NETWORK_CHECk_ADDR; then
+                  log_fatal 2 "Could not connect to https://$NETWORK_CHECk_ADDR"
+              fi
+          }
+          
+          function set_ros_flag() {
+              log_info "set ros flag to .ros.provision"
+              echo "$(date '+%Y-%m-%d %H:%M:%S') [${ALIYUN::StackId}] [${SolutionName}]" >> .ros.provision
+          }
+          
+          log_info "System Information:"
+          if ! lsb_release -a; then
+              unsupported_system
+          fi;
+          echo ""
+          
+          check_network_available
+          log_info "install nginx 1.20.1"
+          if ! debug_exec yum install nginx -y; then
+              log_fatal 3 "install nginx failed"
+          fi
+          
+          log_info "download example"
+          mv /usr/share/nginx/html/index.html /usr/share/nginx/html/index.html.bak
+          wget -O /usr/share/nginx/html/index.html https://help-static-aliyun-doc.aliyuncs.com/install-script/install-ssl-certificate/index.html
+          chmod -R a+rx /usr/share/nginx/html/index.html
+
+          log_info "start and enable nginx"
+          systemctl start nginx 
+          systemctl enable nginx
+          set_ros_flag
+  DomainRecord:
+    Type: 'ALIYUN::DNS::DomainRecord'
+    Properties:
+      Type: A
+      RR:
+        Fn::Select:
+          - '0'
+          - Fn::Split:
+              - .
+              - Fn::GetJsonValue:
+                  - DomainName
+                  - Fn::GetAtt:
+                      - DomainName
+                      - Outputs
+      DomainName:
+        Fn::Join:
+          - .
+          - Fn::Select:
+            - '1:'
+            - Fn::Split:
+                - .
+                - Fn::GetJsonValue:
+                    - DomainName
+                    - Fn::GetAtt:
+                        - DomainName
+                        - Outputs
+      Value:
+        Fn::Select:
+          - 0
+          - Fn::GetAtt:
+              - EcsInstance
+              - PublicIps
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: create_by_document-${ALIYUN::StackId}
+      PolicyAttachments:
+        System:
+          - AliyunYundunCertReadOnlyAccess
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Ref: User
+  Service:
+    Type: ALIYUN::FC::Service
+    Properties:
+      ServiceName:
+        Fn::Sub: create_by_document-${ALIYUN::StackId}
+  Function:
+    Type: ALIYUN::FC::Function
+    Properties:
+      ServiceName:
+        Fn::GetAtt:
+          - Service
+          - ServiceName
+      FunctionName:
+        Fn::Sub: create_by_document-${ALIYUN::StackId}
+      Handler: index.handler
+      Runtime: python3.9
+      Code:
+        SourceCode:
+          Fn::Sub: |-
+            #!/usr/bin/env python
+            # coding=utf-8
+            import json, time, urllib.request
+            from aliyunsdkcore.client import AcsClient
+            from aliyunsdkcore.request import CommonRequest
+            from aliyunsdkcore.auth.credentials import AccessKeyCredential 
+            def handler(event, context):
+              event = json.loads(event)
+              creds = context.credentials
+              r_ps = event['ResourceProperties']
+
+              credentials = AccessKeyCredential("${AccessKey.AccessKeyId}", "${AccessKey.AccessKeySecret}")
+              client = AcsClient(region_id=context.region, credential=credentials)
+
+
+              if event['RequestType'] != 'Delete':
+                request = CommonRequest()
+                request.set_accept_format('json')
+                request.set_domain('cas.aliyuncs.com')
+                request.set_method('POST')
+                request.set_protocol_type('https') # https | http
+                request.set_version('2020-04-07')
+                request.set_action_name('GetUserCertificateDetail')
+
+                request.add_query_param('CertId', "${CertificateId}")
+
+                response = client.do_action(request)
+                response = json.loads(response)
+
+              result = {
+                    'RequestId': event['RequestId'],
+                    'LogicalResourceId': event['LogicalResourceId'],
+                    'StackId': event['StackId'],
+                    'Status': 'SUCCESS',
+                    'PhysicalResourceId': 'MyCustomResourceId',
+                    'Data': {}
+                }
+              if event['RequestType'] != 'Delete':
+                  domain_name = response.get('Common')
+                  if domain_name:
+                    if domain_name.startswith('*.'):
+                      result['Data'] = {
+                          "DomainName": 'www.' + domain_name[2:],
+                          "DomainPrefix": "www."
+                        }
+                    else:
+                      result['Data'] = {
+                          "DomainName": '@.' + domain_name,
+                          "DomainPrefix": ""
+                        }
+              headers = {'Content-type': 'application/json', 'Accept': 'application/json','Date': time.strftime('%a, %d %b %Y %X GMT', time.gmtime()), 'User-Agent': 'MyCustomUserAgent'}
+              req = urllib.request.Request(event['ResponseURL'], data=json.dumps(result).encode('utf-8'), headers=headers)
+              urllib.request.urlopen(req)
+  DomainName:
+    Type: Custom::DomainName
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - Function
+          - ARN
+      Timeout: 60
+  SSLConfig:
+    Type: 'ALIYUN::ECS::RunCommand'
+    DependsOn: InstallNginx
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            function log_info() {
+                printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+            }
+            
+            function log_error() {
+                printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+            }
+            
+            function log_fatal() {
+                printf "\n========================================================================\n"
+                printf "%s [FATAL] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$2"
+                printf "\n========================================================================\n"
+                exit $1
+            }
+            
+            function debug_exec(){
+                local cmd="$@"
+                log_info "$cmd"
+                eval "$cmd"
+                ret=$?
+                echo ""
+                log_info "$cmd, exit code: $ret"
+                return $ret
+            }
+            
+            function check_ros_flag() {
+                log_info "check ros flag in .ros.provision."
+                if [ ! -f .ros.provision ]; then
+                    log_fatal 1 ".ros.provision file is not exist, instance not deployed nginx by ROS"
+                else
+                    name=`tail -n 1 .ros.provision | grep -oP '\[.*?\]\s*\K\[.*?\]' | tr -d '[]'`
+                    if [ "$name" != "${SolutionName}" ]; then
+                        log_fatal 2 "solution name $name in .ros.provision is not ${SolutionName}."
+                    fi
+                fi
+            }
+            
+            cat << EOF > /root/get_user_certificate.py
+            #!/usr/bin/env python
+            #coding=utf-8
+            
+            import os
+            import json
+            from aliyunsdkcore.client import AcsClient
+            from aliyunsdkcore.request import CommonRequest
+            from aliyunsdkcore.auth.credentials import AccessKeyCredential
+            from aliyunsdkcore.auth.credentials import StsTokenCredential
+            
+            credentials = AccessKeyCredential("${AccessKey.AccessKeyId}", "${AccessKey.AccessKeySecret}")
+            
+            client = AcsClient(region_id='${ALIYUN::Region}', credential=credentials)
+            
+            request = CommonRequest()
+            request.set_accept_format('json')
+            request.set_domain('cas.aliyuncs.com')
+            request.set_method('POST')
+            request.set_protocol_type('https') # https | http
+            request.set_version('2020-04-07')
+            request.set_action_name('GetUserCertificateDetail')
+            
+            request.add_query_param('CertId', ${CertificateId})
+            
+            response = client.do_action(request)
+            response = json.loads(response)
+            cert = response.get('Cert')
+            if cert:
+              with open('/etc/nginx/cert/public_key.pem', 'w') as f:
+                f.write(cert)
+            key = response.get('Key')
+            if key:
+              with open('/etc/nginx/cert/private_key.key', 'w') as f:
+                f.write(key)
+            EOF
+            
+            function download_and_check_cert_file() {
+                log_info "down load and check zip file."
+                sudo yum update -y
+                sudo yum install -y python3 python3-pip
+                sudo pip3 install aliyun-python-sdk-core
+                mkdir /etc/nginx/cert && cd /etc/nginx/cert
+                python3 /root/get_user_certificate.py
+                
+                PEM_FILE=`ls *.pem`
+                KEY_FILE=`ls *.key`
+            
+                if [ -z "$PEM_FILE" ]; then
+                    log_fatal 5 "there are no files ending in .pem in the uploaded zip file." 
+                fi
+  
+                if [ -z "$KEY_FILE" ]; then
+                    log_fatal 5 "there are no files ending in .key in the uploaded zip file." 
+                fi              
+            }
+            
+            check_ros_flag
+            download_and_check_cert_file
+            
+            domain_name=$(echo "${DomainName}" | sed 's/^@\.//')
+
+            
+            cat << EOF > /etc/nginx/conf.d/ssl_demo.conf
+            server {
+                #HTTPS的默认访问端口443
+                #如果未在此处配置HTTPS的默认访问端口，可能会造成Nginx无法启动。
+                listen 443 ssl;
+                #填写证书绑定的域名
+                server_name $domain_name;    
+                
+                #填写证书文件绝对路径
+                ssl_certificate      "/etc/nginx/cert/$PEM_FILE";
+                #填写证书私钥文件绝对路径 
+                ssl_certificate_key  "/etc/nginx/cert/$KEY_FILE";
+         
+                ssl_session_cache    shared:SSL:1m;
+                ssl_session_timeout  5m;
+            
+                #默认加密套件
+                ssl_ciphers  HIGH:!aNULL:!MD5;
+            
+                #自定义设置使用的TLS协议的类型以及加密套件（以下为配置示例，请您自行评估是否需要配置）
+                #TLS协议版本越高，HTTPS通信的安全性越高，但是相较于低版本TLS协议，高版本TLS协议对浏览器的兼容性较差。
+                #ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
+                #ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
+            
+                #表示优先使用服务端加密套件。默认开启
+                ssl_prefer_server_ciphers  on;
+         
+                location / {
+                    root   html;
+                    index  index.html index.htm;
+                }
+            }
+            EOF
+            
+            if ! debug_exec nginx -s reload ; then
+                log_fatal 6 "reload nginx failed."
+            fi
+          - DomainName:
+              Fn::GetJsonValue:
+                - DomainName
+                - Fn::GetAtt:
+                    - DomainName
+                    - Outputs
+Outputs:
+  WebDomainForHttps:
+    Description:
+      zh-cn: 安全的 Web 访问地址。
+      en: Secure web access address.
+    Value:
+      Fn::Sub:
+        - 'https://${DomainPrefix}${DomainName}'
+        - DomainName:
+            Fn::Join:
+              - .
+              - Fn::Select:
+                  - '1:'
+                  - Fn::Split:
+                      - .
+                      - Fn::GetJsonValue:
+                          - DomainName
+                          - Fn::GetAtt:
+                              - DomainName
+                              - Outputs
+          DomainPrefix:
+            Fn::GetJsonValue:
+              - DomainPrefix
+              - Fn::GetAtt:
+                  - DomainName
+                  - Outputs
+
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - InstanceIds
+          Region:
+            Ref: 'ALIYUN::Region'
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+          - CertificateId
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:部署SSL证书至Nginx应用-tech_solu_113
+    Hidden:
+      - CommonName
+      - SolutionName
