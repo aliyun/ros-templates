@@ -1,0 +1,141 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Description:
+  zh-cn: 云端建站：高效降低网络带宽成本。
+  en: Cloud site construction, effectively reduce network bandwidth costs.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+  InstancePassword:
+    Type: String
+    NoEcho: true
+    Default: null
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: VPC_HZ
+      CidrBlock: 192.168.0.0/16
+  Vsw:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      VSwitchName: vsw_001
+      ZoneId:
+        Ref: ZoneId
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupIngress:
+        - Priority: 1
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: Vsw
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_20241218.vhd
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      AllocatePublicIP: False
+      InstanceType:
+        Ref: InstanceType
+      Password:
+        Ref: InstancePassword
+  ElasticIp:
+    Type: ALIYUN::ECS::EIP
+    Properties:
+      Bandwidth: 200
+      InternetChargeType: PayByTraffic
+  ElasticIpAssociation:
+    Type: ALIYUN::ECS::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::Select:
+          - '0'
+          - Fn::GetAtt:
+              - EcsInstanceGroup
+              - InstanceIds
+      AllocationId:
+        Fn::GetAtt:
+          - ElasticIp
+          - AllocationId
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/cloud_net_cost_reduction/install.sh | bash
+      Type: RunShellScript
+      Timeout: '2400'
+      Sync: true
+    DependsOn:
+      - ElasticIpAssociation
+
+Outputs:
+  Url:
+    Description: Web Url.
+    Value:
+      Fn::Sub: 'http://${ElasticIp.EipAddress}'
+
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          default: ECS
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:云端建站：高效降低网络带宽成本-tech_solu_205
