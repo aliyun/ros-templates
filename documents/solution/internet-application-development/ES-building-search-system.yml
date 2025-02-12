@@ -1,0 +1,419 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  CommonName:
+    Type: String
+    Default: HZ
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  InstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
+  ElasticsearchPassword:
+    NoEcho: true
+    Type: String
+    Label:
+      en: Elasticsearch Instance Password
+      zh-cn: Elasticsearch实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, !@#$%^&*()_+-= Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-= 中的特殊符号）
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+  DBName:
+    Type: String
+    Label:
+      zh-cn: 数据库名称
+      en: DB Name
+    Description:
+      zh-cn: 数据库名称，由小写字母、数字及特殊字符（-_）组成，以字母开头，字母或数字结尾，最多64个字符。
+      en: Database name, consisting of lowercase letters, Numbers, and special characters (-_), starting with letters, ending with letters or Numbers, up to 64 characters.
+    Default: testdb
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: Basic
+      InstanceChargeType: Postpaid
+      DBInstanceStorageType: cloud_essd
+  RdsAccountName1:
+    Type: String
+    Label:
+      zh-cn: 用户名称
+      en: Account Name
+    Description:
+      zh-cn: RDS MySQL用户名称
+      en: RDS Account1 Name
+    Default: testuser
+  RdsAccountPassword:
+    Type: String
+    NoEcho: true
+    Label:
+      zh-cn: RDS MySQL用户密码
+      en: RDS DB Account Password
+    Description:
+      zh-cn: |-
+        长度为8~32个字符。由大写英文字母、小写英文字母、数字、特殊字符中的任意三种组成。支持的特殊字符如下：
+        !@#$&amp;%^*()_+-= 。
+      en: |-
+        The length is 8 ~ 32 characters. It is composed of uppercase English letters, lowercase English letters, numbers and special characters. The special characters supported are as follows:
+        !@#$& amp;%^* ()_+-=  .
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            en: Network Configuration
+            zh-cn: 网络基础配置
+      - Parameters:
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: ECS Configuration
+            zh-cn: ECS配置
+      - Parameters:
+          - ElasticsearchPassword
+        Label:
+          default:
+            en: Elasticsearch Configuration
+            zh-cn: Elasticsearch配置
+      - Parameters:
+          - DBInstanceClass
+          - DBName
+          - RdsAccountName1
+          - RdsAccountPassword
+        Label:
+          default:
+            en: RDS Configuration
+            zh-cn: RDS配置
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:极速构建实时全文检索系统-tech_solu_198
+    Hidden:
+      - CommonName
+Outputs:
+  Console@DemoUrl:
+    Description:
+      zh-cn: 应用程序访问域名。
+      en: URL of App.
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}
+        - PublicIp:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
+Resources:
+  InstallApp:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 7200
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash          
+          echo "#########################"
+          echo "# Init ENV"
+          echo "#########################"
+          cat << EOF >> ~/.bash_profile
+          export ELASTICSEARCH_HOST='${Elasticsearch.Domain}'
+          export ELASTICSEARCH_PORT=9200
+          export ELASTICSEARCH_USERNAME=elastic
+          export ELASTICSEARCH_PASSWORD='${ElasticsearchPassword}'
+          EOF
+          
+          source ~/.bash_profile
+          
+          echo "#########################"
+          echo "# Install App"
+          echo "#########################"
+          curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/full-text-search/install.sh | bash
+          
+          echo "#########################"
+          echo "#App Install Success"
+          echo "#########################"
+          
+          ${InstallAppWaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+    DependsOn:
+      - InitAppDataWaitConditionHandle
+      - InitAppDataWaitCondition
+      - DtsInstance
+  InstallAppWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: { }
+  InstallAppWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: InstallAppWaitConditionHandle
+      Timeout: 3720
+      Count: 1
+  InitAppData:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 7200
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash          
+          echo "#########################"
+          echo "# Init ENV"
+          echo "#########################"
+          cat << EOF >> ~/.bash_profile
+          export DB_HOST='${RDS.InnerConnectionString}'
+          export DB_USER='${RdsAccountName1}'
+          export DB_NAME='${DBName}'
+          export DB_PASSWORD='${RdsAccountPassword}'
+          export ES_HOST='${Elasticsearch.Domain}'
+          export ES_USER=elastic
+          export ES_PASSWORD='${ElasticsearchPassword}'
+          EOF
+          
+          source ~/.bash_profile
+          
+          echo "#########################"
+          echo "# Init App Data"
+          echo "#########################"
+          curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/full-text-search/init_data.sh | bash 
+          
+          echo "#########################"
+          echo "#App Data Init Success"
+          echo "#########################"
+          
+          ${InitAppDataWaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+    DependsOn:
+      - RdsAccountPrivilege1
+      - Elasticsearch
+  InitAppDataWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: { }
+  InitAppDataWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: InitAppDataWaitConditionHandle
+      Timeout: 3720
+      Count: 1
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 100
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Sub: SG_${CommonName}
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: VSW_${CommonName}
+  EcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Fn::GetAtt:
+          - EcsVpc
+          - VpcId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      VSwitchId:
+        Ref: EcsVSwitch
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthOut: 5
+      ZoneId:
+        Ref: ZoneId
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: VPC_${CommonName}
+      CidrBlock: 192.168.0.0/16
+  Elasticsearch:
+    Type: ALIYUN::ElasticSearch::Instance
+    Properties:
+      InstanceChargeType: PostPaid
+      EnablePublic: true
+      KibanaNode:
+        Spec: elasticsearch.n4.small
+      VSwitchId:
+        Ref: EcsVSwitch
+      Version: 7.10_with_X-Pack
+      InstanceCategory: IS
+      ZoneCount: 1
+      ZoneId:
+        Ref: ZoneId
+      DataNode:
+        DiskType: cloud_essd
+        DiskSize: 20
+        Amount: 3
+        Spec: elasticsearch.sn1ne.large
+      Password:
+        Ref: ElasticsearchPassword
+  RDS:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceNetType: Intranet
+      Category: Basic
+      DBInstanceStorageType: cloud_essd
+      DBInstanceStorage: 50
+      Engine: MySQL
+      EngineVersion: "8.0"
+      SecurityIPList: 192.168.0.0/16
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      DBInstanceId:
+        Ref: RDS
+      CharacterSetName: utf8mb4
+      DBName:
+        Ref: DBName
+  RdsAccount1:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: RDS
+      AccountType: Normal
+      AccountName:
+        Ref: RdsAccountName1
+      AccountPassword:
+        Ref: RdsAccountPassword
+  RdsAccountPrivilege1:
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: RDS
+      DBName:
+        Ref: DBName
+      AccountName:
+        Ref: RdsAccountName1
+    DependsOn:
+      - RdsAccount1
+  DtsInstance:
+    Type: ALIYUN::DTS::Instance
+    Properties:
+      JobId:
+        Fn::GetAtt:
+          - SynchronizationJob
+          - DtsJobId
+      InstanceClass: micro
+      PayType: PostPaid
+      Type: SYNC
+      AutoStart: true
+      SyncArchitecture: oneway
+  SynchronizationJob:
+    Type: ALIYUN::DTS::SynchronizationJob2
+    Properties:
+      DtsJobName: mysql_to_es
+      SourceEndpoint:
+        InstanceType: RDS
+        InstanceID:
+          Fn::GetAtt:
+            - RDS
+            - DBInstanceId
+        EngineName: MYSQL
+        Port:
+          Fn::GetAtt:
+            - RDS
+            - InnerPort
+        Region:
+          Ref: ALIYUN::Region
+        UserName:
+          Ref: RdsAccountName1
+        Password:
+          Ref: RdsAccountPassword
+      DestinationEndpoint:
+        InstanceType: ELK
+        InstanceID:
+          Fn::GetAtt:
+            - Elasticsearch
+            - InstanceId
+        EngineName: ELK
+        Region:
+          Ref: ALIYUN::Region
+        UserName: elastic
+        Password:
+          Ref: ElasticsearchPassword
+      StructureInitialization: false
+      DataInitialization: true
+      DataSynchronization: true
+      Reserve:
+        Fn::GetJsonValue:
+          - Reserve
+          - Fn::Sub: '{ "Reserve": {"targetTableMode": "2", "srcMySQLType": "Basic", "autoStartModulesAfterConfig": "none", "maxRetryTime": 43200, "srcSSL": "0", "destEngineArchType": "0", "indexMapping": "tb", "dbListCaseChangeMode": "default", "a2aFlag": "2.0", "retry.blind.seconds": 600 }}'
+      DbList:
+        Fn::GetJsonValue:
+          - DbList
+          - Fn::Sub: '{ "DbList": { "${DBName}": { "all": true, "name": "${DBName}", "time_zone": "+8:00", "analysis": "analyzed", "shard": 5, "replica": 1, "analyzer": "standard", "Table": { "products": { "index": "products", "all": true, "name": "products", "_idvalue": "id", "is_partition": false, "_id": "primary_key" } }, "index_mapping": "tb" }}}'
+    DependsOn:
+      - InitAppDataWaitConditionHandle
+      - InitAppDataWaitCondition
