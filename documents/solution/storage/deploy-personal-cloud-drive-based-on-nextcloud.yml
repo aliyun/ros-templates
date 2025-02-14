@@ -1,0 +1,272 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 基于Nextcloud部署个人网盘。
+  en: Deploy personal web disks based on Nextcloud.
+Parameters:
+  SolutionName:
+    Type: String
+    Default: 部署Nextcloud
+  CommonName:
+    Type: String
+    Default: Nextcloud
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Default: ecs.c6.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+  DBName:
+    Type: String
+    Label:
+      zh-cn: 数据库名称
+      en: DB Name
+    Description:
+      zh-cn: 数据库名称，由小写字母、数字及特殊字符（-_）组成，以字母开头，字母或数字结尾，最多64个字符。
+      en: Database name, consisting of lowercase letters, Numbers, and special characters (-_), starting with letters, ending with letters or Numbers, up to 64 characters.
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: ^[a-z][a-z0-9\-_]{0,62}[a-z0-9]$
+    Default: nextcloud
+  DBUserName:
+    Type: String
+    Label:
+      zh-cn: 数据库账号
+      en: DB Username
+    Description:
+      en: The account name must be 2 to 32 characters in length and can contain lowercase letters, digits, and underscores (_). It must start with a letter and end with a letter or digit.
+      zh-cn: 由小写字母、数字、下划线（_）组成，以字母开头，以字母或数字结尾，最多32个字符。
+    ConstraintDescription:
+      en: >-
+        Consist of 2 to 32 characters of lowercase letters, underline. 
+        Must begin with a letter and be end with an alphanumeric character
+      zh-cn: >-
+        由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头。
+    AllowedPattern: ^(?!root$)[a-z][a-z0-9_]{0,30}[a-z0-9]$
+    Default: nextclouduser
+  DBPassword:
+    NoEcho: true
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 数据库密码
+    Description:
+      en: >-
+        RDS user password, Length 8-32, must contain three(Capital letters,
+        lowercase letters, numbers, ! @ # $ % ^ & * () _ + - = Special
+        symbol in)
+      zh-cn: >-
+        数据库账号密码，必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括! @ # $ % ^ & * () _ + - =
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: centos_8
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 50
+      Password:
+        Ref: InstancePassword
+  InstallNextcloud:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            # 环境变量配置
+            export PATH=/usr/local/bin:$PATH
+            export ROS_DEPLOY=true
+            
+            echo "安装依赖..."
+            sudo yum update -y
+            wget https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+            sudo rpm -Uvh remi-release-8.rpm --nodeps
+            sudo dnf clean all
+            sudo dnf makecache
+            sudo dnf install -y epel-release
+            sudo dnf install -y https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+            sudo dnf -y module reset php
+            sudo dnf -y module enable php:remi-8.1
+            sudo dnf install -y php php-cli php-fpm php-mysqlnd php-zip php-devel php-gd php-mbstring php-curl php-xml php-pear php-bcmath php-json httpd mariadb-server wget unzip
+
+            echo "启动Apache和MariaDB服务..."
+            sudo systemctl start httpd
+            sudo systemctl enable httpd
+            sudo systemctl start mariadb
+            sudo systemctl enable mariadb
+            
+            echo "配置 MariaDB..."
+            your_root_password='${DBPassword}'
+            sudo mysql_secure_installation <<EOF
+            
+            y
+            $your_root_password
+            $your_root_password
+            y
+            y
+            y
+            y
+            EOF
+            
+            echo "初始化数据库..."
+            mysqladmin -u root password '${DBPassword}'
+            echo "CREATE DATABASE ${DBName};" > ./test.sql
+            echo "CREATE USER '${DBUserName}'@'localhost' IDENTIFIED BY '${DBPassword}';" >> ./test.sql
+            echo "GRANT ALL PRIVILEGES ON ${DBName}.* TO '${DBUserName}'@'localhost' WITH GRANT OPTION;" >> ./test.sql
+            echo "FLUSH PRIVILEGES;" >> ./test.sql
+            mysql -u root -p'${DBPassword}' < ./test.sql
+            
+            echo "下载并解压 Nextcloud..."
+            cd /var/www/html
+            sudo wget https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/file/nextcloud-latest-30.zip
+            sudo unzip nextcloud-latest-30.zip
+            sudo rm nextcloud-latest-30.zip
+            sudo chown -R apache:apache nextcloud
+            
+            echo "配置 Apache..."
+            sudo cat > /etc/httpd/conf.d/nextcloud.conf <<EOF
+            <VirtualHost *:80>
+                DocumentRoot /var/www/html/nextcloud
+                ServerName ${PublicIp}
+            
+                <Directory /var/www/html/nextcloud/>
+                    Options +FollowSymlinks
+                    AllowOverride All
+                    Require all granted
+                </Directory>
+            
+                ErrorLog /var/log/httpd/nextcloud.error.log
+                CustomLog /var/log/httpd/nextcloud.access.log combined
+            </VirtualHost>
+            EOF
+            
+            echo "重启 Apache..."
+            sudo systemctl restart httpd
+          - PublicIp:
+              Fn::Select:
+                - '0'
+                - Fn::GetAtt:
+                    - EcsInstance
+                    - PublicIps
+Outputs:
+  Console.Url:
+    Label:
+      zh-cn: 网盘登录地址
+      en: Web disk login address
+    Description:
+      zh-cn: 网盘登录地址。
+      en: Web disk login address.
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}
+        - PublicIp:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: ECS configuration
+            zh-cn: ECS配置
+      - Parameters:
+          - DBName
+          - DBUserName
+          - DBPassword
+        Label:
+          default:
+            en: ECS self-created database configuration
+            zh-cn: ECS自建数据库配置
+    TemplateTags:
+      - acs:technical-solution:storage:部署Nextcloud
+    Hidden:
+      - CommonName
+      - SolutionName
