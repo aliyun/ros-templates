@@ -549,6 +549,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml) | 云原生可观测运维。                                                                                        |
 | [snapshot-optimize.yml](documents/solution/storage/snapshot-optimize.yml)                                                                 | 基于 EBS 部署高性能的 MySQL 服务。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ebs_mysql) |
 | [collect-application-log.yml](documents/solution/storage/collect-application-log.yml)                                                     | 应用业务日志监控与告警。                                                                                  |
+| [deploy-personal-cloud-drive-based-on-nextcloud.yml](documents/solution/storage/deploy-personal-cloud-drive-based-on-nextcloud.yml)                     | 基于Nextcloud部署个人网盘。                                                                                                     |
 
 - cdn-and-video-cloud
 

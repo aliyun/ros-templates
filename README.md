@@ -502,18 +502,18 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - database
 
-| Template                                                                                                                               | Description                                                                                                                     |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | Automatic database scaling and SQL optimization                                                                                 |
-| [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml)                 | WordPress website database on the cloud.                                                                                        |
-| [build-enterprise-web-with-mobi.yml](documents/solution/database/build-enterprise-web-with-mobi.yml)                                   | Build enterprise portals efficiently with low code.                                                                             |
-| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml)                                             | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS .                                 |
+| Template                                                                                                                               | Description                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| [automatic-database-scaling-and-SQL-optimization.yml](documents/solution/database/automatic-database-scaling-and-SQL-optimization.yml) | Automatic database scaling and SQL optimization                                                                                |
+| [wordpress-website-database-on-the-cloud.yml](documents/solution/database/wordpress-website-database-on-the-cloud.yml)                 | WordPress website database on the cloud.                                                                                       |
+| [build-enterprise-web-with-mobi.yml](documents/solution/database/build-enterprise-web-with-mobi.yml)                                   | Build enterprise portals efficiently with low code.                                                                            |
+| [dts-cache-synchronization.yml](documents/solution/database/dts-cache-synchronization.yml)                                             | The consistency scheme of cache synchronization between MySQL and Redis is implemented by DTS .                                |
 | [migrate-rds-mysql-to-polardb-mysql.yml](documents/solution/database/migrate-rds-mysql-to-polardb-mysql.yml)                           | Online one-click upgrade of RDS MySQL to PolarDB MySQL version without modifying any code and configuration of the application. |
-| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml)                                                     | Build a one-stop HTAP service based on RDS and ClickHouse.                                                                      |
-| [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml)                             | Data transmission from ECS self-built database to RDS database.                                                                 |
-| [migrate-database-to-cloud.yml](documents/solution/database/migrate-database-to-cloud.yml)                                             | Migrate self-built database to cloud database.                                                                                  |
-| [rag-application.yml](documents/solution/database/rag-application.yml)                                                                 | Quickly build RAG applications using AnalyticDB and Streamlit.                                                                  |
-| [through-RocketMQ-transaction-messages.yml](documents/solution/database/through-RocketMQ-transaction-messages.yml)                     | Distributed transactions are implemented through RocketMQ transaction messages.                                                 |
+| [one-stop-htap-service.yml](documents/solution/database/one-stop-htap-service.yml)                                                     | Build a one-stop HTAP service based on RDS and ClickHouse.                                                                     |
+| [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml)                             | Data transmission from ECS self-built database to RDS database.                                                                |
+| [migrate-database-to-cloud.yml](documents/solution/database/migrate-database-to-cloud.yml)                                             | Migrate self-built database to cloud database.                                                                                 |
+| [rag-application.yml](documents/solution/database/rag-application.yml)                                                                 | Quickly build RAG applications using AnalyticDB and Streamlit.                                                                 |
+| [through-RocketMQ-transaction-messages.yml](documents/solution/database/through-RocketMQ-transaction-messages.yml)                     | Distributed transactions are implemented through RocketMQ transaction messages.                                                |
 
 - iot
 
@@ -549,6 +549,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [cloud-native-observable-operation-and-maintenance.yml](documents/solution/storage/cloud-native-observable-operation-and-maintenance.yml) | Cloud-native observable operation and maintenance.          |
 | [snapshot-optimize.yml](documents/solution/storage/snapshot-optimize.yml)                                                                 | Deploy high-performance MySQL services based on EBS ESSD.   |
 | [collect-application-log.yml](documents/solution/storage/collect-application-log.yml)                                                     | Application business log monitoring and alarming.           |
+| [deploy-personal-cloud-drive-based-on-nextcloud.yml](documents/solution/storage/deploy-personal-cloud-drive-based-on-nextcloud.yml)                     | Deploy personal web disks based on Nextcloud.                                                 |
 
 - cdn-and-video-cloud
 
