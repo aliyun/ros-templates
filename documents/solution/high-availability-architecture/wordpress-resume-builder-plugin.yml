@@ -3,276 +3,149 @@ Description:
   zh-cn: 在已创建的 ECS 实例上自动部署 WordPress并安装Resume Builder简历模版插件，提供公网访问 URL。
   en: Automatically deploy WordPress on an already created ECS instance and install the Resume Builder template plugin. When accessing from the outside, please add an inbound access rule for port 80 in the security group, and provide the public access URL.
 Parameters:
-  CreateDNSRecord:
-    Type: Boolean
-    Label:
-      en: Setting domain name resolution
-      zh-cn: 是否设置域名解析
-    Description:
-      en: Whether to set domain name resolution (optional).
-      zh-cn: 是否设置域名解析（可选）。
-    Default: false
   WordPressUserPassword:
     NoEcho: true
     Type: String
     Label:
-      zh-cn: WordPress用户密码
+      zh-cn: 用户密码
       en: WordPress User Password
   WordPressUserName:
     Default: admin
     Type: String
     Label:
-      zh-cn: WordPress用户名
+      zh-cn: 用户名
       en: WordPress User Name
-  WordPressUserEmail:
-    Default: admin@example.com
-    Type: String
-    Label:
-      zh-cn: WordPress用户邮箱
-      en: WordPress User Email
   DomainName:
     Type: String
     Label:
       en: Website domain name
       zh-cn: 网站域名
-    AssociationProperty: 'ALIYUN::DomainName'
+    AssociationProperty: ALIYUN::DomainName
     AssociationPropertyMetadata:
-      Visible:
-        Condition:
-          Fn::Equals:
-            - ${CreateDNSRecord}
-            - true
+      ShowDomainPrefixInput: false
+      CheckICP: false
     Description:
-      en: >-
-        Please enter the subdomain name under the current account, such as example.aliyun.com.
-        If it is a domestic region, you need to fill in the registered 
-        domain name, otherwise the website will not be able to plan.
-      zh-cn: >-
-        请输入当前账号下的域名，例如example.aliyun.com。如果是境内地域则需要填写已完成备案的域名，否则会导致网站无法访问。
-    Default: null
+      en: Please enter the subdomain name under the current account, such as example.aliyun.com. If it is a domestic region, you need to fill in the registered  domain name, otherwise the website will not be able to plan.
+      zh-cn: 请输入当前账号下的域名，例如example.aliyun.com。如果是境内地域则需要填写已完成备案的域名，否则会导致网站无法访问。
+    Default: Null
   InstanceId:
     Type: String
     Label:
       en: Existing ECS Instance
       zh-cn: 已创建ECS实例
-    Description:
-      en: Select an ECS instance with the CentOS 7.9 64-bit operating system.
-      zh-cn: 选择已存在操作系统为CentOS 7.9 64位的ECS实例。
-    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceId'
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceId
 Outputs:
-  Console@Url:
-    Description:
-      zh-cn: Wordpress 博客访问地址(IP)。
-      en: Wordpress url.
-    Value:
-      Fn::Sub:
-        - http://${IP}/wp-admin
-        - IP:
-            'Fn::Jq':
-              - First
-              - '.[0].PublicIpAddress[0]'
-              - 'Fn::GetAtt':
-                  - DS_Instances
-                  - Instances
-  Console.WebDomain:
+  博客访问地址(域名):
     Description:
       zh-cn: Wordpress 博客访问地址(域名)
       en: Wordpress url(Domain)
     Value:
       Fn::Sub:
-        - 'http://${DomainName}/wp-admin'
+        - http://${DomainName}/
         - DomainName:
-            Fn::If:
-              - DomainPrefixIsNull
-              - Fn::GetJsonValue:
-                  - DomainName
-                  - Ref: DomainName
-              - Fn::Join:
-                  - '.'
-                  - - Fn::GetJsonValue:
-                        - DomainPrefix
-                        - Ref: DomainName
-                    - Fn::GetJsonValue:
-                        - DomainName
-                        - Ref: DomainName
-Conditions:
-  DnsRecord:
-    Fn::Not:
-      Fn::Equals:
-        - Ref: DomainName
-        - null
-  DomainPrefixIsNull:
-    Fn::And:
-      - DnsRecord
-      - Fn::Equals:
-          - null
-          - Fn::GetJsonValue:
-              - DomainPrefix
-              - Ref: DomainName
+            Ref: DomainName
+  博客访问地址(IP):
+    Description:
+      zh-cn: Wordpress 博客访问地址(IP)
+      en: Wordpress url(IP)
+    Value:
+      Fn::Sub:
+        - http://${IP}
+        - IP:
+            Fn::Jq:
+              - First
+              - .[0].PublicIpAddress[0]
+              - Fn::GetAtt:
+                  - DS_Instances
+                  - Instances
+  博客管理地址(IP访问):
+    Description:
+      zh-cn: Wordpress 博客管理地址(IP)。
+      en: Wordpress Adminn url.
+    Value:
+      Fn::Sub:
+        - http://${IP}/wp-admin
+        - IP:
+            Fn::Jq:
+              - First
+              - .[0].PublicIpAddress[0]
+              - Fn::GetAtt:
+                  - DS_Instances
+                  - Instances
+  博客管理地址(域名访问):
+    Description:
+      zh-cn: Wordpress 博客管理地址(域名)
+      en: Wordpress Admin url(Domain)
+    Value:
+      Fn::Sub:
+        - http://${DomainName}/wp-admin
+        - DomainName:
+            Ref: DomainName
+
 Resources:
   DS_Instances:
-    Type: 'DATASOURCE::ECS::Instances'
+    Type: DATASOURCE::ECS::Instances
     Properties:
       InstanceIds:
         - Ref: InstanceId
   DomainRecord:
-    Type: 'ALIYUN::DNS::DomainRecord'
-    Condition: DnsRecord
+    Type: ALIYUN::DNS::DomainRecord
     Properties:
       Type: A
-      RR:
-        Fn::If:
-          - DomainPrefixIsNull
-          - '@'
-          - Fn::GetJsonValue:
-              - DomainPrefix
-              - Ref: DomainName
+      RR: '@'
       DomainName:
-        Fn::GetJsonValue:
-          - DomainName
-          - Ref: DomainName
+        Ref: DomainName
       Value:
-        'Fn::Jq':
+        Fn::Jq:
           - First
-          - '.[0].PublicIpAddress[0]'
-          - 'Fn::GetAtt':
+          - .[0].PublicIpAddress[0]
+          - Fn::GetAtt:
               - DS_Instances
               - Instances
-  InstallWordPress:
+  ConfigDomain:
     Type: ALIYUN::ECS::RunCommand
+    DependsOn:
+      - SecurityGroupIngress_80
+      - DomainRecord
     Properties:
       CommandContent:
         Fn::Sub:
           - |-
             #!/bin/bash
-            
             cat << EOF >> ~/.bash_profile
-            export DB_NAME=${db_name}
-            export DB_USERNAME=${db_username}
-            export DB_PASSWORD=${db_password}
             export ROS_DEPLOY=true
             EOF
-            
+
             source ~/.bash_profile
-            systemctl disable docker.socket || true
-            systemctl disable docker || true
-            systemctl stop docker.socket || true
-            systemctl stop docker || true
-            systemctl disable harbor.service || true
-            curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/develop-your-wechat-mini-program-in-10-minutes/install.sh|bash
-            
-            # 安装MySQL
-            wget http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
-            rpm -ivh mysql-community-release-el7-5.noarch.rpm
-            yum install mysql-server -y
-            systemctl start mysqld
-            # 生成MySQL root用户，设置密码
-            mysql -uroot -D mysql -e 'CREATE DATABASE ${db_name};'
-            mysql -uroot -D mysql -e "create user 'wordpress'@'localhost' identified by '${db_password}';" 
-            mysql -uroot -D mysql -e "grant all privileges on *.* to '${db_username}'@'localhost';"
-            mysql -uroot -D mysql -e "create user '${db_username}'@'%' identified by '${db_password}';"
-            mysql -uroot -D mysql -e "grant all privileges on *.* to '${db_username}'@'%';"
-            mysql -uroot -D mysql -e "flush privileges;"
-            mysql -uroot -D mysql -e "alter user user() identified by '${db_password}';"
-            
-            ## 调整db连接配置
-            sed -i 's/username_here/${db_username}/' /var/www/html/wp-config.php
-            sed -i 's/password_here/${db_password}/' /var/www/html/wp-config.php
-            sed -i 's/database_name_here/${db_name}/' /var/www/html/wp-config.php
-            
             cd /var/www/html
-            sudo cat <<EOF > .htaccess
-            # BEGIN WordPress
-            <IfModule mod_rewrite.c>
-            RewriteEngine On
-            RewriteCond %{HTTP:Authorization} ^(.*)
-            RewriteRule ^(.*) - [E=HTTP_AUTHORIZATION:%1]
-            RewriteBase /
-            RewriteRule ^index\.php$ - [L]
-            RewriteCond %{REQUEST_FILENAME} !-f
-            RewriteCond %{REQUEST_FILENAME} !-d
-            RewriteRule . /index.php [L]
-            </IfModule>
-            # END WordPress
-            EOF
-            sed -i 's/AllowOverride None/AllowOverride All/g' /etc/httpd/conf/httpd.conf
-            wget https://gitee.com/qin-yangming/open-tools/raw/master/wp-cli.phar
-            chmod +x wp-cli.phar
-            mv wp-cli.phar /usr/local/bin/wp
-            wget https://downloads.wordpress.org/plugin/resume-builder.zip
-            yum -y install unzip
-            unzip resume-builder.zip -d resume-builder
-            cp -r ./resume-builder/resume-builder /var/www/html/wp-content/plugins
-            rm -rf resume-builder.zip
-            rm -rf resume-builder
-            wp core install --url=${url} --title="Personal Resume" --admin_user=${wordpress_user_name} --admin_password=${wordpress_user_password} --admin_email=${wordpress_user_email} --skip-email --allow-root
-            
-            wp plugin activate resume-builder --allow-root --path=/var/www/html
+            sed "/^Listen/cListen 80" -i /etc/httpd/conf/httpd.conf
+            echo "define('WP_HOME', 'http://' . \$_SERVER['HTTP_HOST']);" >> /var/www/html/wp-config.php
+            echo "define('WP_SITEURL', 'http://' . \$_SERVER['HTTP_HOST']);" >> /var/www/html/wp-config.php
+            echo "define('WP_HOME','${Domain}');" >> /var/www/html/wp-config.php
+            echo "define('WP_SITEURL','${Domain}');" >> /var/www/html/wp-config.php
             echo "ServerName ${IP}" >> /etc/httpd/conf/httpd.conf
-            chmod -R 777  /var/www/html/wp-content/uploads
-            chmod 755 /var/www/html/.htaccess
+            wp core install --url=${IP} --title="Wordpress Blog" --admin_user=${wordpress_user_name} --admin_password=${wordpress_user_password} --admin_email=admin@example.com --skip-email --allow-root
+            sed -i "s/dev.o.alicdn.com/o.alicdn.com/" /var/www/html/wp-includes/functions.php
+            sed -i "s/cit-e754b4f53ea64be1ba4c/cit-0ce3c23af9d7442ca6ca/"  /var/www/html/wp-includes/functions.php
+            sed -i "s/1563457855438522.appflow.aliyunnest.com/1770150251620858.appflow.aliyunnest.com/"  /var/www/html/wp-includes/functions.php
+
             systemctl restart httpd
-          - url:
-              'Fn::Jq':
-                - First
-                - '.[0].PublicIpAddress[0]'
-                - 'Fn::GetAtt':
-                    - DS_Instances
-                    - Instances
-            db_password: Admin1234
+          - Domain:
+              Fn::Sub:
+                - http://${DomainName}
+                - DomainName:
+                    Ref: DomainName
             wordpress_user_name:
               Ref: WordPressUserName
             wordpress_user_password:
               Ref: WordPressUserPassword
-            db_name: wordpress
-            db_username: wordpress
-            wordpress_user_email:
-              Ref: WordPressUserEmail
             IP:
-              'Fn::Jq':
+              Fn::Jq:
                 - First
-                - '.[0].PublicIpAddress[0]'
-                - 'Fn::GetAtt':
+                - .[0].PublicIpAddress[0]
+                - Fn::GetAtt:
                     - DS_Instances
                     - Instances
-      Type: RunShellScript
-      Sync: true
-      InstanceIds:
-        Fn::GetAtt:
-          - DS_Instances
-          - InstanceIds
-      Timeout: 2400
-  ConfigDomain:
-    Type: ALIYUN::ECS::RunCommand
-    Condition: DnsRecord
-    DependsOn:
-      - InstallWordPress
-    Properties:
-      CommandContent:
-        Fn::Sub:
-          - |-
-            #!/bin/bash
-            echo "define('WP_HOME','${Domain}');" >> /var/www/html/wp-config.php
-            echo "define('WP_SITEURL','${Domain}');" >> /var/www/html/wp-config.php
-            chmod -R 777  /var/www/html/wp-content/uploads
-            systemctl restart httpd
-          - Domain:
-              Fn::Sub:
-                - 'http://${DomainName}'
-                - DomainName:
-                    Fn::If:
-                      - DomainPrefixIsNull
-                      - Fn::GetJsonValue:
-                          - DomainName
-                          - Ref: DomainName
-                      - Fn::Join:
-                          - '.'
-                          - - Fn::GetJsonValue:
-                                - DomainPrefix
-                                - Ref: DomainName
-                            - Fn::GetJsonValue:
-                                - DomainName
-                                - Ref: DomainName
       Type: RunShellScript
       Sync: true
       InstanceIds:
@@ -298,7 +171,12 @@ Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
       - Parameters:
-          - CreateDNSRecord
+          - InstanceId
+        Label:
+          default:
+            zh-cn: ECS配置
+            en: ECS Config
+      - Parameters:
           - DomainName
         Label:
           default:
@@ -307,7 +185,6 @@ Metadata:
       - Parameters:
           - WordPressUserName
           - WordPressUserPassword
-          - WordPressUserEmail
         Label:
           default:
             zh-cn: WordPress配置
