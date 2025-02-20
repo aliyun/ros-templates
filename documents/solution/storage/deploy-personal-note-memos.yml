@@ -1,0 +1,139 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 在ECS实例上部署Memos服务，并开放安全组5230入方向访问端口。
+  en: Deploy the Memos service on an ECS instance and open port 5230 in the inbound direction of the security group.
+Parameters:
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  InstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
+Resources:
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName: SG_Memos
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName: VSW_Memos
+  EcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      InstanceName: ECS_Memos
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Fn::GetAtt:
+          - EcsVpc
+          - VpcId
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      VSwitchId:
+        Ref: EcsVSwitch
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthOut: 5
+      ZoneId:
+        Ref: ZoneId
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: VPC_Memos
+      CidrBlock: 192.168.0.0/16
+  SecurityGroupIngress_5230:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 5230/5230
+  InstallMemos:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn: ModuleInstallDocker
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          docker run -d --init --name memos --publish 5230:5230  --volume ~/.memos/:/var/opt/memos ghcr.io/usememos/memos:latest
+  ModuleInstallDocker:
+    Version: default
+    Type: 'MODULE::ACS::OOS::Extension'
+    Properties:
+      EcsInstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      PackageName: ACS-Extension-DockerCE-1853370294850618
+    DependsOn:
+    - SecurityGroupIngress_5230
+Outputs:
+  Console.Url:
+    Label:
+      zh-cn: 个人笔记登录地址
+      en: Web note login address
+    Value:
+      Fn::Sub:
+        - http://${IP}:5230
+        - IP:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - InstanceType
+      - InstancePassword
+    TemplateTags:
+    - acs:document:试用教程:在ECS上部署并使用Memos
