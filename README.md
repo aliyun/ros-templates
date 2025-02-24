@@ -499,6 +499,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [cloud-native-enterprise-data-lake.yml](./documents/solution/data-analysis/cloud-native-enterprise-data-lake.yml)     | Cloud-native enterprise data lake.                                                                                |
 | [OLAP-analysis-based-on-Hologres.yml](./documents/solution/data-analysis/OLAP-analysis-based-on-Hologres.yml)         | Lightweight and high-performance OLAP analysis based on Hologres.                                                 |
 | [quickly-build-large-screen.yml](./documents/solution/data-analysis/quickly-build-large-screen.yml)                   | Quickly build a large screen of enterprise management.                                                            |
+| [efficient-storage-and-processing-of-multimedia-data.yml](./documents/solution/data-analysis/efficient-storage-and-processing-of-multimedia-data.yml)                   | Efficient storage and processing of multimedia data.                                                           |
 
 - database
 
