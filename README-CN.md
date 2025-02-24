@@ -499,6 +499,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [cloud-native-enterprise-data-lake.yml](./documents/solution/data-analysis/cloud-native-enterprise-data-lake.yml)     | 云原生企业级数据湖。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/datalake)                                  |
 | [OLAP-analysis-based-on-Hologres.yml](./documents/solution/data-analysis/OLAP-analysis-based-on-Hologres.yml)         | 基于 Hologres 轻量高性能 OLAP 分析。                                                                                        |
 | [quickly-build-large-screen.yml](./documents/solution/data-analysis/quickly-build-large-screen.yml)                   | 快速搭建企业经营大屏。                                                                                                      |
+| [efficient-storage-and-processing-of-multimedia-data.yml](./documents/solution/data-analysis/efficient-storage-and-processing-of-multimedia-data.yml)                   | 高效存储和处理多媒体数据。                                                                                            |
 
 - database
 

@@ -1,0 +1,350 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 高效存储和处理多媒体数据。
+  en: Efficient storage and processing of multimedia data.
+Parameters:
+  SolutionName:
+    Type: String
+    Default: 高效存储和处理多媒体数据
+  CommonName:
+    Type: String
+    Default: efficient-storage
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Default: ecs.c6.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  BucketName:
+    Type: String
+    Label:
+      zh-cn: 新建存储空间名称
+      en: NewBucketName
+    Description:
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+      en: Bucket names must be globally unique within the scope of OSS. The length is 3~63 characters. Must start and end with a lowercase English letter or number, and can contain lowercase English letters, numbers, and dashes (-).
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: test-bucket-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      SystemDiskSize: 40
+      Password:
+        Ref: InstancePassword
+  IMMProject:
+    Type: ALIYUN::IMM::Project2
+    Properties:
+      ProjectName:
+        Fn::Sub: test-imm-${ALIYUN::StackId}
+      ServiceRole: AliyunIMMDefaultRole
+  MyBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      AccessControl: public-read
+      DeletionForce: true
+      RedundancyType: ZRS
+      BucketName:
+        Ref: BucketName
+  ImagesOutputDirectory:
+    Properties:
+      BucketName:
+        Ref: MyBucket
+      DeletionForce: true
+      DirectoryName: images-output
+    Type: ALIYUN::OSS::Directory
+  AudioDirectory:
+    Properties:
+      BucketName:
+        Ref: MyBucket
+      DeletionForce: true
+      DirectoryName: audio
+    Type: ALIYUN::OSS::Directory
+  VideosOutputDirectory:
+    Properties:
+      BucketName:
+        Ref: MyBucket
+      DeletionForce: true
+      DirectoryName: videos-output
+    Type: ALIYUN::OSS::Directory
+  VideosDirectory:
+    Properties:
+      BucketName:
+        Ref: MyBucket
+      DeletionForce: true
+      DirectoryName: videos
+    Type: ALIYUN::OSS::Directory
+  AudioOutputDirectory:
+    Properties:
+      BucketName:
+        Ref: MyBucket
+      DeletionForce: true
+      DirectoryName: audio-output
+    Type: ALIYUN::OSS::Directory
+  ImagesDirectory:
+    Properties:
+      BucketName:
+        Ref: MyBucket
+      DeletionForce: true
+      DirectoryName: images
+    Type: ALIYUN::OSS::Directory
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: create_by_document-${ALIYUN::StackId}
+      PolicyAttachments:
+        System:
+          - AliyunIMMFullAccess
+          - AliyunOSSFullAccess
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Ref: User
+  Service:
+    Type: ALIYUN::FC::Service
+    Properties:
+      ServiceName:
+        Fn::Sub: create_by_document-${ALIYUN::StackId}
+  Function:
+    Type: ALIYUN::FC::Function
+    DependsOn: IMMProject
+    Properties:
+      ServiceName:
+        Fn::GetAtt:
+          - Service
+          - ServiceName
+      FunctionName:
+        Fn::Sub: create_by_document-${ALIYUN::StackId}
+      Handler: index.handler
+      Runtime: python3.9
+      Code:
+        SourceCode:
+          Fn::Sub: |-
+            #!/usr/bin/env python
+            # coding=utf-8
+            import time
+            import json
+            import requests
+            import logging
+            from aliyunsdkcore.client import AcsClient
+            from aliyunsdkcore.request import CommonRequest
+            from aliyunsdkcore.auth.credentials import AccessKeyCredential 
+            def handler(event, context):
+              event = json.loads(event)
+              logger = logging.getLogger()
+              logger.info('receive request: %s', event)
+              credentials = AccessKeyCredential("${AccessKey.AccessKeyId}", "${AccessKey.AccessKeySecret}")
+              client = AcsClient(region_id='${ALIYUN::Region}', credential=credentials)
+
+              
+              if event['RequestType'] != 'Delete':
+                request = CommonRequest()
+                request.set_accept_format('json')
+                request.set_domain('imm.${ALIYUN::Region}.aliyuncs.com')
+                request.set_method('POST')
+                request.set_protocol_type('https')
+                request.set_version('2020-09-30')
+                request.set_action_name('AttachOSSBucket')
+            
+                request.add_query_param('OSSBucket', '${MyBucket.Name}')
+                request.add_query_param('ProjectName', '${IMMProject.ProjectName}')
+            
+                response = client.do_action(request)
+                response = json.loads(response)
+                logger.info('receive response: %s', response)
+
+              result = {
+                    'RequestId': event['RequestId'],
+                    'LogicalResourceId': event['LogicalResourceId'],
+                    'StackId': event['StackId'],
+                    'Status': 'SUCCESS',
+                    'PhysicalResourceId': 'MyCustomResourceId',
+                    'Data': {}
+                }
+              if event['RequestType'] == 'Delete':
+                  request2 = CommonRequest()
+                  request2.set_accept_format('json')
+                  request2.set_domain('imm.${ALIYUN::Region}.aliyuncs.com')
+                  request2.set_method('POST')
+                  request2.set_protocol_type('https') # https | http
+                  request2.set_version('2020-09-30')
+                  request2.set_action_name('DetachOSSBucket')
+                  request2.add_query_param('OSSBucket', '${MyBucket.Name}')
+            
+                  response = client.do_action(request2)
+                  logger.info('receive response: %s', response)
+              headers = {
+                  'Content-type': 'application/json',
+                  'Accept': 'application/json',
+                  'Date': time.strftime('%a, %d %b %Y %X GMT', time.gmtime())
+              }
+            
+              resp = requests.post(event['ResponseURL'], json=result, headers=headers)
+              resp_content = resp.json()
+              logger.info('response: %s', resp_content)
+  SimpleTest:
+    Type: Custom::AttachAndDetachOSSBucket
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - Function
+          - ARN
+      Timeout: 60
+  InstallMultimediaProcess:
+    DependsOn:
+      - Function
+      - ImagesOutputDirectory
+      - ImagesDirectory
+      - AudioOutputDirectory
+      - AudioDirectory
+      - VideosOutputDirectory
+      - VideosDirectory
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          # 环境变量配置
+          export PATH=/usr/local/bin:$PATH
+          
+          cat << EOF >> .bash_profile
+          export OSS_ENDPOINT=https://oss-${ALIYUN::Region}-internal.aliyuncs.com
+          export OSS_BUCKET=${MyBucket.Name}
+          export OSS_ACCESS_KEY_ID=${AccessKey.AccessKeyId}
+          export OSS_ACCESS_KEY_SECRET=${AccessKey.AccessKeySecret}
+          export ROS_DEPLOY=true
+          EOF
+          source ~/.bash_profile
+          
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/multimedia-process/install.sh | bash
+
+Outputs:
+  WebUrl:
+    Description:
+      zh-cn: ECS IP地址。
+      en: Ecs IP address.
+    Value:
+      Fn::Sub:
+        - http://${EcsInstance}
+        - EcsInstance:
+            Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
+  MyBucketLink:
+    Description:
+      zh-cn: OSS Bucket地址。
+      en: OSS Bucket address.
+    Value:
+      Fn::Sub:
+        - https://oss.console.aliyun.com/bucket/oss-${Region}/${MyBucket}/process/img
+        - MyBucket:
+            Ref: MyBucket
+          Region:
+            Ref: ALIYUN::Region
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+          - BucketName
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:高效存储和处理多媒体数据-tech_solu_46
+    Hidden:
+      - CommonName
+      - SolutionName
+`````
