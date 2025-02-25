@@ -1,0 +1,148 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建VPC、交换机、安全组，部署Lindorm数据库(2节点)、ECS实例(1台)及应用，支持泛时序数据一站式处理。
+  en: Create a Virtual Private Cloud (VPC), switches, security groups, deploy a Lindorm
+    database cluster (with 2 nodes), provision an Elastic Compute Service (ECS) instance
+    (1 unit), and set up the application to facilitate end-to-end processing of pan-temporal
+    data.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+  MseLicenseKey:
+    Type: String
+    NoEcho: true
+    Label:
+      en: MSE License Key
+      zh-cn: MSE License Key
+    Description:
+      zh-cn: <a href="https://mse.console.aliyun.com/?spm=5176.ecscore_server.console-base_product-drawer-right.dmse.79e54df5ks3tBG#/msc/home?region=cn-hangzhou">查看 License Key</a>。
+      en: <a href="https://mse.console.aliyun.com/?spm=5176.ecscore_server.console-base_product-drawer-right.dmse.79e54df5ks3tBG#/msc/home?region=cn-hangzhou">View License Key</a>.
+  InstancePassword:
+    Type: String
+    NoEcho: true
+    Default: null
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  CommonName:
+    Type: String
+    Default: HZ
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: VPC_${CommonName}
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: VSW_${CommonName}
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: SG_${CommonName}
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      SystemDiskSize: 40
+      InstanceName:
+        Fn::Sub: ECS_${CommonName}
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      Password:
+        Ref: InstancePassword
+  DeployApplicationOnEcs:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance
+      Sync: true
+      Type: RunShellScript
+      Timeout: 300
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          cat << EOF >> ~/.bash_profile
+          export LICENSE_KEY="${MseLicenseKey}"
+          export ROS_DEPLOY=true
+          EOF
+          source ~/.bash_profile
+          curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/traffic-protection/install.sh|bash
+Outputs:
+  DemoUrl:
+    Value:
+      'Fn::Sub':
+        - 'http://${PublicIp}'
+        - PublicIp:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+        - ZoneId
+        - InstanceType
+        - InstancePassword
+        - MseLicenseKey
+    TemplateTags:
+    - acs:technical-solution:MSE助力实现全方位接口流控-tech_solu_215
+    Hidden:
+    - CommonName
