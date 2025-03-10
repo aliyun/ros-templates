@@ -1,0 +1,187 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建VPC、ECS实例、RAM用户及策略，配置安全组和登录凭据，部署Open WenUI应用，调用DeepSeek-R1、Qwen-max等模型。
+  en: Create a Virtual Private Cloud (VPC), Elastic Compute Service (ECS) instances, Resource Access Management (RAM) 
+      users and policies, configure security groups and login credentials, 
+      deploy the Open WenUI application, and call models such as DeepSeek-R1, Qwen-max, etc.
+Parameters:
+  BaiLianApiKey:
+    Type: String
+    NoEcho: true
+    Label:
+      en: BaiLian API-KEY
+      zh-cn: 百炼 API-KEY
+    Description:
+      zh-cn: >-
+        开通百炼模型服务，并获得 API-KEY。请参考：
+        <a href="https://help.aliyun.com/zh/model-studio/getting-started/first-api-call-to-qwen" 
+        target="_blank">首次调用通义千问API</a>。
+      en: >-
+        Activate BaiLian and obtain the API-KEY. Please refer to: 
+        <a href="https://help.aliyun.com/zh/model-studio/getting-started/first-api-call-to-qwen" 
+        target="_blank">First call to Tongyi Qianwen API</a>.
+  ZoneId:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+  InstanceType:
+    Type: String
+    Default: ecs.e-c1m1.large
+    Required: true
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      Constraints:
+        Architecture:
+          - X86
+        vCPU:
+          - 2
+        Memory:
+          - 2
+  InstancePassword:
+    Type: String
+    NoEcho: true
+    Confirm: true
+    Default: null
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  CommonName:
+    Type: String
+    Default: deepseek-private-ai
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 8080/8080
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 10
+      Password:
+        Ref: InstancePassword
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: create_by_solution-${ALIYUN::StackId}
+      PolicyAttachments:
+  InstallApp:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          
+          cat << EOF >> ~/.bash_profile
+          export API_KEY="${BaiLianApiKey}"
+          EOF
+          
+          source ~/.bash_profile 
+          curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/deepseek-r1-private/install.sh|bash
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub: https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
+  Console@DemoUrl:
+    Description:
+      en: Experience address.
+      zh-cn: 体验地址。
+    Label:
+      zh-cn: 体验地址
+      en: Experience Addresses
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}:8080
+        - PublicIp:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - BaiLianApiKey
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+        Label:
+          en: Cloud resource information configuration
+          zh-cn: 云资源信息配置
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:technical-solution:ai:构建专属智能平台：私有化部署DeepSeek AI与知识库集成-tech_solu_219
