@@ -1,0 +1,312 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 通过RDS数据库代理实现读写分离。
+  en: Read and write separation is realized by RDS database agent.
+Parameters:
+  CommonName:
+    Type: String
+    Default: rds-database-agent
+  ZoneId1:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId2
+    Label:
+      en: Primary Availability Zone
+      zh-cn: 主可用区
+  ZoneId2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId1
+    Label:
+      en: Standby Availability Zone
+      zh-cn: 备可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId1}
+      Constraints:
+        vCPU:
+          - 2
+        Memory:
+          - 4
+    Label:
+      en: ECS Instance Type
+      zh-cn: ECS 实例规格
+    Default: ecs.c6.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId1}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: HighAvailability
+      InstanceChargeType: PostPaid
+      DBInstanceStorageType: cloud_essd
+      CommodityCode: bards
+    Default: mysql.n2.medium.2c
+  RdsReadOnlyInstanceClass:
+    Type: String
+    Label:
+      en: Read Only Instance Class
+      zh-cn: 只读实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId1}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: HighAvailability
+      InstanceChargeType: PostPaid
+      DBInstanceStorageType: cloud_essd
+      CommodityCode: bards
+    Default: mysqlro.n4.medium.1c
+  DBUserName:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库账号
+    Description:
+      en: The account name must be 2 to 32 characters in length and can contain lowercase
+        letters, digits, and underscores (_). It must start with a letter and end
+        with a letter or digit.
+      zh-cn: 由小写字母、数字、下划线（_）组成，以字母开头，以字母或数字结尾，最多32个字符。
+    Default: testuser
+  DBPassword:
+    Type: String
+    Label:
+      en: Password
+      zh-cn: 密码
+    Description:
+      en: 'The password must be 8 to 32 characters in length and must contain at least
+        three of the following types: uppercase letters, lowercase letter, digits,
+        and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch1:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw_001
+  VSwitch2:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.2.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw_002
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchId:
+        Ref: VSwitch1
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      Password:
+        Ref: InstancePassword
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      ZoneId:
+        Ref: ZoneId1
+      SlaveZoneIds:
+        - Ref: ZoneId2
+      DBInstanceStorage: 20
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      VSwitchId:
+        Fn::Join:
+          - ','
+          - - Ref: VSwitch1
+            - Ref: VSwitch2
+      Engine: MySQL
+      VpcId:
+        Ref: Vpc
+      EngineVersion: '8.0'
+      SecurityIPList: 192.168.0.0/16
+      MasterUsername:
+        Ref: DBUserName
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUserType: Normal
+  RdsDatabase:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      CharacterSetName: utf8
+      DBInstanceId:
+        Ref: Database
+      DBName: db_test
+  AccountPrivilege:
+    DependsOn: RdsDatabase
+    Type: ALIYUN::RDS::AccountPrivilege
+    Properties:
+      AccountPrivilege: ReadWrite
+      DBInstanceId:
+        Ref: Database
+      DBName: db_test
+      AccountName:
+        Ref: DBUserName
+  DBProxy:
+    Type: ALIYUN::RDS::DBProxy
+    DependsOn: AccountPrivilege
+    Properties:
+      DBProxyInstanceType: common
+      VPCId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch1
+      DBProxyNodes:
+        - NodeCounts: 2
+          ZoneId:
+            Ref: ZoneId1
+          CpuCores: 1
+      DBInstanceId:
+        Ref: Database
+  RdsReadOnlyInstance:
+    Type: ALIYUN::RDS::ReadOnlyDBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId1
+      VPCId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch1
+      DBInstanceClass:
+        Ref: RdsReadOnlyInstanceClass
+      DBInstanceId:
+        Ref: Database
+      DBInstanceStorage: 20
+      DBInstanceStorageType: cloud_essd
+      EngineVersion: "8.0"
+    DependsOn: DBProxy
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 3600
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  RunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/sh
+          export ROS_DEPLOY=true
+          curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/read-write-splitting-for-databases/install.sh | bash
+          ${RosWaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+    DependsOn:
+      - RdsReadOnlyInstance
+Outputs:
+  EcsLoginAddress1:
+    Description:
+      en: ECS login address.
+      zh-cn: ECS 登录地址。
+    Value:
+      Fn::Sub: >-
+        https://ecs-workbench.aliyun.com/?from=EcsConsole
+        &instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId1
+          - ZoneId2
+          - DBInstanceClass
+          - RdsReadOnlyInstanceClass
+          - DBUserName
+          - DBPassword
+        Label:
+          default:
+            en: RDS Configuration
+            zh-cn: RDS配置
+      - Parameters:
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: ECS Instance Configuration(The availability zone where the ECS instance resides must be the same as the primary availability zone of the RDS instance)
+            zh-cn: ECS实例配置（ECS实例所在可用区与RDS实例主可用区保持一致）
+    TemplateTags:
+      - acs:technical-solution:database:通过RDS数据库代理实现读写分离-tech_solu_209
+    Hidden:
+      - CommonName
