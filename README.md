@@ -516,6 +516,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [rag-application.yml](documents/solution/database/rag-application.yml)                                                                 | Quickly build RAG applications using AnalyticDB and Streamlit.                                                                 |
 | [rds-database-agent.yml](documents/solution/database/rds-database-agent.yml)                                                                 | Read and write separation is realized by RDS database agent.                                                             |
 | [through-RocketMQ-transaction-messages.yml](documents/solution/database/through-RocketMQ-transaction-messages.yml)                     | Distributed transactions are implemented through RocketMQ transaction messages.                                                |
+| [SelectDB-Log-Storage-and-Real-Time-Analytics.yaml](documents/solution/database/SelectDB-Log-Storage-and-Real-Time-Analytics.yaml)                     | Read and write separation is realized by RDS database agent.                                              |
 
 - iot
 
