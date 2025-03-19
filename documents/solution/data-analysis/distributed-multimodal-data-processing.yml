@@ -1,0 +1,112 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Description:
+  zh-cn: 创建VPC、OSS、MaxCompute、DataWorks，实现AI 时代的分布式多模态数据处理实践。
+  en: Create VPC, OSS, MaxCompute, and DataWorks to realize distributed multimodal data processing practices in the AI era.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ZoneId
+
+  BucketName:
+    Type: String
+    Label:
+      en: BucketName
+      zh-cn: OSS存储空间名称
+    Description:
+      en: Bucket names must be globally unique within the scope of OSS. The length
+        is 3~63 characters. Must start and end with a lowercase English letter or
+        number, and can contain lowercase English letters, numbers, and dashes (-).
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: test-maxframe-dataset-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: vpc_dataworks
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName: vsw_dataworks
+
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName: sg_dataworks
+      VpcId:
+        Ref: Vpc
+  Bucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      AccessControl: private
+      BucketName:
+        Ref: BucketName
+
+  RandomString:
+    Type: ALIYUN::RandomString
+    Properties:
+      length: 5
+      character_classes:
+        - class: lowercase
+          min: 1
+        - class: digits
+          min: 1
+  AliyunOdpsRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunODPSDefaultRole
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - odps.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+      PolicyAttachments:
+        System:
+          - AliyunODPSRolePolicy
+
+  Project:
+    Type: ALIYUN::MaxCompute::Project
+    Properties:
+      Name:
+        Fn::Sub: bigdata_solutions_${RandomString.value}
+      ChargeType: PostPaid
+      DefaultQuota: 默认后付费Quota
+
+  DataWorksProject:
+    Type: ALIYUN::DataWorks::Project
+    Properties:
+      ProjectIdentifier:
+        Fn::Sub: bigdata_solutions_${RandomString.value}
+      ProjectName:
+        Fn::Sub: bigdata_solutions_${RandomString.value}
+
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - BucketName
+
+    TemplateTags:
+      - acs:technical-solution:data-analysis:AI 时代的分布式多模态数据处理实践-tech_solu_232
