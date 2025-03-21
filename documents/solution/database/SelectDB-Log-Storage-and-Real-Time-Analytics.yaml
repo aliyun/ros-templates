@@ -1,0 +1,295 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 通过RDS数据库代理实现读写分离。
+  en: Read and write separation is realized by RDS database agent.
+Parameters:
+  CommonName:
+    Type: String
+    Default: SelectDB
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Label:
+      zh-cn: 可用区
+      en: Available Zone
+  InstanceType:
+    Type: String
+    Label:
+      zh-cn: ECS 实例类型
+      en: ECS Instance Type
+    Description:
+      zh-cn: <br><b>注： <font color='blue'>建议选择配备 16 vCPU 64 GiB 配置的实例，例如 ecs.g6.4xlarge、ecs.g7.4xlarge、ecs.g8i.4xlarge</font></b>
+      en: <br><b>note： <font color='blue'>It is recommended to select an instance with a 16 vCPU 64 GiB configuration, such as ecs.g6.4xlarge、ecs.g7.4xlarge、ecs.g8i.4xlarge</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      Constraints:
+        vCPU:
+          - 16
+        Memory:
+          - 64
+  ECSPassword:
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers, special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+    Description:
+      zh-cn: <br><b>注： <font color='blue'>长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</font></b>
+      en: <br><b>note： <font color='blue'>The 8-30 long login password of instance, consists of the uppercase, lowercase letter and number. special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</font></b>
+    MinLength: '8'
+    Label:
+      en: root account password
+      zh-cn: root 账号密码
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    NoEcho: true
+    MaxLength: '30'
+    Type: String
+  InstanceClass:
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance class
+    AllowedValues:
+      - selectdb.xlarge
+      - selectdb.2xlarge
+      - selectdb.4xlarge
+      - selectdb.8xlarge
+      - selectdb.16xlarge
+      - selectdb.24xlarge
+      - selectdb.32xlarge
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        selectdb.xlarge:
+          zh-cn: 4 核 16GB
+          en: 4 cores 16GB
+        selectdb.2xlarge:
+          zh-cn: 8 核 32GB
+          en: 8 cores 32GB
+        selectdb.4xlarge:
+          zh-cn: 16 核 64GB
+          en: 16 cores 64GB
+        selectdb.8xlarge:
+          zh-cn: 32 核 128GB
+          en: 32 cores 128GB
+        selectdb.16xlarge:
+          zh-cn: 64 核 256GB
+          en: 64 cores 256GB
+        selectdb.24xlarge:
+          zh-cn: 96 核 384GB
+          en: 96 cores 384GB
+        selectdb.32xlarge:
+          zh-cn: 128 核 512GB
+          en: 128 cores 512GB
+    Default: selectdb.4xlarge
+  SelectDBEngineVersion:
+    Type: String
+    Label:
+      zh-cn: 内核版本
+      en: Engine Version
+    AllowedValues:
+      - '3.0'
+      - '4.0'
+      # - '5.0'
+    Default: '4.0'
+  AccountPassword:
+    ConstraintDescription:
+      zh-cn: 长度8-30，输入密码至少满足其中三种条件:大写字母、小写字母、数字、特殊字符(!@#$%^&*()_+-=)
+      en: Length 8-30, The password must meet at least three conditions:uppercase letters, lowercase letters, digits, and special characters (!). @ # $% ^ & * () _ + - =)
+    Description:
+      zh-cn: <br><b>注： <font color='blue'>长度8-30，输入密码至少满足其中三种条件:大写字母、小写字母、数字、特殊字符(!@#$%^&*()_+-=)。</font></b>
+      en: <br><b>note： <font color='blue'>The 8-30 long login password of instance, The password must meet at least three conditions:uppercase letters, lowercase letters, digits, and special characters (!). @ # $% ^ & * () _ + - =).</font></b>
+    MinLength: '8'
+    Label:
+      zh-cn: admin 账号密码
+      en: admin account password
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    NoEcho: true
+    MaxLength: '30'
+    Type: String
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 22/22
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 8080/8080
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 100
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 10
+      Password:
+        Ref: ECSPassword
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 3600
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  RunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstance
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        'Fn::Sub':
+          - |
+            #!/bin/bash
+            cd /root
+            export ROS_DEPLOY=true
+            wget https://help-static-aliyun-doc.aliyuncs.com/install-script/selectdb-observability/yc_log_demo_2.0.1.tar.gz
+            tar -zxvf yc_log_demo_2.0.1.tar.gz
+            cd /root/log_demo
+            bash install.sh
+            sudo chown -R root:root /root/log_demo
+            ${CurlCli} --data-binary '{"status": "SUCCESS"}'
+          - CurlCli:
+              Fn::GetAtt:
+                - RosWaitConditionHandle
+                - CurlCli
+  SelectDBInstance:
+    Type: ALIYUN::SELECTDB::DBInstance
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      ChargeType: Postpaid
+      Engine: selectdb
+      EngineVersion:
+        Ref: SelectDBEngineVersion
+      CacheSize: 100
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: InstanceClass
+      SecurityIPList:
+        - 192.168.0.0/16
+      AccountPassword:
+        Ref: AccountPassword
+Outputs:
+  ECSUrl:
+    Label:
+      en: ECS login address
+      zh-cn: ECS登录地址
+    Description:
+      en: ECS login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub: >-
+        https://ecs-workbench.aliyun.com/?from=EcsConsole
+        &instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
+  SelectDbUrl:
+    Label:
+      en: SelectDB Instance address
+      zh-cn: SelectDB登录地址
+    Description:
+      en: SelectDB Instance address.
+      zh-cn: SelectDB登录地址。
+    Value:
+      Fn::Sub: >-
+        https://selectdb.console.aliyun.com/${ALIYUN::Region}/instanceDetail/${SelectDBInstance.DBInstanceId}/detail
+  ECSAccount:
+    Label:
+      en: ECS login user
+      zh-cn: ECS登录用户
+    Description:
+      en: ECS login user.
+      zh-cn: ECS登录用户。
+    Value: root
+  ECSLogingPassword:
+    Label:
+      en: Root password of the ecs user
+      zh-cn: ECS用户root密码
+    Description:
+      en: Root password of the ecs user.
+      zh-cn: ECS用户root密码。
+    NoEcho: true
+    Value:
+      Ref: ECSPassword
+  SelectDBAccount:
+    Label:
+      en: SelectDB login user
+      zh-cn: SelectDB登录用户
+    Description:
+      en: SelectDB login user.
+      zh-cn: SelectDB登录用户。
+    Value: admin
+  SelectDBLogingPassword:
+    Label:
+      en: SelectDB user admin password
+      zh-cn: SelectDB用户admin密码
+    Description:
+      en: SelectDB user admin password.
+      zh-cn: SelectDB用户admin密码。
+    NoEcho: true
+    Value:
+      Ref: AccountPassword
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+        Label:
+          default: 网络基础配置
+      - Parameters:
+          - InstanceType
+          - ECSPassword
+        Label:
+          default: 云服务器
+      - Parameters:
+          - InstanceClass
+          - SelectDBEngineVersion
+          - AccountPassword
+        Label:
+          default: 云数据库 SelectDB 版
+    TemplateTags:
+      - acs:document-help:ecs:基于SelectDB的极致性价比实时日志存储与检索分析-tech_solu_225
+    Hidden:
+      - CommonName
+

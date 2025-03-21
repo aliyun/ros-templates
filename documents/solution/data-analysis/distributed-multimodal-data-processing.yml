@@ -1,0 +1,142 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Description:
+  zh-cn: 创建VPC、OSS、MaxCompute、DataWorks，实现AI 时代的分布式多模态数据处理实践。
+  en: Create VPC, OSS, MaxCompute, and DataWorks to realize distributed multimodal data processing practices in the AI era.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ZoneId
+
+  BucketName:
+    Type: String
+    Label:
+      en: BucketName
+      zh-cn: OSS 存储空间名称
+    Description:
+      en: Bucket names must be globally unique within the scope of OSS. The length
+        is 3~63 characters. Must start and end with a lowercase English letter or
+        number, and can contain lowercase English letters, numbers, and dashes (-).
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: maxframe-dataset-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+
+  MaxComputeName:
+    Type: String
+    Label:
+      en: MaxComputeName
+      zh-cn: MaxCompute 项目名称
+    Description:
+      en: MaxCompute Project name must be globally unique within the scope of MaxCompute. The length
+        is 3~28 characters. Must start with a English letter, and can contain English letters, numbers, and underline (_).
+      zh-cn: MaxCompute 项目名称在 MaxCompute 范围内必须全局唯一。长度为3~28个字符。必须以英文字母开头，可包含英文字母、数字和下划线（_）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: bigdata_solutions_
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9_]{2,27}$
+
+  DataWorksName:
+    Type: String
+    Label:
+      en: DataWorksName
+      zh-cn: DataWorks 项目名称
+    Description:
+      en: DataWorks Project name must be globally unique within the scope of DataWorks. The length
+        is 3~28 characters. Must start with a English letter, and can contain English letters, numbers, and underline (_).
+      zh-cn: DataWorks 项目名称在 DataWorks 范围内必须全局唯一。长度为3~28个字符。必须以英文字母开头，可包含英文字母、数字和下划线（_）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: bigdata_solutions_
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9_]{2,27}$
+
+
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: vpc_dataworks
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      VSwitchName: vsw_dataworks
+
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName: sg_dataworks
+      VpcId:
+        Ref: Vpc
+  Bucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      AccessControl: private
+      BucketName:
+        Ref: BucketName
+
+  AliyunOdpsRole:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName: AliyunODPSDefaultRole
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - odps.aliyuncs.com
+      MaxSessionDuration: 3600
+      IgnoreExisting: true
+      PolicyAttachments:
+        System:
+          - AliyunODPSRolePolicy
+
+  Project:
+    Type: ALIYUN::MaxCompute::Project
+    Properties:
+      Name:
+        Ref: MaxComputeName
+      ChargeType: PostPaid
+      DefaultQuota: 默认后付费Quota
+
+  DataWorksProject:
+    Type: ALIYUN::DataWorks::Project
+    Properties:
+      ProjectIdentifier:
+        Ref: DataWorksName
+      ProjectName:
+        Ref: DataWorksName
+
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - BucketName
+          - MaxComputeName
+          - DataWorksName
+
+    TemplateTags:
+      - acs:technical-solution:data-analysis:AI 时代的分布式多模态数据处理实践-tech_solu_232

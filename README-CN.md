@@ -514,7 +514,9 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml)                             | 网站数据库平滑迁移上云。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/smowdttc)                                                |
 | [migrate-database-to-cloud.yml](documents/solution/database/migrate-database-to-cloud.yml)                                             | 自建数据库迁移到云数据库。                                                                                                                |
 | [rag-application.yml](documents/solution/database/rag-application.yml)                                                                 | AnalyticDB 和通义千问构建 RAG 应用。                                                                                                   |
+| [rds-database-agent.yml](documents/solution/database/rds-database-agent.yml)                                                                 | 通过RDS数据库代理实现读写分离。                                                                                                            |
 | [through-RocketMQ-transaction-messages.yml](documents/solution/database/through-RocketMQ-transaction-messages.yml)                     | 通过 RocketMQ 事务消息实现分布式事务。                                                                                                     |
+| [SelectDB-Log-Storage-and-Real-Time-Analytics.yaml](documents/solution/database/SelectDB-Log-Storage-and-Real-Time-Analytics.yaml)                     | 通过RDS数据库代理实现读写分离。                                                                                                            |
 
 - iot
 
@@ -584,6 +586,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [serverless-high-availability-architecture.yml](documents/solution/high-availability-architecture/serverless-high-availability-architecture.yml) | Serverless 高可用架构。                                                                      |
 | [build-high-performance-flash-sale-system.yaml](documents/solution/high-availability-architecture/build-high-performance-flash-sale-system.yaml) | 构建高性能秒杀系统。                                                                     |
 | [end-to-end-full-link-tracking-and-diagnosis.yaml](documents/solution/high-availability-architecture/end-to-end-full-link-tracking-and-diagnosis.yaml) | 端到端全链路追踪诊断。                                                               |
+| [Real-Time-Cloud-Product-Monitoring-with-Prometheus.yaml](documents/solution/high-availability-architecture/Real-Time-Cloud-Product-Monitoring-with-Prometheus.yaml) | 通过 Prometheus 实现云产品全方位实时监控。                                                               |
 | [optimizing-complex-query-performance.yaml](documents/solution/high-availability-architecture/optimizing-complex-query-performance.yaml) | 电商业务复杂查询性能优化。                                                           |
 
 - ops-on-cloud

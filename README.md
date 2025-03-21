@@ -514,7 +514,9 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [data-transmission-from-ECS-to-RDS.yml](documents/solution/database/data-transmission-from-ECS-to-RDS.yml)                             | Data transmission from ECS self-built database to RDS database.                                                                |
 | [migrate-database-to-cloud.yml](documents/solution/database/migrate-database-to-cloud.yml)                                             | Migrate self-built database to cloud database.                                                                                 |
 | [rag-application.yml](documents/solution/database/rag-application.yml)                                                                 | Quickly build RAG applications using AnalyticDB and Streamlit.                                                                 |
+| [rds-database-agent.yml](documents/solution/database/rds-database-agent.yml)                                                                 | Read and write separation is realized by RDS database agent.                                                             |
 | [through-RocketMQ-transaction-messages.yml](documents/solution/database/through-RocketMQ-transaction-messages.yml)                     | Distributed transactions are implemented through RocketMQ transaction messages.                                                |
+| [SelectDB-Log-Storage-and-Real-Time-Analytics.yaml](documents/solution/database/SelectDB-Log-Storage-and-Real-Time-Analytics.yaml)                     | Read and write separation is realized by RDS database agent.                                              |
 
 - iot
 
@@ -585,6 +587,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [serverless-high-availability-architecture.yml](documents/solution/high-availability-architecture/serverless-high-availability-architecture.yml) | Serverless high availability architecture.                        |
 | [build-high-performance-flash-sale-system.yaml](documents/solution/high-availability-architecture/build-high-performance-flash-sale-system.yaml) | Build a high-performance flash sale system.                        |
 | [end-to-end-full-link-tracking-and-diagnosis.yaml](documents/solution/high-availability-architecture/end-to-end-full-link-tracking-and-diagnosis.yaml) | End-to-end full-link tracking and diagnosis.                        |
+| [Real-Time-Cloud-Product-Monitoring-with-Prometheus.yaml](documents/solution/high-availability-architecture/Real-Time-Cloud-Product-Monitoring-with-Prometheus.yaml) | Complete real-time monitoring of cloud products with Prometheus.                |
 | [optimizing-complex-query-performance.yaml](documents/solution/high-availability-architecture/optimizing-complex-query-performance.yaml) | Optimizing Complex Query Performance in E-commerce.                        |
 
 - ops-on-cloud
