@@ -1,0 +1,181 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 部署一个包含Redis实例和ECS实例（CentOS 7）的环境，配置安全组、付费方式、网络设置及实例规格。ECS实例通过UserData连接到Redis。
+  en: Deploy an environment comprising a Redis instance and an Elastic Compute Service
+    (ECS) instance running CentOS 7, with configurations including security groups,
+    payment methods, network settings, and instance specifications. The ECS instance
+    connects to the Redis instance via UserData scripting.
+Parameters:
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+    Label:
+      zh-cn: 交换机可用区ID
+      en: Available Zone ID
+  RedisInstancePassword:
+    Type: String
+    Description:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：!@#$%^&*()_+-=
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase letter and number. <br> special characters include!@#$%^&*()_+-=
+    Label:
+      zh-cn: Tair数据库密码
+      en: Tair DB Password
+    NoEcho: true
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）
+    AllowedPattern: '^[0-9A-Za-z_!@#$%^&*()_+\-=\+]+$'
+    MinLength: 8
+    MaxLength: 30
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: ECS Instance Type
+      zh-cn: ECS 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: PostPaid
+  InstancePassword:
+    Type: String
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
+        ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern: ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: VPC_HZ
+      CidrBlock: '192.168.0.0/16'
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName: vsw_001
+      CidrBlock: '192.168.1.0/24'
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: SecurityGroup_1
+      SecurityGroupIngress:
+      - Priority: 1
+        PortRange: 80/80
+        NicType: internet
+        SourceCidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Join:
+        - '-'
+        - - Ref: ALIYUN::StackName
+          - '[1,4]'
+      InstanceChargeType: PostPaid
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 100
+      InstanceType:
+        Ref: EcsInstanceType
+      Password:
+        Ref: InstancePassword
+      AllocatePublicIP: true
+      InternetMaxBandwidthOut: 5
+  RedisInstance:
+    Type: ALIYUN::REDIS::Instance
+    Properties:
+      ChargeType: PostPaid
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      ZoneId:
+        Ref: ZoneId
+      InstanceClass: redis.shard.small.2.ce
+      EngineVersion: '7.0'
+      InstanceName: 'redis'
+      Password:
+        Ref: RedisInstancePassword
+  Whitelist:
+    Type: ALIYUN::REDIS::Whitelist
+    Properties:
+      InstanceId:
+        Fn::GetAtt:
+        - RedisInstance
+        - InstanceId
+      SecurityIpGroupAttribute: default
+      SecurityIpGroupName: vpc_group
+      SecurityIps: '192.168.0.0/16'
+  InstallRedisClient:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn: Whitelist
+    Properties:
+      InstanceIds:
+        - Ref: EcsInstanceGroup
+      Timeout: 600
+      Type: RunShellScript
+      Sync: true
+      CommandContent: |-
+        #!/bin/bash
+        export ROS_DEPLOY=true
+        curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/read-write-splitting-through-tair-proxy/install.sh | bash
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub:
+        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - InstanceIds
+          Region:
+            Ref: ALIYUN::Region
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      - EcsInstanceType
+      - InstancePassword
+      Label:
+        default:
+          en: Instance
+          zh-cn: ECS实例配置
+    - Parameters:
+      - RedisInstancePassword
+      Label:
+        default:
+          zh-cn: Tair配置（Tair数据库所在可用区与ECS实例可用区保持一致）
+          en: Tair Configuration
