@@ -518,6 +518,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [rds-database-agent.yml](documents/solution/database/rds-database-agent.yml)                                                                 | 通过RDS数据库代理实现读写分离。                                                                                                            |
 | [through-RocketMQ-transaction-messages.yml](documents/solution/database/through-RocketMQ-transaction-messages.yml)                     | 通过 RocketMQ 事务消息实现分布式事务。                                                                                                     |
 | [SelectDB-Log-Storage-and-Real-Time-Analytics.yaml](documents/solution/database/SelectDB-Log-Storage-and-Real-Time-Analytics.yaml)                     | 通过RDS数据库代理实现读写分离。                                                                                                            |
+| [Modern-SelectDB-Lakehouse-Platform.yaml](documents/solution/database/Modern-SelectDB-Lakehouse-Platform.yaml)                     | 基于SelectDB低成本、高性能的湖仓一体化架构。                                                                                                         |
 
 - iot
 
