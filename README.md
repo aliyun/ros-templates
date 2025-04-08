@@ -518,6 +518,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [rds-database-agent.yml](documents/solution/database/rds-database-agent.yml)                                                                 | Read and write separation is realized by RDS database agent.                                                             |
 | [through-RocketMQ-transaction-messages.yml](documents/solution/database/through-RocketMQ-transaction-messages.yml)                     | Distributed transactions are implemented through RocketMQ transaction messages.                                                |
 | [SelectDB-Log-Storage-and-Real-Time-Analytics.yaml](documents/solution/database/SelectDB-Log-Storage-and-Real-Time-Analytics.yaml)                     | Read and write separation is realized by RDS database agent.                                              |
+| [Modern-SelectDB-Lakehouse-Platform.yaml](documents/solution/database/Modern-SelectDB-Lakehouse-Platform.yaml)                     | Low cost, high performance lake warehouse integrated architecture based on SelectDB.                                              |
 
 - iot
 
