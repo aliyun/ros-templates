@@ -488,6 +488,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [AnalyticDB-and-Bailian-system.yml](documents/solution/ai/AnalyticDB-and-Bailian-system.yml)                                                                     | AnalyticDB 与百炼搭建智能问答系统。                                                                              |
 | [pai-rec-deploy-recommendation-solution.yml](documents/solution/ai/pai-rec-deploy-recommendation-solution.yml)                                                   | 使用 PAI-Rec 部署推荐方案。                                                                                   |
 | [ecs-ai-face-detection-solution.yml](documents/solution/ai/ecs-ai-face-detection-solution.yml)                                                                   | 基于视觉智能开放平台部署人脸检测与比对解决方案。                                                                             |
+| [Quickstart-Qwen2.5-Omni-with-Baijian.yml](documents/solution/ai/Quickstart-Qwen2.5-Omni-with-Baijian.yml)                                                                   | 通过百炼快速体验 Qwen2.5-Omni 模型。                                                                          |
 
 - data-analysis
 
