@@ -1,0 +1,580 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: '通过私有网络安全高效访问百炼服务。'
+  en: 'Secure and efficient access to Peregrine services over a private network.'
+Parameters:
+  BJZoneId1:
+    Type: String
+    Label:
+      en: Beijing Region Available Zone ID1
+      zh-cn: 北京地域可用区ID1
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
+        VSwitch and used for Flink instance.</font></b>
+      zh-cn: 可用区ID1。<br><b>注：用于创建VSwitch，并给ECS实例使用。
+    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+    AssociationPropertyMetadata:
+      RegionId: 'cn-beijing'
+      ExclusiveTo:
+        - BJZoneId2
+    AllowedValues:
+      - cn-beijing-g
+      - cn-beijing-h
+      - cn-beijing-i
+      - cn-beijing-k
+      - cn-beijing-l
+  BJZoneId2:
+    Type: String
+    Label:
+      en: Beijing Region Available Zone ID2
+      zh-cn: 北京地域可用区ID2
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
+        VSwitch and used for Flink instance.</font></b>
+      zh-cn: 可用区ID2。<br><b>注：用于创建VSwitch，并给ECS实例使用。
+    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+    AssociationPropertyMetadata:
+      RegionId: 'cn-beijing'
+      ExclusiveTo:
+        - BJZoneId1
+    AllowedValues:
+      - cn-beijing-g
+      - cn-beijing-h
+      - cn-beijing-i
+      - cn-beijing-k
+      - cn-beijing-l
+  InstanceType:
+    Type: String
+    Default: ecs.c6.large
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId1}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  ZoneId1:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      RegionId: 'cn-hangzhou'
+      ExclusiveTo:
+        - ZoneId2
+    AllowedValues:
+      - cn-hangzhou-h
+      - cn-hangzhou-i
+      - cn-hangzhou-j
+      - cn-hangzhou-k
+      - cn-hangzhou-b
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 杭州可用区ID1
+      en: cn-hangzhou Available Zone ID1
+  ZoneId2:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      RegionId: 'cn-hangzhou'
+      ExclusiveTo:
+        - ZoneId1
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    AllowedValues:
+      - cn-hangzhou-h
+      - cn-hangzhou-i
+      - cn-hangzhou-j
+      - cn-hangzhou-k
+      - cn-hangzhou-b
+    Label:
+      zh-cn: 杭州可用区ID2
+      en: cn-hangzhou Available Zone ID2
+Resources:
+  CenResourcesStack:
+    Type: ALIYUN::ROS::Stack
+    DependsOn:
+      - BeijingResourcesStack
+      - EcsInstance
+    Properties:
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Transform: Aliyun::Terraform-v1.2
+        Workspace:
+          main.tf: |-
+            provider "alicloud" {  
+              alias = "region1"
+              region = "cn-beijing"
+            }
+        
+            provider "alicloud" {  
+              alias = "region2"
+              region = "${var.MasterRegion}"
+            }
+            
+            data "alicloud_regions" "master_region" {
+              provider = alicloud.region2
+              current  = true
+            }
+        
+            # cen实例
+            resource "alicloud_cen_instance" "cen" {
+              provider = alicloud.region1
+              protection_level = "REDUCED"
+            }
+            
+            data "alicloud_cen_transit_router_service" "open" {
+              enable = "On"
+            }
+              
+            # tr实例
+            resource "alicloud_cen_transit_router" "tr1" {
+              provider = alicloud.region1
+              cen_id = alicloud_cen_instance.cen.id
+              depends_on = [data.alicloud_cen_transit_router_service.open]
+            }
+        
+            resource "alicloud_cen_transit_router" "tr2" {
+              provider = alicloud.region2
+              cen_id = alicloud_cen_instance.cen.id
+              depends_on = [data.alicloud_cen_transit_router_service.open]
+            }
+            
+            
+            data "alicloud_cen_transit_router_route_tables" "bj_route" {
+              provider = alicloud.region1
+              transit_router_id               = alicloud_cen_transit_router.tr1.transit_router_id
+              transit_router_route_table_type = "System"
+            }
+            
+            data "alicloud_cen_transit_router_route_tables" "hz_route" {
+              provider = alicloud.region2
+              transit_router_id               = alicloud_cen_transit_router.tr2.transit_router_id
+              transit_router_route_table_type = "System"
+            }
+            
+            
+            locals {
+              local_tr_route_table_id  = data.alicloud_cen_transit_router_route_tables.bj_route.tables[0].transit_router_route_table_id
+              remote_tr_route_table_id = data.alicloud_cen_transit_router_route_tables.hz_route.tables[0].transit_router_route_table_id
+            }
+        
+            # vpc连接至tr
+            resource "alicloud_cen_transit_router_vpc_attachment" "vpc_att1" {
+              provider = alicloud.region1
+              cen_id            = alicloud_cen_instance.cen.id
+              transit_router_id = alicloud_cen_transit_router.tr1.transit_router_id
+              vpc_id            = "${var.BJVpcId}"
+              auto_publish_route_enabled = true
+              zone_mappings {
+                zone_id    = "${var.BJZoneId1}"
+                vswitch_id = "${var.BJVSwitch1}"
+              }
+              zone_mappings {
+                zone_id    = "${var.BJZoneId2}"
+                vswitch_id = "${var.BJVSwitch2}"
+              }
+            }
+        
+            resource "alicloud_cen_transit_router_vpc_attachment" "vpc_att2" {
+              provider = alicloud.region2
+              cen_id            = alicloud_cen_instance.cen.id
+              transit_router_id = alicloud_cen_transit_router.tr2.transit_router_id
+              vpc_id            = "${var.MasterVpcId}"
+              auto_publish_route_enabled = true
+              zone_mappings {
+                zone_id    = "${var.MasterZoneId1}"
+                vswitch_id = "${var.MasterVSwitch1}"
+              }
+              zone_mappings {
+                zone_id    = "${var.MasterZoneId2}"
+                vswitch_id = "${var.MasterVSwitch2}"
+              }
+            }
+            
+            
+            resource "alicloud_cen_transit_router_peer_attachment" "cen_transit_router_peer_attachment" {
+              provider = alicloud.region1
+              cen_id                         = alicloud_cen_instance.cen.id
+              transit_router_id              = alicloud_cen_transit_router.tr1.transit_router_id
+              peer_transit_router_region_id  = data.alicloud_regions.master_region.regions[0].id
+              peer_transit_router_id         = alicloud_cen_transit_router.tr2.transit_router_id
+              bandwidth_type                 = "DataTransfer"
+              bandwidth                      = 10
+              transit_router_attachment_name = "TR-Peer-Attachment"
+              auto_publish_route_enabled     = true
+            }
+            
+            resource "alicloud_cen_transit_router_route_table_propagation" "bj_alicloud_cen_transit_router_route_table_propagation" {
+              provider = alicloud.region1
+              transit_router_route_table_id = local.local_tr_route_table_id
+              transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.vpc_att1.transit_router_attachment_id
+            }
+
+            resource "alicloud_cen_transit_router_route_table_association" "bj_alicloud_cen_transit_router_route_table_association" {
+              provider = alicloud.region1
+              transit_router_route_table_id = local.local_tr_route_table_id
+              transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.vpc_att1.transit_router_attachment_id
+            }
+            
+            resource "alicloud_cen_transit_router_route_table_propagation" "hz_alicloud_cen_transit_router_route_table_propagation" {
+              provider = alicloud.region2
+              transit_router_route_table_id = local.remote_tr_route_table_id
+              transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.vpc_att2.transit_router_attachment_id
+            }
+
+            resource "alicloud_cen_transit_router_route_table_association" "hz_alicloud_cen_transit_router_route_table_association" {
+              provider = alicloud.region2
+              transit_router_route_table_id = local.remote_tr_route_table_id
+              transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.vpc_att2.transit_router_attachment_id
+            }
+            
+            
+            resource "alicloud_cen_transit_router_route_table_propagation" "beijing_peer_propagation" {
+              provider = alicloud.region1
+              transit_router_route_table_id = local.local_tr_route_table_id
+              transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.cen_transit_router_peer_attachment.transit_router_attachment_id
+            }
+            
+            resource "alicloud_cen_transit_router_route_table_propagation" "shanghai_peer_propagation" {
+              provider = alicloud.region1
+              transit_router_route_table_id = local.remote_tr_route_table_id
+              transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.cen_transit_router_peer_attachment.transit_router_attachment_id
+            }
+
+            resource "alicloud_cen_transit_router_route_table_association" "beijing_peer_attachment" {
+              provider = alicloud.region1
+              transit_router_route_table_id = local.local_tr_route_table_id
+              transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.cen_transit_router_peer_attachment.transit_router_attachment_id
+            }
+            
+            resource "alicloud_cen_transit_router_route_table_association" "shanghai_peer_attachment" {
+              provider = alicloud.region1
+              transit_router_route_table_id = local.remote_tr_route_table_id
+              transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.cen_transit_router_peer_attachment.transit_router_attachment_id
+            }
+          variables.tf: |
+            variable "MasterZoneId1" {
+              type = string
+            }
+            variable "MasterZoneId2" {
+              type = string
+            }
+            variable "MasterVpcId" {
+              type = string
+            }
+            variable "MasterVSwitch1" {
+              type = string
+            }
+            variable "MasterVSwitch2" {
+              type = string
+            }     
+            variable "BJZoneId1" {
+              type = string
+            }
+            variable "BJZoneId2" {
+              type = string
+            }
+            variable "BJVpcId" {
+              type = string
+            }
+            variable "BJVSwitch1" {
+              type = string
+            }
+            variable "BJVSwitch2" {
+              type = string
+            }
+            variable "MasterRegion" {
+              type = string
+            }
+      Parameters:
+        MasterZoneId1:
+          Ref: ZoneId1
+        MasterZoneId2:
+          Ref: ZoneId2
+        MasterVSwitch1:
+          Ref: VSwitch1
+        MasterVSwitch2:
+          Ref: VSwitch2
+        BJVpcId:
+          Fn::GetAtt:
+            - BeijingResourcesStack
+            - Outputs.bj_vpc_id
+        BJVSwitch1:
+          Fn::GetAtt:
+            - BeijingResourcesStack
+            - Outputs.bj_vsw1_id
+        BJVSwitch2:
+          Fn::GetAtt:
+            - BeijingResourcesStack
+            - Outputs.bj_vsw2_id
+        BJZoneId1:
+          Ref: BJZoneId1
+        BJZoneId2:
+          Ref: BJZoneId2
+        MasterVpcId:
+          Ref: VPC
+        MasterRegion:
+          Ref: ALIYUN::Region
+  BeijingResourcesStack:
+    Type: ALIYUN::ROS::Stack
+    DependsOn:
+      - EcsInstance
+    Properties:
+      TemplateBody:
+        ROSTemplateFormatVersion: '2015-09-01'
+        Transform: Aliyun::Terraform-v1.2
+        Workspace:
+          main.tf: |-
+            provider "alicloud" {
+              region ="${var.region}"
+            }
+            
+            resource "alicloud_vpc" "vpc" {
+                cidr_block = "172.16.0.0/16"
+                vpc_name = "VPC_BJ"
+            }
+
+            resource "alicloud_vswitch" "vsw1" {
+                vpc_id       = alicloud_vpc.vpc.id
+                cidr_block   = "172.16.1.0/24"
+                zone_id      = "${var.BJZoneId1}"
+                vswitch_name = "vsw_001"
+            }
+            
+            resource "alicloud_vswitch" "vsw2" {
+                vpc_id       = alicloud_vpc.vpc.id
+                cidr_block   = "172.16.2.0/24"
+                zone_id      = "${var.BJZoneId2}"
+                vswitch_name = "vsw_002"
+            }
+            
+            # 安全组基本信息配置
+            resource "alicloud_security_group" "sg" {
+              name   = "SecurityGroup_BJ"
+              vpc_id =  alicloud_vpc.vpc.id
+            }
+
+            resource "alicloud_security_group_rule" "allow_80" {
+              security_group_id = "${alicloud_security_group.sg.id}"
+              type = "ingress"
+              cidr_ip= "0.0.0.0/0"
+              policy = "accept"
+              ip_protocol= "tcp"
+              port_range= "80/80"
+              priority= 1
+            }
+            
+            resource "alicloud_security_group_rule" "allow_443" {
+              security_group_id = "${alicloud_security_group.sg.id}"
+              type = "ingress"
+              cidr_ip= "0.0.0.0/0"
+              policy = "accept"
+              ip_protocol= "tcp"
+              port_range= "443/443"
+              priority= 1
+            }
+            
+            resource "alicloud_security_group_rule" "allow_icmp" {
+              security_group_id = "${alicloud_security_group.sg.id}"
+              type = "ingress"
+              cidr_ip= "0.0.0.0/0"
+              policy = "accept"
+              ip_protocol= "icmp"
+              port_range= "-1/-1"
+              priority= 1
+            }
+            
+            resource "alicloud_privatelink_vpc_endpoint" "privatelink_vpc_endpoint" {
+              vpc_endpoint_name             = "bj_privatelink_vpc_endpoint"
+              endpoint_type                 = "Interface"
+              vpc_id                        = alicloud_vpc.vpc.id
+              service_name                  = "com.aliyuncs.dashscope"
+              security_group_ids = [alicloud_security_group.sg.id]
+            }
+            
+            resource "alicloud_privatelink_vpc_endpoint_zone" "bj_privatelink_vpc_endpoint_zone1" {
+              endpoint_id = alicloud_privatelink_vpc_endpoint.privatelink_vpc_endpoint.id
+              vswitch_id  = alicloud_vswitch.vsw1.id
+              zone_id     = "${var.BJZoneId1}"
+            }
+            
+            resource "alicloud_privatelink_vpc_endpoint_zone" "bj_privatelink_vpc_endpoint_zone2" {
+              endpoint_id = alicloud_privatelink_vpc_endpoint.privatelink_vpc_endpoint.id
+              vswitch_id  = alicloud_vswitch.vsw2.id
+              zone_id     = "${var.BJZoneId2}"
+            }
+            
+            resource "alicloud_pvtz_zone" "bj_pvtz_zone" {
+              zone_name = "vpc-cn-beijing.dashscope.aliyuncs.com"
+              proxy_pattern = "ZONE"
+            }
+            
+            resource "alicloud_pvtz_zone_attachment" "bj_pvtz_zone_attachment" {
+              zone_id = alicloud_pvtz_zone.bj_pvtz_zone.id
+              vpcs {
+                    region_id = "${var.MasterRegion}"
+                    vpc_id    = "${var.VpcId}"
+                  }
+            }
+            
+            resource "alicloud_pvtz_zone_record" "bj_pvtz_zone_record" {
+              zone_id = alicloud_pvtz_zone.bj_pvtz_zone.id
+              rr      = "@"
+              type    = "CNAME"
+              value   = alicloud_privatelink_vpc_endpoint.privatelink_vpc_endpoint.endpoint_domain
+              ttl     = 60
+              status  = "ENABLE"
+            }
+            
+            output "bj_vpc_id" {
+              value = "${alicloud_vpc.vpc.id}"
+            }
+            
+            output "bj_vsw1_id" {
+              value = "${alicloud_vswitch.vsw1.id}"
+            }
+            
+            output "bj_vsw2_id" {
+              value = "${alicloud_vswitch.vsw2.id}"
+            }
+          variables.tf: |
+            variable "region" {
+              type = string
+              default = "cn-beijing"
+            }
+            variable "BJZoneId1" {
+              type = string
+            }
+            variable "BJZoneId2" {
+              type = string
+            }
+            variable "VpcId" {
+              type = string
+            }
+            variable "MasterRegion" {
+              type = string
+            }
+      Parameters:
+        BJZoneId1:
+          Ref: BJZoneId1
+        BJZoneId2:
+          Ref: BJZoneId2
+        VpcId:
+          Ref: VPC
+        MasterRegion:
+          Ref: ALIYUN::Region
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName: vsw_001
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 192.168.2.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName: vsw_002
+  EcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Fn::GetAtt:
+          - VPC
+          - VpcId
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      VSwitchId:
+        Ref: VSwitch1
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: InstanceType
+      ZoneId:
+        Ref: ZoneId1
+      SystemDiskSize: 40
+  VPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: VPC_HZ
+      CidrBlock: 192.168.0.0/16
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPC
+      SecurityGroupName: SecurityGroup_1
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - BJZoneId1
+      - BJZoneId2
+      Label:
+        default:
+          en: Beijing Region Availability Zone
+          zh-cn: 北京地域可用区配置
+    - Parameters:
+      - ZoneId1
+      - ZoneId2
+      Label:
+        default:
+          en: Hangzhouo Region Availability Zone
+          zh-cn: 杭州地域可用区配置
+    - Parameters:
+      - InstanceType
+      - InstancePassword
+      Label:
+        default:
+          en: Hangzhouo Region ECS Resources Configuration
+          zh-cn: 杭州地域ECS资源配置
+    TemplateTags:
+    - 'acs:technical-solution:network:通过私有网络安全高效访问百炼服务-tech_solu_240'
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub:
+        - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - InstanceIds
+          Region:
+            Ref: ALIYUN::Region

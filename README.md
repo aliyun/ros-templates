@@ -489,6 +489,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [pai-rec-deploy-recommendation-solution.yml](documents/solution/ai/pai-rec-deploy-recommendation-solution.yml)                                                   | Deploying a recommendation solution using PAI-Rec.                                                                 |
 | [ecs-ai-face-detection-solution.yml](documents/solution/ai/ecs-ai-face-detection-solution.yml)                                                                   | Deploying a face detection and comparison solution based on the Visual Intelligence Open Platform.                 |
 | [Quickstart-Qwen2.5-Omni-with-Baijian.yml](documents/solution/ai/Quickstart-Qwen2.5-Omni-with-Baijian.yml)                                                                   | Quickly experience Qwen2.5-Omni model through hundreds of exercises.                |
+| [use-cen-access-to-bailian-service.yml](documents/solution/ai/use-cen-access-to-bailian-service.yml)                                                                   | Secure and efficient access to Peregrine services over a private network.               |
 
 - data-analysis
 

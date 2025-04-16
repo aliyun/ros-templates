@@ -489,6 +489,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [pai-rec-deploy-recommendation-solution.yml](documents/solution/ai/pai-rec-deploy-recommendation-solution.yml)                                                   | 使用 PAI-Rec 部署推荐方案。                                                                                   |
 | [ecs-ai-face-detection-solution.yml](documents/solution/ai/ecs-ai-face-detection-solution.yml)                                                                   | 基于视觉智能开放平台部署人脸检测与比对解决方案。                                                                             |
 | [Quickstart-Qwen2.5-Omni-with-Baijian.yml](documents/solution/ai/Quickstart-Qwen2.5-Omni-with-Baijian.yml)                                                                   | 通过百炼快速体验 Qwen2.5-Omni 模型。                                                                          |
+| [use-cen-access-to-bailian-service.yml](documents/solution/ai/use-cen-access-to-bailian-service.yml)                                                                   | 通过私有网络安全高效访问百炼服务。                                                                         |
 
 - data-analysis
 
