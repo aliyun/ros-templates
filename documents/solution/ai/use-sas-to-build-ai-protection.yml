@@ -1,0 +1,195 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  CommonName:
+    Type: String
+    Default: HZ
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  InstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+    Default: ecs.e-c1m2.large
+  ZoneId1:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 交换机可用区ID
+      en: Available Zone ID
+  BaiLianApiKey:
+    Type: String
+    Label:
+      en: BaiLian API-KEY
+      zh-cn: 百炼 API-KEY
+    AssociationProperty: ALIYUN::Bailian::ApiKey::ApiKeyInfo
+    Description:
+      zh-cn: >-
+        开通百炼模型服务，并获得 API-KEY，请参考：
+        <a href="https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key" 
+        target="_blank">获取 API-KEY</a>。
+      en: >-
+        Activate BaiLian and obtain the API-KEY. Please refer to: 
+        <a href="https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key" 
+        target="_blank">Get API-KEY</a>.
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId1
+        Label:
+          default:
+            en: Network Configuration
+            zh-cn: 网络基础配置
+      - Parameters:
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            en: ECS Configuration
+            zh-cn: ECS配置
+      - Parameters:
+          - BaiLianApiKey
+        Label:
+            default:
+              en: API-KEY
+              zh-cn: API-KEY配置
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:构建生成式 AI 的全方位安全防护体系-tech_solu_245
+    Hidden:
+      - CommonName
+Outputs:
+  WebUrl:
+    Description:
+      zh-cn: Web 访问地址。
+      en: The Addresses of Web.
+    Value:
+      'Fn::Sub':
+        - 'http://${ServerAddress}'
+        - ServerAddress:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - EcsInstance
+                  - PublicIps
+Resources:
+  RamUser:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: create_by_solution-${ALIYUN::StackId}
+  RamAK:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+          - RamUser
+          - UserName
+    DependsOn: RamUser
+  AttachPolicyToUser:
+    Type: ALIYUN::RAM::AttachPolicyToUser
+    Properties:
+      PolicyType: System
+      UserName:
+        Fn::GetAtt:
+          - RamUser
+          - UserName
+      PolicyName: AliyunYundunGreenWebFullAccess
+    DependsOn: RamAK
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 100
+          PortRange: 80/80
+          NicType: internet
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+      VpcId:
+        Ref: VPC
+      SecurityGroupName:
+        Fn::Sub: SG_${CommonName}
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      CommandContent:
+        'Fn::Sub':
+          - |
+            #!/bin/bash
+            cat << EOF >> ~/.bash_profile
+            export ROS_DEPLOY=true
+            export BAILIAN_API_KEY=${ApiKey}
+            export ALIBABA_CLOUD_ACCESS_KEY_ID=${RamAK.AccessKeyId}
+            export ALIBABA_CLOUD_ACCESS_KEY_SECRET=${RamAK.AccessKeySecret}
+            EOF
+            source ~/.bash_profile
+            curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/ai-security/install.sh | bash
+          - ApiKey:
+              Fn::Jq:
+                - First
+                - .Key
+                - Ref: BaiLianApiKey
+      Type: RunShellScript
+      Timeout: '2400'
+      Sync: true
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: VSW_${CommonName}
+  EcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      MaxAmount: 1
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Fn::GetAtt:
+          - VPC
+          - VpcId
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      VSwitchId:
+        Ref: VSwitch1
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: InstanceType
+      InternetMaxBandwidthOut: 5
+      ZoneId:
+        Ref: ZoneId1
+  VPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: VPC_${CommonName}
+      CidrBlock: 192.168.0.0/16
+
