@@ -1,0 +1,518 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 10分钟完成前后端分离架构升级。
+  en: Complete front-end separation architecture upgrade in 10 minutes.
+Parameters:
+  CommonName:
+    Type: String
+    Default: front-end-separation-architecture
+  ZoneId1:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId2
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
+  ZoneId2:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId1
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
+  InstanceType1:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId1}
+    Label:
+      en: ECS1 Instance Type
+      zh-cn: ECS1的实例规格
+    Default: ecs.e-c1m2.large
+  InstanceType2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId2}
+    Label:
+      en: ECS2 Instance Type
+      zh-cn: ECS2的实例规格
+    Default: ecs.e-c1m2.large
+  InstancePassword:
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in). <br><b>note： <font color='blue'>This password is used for both ECS instance configurations.</font></b>
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/中的特殊符号。<br><b>注： <font color='blue'>此密码同时用于两台ECS实例配置。</font></b>
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-VPC_HZ
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName: vsw_001
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.2.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName: vsw_002
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-SecurityGroup_1
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 8080/8080
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance1:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchId:
+        Ref: VSwitch1
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType1
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      SystemDiskSize: 40
+      Password:
+        Ref: InstancePassword
+  EcsInstance2:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchId:
+        Ref: VSwitch2
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType2
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      SystemDiskSize: 40
+      Password:
+        Ref: InstancePassword
+  WaitConditionHandle:
+    Type: 'ALIYUN::ROS::WaitConditionHandle'
+    Properties: { }
+  RosWaitCondition:
+    Type: 'ALIYUN::ROS::WaitCondition'
+    Properties:
+      Count: 2
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3600
+  RunCommand1:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance1
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            export ROS_DEPLOY=true
+            
+            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/java.sh | bash
+            
+            curl -I http://localhost:8080/api/getEcsReleaseNotes
+            
+            sudo yum install -y nginx
+            sudo yum install -y unzip
+            sudo wget -O $HOME/pages.zip https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/pages.zip
+            sudo unzip -o $HOME/pages.zip
+            sudo chmod -R a+rx $HOME/dist/
+            sudo cp -r $HOME/dist/* /usr/share/nginx/html
+            
+            sudo mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+            cat << "EOF" > /etc/nginx/nginx.conf
+            user nginx;
+            worker_processes auto;
+            error_log /var/log/nginx/error.log;
+            pid /run/nginx.pid;
+            
+            # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+            include /usr/share/nginx/modules/*.conf;
+            
+            events {
+                worker_connections 1024;
+            }
+            
+            http {
+                log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                                  '$status $body_bytes_sent "$http_referer" '
+                                  '"$http_user_agent" "$http_x_forwarded_for"';
+            
+                access_log  /var/log/nginx/access.log  main;
+            
+                sendfile            on;
+                tcp_nopush          on;
+                tcp_nodelay         on;
+                keepalive_timeout   65;
+                types_hash_max_size 4096;
+            
+                include             /etc/nginx/mime.types;
+                default_type        application/octet-stream;
+            
+                # Load modular configuration files from the /etc/nginx/conf.d directory.
+                # See http://nginx.org/en/docs/ngx_core_module.html#include
+                # for more information.
+                include /etc/nginx/conf.d/*.conf;
+            
+                server {
+                    listen       80 default_server;
+                    listen       [::]:80;
+                    server_name  _;
+                    root         /usr/share/nginx/html;
+            
+                    # Load configuration files for the default server block.
+                    include /etc/nginx/default.d/*.conf;
+            
+                    location / {
+                      root /usr/share/nginx/html;
+                      index index.html;
+                    }
+                    
+                    location /api/{
+                      proxy_pass  http://${PrivateIp}:8080/api/; 
+                    }
+            
+                    error_page 404 /error.html;
+                    location = /error.html {
+                        root /usr/share/nginx/html;
+                    }
+            
+                    error_page 500 502 503 504 /50x.html;
+                        location = /50x.html {
+                    }
+                }
+            }    
+            EOF
+            
+            sudo systemctl start nginx
+            sudo systemctl enable nginx
+            
+            ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+          - PrivateIp:
+              'Fn::Select':
+                - 0
+                - Fn::GetAtt:
+                    - EcsInstance1
+                    - PrivateIps
+  RunCommand2:
+    Type: 'ALIYUN::ECS::RunCommand'
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance2
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            export ROS_DEPLOY=true
+            
+            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/java.sh | bash
+            
+            curl -I http://localhost:8080/api/getEcsReleaseNotes
+            
+            sudo yum install -y nginx
+            sudo yum install -y unzip
+            sudo wget -O $HOME/pages.zip https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/pages.zip
+            sudo unzip -o $HOME/pages.zip
+            sudo chmod -R a+rx $HOME/dist/
+            sudo cp -r $HOME/dist/* /usr/share/nginx/html
+            
+            sudo mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+            cat << "EOF" > /etc/nginx/nginx.conf
+            user nginx;
+            worker_processes auto;
+            error_log /var/log/nginx/error.log;
+            pid /run/nginx.pid;
+            
+            # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+            include /usr/share/nginx/modules/*.conf;
+            
+            events {
+                worker_connections 1024;
+            }
+            
+            http {
+                log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                                  '$status $body_bytes_sent "$http_referer" '
+                                  '"$http_user_agent" "$http_x_forwarded_for"';
+            
+                access_log  /var/log/nginx/access.log  main;
+            
+                sendfile            on;
+                tcp_nopush          on;
+                tcp_nodelay         on;
+                keepalive_timeout   65;
+                types_hash_max_size 4096;
+            
+                include             /etc/nginx/mime.types;
+                default_type        application/octet-stream;
+            
+                # Load modular configuration files from the /etc/nginx/conf.d directory.
+                # See http://nginx.org/en/docs/ngx_core_module.html#include
+                # for more information.
+                include /etc/nginx/conf.d/*.conf;
+            
+                server {
+                    listen       80 default_server;
+                    listen       [::]:80;
+                    server_name  _;
+                    root         /usr/share/nginx/html;
+            
+                    # Load configuration files for the default server block.
+                    include /etc/nginx/default.d/*.conf;
+            
+                    location / {
+                      root /usr/share/nginx/html;
+                      index index.html;
+                    }
+            
+                    location /api/{
+                      proxy_pass  http://${PrivateIp}:8080/api/; 
+                    }
+            
+                    error_page 404 /error.html;
+                    location = /error.html {
+                        root /usr/share/nginx/html;
+                    }
+            
+                    error_page 500 502 503 504 /50x.html;
+                        location = /50x.html {
+                    }
+                }
+            }    
+            EOF
+            
+            sudo systemctl start nginx
+            sudo systemctl enable nginx
+            
+            ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+          - PrivateIp:
+              'Fn::Select':
+                - 0
+                - Fn::GetAtt:
+                    - EcsInstance2
+                    - PrivateIps
+  BackendALB:
+    Type: 'ALIYUN::ALB::LoadBalancer'
+    Properties:
+      LoadBalancerName: backend_alb
+      LoadBalancerEdition: Basic
+      VpcId:
+        Ref: Vpc
+      LoadBalancerBillingConfig:
+        PayType: PostPay
+      AddressType: Intranet
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId1
+          VSwitchId:
+            Ref: VSwitch1
+        - ZoneId:
+            Ref: ZoneId2
+          VSwitchId:
+            Ref: VSwitch2
+  BackendAlbServerGroup:
+    Type: 'ALIYUN::ALB::ServerGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ServerGroupType: Instance
+      ServerGroupName: backend-alb-server-group
+      HealthCheckConfig:
+        HealthCheckConnectPort: 8080
+        HealthCheckCodes:
+          - http_2xx
+          - http_3xx
+        HealthCheckProtocol: HTTP
+        HealthCheckEnabled: true
+        HealthCheckPath: /
+      StickySessionConfig:
+        StickySessionEnabled: false
+  BackendAlbBackendServerAttachment:
+    Type: 'ALIYUN::ALB::BackendServerAttachment'
+    Properties:
+      ServerGroupId:
+        Ref: BackendAlbServerGroup
+      Servers:
+        - ServerType: Ecs
+          ServerId:
+            Ref: EcsInstance1
+          Port: 8080
+        - ServerType: Ecs
+          ServerId:
+            Ref: EcsInstance2
+          Port: 8080
+  BackendAlbListener:
+    Type: 'ALIYUN::ALB::Listener'
+    Properties:
+      ListenerPort: 8080
+      DefaultActions:
+        - Type: ForwardGroup
+          ForwardGroupConfig:
+            ServerGroupTuples:
+              - ServerGroupId:
+                  Ref: BackendAlbServerGroup
+      LoadBalancerId:
+        Ref: BackendALB
+      ListenerProtocol: HTTP
+  FrontendALB:
+    Type: 'ALIYUN::ALB::LoadBalancer'
+    Properties:
+      LoadBalancerName: frontend_alb
+      LoadBalancerEdition: Basic
+      VpcId:
+        Ref: Vpc
+      LoadBalancerBillingConfig:
+        PayType: PostPay
+      AddressType: Internet
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId1
+          VSwitchId:
+            Ref: VSwitch1
+        - ZoneId:
+            Ref: ZoneId2
+          VSwitchId:
+            Ref: VSwitch2
+  FrontendAlbServerGroup:
+    Type: 'ALIYUN::ALB::ServerGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ServerGroupType: Instance
+      ServerGroupName: frontend-alb-server-group
+      HealthCheckConfig:
+        HealthCheckConnectPort: 80
+        HealthCheckCodes:
+          - http_2xx
+          - http_3xx
+        HealthCheckProtocol: HTTP
+        HealthCheckEnabled: true
+        HealthCheckPath: /
+      StickySessionConfig:
+        StickySessionEnabled: false
+  FrontendAlbBackendServerAttachment:
+    Type: 'ALIYUN::ALB::BackendServerAttachment'
+    Properties:
+      ServerGroupId:
+        Ref: FrontendAlbServerGroup
+      Servers:
+        - ServerType: Ecs
+          ServerId:
+            Ref: EcsInstance1
+          Port: 80
+        - ServerType: Ecs
+          ServerId:
+            Ref: EcsInstance2
+          Port: 80
+  FrontendAlbListener:
+    Type: 'ALIYUN::ALB::Listener'
+    Properties:
+      ListenerPort: 80
+      DefaultActions:
+        - Type: ForwardGroup
+          ForwardGroupConfig:
+            ServerGroupTuples:
+              - ServerGroupId:
+                  Ref: FrontendAlbServerGroup
+      LoadBalancerId:
+        Ref: FrontendALB
+      ListenerProtocol: HTTP
+Outputs:
+  WebUrl:
+    Description:
+      zh-cn: Web 访问地址。
+      en: The Addresses of Web.
+    Value:
+      'Fn::Sub': 'http://${FrontendALB.DNSName}'
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId1
+          - InstanceType1
+        Label:
+          en: ECS1 Instance Configuration
+          zh-cn: ECS1实例配置
+      - Parameters:
+          - ZoneId2
+          - InstanceType2
+        Label:
+          en: ECS2 Instance Configuration
+          zh-cn: ECS2实例配置
+      - Parameters:
+          - InstancePassword
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:10分钟完成前后端分离架构升级
+    Hidden:
+      - CommonName
