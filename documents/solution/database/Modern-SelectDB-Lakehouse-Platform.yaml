@@ -48,7 +48,7 @@ Parameters:
         selectdb.32xlarge:
           zh-cn: 128 核 512GB
           en: 128 cores 512GB
-    Default: selectdb.4xlarge
+    Default: selectdb.2xlarge
   SelectDBEngineVersion:
     Type: String
     Label:
@@ -127,6 +127,15 @@ Parameters:
       CharacterClasses:
         - Class: lowercase
           min: 1
+  DtsJobName:
+    Type: String
+    Label:
+      en: Dts Job Name
+      zh-cn: 同步任务名称
+    Description:
+      en: You are advised to configure a name with service significance (without unique requirement) for easy identification.
+      zh-cn: 建议配置具有业务意义的名称（无唯一性要求），便于后续识别。
+    Default: RDS2SelectDB
 Resources:
   Vpc:
     Type: 'ALIYUN::ECS::VPC'
@@ -228,6 +237,60 @@ Resources:
             Action:
               - oss:*
       DeletionForce: true
+  MigrationJob:
+    Type: ALIYUN::DTS::SynchronizationJob2
+    Properties:
+      DtsJobName:
+        Ref: DtsJobName
+      SourceEndpoint:
+        InstanceType: RDS
+        InstanceID:
+          Ref: Rds
+        EngineName: MYSQL
+        Region:
+          Ref: ALIYUN::Region
+        UserName:
+          Ref: RdsAccountName
+        Password:
+          Ref: RdsAccountPwd
+      DestinationEndpoint:
+        InstanceType: SelectDB
+        InstanceID:
+          Ref: SelectDBInstance
+        EngineName: SelectDB
+        Region:
+          Ref: ALIYUN::Region
+        UserName: admin
+        Password:
+          Ref: AccountPassword
+      StructureInitialization: true
+      DelayNotice: true
+      ErrorNotice: true
+      DelayRuleTime: 60
+      DtsBisLabel: normal
+      DataInitialization: true
+      DataSynchronization: true
+      DbList:
+        workshop:
+          name: workshop
+          all: true
+  DtsInstance:
+    Type: ALIYUN::DTS::Instance
+    Properties:
+      JobId:
+        Fn::GetAtt:
+          - MigrationJob
+          - DtsJobId
+      InstanceClass: small
+      PayType: PostPaid
+      AutoStart: true
+      Type: SYNC
+      SourceRegion:
+        Ref: ALIYUN::Region
+      DestinationRegion:
+        Ref: ALIYUN::Region
+      SourceEndpointEngineName: MySQL
+      DestinationEndpointEngineName: SelectDB
 Outputs:
   SelectDBAccount:
     Label:
@@ -326,6 +389,12 @@ Metadata:
           default:
             en: Cloud database SelectDB edition
             zh-cn: 云数据库 SelectDB 版
+      - Parameters:
+          - DtsJobName
+        Label:
+          default:
+            en: DTS Configuration
+            zh-cn: 数据传输服务 DTS 配置
     TemplateTags:
       - acs:document-help:ecs:基于SelectDB低成本、高性能的湖仓一体化架构-tech_solu_239
     Hidden:
