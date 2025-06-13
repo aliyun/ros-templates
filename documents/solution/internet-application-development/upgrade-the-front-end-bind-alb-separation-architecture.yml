@@ -65,6 +65,38 @@ Parameters:
       zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
     AssociationProperty: 'ALIYUN::ECS::Instance::Password'
     NoEcho: true
+  BackendLoadBalancerName:
+    Type: String
+    Label:
+      en: Private network type ALB instance name
+      zh-cn: 私网类型ALB实例名称
+    Description:
+      en: The name of the load balancing ALB instance, [2, 128] English or Chinese characters, must
+        start with a letter or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: 后端服务私网负载均衡 ALB 实例的名称，长度为1~80个字符。可包含英文字母、数字、短划线（-）、正斜线（/）、半角句号（.）和下划线（_）。
+    ConstraintDescription:
+      en: 'The length is 1 to 80 characters. It can contain English letters, numbers, hyphens (-), vertical and diagonal lines (/), and half-width full stops (.) And the underline (_).'
+      zh-cn: '长度为1~80个字符。可包含英文字母、数字、短划线（-）、正斜线（/）、半角句号（.）和下划线（_）。'
+    AllowedPattern: '^[A-Za-z0-9\/._-]{1,80}$'
+    Default: backend_alb
+    MinLength: 1
+    MaxLength: 80
+  FrontendBalancerName:
+    Type: String
+    Label:
+      en: Internet network type ALB instance name
+      zh-cn: 公网类型ALB实例名称
+    Description:
+      en: The name of the front-end service internet network load balancing ALB instance, [2, 128] English or Chinese characters, must
+        start with a letter or Chinese in size, can contain numbers, '_' or '.', '-'.
+      zh-cn: 前端服务公网负载均衡 ALB 实例的名称，长度为1~80个字符。可包含英文字母、数字、短划线（-）、正斜线（/）、半角句号（.）和下划线（_）。
+    ConstraintDescription:
+      en: 'The length is 1 to 80 characters. It can contain English letters, numbers, hyphens (-), vertical and diagonal lines (/), and half-width full stops (.) And the underline (_).'
+      zh-cn: '长度为1~80个字符。可包含英文字母、数字、短划线（-）、正斜线（/）、半角句号（.）和下划线（_）。'
+    AllowedPattern: '^[A-Za-z0-9\/._-]{1,80}$'
+    Default: frontend_alb
+    MinLength: 1
+    MaxLength: 80
 Resources:
   Vpc:
     Type: 'ALIYUN::ECS::VPC'
@@ -365,7 +397,8 @@ Resources:
   BackendALB:
     Type: 'ALIYUN::ALB::LoadBalancer'
     Properties:
-      LoadBalancerName: backend_alb
+      LoadBalancerName:
+        Ref: BackendLoadBalancerName
       LoadBalancerEdition: Basic
       VpcId:
         Ref: Vpc
@@ -428,7 +461,8 @@ Resources:
   FrontendALB:
     Type: 'ALIYUN::ALB::LoadBalancer'
     Properties:
-      LoadBalancerName: frontend_alb
+      LoadBalancerName:
+        Ref: FrontendBalancerName
       LoadBalancerEdition: Basic
       VpcId:
         Ref: Vpc
@@ -489,12 +523,20 @@ Resources:
         Ref: FrontendALB
       ListenerProtocol: HTTP
 Outputs:
-  AlbInstancePage:
+  WebUrl:
     Description:
-      zh-cn: ALB实例访问地址。
-      en: The Addresses of ALB instance.
+      zh-cn: 示例网站地址。
+      en: Sample website address.
     Value:
-      'Fn::Sub': 'https://slb.console.aliyun.com/alb/${ALIYUN::Region}/albs/${FrontendALB.LoadBalancerId}'
+      Fn::Sub:
+        - http://${IP}
+        - IP:
+            Fn::Jq:
+              - First
+              - .[0].LoadBalancerAddresses[0].Address
+              - Fn::GetAtt:
+                  - FrontendALB
+                  - ZoneMappings
 Metadata:
   'ALIYUN::ROS::Interface':
     ParameterGroups:
@@ -512,6 +554,12 @@ Metadata:
           zh-cn: ECS2实例配置
       - Parameters:
           - InstancePassword
+      - Parameters:
+          - BackendLoadBalancerName
+          - FrontendBalancerName
+        Label:
+          en: ALB Configuration
+          zh-cn: 负载均衡 ALB 实例配置
     TemplateTags:
       - acs:technical-solution:internet-application-development:10分钟完成前后端分离架构升级
     Hidden:
