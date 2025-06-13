@@ -1,0 +1,274 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建ECS与阿里云MongoDB，配置安全组与网络，通过ECS自建MongoDB数据库，设置DTS同步用户，实现ECS自建数据库向阿里云MongoDB平滑迁移。
+  en: Create ECS and Aliyun MongoDB, configure security groups and networks, build your own MongoDB database through ECS, set up DTS to synchronize users, and achieve smooth migration of ECS self-built database to Aliyun MongoDB.
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - Zone
+          - EcsInstanceType
+          - InstancePassword
+          - DbName
+          - DbUserName
+          - DbPassword
+        Label:
+          default: ECS
+      - Parameters:
+          - DBInstanceClass
+          - AccountPassword
+        Label:
+          default: MongoDB
+    TemplateTags:
+      - acs:technical-solution:database:ECS自建MongoDB迁移上云
+Parameters:
+  DbUserName:
+    Type: String
+    Label:
+      en: Create Own MongoDB Username
+      zh-cn: 自建MongoDB数据库账号
+    Required: true
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由小写字母、大写字母、数字、下划线（_）组成，以字母开头，以字母或数字结尾，最多32个字符。
+  DbPassword:
+    Type: String
+    Label:
+      en: Create Own MongoDB Database Password
+      zh-cn: 自建MongoDB数据库密码
+    Description:
+      en: "The password must be 8 to 32 characters in length. <br>\nIt must contain
+        the following character types: uppercase letters, lowercase letters, digits,
+        and special characters. <br> \nSpecial characters include <span style=\"background:#E7E9EB;\"\
+        ><b>!@#$%^&*()_+-=</b></span>.<br>\n<b>If you repeatedly provision in this
+        tutorial on the same ECS instance, make sure that the MySQL database password
+        is exactly the same as the password set when the template was executed for
+        the first time. Otherwise, the result of provisioning is unavailable.</b>"
+      zh-cn: 长度为8~32位，需包含大写字母、小写字母、特殊字符和数字，允许的特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>。<br>
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    NoEcho: true
+  DbName:
+    Type: String
+    Label:
+      en: Create Own MongoDB Name
+      zh-cn: 自建MongoDB数据库名称
+    Required: true
+    AllowedPattern:
+      ^(?!admin\b|config\b|local\b|test\b)([a-z][a-z0-9_-]{0,62}[a-z0-9])$
+    ConstraintDescription:
+      en: The name must be 2 to 64 characters in length. The name must start with
+        a lowercase letter and end with a lowercase letter or digit. The name can
+        contain lowercase letters, digits, underscores (_), and hyphens (-).
+      zh-cn: 由小写字母、数字、下划线（_）、中划线（-）组成，以小写字母开头，小写字母或数字结尾，最多64个字符。数据库名称在实例内必须是唯一的。
+  DBInstanceClass:
+    Type: String
+    Description:
+      en: The MongoDB Instance type
+      zh-cn: MongoDB 实例规格
+    Label:
+      en: MongoDB Instance type
+      zh-cn: MongoDB 实例规格
+  Zone:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+    Description:
+      zh-cn: 用于创建ECS和RDS的可用区。
+      en: Availability zone.
+    Label:
+      zh-cn: 可用区
+      en: Availability Zone.
+  EcsInstanceType:
+    Type: String
+    Label:
+      zh-cn: ECS实例类型
+      en: ECS instance type.
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: ${Zone}
+    Default: ecs.e-c1m2.large
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    Label:
+      zh-cn: ECS实例密码
+      en: ECS Instance Password
+    MaxLength: 30
+    MinLength: 8
+    ConstraintDescription: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+  AccountPassword:
+    NoEcho: true
+    Type: String
+    MaxLength: 32
+    MinLength: 6
+    Description:
+      en: 'MongoDB Root Password, length 6~32 characters. Can contain English letters, numbers and special characters! #$%^&*()_+-=.'
+      zh-cn: MongoDB Root 密码,长度为6~32个字符。可包含英文字母、数字和特殊字符!#$%^&*()_+-=。
+    Label:
+      zh-cn: MongoDB Root 密码
+      en: MongoDB Root Password
+    ConstraintDescription: 长度为6~32个字符。可包含英文字母、数字和特殊字符!#$%^&*()_+-=。
+    AllowedPattern: '[0-9A-Za-z\_\-\&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+Resources:
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 3600
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: Zone
+      VpcId:
+        Fn::GetAtt:
+          - Vpc
+          - VpcId
+      VSwitchName: vsw_001
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: VPC_HZ
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+          - Vpc
+          - VpcId
+  MongoDB:
+    Type: ALIYUN::MONGODB::Instance
+    Properties:
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage: 20
+      DatabaseNames: admin
+      AccountPassword:
+        Ref: AccountPassword
+      SecurityIPArray: '192.168.1.0/24'
+      ZoneId:
+        Ref: Zone
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      ChargeType: 'PostPaid'
+      StorageEngine: 'WiredTiger'
+      StorageType: 'cloud_essd1'
+      NetworkType: 'VPC'
+      EngineVersion: '8.0'
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 80/80
+  SecurityGroupIngress_3389:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3389/3389
+  SecurityGroupIngress_27017:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 27017/27017
+  SecurityGroupEgress_27017:
+    Type: ALIYUN::ECS::SecurityGroupEgress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      DestCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 27017/27017
+  MongoDBServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      IoOptimized: optimized
+      ImageId: aliyun_3_x64_20G_alibase_
+      SecurityGroupId:
+        Ref: SecurityGroup
+      Password:
+        Ref: InstancePassword
+      InternetMaxBandwidthOut: 5
+      VSwitchId:
+        Ref: VSwitch
+      VpcId:
+        Ref: Vpc
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory: cloud_essd
+      AllocatePublicIP: true
+      ZoneId:
+        Ref: Zone
+  InstallMongoDBServer:
+    Type: ALIYUN::ECS::RunCommand
+    DependsOn:
+      - MongoDB
+      - MongoDBServer
+    Properties:
+      InstanceIds:
+        - Fn::GetAtt:
+            - MongoDBServer
+            - InstanceId
+      Type: RunShellScript
+      Sync: true
+      Timeout: 2400
+      CommandContent:
+        'Fn::Sub':
+          - |
+            #!/bin/bash
+            cat << EOF >> ~/.bash_profile
+            export MONGODB_DEMO_DATABASE=${db_name}
+            export MONGODB_DEMO_USERNAME=${db_username}
+            export MONGODB_DEMO_PASSWORD=${db_password}
+            export ROS_DEPLOY=true
+            EOF
+            
+            source ~/.bash_profile
+            
+            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/ecs-mongo-to-cloud/install_init.sh|bash
+            ${CurlCli} --data-binary '{"status": "SUCCESS"}'
+          - CurlCli:
+              Fn::GetAtt:
+                - RosWaitConditionHandle
+                - CurlCli
+            db_password:
+              Ref: DbPassword
+            db_name:
+              Ref: DbName
+            db_username:
+              Ref: DbUserName
+Outputs:
+  MongoDBInnerConnectionString:
+    Description:
+      zh-cn: MongoDB内网连接地址。
+      en: MongoDB Inner Connection address.
+    Value:
+      Fn::GetAtt:
+        - MongoDB
+        - ConnectionURI
