@@ -1,0 +1,302 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: Using ARMS to monitor self-built macromodel applications to achieve observability.
+  zh-cn: 使用ARMS监控自建大模型应用实现可观测。
+Parameters:
+  BaiLianApiKey:
+    Type: String
+    Label:
+      en: BaiLian API-KEY
+      zh-cn: 百炼 API-KEY
+    AssociationProperty: ALIYUN::Bailian::ApiKey::ApiKeyInfo
+    Description:
+      zh-cn: >-
+        开通百炼模型服务，并获得 API-KEY，请参考：
+        <a href="https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key" 
+        target="_blank">获取 API-KEY</a>。
+      en: >-
+        Activate BaiLian and obtain the API-KEY. Please refer to: 
+        <a href="https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key" 
+        target="_blank">Get API-KEY</a>.
+  LicenseKey:
+    Type: String
+    Label:
+      en: ARMS LicenseKey
+      zh-cn: ARMS LicenseKey
+    Description:
+      zh-cn: >-
+        获取LicenseKey，请参考：
+        <a href="https://api.aliyun.com/api/ARMS/2019-08-08/DescribeTraceLicenseKey" 
+        target="_blank">获取 LicenseKey</a>。
+      en: >-
+        Obtain the LicenseKey. Please refer to: 
+        <a href="https://api.aliyun.com/api/ARMS/2019-08-08/DescribeTraceLicenseKey" 
+        target="_blank">Get LicenseKey</a>.
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${InstanceType}
+  InstanceType:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+Resources:
+  AutoEnableARMS:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: ARMS
+  EcsVpc:
+    DependsOn:
+      - AutoEnableARMS
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: VPC_HZ
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName: vsw_001
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName: SecurityGroup_1
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+          Ref: EcsVpc
+      VSwitchId:
+          Ref: EcsVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: m-uf6bzbkzdv5mbl4yvtfs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize: 40
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      Password:
+        Ref: InstancePassword
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstanceGroup
+          - InstanceIds
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            cat << EOF >> ~/.bash_profile
+            export ARMS_APP_NAME=llm_app
+            export ARMS_REGION_ID="${ALIYUN::Region}"
+            export ARMS_IS_PUBLIC=True
+            export ARMS_LICENSE_KEY="${LicenseKey}"
+            export DASHSCOPE_API_KEY="${ApiKey}"
+            export ROS_DEPLOY=true
+            EOF
+            source ~/.bash_profile
+            curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/ai-observable/install.sh | bash
+          - ApiKey:
+              Fn::Jq:
+                - First
+                - .Key
+                - Ref: BaiLianApiKey
+            LicenseKey:
+              Ref: LicenseKey
+      Type: RunShellScript
+      Timeout: 3000
+      Sync: true
+Outputs:
+  Console.AppUrl:
+    Label:
+      zh-cn: 应用地址
+      en: App url
+    Description:
+      zh-cn: 模型应用部署地址。
+      en: Model app deployment path.
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}:80
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                 - EcsInstanceGroup
+                 - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - BaiLianApiKey
+          - LicenseKey
+        Label:
+          default:
+            zh-cn: 百炼app&ARMS 配置
+            en: Bailian App & ARMS Configuration
+      - Parameters:
+          - ZoneId
+          - InstanceType
+          - SystemDiskCategory
+          - InstancePassword
+        Label:
+          default:
+            en: Ecs Configuration
+            zh-cn: ECS 实例配置
+    TemplateTags:
+      - acs:technical-solution:ai:使用ARMS监控自建大模型应用实现可观测-tech_solu_261
+  ALIYUN::ROS::Composer:
+    001ef5f4:
+      Rect:
+        - 707
+        - 504
+        - -47
+        - 96
+        - 1
+        - 0
+      ResT: Composer::ROSParameter::AlibabaCloud
+    17b8e111:
+      Parent: 001ef5f4
+      Rect:
+        - 649
+        - 442
+        - -10
+        - 138
+        - 2
+        - 0
+      ResT: Composer::ROSParameter::Region
+    5f4b569b:
+      Res:
+        - AutoEnableARMS
+      Parent: 17b8e111
+      Rect:
+        - 40
+        - 40
+        - 51
+        - 365
+        - 3
+        - 0
+    21750a78:
+      Res:
+        - EcsVpc
+      Parent: 17b8e111
+      Rect:
+        - 480
+        - 340
+        - 139
+        - 200
+        - 3
+        - 0
+    054da256:
+      Res:
+        - InstanceRunCommand
+      Parent: 17b8e111
+      Rect:
+        - 40
+        - 40
+        - 79
+        - 200
+        - 3
+        - 0
+      Hidden: true
+    e14eeed8:
+      Res:
+        - ZoneId
+      Parent: 21750a78
+      Rect:
+        - 440
+        - 270
+        - 159
+        - 250
+        - 4
+        - 0
+      ResT: Composer::ROSParameter::Zone
+    63052c44:
+      Res:
+        - EcsVSwitch
+      Parent: e14eeed8
+      Rect:
+        - 400
+        - 200
+        - 179
+        - 300
+        - 5
+        - 0
+    7ceeb0e0:
+      Res:
+        - EcsSecurityGroup
+      Parent: 21750a78
+      Rect:
+        - 204
+        - 140
+        - 268
+        - 330
+        - 10
+        - 0
+    d457f790:
+      Parent: 17b8e111
+      Edge:
+        - 054da256
+        - 27bae593
+      Line: 0:0:0:gray:0
+    27bae593:
+      Res:
+        - EcsInstanceGroup
+      Parent: 63052c44
+      Rect:
+        - 40
+        - 40
+        - 350
+        - 370
+        - 11
+        - 0
+      Layer:
+        - 7ceeb0e0
