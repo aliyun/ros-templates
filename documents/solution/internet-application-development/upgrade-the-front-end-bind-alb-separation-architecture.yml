@@ -38,8 +38,8 @@ Parameters:
       SystemDiskCategory: cloud_essd
       ZoneId: ${ZoneId1}
     Label:
-      en: ECS1 Instance Type
-      zh-cn: ECS1的实例规格
+      en: ECS Instance Type
+      zh-cn: ECS 的实例规格
     Default: ecs.e-c1m2.large
   InstanceType2:
     Type: String
@@ -49,14 +49,14 @@ Parameters:
       SystemDiskCategory: cloud_essd
       ZoneId: ${ZoneId2}
     Label:
-      en: ECS2 Instance Type
-      zh-cn: ECS2的实例规格
+      en: ECS Instance Type
+      zh-cn: ECS的实例规格
     Default: ecs.e-c1m2.large
   InstancePassword:
     Type: String
     Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in). <br><b>note： <font color='blue'>This password is used for both ECS instance configurations.</font></b>
-      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/中的特殊符号。<br><b>注： <font color='blue'>此密码同时用于两台ECS实例配置。</font></b>
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in). <br><b>note： <font color='blue'>This password is used for all ECS instance configurations.</font></b>
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/中的特殊符号。<br><b>注： <font color='blue'>此密码同时用于四台ECS实例配置。</font></b>
     Label:
       en: ECS Instance Password
       zh-cn: ECS实例密码
@@ -120,22 +120,40 @@ Resources:
         Ref: Vpc
       CidrBlock: 192.168.2.0/24
       ZoneId:
-        Ref: ZoneId2
+        Ref: ZoneId1
       VSwitchName: vsw_002
-  SecurityGroup:
+  VSwitch3:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.3.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName: vsw_003
+  VSwitch4:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.4.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName: vsw_004
+  SecurityGroup1:
     Type: 'ALIYUN::ECS::SecurityGroup'
     Properties:
       VpcId:
         Ref: Vpc
       SecurityGroupName:
         Fn::Sub: ${CommonName}-SecurityGroup_1
-      SecurityGroupIngress:
-        - PortRange: 80/80
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-        - PortRange: 8080/8080
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
+  SecurityGroup2:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-SecurityGroup_2
   EcsInstance1:
     Type: 'ALIYUN::ECS::InstanceGroup'
     Properties:
@@ -146,7 +164,7 @@ Resources:
       VSwitchId:
         Ref: VSwitch1
       SecurityGroupId:
-        Ref: SecurityGroup
+        Ref: SecurityGroup1
       ImageId: aliyun_3_9_x64_20G_alibase_
       InstanceName:
         Fn::Sub: ${CommonName}-ecs
@@ -164,11 +182,55 @@ Resources:
       VpcId:
         Ref: Vpc
       ZoneId:
-        Ref: ZoneId2
+        Ref: ZoneId1
       VSwitchId:
         Ref: VSwitch2
       SecurityGroupId:
-        Ref: SecurityGroup
+        Ref: SecurityGroup1
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType1
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      SystemDiskSize: 40
+      Password:
+        Ref: InstancePassword
+  EcsInstance3:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchId:
+        Ref: VSwitch3
+      SecurityGroupId:
+        Ref: SecurityGroup1
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType2
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      SystemDiskSize: 40
+      Password:
+        Ref: InstancePassword
+  EcsInstance4:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchId:
+        Ref: VSwitch4
+      SecurityGroupId:
+        Ref: SecurityGroup1
       ImageId: aliyun_3_9_x64_20G_alibase_
       InstanceName:
         Fn::Sub: ${CommonName}-ecs
@@ -190,6 +252,49 @@ Resources:
       Handle:
         Ref: WaitConditionHandle
       Timeout: 3600
+  RunCommand2:
+    Type: 'ALIYUN::ECS::RunCommand'
+    DependsOn:
+      - RunCommand1
+      - RunCommand3
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance2
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |
+            #!/bin/bash
+            export ROS_DEPLOY=true
+
+            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/java.sh | bash
+
+            curl -I http://localhost:8080/api/getEcsReleaseNotes
+  RunCommand4:
+    Type: 'ALIYUN::ECS::RunCommand'
+    DependsOn:
+      - RunCommand1
+      - RunCommand3
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance4
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |
+          #!/bin/bash
+          export ROS_DEPLOY=true
+          
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/java.sh | bash
+          
+          curl -I http://localhost:8080/api/getEcsReleaseNotes
+
   RunCommand1:
     Type: 'ALIYUN::ECS::RunCommand'
     Properties:
@@ -205,10 +310,6 @@ Resources:
           - |
             #!/bin/bash
             export ROS_DEPLOY=true
-            
-            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/java.sh | bash
-            
-            curl -I http://localhost:8080/api/getEcsReleaseNotes
             
             sudo yum install -y nginx
             sudo yum install -y unzip
@@ -287,17 +388,15 @@ Resources:
             
             ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
           - PrivateIp:
-              'Fn::Select':
-                - 0
-                - Fn::GetAtt:
-                    - EcsInstance1
-                    - PrivateIps
-  RunCommand2:
+              Fn::GetAtt:
+                - BackendALB
+                - DNSName
+  RunCommand3:
     Type: 'ALIYUN::ECS::RunCommand'
     Properties:
       InstanceIds:
         Fn::GetAtt:
-          - EcsInstance2
+          - EcsInstance3
           - InstanceIds
       Type: RunShellScript
       Sync: true
@@ -307,10 +406,6 @@ Resources:
           - |
             #!/bin/bash
             export ROS_DEPLOY=true
-            
-            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/java.sh | bash
-            
-            curl -I http://localhost:8080/api/getEcsReleaseNotes
             
             sudo yum install -y nginx
             sudo yum install -y unzip
@@ -367,7 +462,7 @@ Resources:
                       root /usr/share/nginx/html;
                       index index.html;
                     }
-            
+                    
                     location /api/{
                       proxy_pass  http://${PrivateIp}:8080/api/; 
                     }
@@ -389,11 +484,9 @@ Resources:
             
             ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
           - PrivateIp:
-              'Fn::Select':
-                - 0
-                - Fn::GetAtt:
-                    - EcsInstance2
-                    - PrivateIps
+              Fn::GetAtt:
+                - BackendALB
+                - DNSName
   BackendALB:
     Type: 'ALIYUN::ALB::LoadBalancer'
     Properties:
@@ -409,11 +502,11 @@ Resources:
         - ZoneId:
             Ref: ZoneId1
           VSwitchId:
-            Ref: VSwitch1
+            Ref: VSwitch2
         - ZoneId:
             Ref: ZoneId2
           VSwitchId:
-            Ref: VSwitch2
+            Ref: VSwitch4
   BackendAlbServerGroup:
     Type: 'ALIYUN::ALB::ServerGroup'
     Properties:
@@ -439,11 +532,11 @@ Resources:
       Servers:
         - ServerType: Ecs
           ServerId:
-            Ref: EcsInstance1
+            Ref: EcsInstance2
           Port: 8080
         - ServerType: Ecs
           ServerId:
-            Ref: EcsInstance2
+            Ref: EcsInstance4
           Port: 8080
   BackendAlbListener:
     Type: 'ALIYUN::ALB::Listener'
@@ -477,7 +570,7 @@ Resources:
         - ZoneId:
             Ref: ZoneId2
           VSwitchId:
-            Ref: VSwitch2
+            Ref: VSwitch3
   FrontendAlbServerGroup:
     Type: 'ALIYUN::ALB::ServerGroup'
     Properties:
@@ -507,7 +600,7 @@ Resources:
           Port: 80
         - ServerType: Ecs
           ServerId:
-            Ref: EcsInstance2
+            Ref: EcsInstance3
           Port: 80
   FrontendAlbListener:
     Type: 'ALIYUN::ALB::Listener'
@@ -544,14 +637,14 @@ Metadata:
           - ZoneId1
           - InstanceType1
         Label:
-          en: ECS1 Instance Configuration
-          zh-cn: ECS1实例配置
+          en: Configuration of ECS instance in Availability Zone 1
+          zh-cn: 可用区 1 ECS 实例配置
       - Parameters:
           - ZoneId2
           - InstanceType2
         Label:
-          en: ECS2 Instance Configuration
-          zh-cn: ECS2实例配置
+          en: Configuration of ECS instance in Availability Zone 2
+          zh-cn: 可用区 2 ECS 实例配置
       - Parameters:
           - InstancePassword
       - Parameters:
@@ -565,253 +658,339 @@ Metadata:
     Hidden:
       - CommonName
   ALIYUN::ROS::Composer:
-    '58859412':
-      Res:
-        - BackendAlbServerGroup
-        - BackendAlbBackendServerAttachment
-      Ref:
-        - BackendAlbBackendServerAttachment
-      Parent: 9e1ba1fc
+    55e63ddc:
       Rect:
-        - 260
-        - 163
-        - 447
-        - 317
-        - 11
-        - 0
-    '74309948':
-      Res:
-        - EcsInstance1
-      Parent: ff11dd55
-      Rect:
-        - 40
-        - 40
-        - 476
-        - 359
-        - 12
-        - 0
-      Layer:
-        - 5ee60dce
-        - 1ee7253a
-        - '58859412'
-    '88323895':
-      Res:
-        - ZoneId1
-      Parent: 9e1ba1fc
-      Rect:
-        - 445
-        - 426
-        - 123
-        - 146
-        - 4
-        - 0
-      ResT: Composer::ROSParameter::Zone
-    f27c6752:
-      Rect:
-        - 1142
-        - 651
-        - 40
-        - 19
+        - 1363
+        - 873
+        - -18
+        - 13
         - 1
         - 0
       ResT: Composer::ROSParameter::AlibabaCloud
-    165e7f36:
-      Parent: f27c6752
+    bef5db50:
+      Parent: 55e63ddc
       Rect:
-        - 1102
-        - 585
-        - 60
-        - 65
+        - 1240
+        - 756
+        - 51
+        - 97
         - 2
         - 0
       ResT: Composer::ROSParameter::Region
-    9e1ba1fc:
+    44d0a81f:
       Res:
         - Vpc
-      Parent: 165e7f36
+      Parent: bef5db50
       Rect:
-        - 964
-        - 485
-        - 105
-        - 105
+        - 1169
+        - 632
+        - 75
+        - 178
         - 3
         - 0
-    e0b3ac7e:
+    c072a7e9:
       Res:
         - WaitConditionHandle
-      Parent: 165e7f36
+      Parent: bef5db50
       Rect:
         - 40
         - 40
-        - 140
-        - 590
+        - 95
+        - 391
         - 3
         - 0
-      Hidden: true
-    4a7c5872:
-      Res:
-        - RosWaitCondition
-      Parent: 165e7f36
-      Rect:
-        - 40
-        - 40
-        - 80
-        - 590
-        - 3
-        - 0
-      Hidden: true
-    6aaa931c:
+    c8bc8a6f:
       Res:
         - RunCommand1
-      Parent: 165e7f36
+      Parent: bef5db50
       Rect:
         - 40
         - 40
-        - 80
-        - 200
+        - 188
+        - 351
         - 3
         - 0
-      Hidden: true
-    5f18e844:
-      Res:
-        - RunCommand2
-      Parent: 165e7f36
+    4f61a072:
+      Parent: 44d0a81f
       Rect:
-        - 40
-        - 40
-        - 140
-        - 200
-        - 3
-        - 0
-      Hidden: true
-    cd7a4ed6:
-      Res:
-        - ZoneId2
-      Parent: 9e1ba1fc
-      Rect:
-        - 449
-        - 424
-        - 587
-        - 146
+        - 701
+        - 266
+        - 314
+        - 218
         - 4
         - 0
       ResT: Composer::ROSParameter::Zone
-    ff11dd55:
+    b2e8862d:
+      Parent: 44d0a81f
+      Rect:
+        - 773
+        - 268
+        - 318
+        - 506
+        - 4
+        - 0
+      ResT: Composer::ROSParameter::Zone
+    5ddd2610:
       Res:
         - VSwitch1
-      Parent: '88323895'
+      Parent: 4f61a072
       Rect:
-        - 402
-        - 356
-        - 144
-        - 186
+        - 185
+        - 148
+        - 424
+        - 290
         - 5
         - 0
-    1dd0d8d5:
+    adbaaa64:
       Res:
         - VSwitch2
-      Parent: cd7a4ed6
+      Parent: 4f61a072
       Rect:
-        - 395
-        - 356
-        - 612
-        - 188
+        - 163
+        - 145
+        - 743
+        - 296
         - 5
         - 0
-    5ee60dce:
+    f0a0f7be:
       Res:
-        - SecurityGroup
-      Parent: 9e1ba1fc
+        - VSwitch3
+      Parent: b2e8862d
       Rect:
-        - 383
-        - 155
-        - 388
-        - 297
-        - 10
+        - 191
+        - 180
+        - 415
+        - 558
+        - 5
         - 0
-    6c833c77:
-      Edge:
-        - 4a7c5872
-        - e0b3ac7e
-      Line: 0:0:0:gray:0
-    eaceca34:
-      Parent: 165e7f36
-      Edge:
-        - 6aaa931c
-        - '74309948'
-      Line: 0:0:0:gray:0
-    402c1dbd:
-      Parent: 165e7f36
-      Edge:
-        - 5f18e844
-        - 8937952c
-      Line: 0:0:0:gray:0
-    abd800d3:
-      Parent: 9e1ba1fc
-      Edge:
-        - '6357e010'
-        - '58859412'
-      Line: 0:0:0:gray:0
-    007dc071:
-      Parent: 9e1ba1fc
-      Edge:
-        - 35b56ce0
-        - 1ee7253a
-      Line: 0:0:0:gray:0
-    1ee7253a:
+    74f60349:
       Res:
-        - FrontendAlbServerGroup
-        - FrontendAlbBackendServerAttachment
-      Ref:
-        - FrontendAlbBackendServerAttachment
-      Parent: 9e1ba1fc
+        - VSwitch4
+      Parent: b2e8862d
       Rect:
-        - 259
-        - 202
-        - 448
-        - 228
-        - 11
+        - 167
+        - 186
+        - 741
+        - 552
+        - 5
         - 0
-    35b56ce0:
+    71a1c263:
       Res:
-        - FrontendALB
-        - FrontendAlbListener
-      Ref:
-        - FrontendAlbListener
-      Parent: 1dd0d8d5
+        - RunCommand2
+      Parent: bef5db50
       Rect:
         - 40
         - 40
-        - 822
-        - 309
+        - 1139
+        - 351
         - 11
         - 0
-    '6357e010':
+    695de657:
+      Res:
+        - RunCommand4
+      Parent: bef5db50
+      Rect:
+        - 40
+        - 40
+        - 1139
+        - 628
+        - 11
+        - 0
+    c29e3186:
       Res:
         - BackendALB
         - BackendAlbListener
       Ref:
         - BackendAlbListener
-      Parent: ff11dd55
+      Parent: 44d0a81f
       Rect:
         - 40
         - 40
-        - 267
-        - 379
+        - 1139
+        - 504
         - 11
         - 0
-    8937952c:
+    50b2f9c4:
       Res:
-        - EcsInstance2
-      Parent: 1dd0d8d5
+        - FrontendALB
+        - FrontendAlbListener
+      Ref:
+        - FrontendAlbListener
+      Parent: 44d0a81f
       Rect:
         - 40
         - 40
-        - 638
-        - 359
+        - 188
+        - 506
         - 12
         - 0
+    b4a929d9:
+      Res:
+        - RunCommand3
+      Parent: bef5db50
+      Rect:
+        - 40
+        - 40
+        - 202
+        - 628
+        - 12
+        - 0
+    fe90582f:
+      Res:
+        - RosWaitCondition
+      Parent: bef5db50
+      Rect:
+        - 40
+        - 40
+        - 95
+        - 518
+        - 12
+        - 0
+    '29886e05':
+      Parent: bef5db50
+      Edge:
+        - fe90582f
+        - c072a7e9
+      Line: 0:0:0:gray:0
+    2fca3d42:
+      Parent: bef5db50
+      Edge:
+        - 71a1c263
+        - 95c0af47
+      Line: 0:0:0:gray:0
+    b61947de:
+      Parent: bef5db50
+      Edge:
+        - 695de657
+        - 25d73724
+      Line: 0:0:0:gray:0
+    2acf3229:
+      Parent: bef5db50
+      Edge:
+        - c8bc8a6f
+        - 3988afb9
+      Line: 0:0:0:gray:0
+    71946bd9:
+      Parent: bef5db50
+      Edge:
+        - b4a929d9
+        - 1c27819e
+      Line: 0:0:0:gray:0
+    5ac7cd2f:
+      Parent: 44d0a81f
+      Edge:
+        - c29e3186
+        - 42ed08ee
+      Line: 0:0:0:gray:0
+    74056fc3:
+      Parent: 44d0a81f
+      Edge:
+        - 50b2f9c4
+        - fa81fc7a
+      Line: 0:0:0:gray:0
+    75b67f15:
+      Res:
+        - SecurityGroup2
+      Parent: 44d0a81f
+      Rect:
+        - 539
+        - 219
+        - 398
+        - 535
+        - 25
+        - 0
+    42ed08ee:
+      Res:
+        - BackendAlbServerGroup
+        - BackendAlbBackendServerAttachment
+      Ref:
+        - BackendAlbBackendServerAttachment
+      Parent: 44d0a81f
+      Rect:
+        - 127
+        - 402
+        - 763
+        - 323
+        - 25
+        - 0
+    fa81fc7a:
+      Res:
+        - FrontendAlbServerGroup
+        - FrontendAlbBackendServerAttachment
+      Ref:
+        - FrontendAlbBackendServerAttachment
+      Parent: 44d0a81f
+      Rect:
+        - 170
+        - 412
+        - 431
+        - 319
+        - 25
+        - 0
+    7661a5a0:
+      Res:
+        - SecurityGroup1
+      Parent: 44d0a81f
+      Rect:
+        - 560
+        - 205
+        - 388
+        - 260
+        - 25
+        - 0
+    25d73724:
+      Res:
+        - EcsInstance4
+      Parent: 74f60349
+      Rect:
+        - 40
+        - 40
+        - 805
+        - 628
+        - 26
+        - 0
       Layer:
-        - '58859412'
-        - 5ee60dce
-        - 1ee7253a
+        - 75b67f15
+        - 42ed08ee
+    1c27819e:
+      Res:
+        - EcsInstance3
+      Parent: f0a0f7be
+      Rect:
+        - 40
+        - 40
+        - 484
+        - 628
+        - 26
+        - 0
+      Layer:
+        - 75b67f15
+        - fa81fc7a
+    95c0af47:
+      Res:
+        - EcsInstance2
+      Parent: adbaaa64
+      Rect:
+        - 40
+        - 40
+        - 805
+        - 351
+        - 26
+        - 0
+      Layer:
+        - 7661a5a0
+        - 42ed08ee
+    3988afb9:
+      Res:
+        - EcsInstance1
+      Parent: 5ddd2610
+      Rect:
+        - 40
+        - 40
+        - 484
+        - 351
+        - 26
+        - 0
+      Layer:
+        - 7661a5a0
+        - fa81fc7a
