@@ -633,6 +633,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [deploy-SSL-certificates-to-SpringBoot-applications.yml](documents/solution/internet-application-development/deploy-SSL-certificates-to-SpringBoot-applications.yml) | Deploy SSL certificates to Spring Boot applications.                               |
 | [deploy-SSL-certificates-to-Tomcat-applications.yml](documents/solution/internet-application-development/deploy-SSL-certificates-to-Tomcat-applications.yml)         | Deploy SSL certificates to Tomcat applications.                                    |
 | [cloud-site-construction.yml](documents/solution/internet-application-development/cloud-site-construction.yml)                                                       | Cloud site construction: effectively reduce network bandwidth costs.               |
+| [Run-Dify-on-Serverless.yml](documents/solution/internet-application-development/Run-Dify-on-Serverless.yml)                                                       | Deploy the production environment Dify platform through the Serverless application engine.              |
 
 - security-and-compliance
 
