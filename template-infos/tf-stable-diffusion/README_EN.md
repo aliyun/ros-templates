@@ -1,6 +1,6 @@
 Please translate the following Chinese text into English, and require to keep the original format:
 ## Automated Deployment
-1. Click [Deployment Link](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/documents/help/ecs/tf-stable-diffusion.yml&hideStepRow=true&hideStackConfig=true&pageTitle=Use AMD CPU Instance to Deploy Stable Diffusion&isSimplified=true&balanceIntercept=true) to enter the deployment page.
+1. Click [Deployment Link](https://ros.console.aliyun.com/region/stacks/create?templateUrl=https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/documents/help/ecs/tf-stable-diffusion.yml&hideStepRow=true&hideStackConfig=true&pageTitle=Use%20AMD%20CPU%20Instance%20to%20Deploy%20Stable%20Diffusion&isSimplified=true&balanceIntercept=true) to enter the deployment page.
 2. In the **Configure Template Parameters** step, input parameter information according to the console prompt, confirm the security information, and click **Next: Check and Confirm** to enter the parameter confirmation page.
 3. On the resource allocation preview page, after confirming the template parameters and costs, click **Create**.
 4. When the **Resource Stack Information** page shows that the **Status** is **Creation Successful**, the automated deployment is completed.
