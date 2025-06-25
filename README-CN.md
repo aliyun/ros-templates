@@ -633,6 +633,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [deploy-SSL-certificates-to-Tomcat-applications.yml](documents/solution/internet-application-development/deploy-SSL-certificates-to-Tomcat-applications.yml)         | 部署SSL证书至Tomcat应用。                                                             |
 | [cloud-site-construction.yml](documents/solution/internet-application-development/cloud-site-construction.yml)                                                       | 云端建站：高效降低网络带宽成本。                                                              |
 | [Run-Dify-on-Serverless.yml](documents/solution/internet-application-development/Run-Dify-on-Serverless.yml)                                                       | 通过Serverless应用引擎部署生产环境 Dify 平台。                                                          |
+| [Elsaticsearch-AI-Maintenance.yml](documents/solution/internet-application-development/Elsaticsearch-AI-Maintenance.yml)                                                       | Elasticsearch 智能运维 AI 助手。                                                         |
 
 - security-and-compliance
 
