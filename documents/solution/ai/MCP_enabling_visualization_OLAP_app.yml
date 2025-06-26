@@ -1,0 +1,336 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Parameters:
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  PolarDBNodeClass:
+    Type: String
+    Label:
+      en: PolarDB MySQL Node Specifications
+      zh-cn: PolarDB MySQL 节点规格
+    Default: polar.mysql.g1.tiny.c
+    AssociationProperty: ALIYUN::POLARDB::DBCluster::DBNodeClass
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      DBVersion: "8.0"
+      DBType: MySQL
+      PayType: Postpaid
+  PolardbAccountName:
+    Type: String
+    Label:
+      zh-cn: 数据库用户名
+      en: Account Name
+    Description:
+      zh-cn: 长度不超过16个字符。以小写英文字母开头，可包含小写英文字母、数字和下划线（_）。
+      en: The length should not exceed 16 characters. It begins with a lowercase English letter and can contain lowercase English letters, numbers and underscores (_).
+    ConstraintDescription:
+      zh-cn: 长度不超过16个字符。以小写英文字母开头，可包含小写英文字母、数字和下划线（_）。
+      en: The length should not exceed 16 characters. It begins with a lowercase English letter and can contain lowercase English letters, numbers and underscores (_).
+    AllowedPattern: '^[a-z][a-z0-9_]{0,30}[a-z0-9]$'
+    Default: polar_ai
+    MaxLength: 16
+    MinLength: 2
+  PolardbAccountPassword:
+    Type: String
+    Description:
+      en: Server login password, Length 8-32, must contain three(Capital letters, lowercase letters, numbers, !@#$%^&*()_+-= Special symbol in)
+      zh-cn: 数据库访问密码,长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-= 中的特殊符号）
+    Label:
+      en: Account Password
+      zh-cn: 数据库密码
+    ConstraintDescription:
+      en: Length 8-32, must contain three(Capital letters, lowercase letters, numbers, !@#$%^&*()_+-=Special symbol in)
+      zh-cn: 长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    NoEcho: true
+  DBName:
+    Type: String
+    Label:
+      en: Database Name
+      zh-cn: 数据库名称
+    AllowedPattern: ^[a-z][a-z0-9_-]{0,62}[a-z0-9]$
+    Description:
+      en: It is composed of lowercase letters, numbers, an underscore (-), and an underscore (_), ending with a lowercase letter or number, beginning with a letter, and ending with a letter or number, with a maximum of 64 characters.
+      zh-cn: 由小写字母、数字、中划线（-）、下划线（_）组成，小写字母或数字结尾，以字母开头，以字母或数字结尾，最长 64 个字符。
+    ConstraintDescription:
+      en: It is composed of lowercase letters, numbers, an underscore (-), and an underscore (_), ending with a lowercase letter or number, beginning with a letter, and ending with a letter or number, with a maximum of 64 characters.
+      zh-cn: 由小写字母、数字、中划线（-）、下划线（_）组成，小写字母或数字结尾，以字母开头，以字母或数字结尾，最长 64 个字符。
+    Default: db-test
+Description:
+  zh-cn: 本方案基于 PolarDB 构建智能数据库分析应用，集成阿里云百炼，提供开箱即用的智能化分析能力。
+  en: This solution builds an intelligent database analysis application based on PolarDB and integrates with Aliyun bailian service to provide out-of-the-box intelligent analysis capabilities.
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: VPC_HZ
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName: vsw_001
+  PolardbAccount:
+    Type: ALIYUN::POLARDB::Account
+    Properties:
+      DBClusterId:
+        Ref: PolardbCluster
+      AccountName:
+        Ref: PolardbAccountName
+      AccountPassword:
+        Ref: PolardbAccountPassword
+      AccountType: Normal
+  WaitPolardbClusterReady:
+    Type: 'ALIYUN::ROS::Sleep'
+    DependsOn: Database
+    Properties:
+      CreateDuration: 30
+  DBClusterEndpointAddress:
+    Type: ALIYUN::POLARDB::DBClusterEndpointAddress
+    DependsOn: WaitPolardbClusterReady
+    Properties:
+      DBClusterId:
+        Ref: PolardbCluster
+      DBEndpointId:
+        Fn::GetAtt:
+          - PolardbCluster
+          - ClusterEndpointId
+  PolardbCluster:
+    Type: ALIYUN::POLARDB::DBCluster
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityIPList: 0.0.0.0/0
+      DBType: MySQL
+      ClusterNetworkType: VPC
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      DBVersion: '8.0'
+      DBNodeClass:
+        Ref: PolarDBNodeClass
+      PayType: Postpaid
+      DBMinorVersion: 8.0.1
+      Architecture: X86
+      StorageSpace: 40
+      CreationCategory: SENormal
+      StorageType: essdautopl
+  Database:
+    DependsOn: PolardbAccount
+    Type: ALIYUN::POLARDB::Database
+    Properties:
+      CharacterSetName: utf8
+      AccountPrivilege: ReadWrite
+      AccountName:
+        Ref: PolardbAccountName
+      DBClusterId:
+        Ref: PolardbCluster
+      DBName:
+        Ref: DBName
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - PolarDBNodeClass
+          - DBName
+          - PolardbAccountName
+          - PolardbAccountPassword
+        Label:
+          default:
+            en: PolarDB MySQL Configuration
+            zh-cn: PolarDB MySQL 配置
+    TemplateTags:
+      - acs:technical-solution:ai:MCP 赋能可视化 OLAP 智能体应用-tech_solu_265
+  ALIYUN::ROS::Composer:
+    3abd7da8:
+      Rect:
+        - 680
+        - 540
+        - 40
+        - 100
+        - 1
+        - 0
+      ResT: Composer::ROSParameter::AlibabaCloud
+    eeea4aab:
+      Parent: 3abd7da8
+      Rect:
+        - 640
+        - 470
+        - 60
+        - 150
+        - 2
+        - 0
+      ResT: Composer::ROSParameter::Region
+    732b563f:
+      Res:
+        - Vpc
+      Parent: eeea4aab
+      Rect:
+        - 480
+        - 340
+        - 80
+        - 200
+        - 3
+        - 0
+    5a281c79:
+      Res:
+        - WaitPolardbClusterReady
+      Parent: eeea4aab
+      Rect:
+        - 40
+        - 40
+        - 580
+        - 560
+        - 3
+        - 0
+      Hidden: true
+    28c49fa5:
+      Res:
+        - DBClusterEndpointAddress
+      Parent: eeea4aab
+      Rect:
+        - 40
+        - 40
+        - 80
+        - 560
+        - 3
+        - 0
+      Hidden: true
+    6fe83601:
+      Parent: 732b563f
+      Rect:
+        - 440
+        - 270
+        - 100
+        - 250
+        - 4
+        - 0
+      ResT: Composer::ROSParameter::Zone
+    3b070e8a:
+      Res:
+        - PolardbAccount
+      Parent: eeea4aab
+      Rect:
+        - 40
+        - 40
+        - 401
+        - 311
+        - 5
+        - 0
+    450ebd49:
+      Res:
+        - Database
+      Parent: eeea4aab
+      Rect:
+        - 40
+        - 40
+        - 401
+        - 422
+        - 5
+        - 0
+    2efcd484:
+      Res:
+        - VSwitch
+      Parent: 6fe83601
+      Rect:
+        - 400
+        - 200
+        - 120
+        - 300
+        - 5
+        - 0
+    2e15ab3e:
+      Res:
+        - PolardbCluster
+      Parent: 2efcd484
+      Rect:
+        - 40
+        - 40
+        - 168
+        - 365
+        - 6
+        - 0
+    c8942e46:
+      Parent: eeea4aab
+      Edge:
+        - 3b070e8a
+        - 2e15ab3e
+      Line: 0:0:0:gray:0
+    b2a2aac4:
+      Parent: eeea4aab
+      Edge:
+        - 28c49fa5
+        - 2e15ab3e
+      Line: 0:0:0:gray:0
+    c7282966:
+      Parent: eeea4aab
+      Edge:
+        - 450ebd49
+        - 2e15ab3e
+      Line: 0:0:0:gray:0
+Outputs:
+  PolarDBClusterAddress:
+    Description:
+      zh-cn: PolarDB访问地址。
+      en: PolarDB address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://polardb.console.aliyun.com/${Region}/cluster/${PolarDBClusterId}/baseInfo
+        - PolarDBClusterId:
+            'Fn::GetAtt':
+              - PolardbCluster
+              - DBClusterId
+          Region:
+            Ref: 'ALIYUN::Region'
+  ConnectionString:
+    Description:
+      zh-cn: PolarDB 数据库公网连接地址。
+      en: PolarDB Database public network connection address.
+    Label:
+      zh-cn: PolarDB 数据库公网连接地址。
+      en: PolarDB Database public network connection address.
+    Value:
+      Fn::GetAtt:
+        - DBClusterEndpointAddress
+        - ConnectionString
+  DBName:
+    Description:
+      zh-cn: PolarDB 数据库名称。
+      en: PolarDB Database name.
+    Label:
+      zh-cn: PolarDB 数据库名称。
+      en: PolarDB Database name.
+    Value:
+      Ref: DBName
+  AccountName:
+    Description:
+      zh-cn: PolarDB MySQL的用户名称。
+      en: PolarDB MySQL user name.
+    Label:
+      zh-cn: PolarDB MySQL的用户名称。
+      en: PolarDB MySQL user name.
+    Value:
+      Ref: PolardbAccountName
+  AccountPassword:
+    Description:
+      zh-cn: PolarDB MySQL的用户密码。
+      en: PolarDB MySQL user password.
+    Label:
+      zh-cn: PolarDB MySQL的用户密码。
+      en: PolarDB MySQL user password.
+    Value:
+      Ref: PolardbAccountPassword
+    NoEcho: true
+
