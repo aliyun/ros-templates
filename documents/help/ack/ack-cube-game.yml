@@ -24,18 +24,14 @@ Parameters:
       zh-cn: 可用区
     AssociationProperty: ALIYUN::VPC::Zone::ZoneId
   InstanceType:
-    Type: String
+    Type: CommaDelimitedList
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      ZoneId: ${ZoneId}
     Label:
       en: Instance Type
-      zh-cn: 节点规格
-    Description:
-      en: It is recommended to use a new generation of ecs instances. If the instance
-        specification cannot be selected, please change the availability zone again.
-      zh-cn: 建议使用新一代的 ecs 实例，如果选择不到实例规格，请重新更换可用区。
-    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
-    AssociationPropertyMetadata:
-      ZoneId: ${ZoneId}
-    AllowedPattern: ^(ecs\.[a-z6-9]+\.)[1-9]?xlarge$
+      zh-cn: 实例规格
   SystemDiskCategory:
     Type: String
     Label:
@@ -288,6 +284,32 @@ Resources:
         Ref: Vpc
       VSwitchId:
         Ref: Vswitch
+  NodePools:
+    Type: 'ALIYUN::CS::ClusterNodePool'
+    Properties:
+      ClusterId:
+        Ref: Ack
+      NodePoolInfo:
+        Name: default-nodepool
+      ScalingGroup:
+        InstanceChargeType: PostPaid
+        VSwitchIds:
+          - Ref: Vswitch
+        ZoneIds:
+          - Ref: ZoneId
+        SystemDiskCategory:
+          Ref: SystemDiskCategory
+        SystemDiskSize: 120
+        InstanceTypes:
+          Ref: InstanceType
+        LoginPassword:
+          Ref: LoginPassword
+        Platform: AliyunLinux
+        ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      KubernetesConfig:
+        Runtime: containerd
+        RuntimeVersion: 1.6.28
+      Count: 2
   Ack:
     Type: ALIYUN::CS::ManagedKubernetesCluster
     Properties:
@@ -299,7 +321,6 @@ Resources:
       - Ref: Vswitch
       Name:
         Ref: AckName
-      NumOfNodes: 2
       ClusterSpec: ack.pro.small
       ServiceCidr: 172.16.0.0/16
       Addons:
@@ -321,11 +342,6 @@ Resources:
       EndpointPublicAccess: true
       SnatEntry: true
       IsEnterpriseSecurityGroup: true
-      WorkerInstanceTypes:
-      - Ref: InstanceType
-      WorkerSystemDiskCategory:
-        Ref: SystemDiskCategory
-      WorkerSystemDiskSize: 120
       LoginPassword:
         Ref: LoginPassword
       Runtime:

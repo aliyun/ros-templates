@@ -15,10 +15,6 @@ Conditions:
     Fn::Equals:
     - Ref: StandbyGatewayInstanceTypes
     - default
-  NoStandbyK8s:
-    Fn::Equals:
-    - Ref: StandbyK8sInstanceTypes
-    - default
 Parameters:
   VpcId:
     Type: String
@@ -30,6 +26,17 @@ Parameters:
         Cloud
       zh-cn: 控制台-VPC-专有网络下查询
     AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    Description:
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please
+        confirm that the Availability Zone supports the specification of creating
+        RDS and CS resources</font></b>
+      zh-cn: 可用区ID，<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建RDS及CS资源的规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
   SecurityGroupId:
     Type: String
     Label:
@@ -42,22 +49,15 @@ Parameters:
     AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
     AssociationPropertyMetadata:
       VpcId: VpcId
-  VSwitchIds:
+  VSwitchId:
     Type: String
+    AssociationProperty: 'ALIYUN::VPC::VSwitch::VSwitchId'
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
     Label:
       en: VSwitch IDs
       zh-cn: 网络交换机ID
-    Description:
-      en: 'Instance ID of existing service network switch, query under console -VPC
-        -proprietary network -switch; Multiple switches are separated by English commas
-        (,).<br><font color=''blue''><b>Note: By default, resources will be created
-        under each switch, including: Eureka/Gateway Server, SLB(For Eureka), Container
-        Worker Node</b></font><br>Fill in at least 2, fill in a maximum of 3, and
-        recommend filling in 3 exchange IDs for different Availability Zones.<br>Example：
-        vsw-xxxxxxxx,vsw-xxxxxxxx,vsw-xxxxxxxx'
-      zh-cn: 现有业务网络交换机的实例ID,控制台-VPC-专有网络-交换机下查询；多个交换机使用英文逗号（,）分割。<br><font color='blue'><b>注：默认会在每个交换机下创建资源，资源包含：
-        Eureka/Gateway Server、SLB（用于Eureka）、容器Worker Node</b></font><br>至少填写2个, 最大填写3个，建议填写3个不同可用区的交换ID。<br>示例：
-        vsw-xxxxxxxx,vsw-xxxxxxxx,vsw-xxxxxxxx
   Port:
     Type: Number
     Label:
@@ -272,53 +272,15 @@ Parameters:
     Default: 40
     MinValue: 40
     MaxValue: 2048
-  K8sVersion:
-    Type: String
-    Label:
-      en: Kubernetes Version
-      zh-cn: Kubernetes 版本
-    Description:
-      en: Kubernetes version
-      zh-cn: Kubernetes 版本
-    Default: 1.18.8-aliyun.1
-    AllowedValues:
-    - 1.18.8-aliyun.1
-    - 1.16.9-aliyun.1
   K8sInstanceType:
-    Type: String
+    Type: CommaDelimitedList
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      ZoneId: ${ZoneId}
     Label:
       en: Instance Type
       zh-cn: 实例规格
-    Description:
-      en: <font color='blue'><b>1.Before selecting the model please confirm that the
-        current available zone under the model is in stock, some models need to be
-        reported in advance</b></font>]<br><font color='blue'><b>2.List of Recommended
-        Models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet
-        bandwidth1Gbps In-grid sending and receiving packages30MillionPPSS</font>]<br></b>[ecs.c5.xlarge
-        <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and
-        receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
-        16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
-      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font
-        color='blue'><b>2.推荐机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU
-        4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU
-        8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU
-        16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
-    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
-  StandbyK8sInstanceTypes:
-    Type: String
-    Label:
-      en: Instance Alternate Type
-      zh-cn: 实例备用规格
-    Description:
-      en: 'Server spare specifications;Multiple specifications are split using an
-        English comma (,).<br><font color=''blue''><b>Note: Server specifications
-        take precedence over the main specifications, and alternate specifications
-        are lowered in order of elements</b></font><br>The default default indicates
-        that there are no alternate specifications and a maximum of 9 are filled in.<br>Example：
-        ecs.c6.large,ecs.g6e.large,ecs.g6.large'
-      zh-cn: 服务器备用规格；多个规格使用英文逗号（,）分割。<br><font color='blue'><b>注：服务器规格优先使用主规格，备用规格优先级按元素的顺序依次降低</b></font><br>默认default表示没有备用规格，最大填写9个。<br>示例：
-        ecs.c6.large,ecs.g6e.large,ecs.g6.large
-    Default: default
   K8sContainerCidr:
     Type: String
     Label:
@@ -385,15 +347,38 @@ Parameters:
     MinValue: 40
     MaxValue: 2048
 Resources:
+  NodePools:
+    Type: 'ALIYUN::CS::ClusterNodePool'
+    Properties:
+      ClusterId:
+        Ref: CsManagedKubernetesCluster
+      NodePoolInfo:
+        Name: default-nodepool
+      ScalingGroup:
+        InstanceChargeType: PostPaid
+        VSwitchIds:
+          - Ref: VSwitchId
+        SystemDiskCategory:
+          Ref: K8sDiskCategory
+        SystemDiskSize:
+          Ref: K8sWorkerSystemDiskSize
+        InstanceTypes:
+          Ref: K8sInstanceType
+        LoginPassword:
+          Ref: InstancePassword
+        Platform: AliyunLinux
+        ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      KubernetesConfig:
+        Runtime: containerd
+        RuntimeVersion: 1.6.28
+      Count: 2
   CsManagedKubernetesCluster:
     Type: ALIYUN::CS::ManagedKubernetesCluster
     Properties:
       VpcId:
         Ref: VpcId
       VSwitchIds:
-        Fn::Split:
-        - ','
-        - Ref: VSwitchIds
+      - Ref: VSwitchId
       SecurityGroupId:
         Ref: SecurityGroupId
       Addons:
@@ -403,8 +388,6 @@ Resources:
         Ref: K8sContainerCidr
       DisableRollback: false
       EndpointPublicAccess: true
-      KubernetesVersion:
-        Ref: K8sVersion
       LoginPassword:
         Ref: InstancePassword
       Name:
@@ -412,38 +395,16 @@ Resources:
         - ''
         - - Spring-Cloud-
           - Ref: ALIYUN::StackId
-      NumOfNodes:
-        Fn::Length:
-          Fn::Split:
-          - ','
-          - Ref: VSwitchIds
       ServiceCidr:
         Ref: K8sServiceCidr
       SnatEntry: true
-      WorkerInstanceTypes:
-        Fn::If:
-        - NoStandbyK8s
-        - - Ref: K8sInstanceType
-        - Fn::ListMerge:
-          - - Ref: K8sInstanceType
-          - Fn::Split:
-            - ','
-            - Ref: StandbyK8sInstanceTypes
-      WorkerSystemDiskCategory:
-        Ref: K8sDiskCategory
-      WorkerSystemDiskSize:
-        Ref: K8sWorkerSystemDiskSize
   SlbLoadBalancerApiGateway:
     Type: ALIYUN::SLB::LoadBalancer
     Properties:
       VpcId:
         Ref: VpcId
       VSwitchId:
-        Fn::Select:
-        - 0
-        - Fn::Split:
-          - ','
-          - Ref: VSwitchIds
+        Ref: VSwitchId
       AddressType: intranet
       InternetChargeType: paybytraffic
       LoadBalancerName: SLB-ApiGateway
@@ -474,18 +435,12 @@ Resources:
     Type: ALIYUN::ESS::ScalingGroup
     Properties:
       VSwitchIds:
-        Fn::Split:
-        - ','
-        - Ref: VSwitchIds
+      - Ref: VSwitchId
       DefaultCooldown: 300
       LoadBalancerIds:
       - Ref: SlbLoadBalancerApiGateway
       MaxSize: 10
-      MinSize:
-        Fn::Length:
-          Fn::Split:
-          - ','
-          - Ref: VSwitchIds
+      MinSize: 1
       MultiAZPolicy: BALANCE
       ProtectedInstances: []
       RemovalPolicys:
@@ -705,25 +660,13 @@ Resources:
       VpcId:
         Ref: VpcId
       VSwitchId:
-        Fn::Select:
-        - Ref: ALIYUN::Index
-        - Fn::Split:
-          - ','
-          - Ref: VSwitchIds
+        Ref: VSwitchId
       AddressType: intranet
       InternetChargeType: paybytraffic
       LoadBalancerName:
-        Fn::Join:
-        - ''
-        - - SLB-Eureka-
-          - Ref: ALIYUN::Index
+        Fn::Sub: SLB-Eureka-${ALIYUN::StackName}
       LoadBalancerSpec:
         Ref: EurekaSlbSpec
-    Count:
-      Fn::Length:
-        Fn::Split:
-        - ','
-        - Ref: VSwitchIds
   SlbListenersEureka:
     Type: ALIYUN::SLB::Listener
     Properties:
@@ -740,34 +683,21 @@ Resources:
       ListenerPort:
         Ref: Port
       LoadBalancerId:
-        Fn::Select:
-        - Ref: ALIYUN::Index
-        - Ref: SlbLoadBalancersEureka
+        Ref: SlbLoadBalancersEureka
       Protocol: tcp
       Scheduler: wlc
     DependsOn:
     - SlbLoadBalancersEureka
-    Count:
-      Fn::Length:
-        Fn::Split:
-        - ','
-        - Ref: VSwitchIds
   EssScalingGroupEureka:
     Type: ALIYUN::ESS::ScalingGroup
     Properties:
       VSwitchIds:
-        Fn::Split:
-        - ','
-        - Ref: VSwitchIds
+      - Ref: VSwitchId
       DefaultCooldown: 300
       LoadBalancerIds:
-        Ref: SlbLoadBalancersEureka
+      - Ref: SlbLoadBalancersEureka
       MaxSize: 12
-      MinSize:
-        Fn::Length:
-          Fn::Split:
-          - ','
-          - Ref: VSwitchIds
+      MinSize: 1
       MultiAZPolicy: BALANCE
       ProtectedInstances: []
       RemovalPolicys:
@@ -954,34 +884,17 @@ Resources:
       Bandwidth: 5
       InternetChargeType: PayByTraffic
       Name:
-        Fn::Join:
-        - ''
-        - - EIP-SLB-Eureka-
-          - Ref: ALIYUN::Index
-    Count:
-      Fn::Length:
-        Fn::Split:
-        - ','
-        - Ref: VSwitchIds
+        Fn::Sub: EIP-SLB-Eureka-${ALIYUN::StackName}
   VpcEIPsAssociation:
     Type: ALIYUN::VPC::EIPAssociation
     Properties:
       InstanceId:
-        Fn::Select:
-        - Ref: ALIYUN::Index
-        - Ref: SlbLoadBalancersEureka
+        Ref: SlbLoadBalancersEureka
       AllocationId:
-        Fn::Select:
-        - Ref: ALIYUN::Index
-        - Ref: VpcEIPsEurekaSlb
+        Ref: VpcEIPsEurekaSlb
     DependsOn:
     - SlbLoadBalancersEureka
     - VpcEIPsEurekaSlb
-    Count:
-      Fn::Length:
-        Fn::Split:
-        - ','
-        - Ref: VSwitchIds
   OosParameterEurekaUrls:
     Type: ALIYUN::OOS::Parameter
     Properties:
@@ -991,22 +904,14 @@ Resources:
         - - /Spring/Eureka/
           - Ref: ALIYUN::StackId
           - /URL_
-          - Ref: ALIYUN::Index
           - /
       Type: String
       Value:
-        Fn::Select:
-        - Ref: ALIYUN::Index
-        - Fn::GetAtt:
+        Fn::GetAtt:
           - VpcEIPsEurekaSlb
           - EipAddress
     DependsOn:
     - VpcEIPsAssociation
-    Count:
-      Fn::Length:
-        Fn::Split:
-        - ','
-        - Ref: VSwitchIds
   VpcEipApiGatewaySlb:
     Type: ALIYUN::VPC::EIP
     Properties:
@@ -1074,8 +979,9 @@ Metadata:
     ParameterGroups:
     - Parameters:
       - VpcId
+      - ZoneId
       - SecurityGroupId
-      - VSwitchIds
+      - VSwitchId
       - Port
       - InstanceImageId
       - InstancePassword
@@ -1104,9 +1010,7 @@ Metadata:
           en: Gateway Configuration
           zh-cn: Gateway配置（必填）
     - Parameters:
-      - K8sVersion
       - K8sInstanceType
-      - StandbyK8sInstanceTypes
       - K8sContainerCidr
       - K8sServiceCidr
       - K8sDiskCategory

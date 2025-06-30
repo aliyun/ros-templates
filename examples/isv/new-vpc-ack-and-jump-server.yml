@@ -107,14 +107,14 @@ Parameters:
     MaxLength: 32
     NoEcho: true
   WorkerInstanceType:
-    Type: String
-    Label:
-      en: Worker Nodes Types
-      zh-cn: Worker节点规格
-    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    Type: CommaDelimitedList
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
     AssociationPropertyMetadata:
+      InstanceChargeType: ${PayType}
       ZoneId: ${ZoneId}
-    Default: ecs.g6.large
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
   WorkerSystemDiskCategory:
     Type: String
     Label:
@@ -226,6 +226,38 @@ Resources:
         IpProtocol: all
         DestCidrIp: 0.0.0.0/0
         NicType: intranet
+  NodePools:
+    Type: 'ALIYUN::CS::ClusterNodePool'
+    Properties:
+      ClusterId:
+        Ref: ManagedKubernetesCluster
+      NodePoolInfo:
+        Name: default-nodepool
+      ScalingGroup:
+        Period:
+          Ref: PayPeriod
+        PeriodUnit:
+          Ref: PayPeriodUnit
+        InstanceChargeType:
+          Ref: PayType
+        VSwitchIds:
+          - Ref: EcsVSwitch
+        ZoneIds:
+          - Ref: ZoneId
+        SystemDiskCategory:
+          Ref: WorkerSystemDiskCategory
+        SystemDiskSize:
+          Ref: WorkerSystemDiskSize
+        InstanceTypes:
+          Ref: WorkerInstanceType
+        LoginPassword:
+          Ref: LoginPassword
+        Platform: AliyunLinux
+        ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      KubernetesConfig:
+        Runtime: containerd
+        RuntimeVersion: 1.6.28
+      Count: 3
   ManagedKubernetesCluster:
     Type: ALIYUN::CS::ManagedKubernetesCluster
     Properties:
@@ -235,15 +267,6 @@ Resources:
       - Ref: EcsVSwitch
       SecurityGroupId:
         Ref: EcsSecurityGroup
-      ChargeType:
-        Ref: PayType
-      Period:
-        Ref: PayPeriod
-      PeriodUnit:
-        Ref: PayPeriodUnit
-      WorkerInstanceTypes:
-      - Ref: WorkerInstanceType
-      NumOfNodes: 3
       ClusterSpec: ack.pro.small
       ContainerCidr:
         Ref: PodCidr
@@ -251,12 +274,6 @@ Resources:
         Ref: ServiceCidr
       ZoneIds:
       - Ref: ZoneId
-      WorkerSystemDiskCategory:
-        Ref: WorkerSystemDiskCategory
-      WorkerSystemDiskSize:
-        Ref: WorkerSystemDiskSize
-      LoginPassword:
-        Ref: LoginPassword
       SnatEntry: true
       Addons:
       - Name: flannel
