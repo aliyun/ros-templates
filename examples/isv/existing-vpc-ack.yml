@@ -157,22 +157,14 @@ Parameters:
       en: Install the cloud monitoring plug-in on the ECS node .
     Default: true
   WorkerInstanceTypes:
-    Type: Json
+    Type: CommaDelimitedList
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: ${PayPeriod}
+      ZoneId: ${ZoneId}
     Label:
-      en: Worker Instance Type
-      zh-cn: Worker节点实例类型
-    Description:
-      zh-cn: 填写VSwitch可用区下可使用的规格；<br>通用规格：<font color='red'><b>ecs.g6.large</b></font><br>注：可用区可能不支持通用规格<br>规格详见：<a
-        href='https://help.aliyun.com/document_detail/25378.html' target='_blank'><b><font
-        color='blue'>实例规格族</font></a></b>
-      en: 'Fill in specifications that can be used under the VSwitch availability
-        zone;</b></font><br>general specifications：<font color=''red''><b>ecs.g6.large</b></font><br>note:
-        a few zones do not support general specifications<br>see detail: <a href=''https://www.alibabacloud.com/help/en/doc-detail/25378.html''
-        target=''_blank''><b><font color=''blue''>Instance Specification Family</font></a></b>'
-    Default:
-    - ecs.g6.large
-    - ecs.g6.xlarge
-    - ecs.g7.large
+      en: Instance Type
+      zh-cn: 实例规格
   WorkerSystemDiskSize:
     Type: Number
     Label:
@@ -214,6 +206,39 @@ Parameters:
     MaxLength: 30
     NoEcho: true
 Resources:
+  NodePools:
+    Type: 'ALIYUN::CS::ClusterNodePool'
+    Properties:
+      ClusterId:
+        Ref: ManagedKubernetesCluster
+      NodePoolInfo:
+        Name: default-nodepool
+      ScalingGroup:
+        Period:
+          Ref: PayPeriod
+        PeriodUnit:
+          Ref: PayPeriodUnit
+        InstanceChargeType:
+          Ref: PayType
+        VSwitchIds:
+          - Ref: VSwitchId
+        ZoneIds:
+          - Ref: ZoneId
+        SystemDiskCategory:
+          Ref: WorkerSystemDiskCategory
+        SystemDiskSize:
+          Ref: WorkerSystemDiskSize
+        InstanceTypes:
+          Ref: WorkerInstanceTypes
+        LoginPassword:
+          Ref: LoginPassword
+        Platform: AliyunLinux
+        ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      KubernetesConfig:
+        Runtime: containerd
+        RuntimeVersion: 1.6.28
+      Count:
+        Ref: NumOfNodes
   ManagedKubernetesCluster:
     Type: ALIYUN::CS::ManagedKubernetesCluster
     Properties:
@@ -223,27 +248,13 @@ Resources:
       - Ref: VSwitchId
       SecurityGroupId:
         Ref: SecurityGroupId
-      ChargeType:
-        Ref: PayType
-      Period:
-        Ref: PayPeriod
-      PeriodUnit:
-        Ref: PayPeriodUnit
       ZoneIds:
       - Ref: ZoneId
-      WorkerInstanceTypes:
-        Ref: WorkerInstanceTypes
-      NumOfNodes:
-        Ref: NumOfNodes
       ClusterSpec: ack.pro.small
       ContainerCidr:
         Ref: PodCidr
       ServiceCidr:
         Ref: ServiceCidr
-      WorkerSystemDiskCategory:
-        Ref: WorkerSystemDiskCategory
-      WorkerSystemDiskSize:
-        Ref: WorkerSystemDiskSize
       LoginPassword:
         Ref: LoginPassword
       SnatEntry:
@@ -254,7 +265,6 @@ Resources:
       CloudMonitorFlags:
         Ref: CloudMonitorFlag
       ProxyMode: IPVS
-      DisableRollback: true
       EndpointPublicAccess:
         Ref: EndpointPublicAccess
       Name:
