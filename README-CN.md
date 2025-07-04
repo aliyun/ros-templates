@@ -559,6 +559,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [snapshot-optimize.yml](documents/solution/storage/snapshot-optimize.yml)                                                                 | 基于 EBS 部署高性能的 MySQL 服务。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ebs_mysql) |
 | [collect-application-log.yml](documents/solution/storage/collect-application-log.yml)                                                     | 应用业务日志监控与告警。                                                                                  |
 | [deploy-personal-cloud-drive-based-on-nextcloud.yml](documents/solution/storage/deploy-personal-cloud-drive-based-on-nextcloud.yml)                     | 基于Nextcloud部署个人网盘。                                                                                                     |
+| [Tair-for-Multi-Device-IM-Sync.yml](documents/solution/storage/Tair-for-Multi-Device-IM-Sync.yml)                     | Tair（兼容 Redis）实现 IM 多端消息同步。                                                                                                     |
 
 - cdn-and-video-cloud
 

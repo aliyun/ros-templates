@@ -1,0 +1,279 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: Tair（兼容 Redis）实现 IM 多端消息同步。
+  en: Tair (compatible with Redis) enables multi-terminal message synchronization in IM.
+Parameters:
+  CommonName:
+    Type: String
+    Default: IM
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  RedisInstanceClass:
+    Type: String
+    Label:
+      en: Tair Specifications
+      zh-cn: Tair 规格
+    Description:
+      en: <font color='blue'><b>Before selecting a model, please confirm whether the model is in stock in the current availability zone. To save testing costs, it is recommended to use a model with 2G memory, for example:tair.rdb.2g</b></font>, see detail:<a href='https://help.aliyun.com/zh/redis/product-overview/enhanced-performance' target='_blank'><b><font color='red'>Specification inquiry</font></b></a>.
+      zh-cn: <font color='blue'><b>选择机型前请先确认当前可用区下该机型是否有库存，为节省测试成本，推荐使用2GB的规格，例如：tair.rdb.2g</b></font>，<a href='https://help.aliyun.com/zh/redis/product-overview/enhanced-performance' target='_blank'><b><font color='red'>规格查询</font></b></a>。
+    AssociationProperty: ALIYUN::REDIS::Instance::InstanceClass
+    AssociationPropertyMetadata:
+      Engine: Redis
+      ProductType: Tair_rdb
+      InstanceChargeType: PostPaid
+      ZoneId: ${ZoneId}
+      OrderType: BUY
+    Default: tair.rdb.2g
+  RedisInstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: 'The length should be 8 to 32 bits and must include at least three of the following: uppercase letters, lowercase letters, special characters, and numbers. The allowed special characters include! @#$%^&*()_+-=.'
+      zh-cn: 长度为 8－32 位，需包含大写字母、小写字母、特殊字符和数字中的至少三种，允许的特殊字符包括!@#$%^&*()_+-=。
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-VPC_HZ
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw_001
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-SecurityGroup_1
+      SecurityGroupIngress:
+        - PortRange: 5000/5000
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  RedisInstance:
+    Type: ALIYUN::REDIS::Instance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      InstanceClass:
+        Ref: RedisInstanceClass
+      ProductType: Tair_rdb
+      NodeType: single
+      InstanceName:
+        Fn::Sub: ${CommonName}-im_tair
+      EngineVersion: '6.0'
+      Password:
+        Ref: RedisInstancePassword
+  REDISWhitelist:
+    Type: ALIYUN::REDIS::Whitelist
+    Properties:
+      InstanceId:
+        Ref: RedisInstance
+      SecurityIps: 192.168.0.0/16
+Outputs:
+  RedisConnectionString:
+    Label:
+      zh-cn: Tair 连接地址
+      en: Tair connection address
+    Description:
+      zh-cn: 访问 Tair 的内网地址。
+      en: Access Tair's internal network address.
+    Value:
+      Fn::GetAtt:
+        - RedisInstance
+        - ConnectionDomain
+  RedisPort:
+    Label:
+      zh-cn: Tair 连接地址
+      en: The port of Tair
+    Description:
+      zh-cn: 访问 Tair 的端口。
+      en: Access the port of Tair.
+    Value:
+      Fn::GetAtt:
+        - RedisInstance
+        - Port
+  RedisInstancePassword:
+    Label:
+      zh-cn: Tair 密码
+      en: Tair password
+    Description:
+      zh-cn: 登录 Tair 的密码。
+      en: The password of Tair.
+    NoEcho: true
+    Value:
+      Ref: RedisInstancePassword
+  VpcID:
+    Label:
+      zh-cn: VPC ID
+      en: VPC ID
+    Description:
+      zh-cn: VPC ID。
+      en: Vpc ID。
+    Value:
+      Ref: Vpc
+  VswID:
+    Label:
+      zh-cn: 交换机 ID
+      en: Vsw ID
+    Description:
+      zh-cn: 交换机 ID。
+      en: Vsw ID.
+    Value:
+      Ref: VSwitch
+  Sg:
+    Label:
+      zh-cn: 安全组 ID
+      en: Security Group ID
+    Description:
+        zh-cn: 安全组 ID。
+        en: Security Group ID.
+    Value:
+        Ref: SecurityGroup
+  RegionID:
+    Label:
+      zh-cn: 地域 ID
+      en: Region ID
+    Description:
+        zh-cn: 地域 ID。
+        en: Region ID.
+    Value:
+        Ref: ALIYUN::Region
+Metadata:
+  'ALIYUN::ROS::Interface':
+    Outputs:
+      - RegionID
+      - VpcID
+      - VswID
+      - Sg
+      - RedisConnectionString
+      - RedisPort
+      - RedisInstancePassword
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - RedisInstanceClass
+          - RedisInstancePassword
+        Label:
+          default:
+            en: Cloud database Tair (compatible with Redis)
+            zh-cn: 云数据库Tair（兼容Redis）
+    TemplateTags:
+      - acs:technical-solution:storage:Tair（兼容 Redis）实现 IM 多端消息同步-tech_solu_275
+    Hidden:
+      - CommonName
+  ALIYUN::ROS::Composer:
+    '41031635':
+      Parent: 50cc4329
+      Edge:
+        - 8cad7632
+        - edd8904a
+      Line: 0:0:0:gray:0
+    a0606392:
+      Rect:
+        - 623
+        - 497
+        - -69
+        - 41
+        - 1
+        - 0
+      ResT: Composer::ROSParameter::AlibabaCloud
+    50cc4329:
+      Parent: a0606392
+      Rect:
+        - 570
+        - 417
+        - -49
+        - 91
+        - 2
+        - 0
+      ResT: Composer::ROSParameter::Region
+    005d7c35:
+      Res:
+        - Vpc
+      Parent: 50cc4329
+      Rect:
+        - 518
+        - 343
+        - -29
+        - 141
+        - 3
+        - 0
+    8cad7632:
+      Res:
+        - REDISWhitelist
+      Parent: 50cc4329
+      Rect:
+        - 40
+        - 40
+        - 405
+        - 323
+        - 3
+        - 0
+    84126a70:
+      Res:
+        - ZoneId
+      Parent: 005d7c35
+      Rect:
+        - 376
+        - 270
+        - -9
+        - 191
+        - 4
+        - 0
+      ResT: Composer::ROSParameter::Zone
+    9366ae6e:
+      Res:
+        - VSwitch
+      Parent: 84126a70
+      Rect:
+        - 319
+        - 204
+        - 11
+        - 241
+        - 5
+        - 0
+    6096a06f:
+      Res:
+        - SecurityGroup
+      Parent: 005d7c35
+      Rect:
+        - 183
+        - 141
+        - 72
+        - 279
+        - 10
+        - 0
+    edd8904a:
+      Res:
+        - RedisInstance
+      Parent: 9366ae6e
+      Rect:
+        - 40
+        - 40
+        - 143
+        - 323
+        - 11
+        - 0
+      Layer:
+        - 6096a06f

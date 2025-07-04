@@ -559,6 +559,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [snapshot-optimize.yml](documents/solution/storage/snapshot-optimize.yml)                                                                 | Deploy high-performance MySQL services based on EBS ESSD.   |
 | [collect-application-log.yml](documents/solution/storage/collect-application-log.yml)                                                     | Application business log monitoring and alarming.           |
 | [deploy-personal-cloud-drive-based-on-nextcloud.yml](documents/solution/storage/deploy-personal-cloud-drive-based-on-nextcloud.yml)                     | Deploy personal web disks based on Nextcloud.                                                 |
+| [Tair-for-Multi-Device-IM-Sync.yml](documents/solution/storage/Tair-for-Multi-Device-IM-Sync.yml)                     | Tair (compatible with Redis) enables multi-terminal message synchronization in IM.                                                |
 
 - cdn-and-video-cloud
 
