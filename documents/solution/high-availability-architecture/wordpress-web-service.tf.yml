@@ -1,0 +1,422 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 在 ECS 实例上自动部署 WordPress并开启REST API，含VPC、安全组配置与MySQL、PHP环境搭建，提供公网访问 URL。
+  en: Automatically deploy WordPress on ECS instances and turn on the REST API, 
+    including configuring VPC and security groups, setting up MySQL and PHP 
+    environments, and providing public network access urls.
+Parameters:
+  zone_id:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Description:
+      en: Zone ID.
+      zh-cn: 可用区ID
+    AssociationProperty: ZoneId
+  vpc_cidr_block:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: "The IP address range of the VPC in the CIDR Block form; <br>you can use
+        the following IP address ranges: <br><font color='green'>[10.0.0.0/8]</font><br><font
+        color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>"
+      zh-cn: 专有网络IP地址段范围，<br>您可以使用以下的IP地址段:<br><font 
+        color='green'>[10.0.0.0/8]</font><br><font 
+        color='green'>[172.16.0.0/12]</font><br><font 
+        color='green'>[192.168.0.0/16]</font>
+    Default: 192.168.0.0/16
+    AllowedValues:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  vswitch_cidr_block:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    Required: true
+    Default: 192.168.0.0/24
+  ecs_instance_type:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${zone_id}
+  instance_password:
+    Type: String
+    NoEcho: true
+    Default:
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital 
+        letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 
+        Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, 
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  db_instance_class:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${zone_id}
+      EngineVersion: '8.0'
+      Engine: MySQL
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      CommodityCode: bards
+  db_name:
+    Type: String
+    Label:
+      zh-cn: 数据库名称
+      en: DB Name
+    Description:
+      zh-cn: 数据库名称，由小写字母、数字及特殊字符（-_）组成，以字母开头，字母或数字结尾，最多64个字符。
+      en: Database name, consisting of lowercase letters, Numbers, and special 
+        characters (-_), starting with letters, ending with letters or Numbers, 
+        up to 64 characters.
+    Default: wordpress
+  db_user:
+    Type: String
+    Label:
+      en: RDS DB Username
+      zh-cn: RDS数据库账号
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must 
+        begin with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: dbuser
+    MinLength: 2
+    MaxLength: 16
+  db_password:
+    Type: String
+    Label:
+      en: RDS Database Password
+      zh-cn: RDS数据库密码
+    Description:
+      en: |-
+        The password must be 8 to 32 characters in length. <br>
+        It must contain the following character types: uppercase letters, lowercase letters, digits, and special characters. <br> 
+        Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>.<br>
+        <b>If you repeatedly provision in this tutorial on the same ECS instance, make sure that the MySQL database password is exactly the same as the password set when the template was executed for the first time. Otherwise, the result of provisioning is unavailable.</b>
+      zh-cn: 长度为8~32位，需包含大写字母、小写字母、特殊字符、数字的任意三种，允许的特殊字符包括<span 
+        style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>。<br>
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    NoEcho: true
+  word_press_user_name:
+    Type: String
+    Label:
+      en: WordPress User Name
+      zh-cn: WordPress用户名
+    Default: admin
+  word_press_password:
+    Type: String
+    Label:
+      en: WordPress User Password
+      zh-cn: WordPress用户密码
+    NoEcho: true
+  word_press_user_email:
+    Type: String
+    Label:
+      en: WordPress User Email
+      zh-cn: WordPress用户邮箱
+    Default: admin@example.com
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - zone_id
+      - vpc_cidr_block
+      - vswitch_cidr_block
+      Label:
+        default:
+          en: VPC
+          zh-cn: 专有网络配置
+    - Parameters:
+      - ecs_instance_type
+      - instance_password
+      Label:
+        default:
+          en: ECS
+          zh-cn: ECS配置
+    - Parameters:
+      - db_instance_class
+      - db_name
+      - db_user
+      - db_password
+      Label:
+        default:
+          en: RDS
+          zh-cn: RDS配置
+    - Parameters:
+      - word_press_user_name
+      - word_press_password
+      - word_press_user_email
+      Label:
+        default:
+          en: WordPress
+          zh-cn: WordPress配置
+    TemplateTags:
+    - acs:technical-solution:high-availability-architecture:10分钟搭建微信小程序-tech_solu_169
+Workspace:
+  variable.tf: |-
+    # Parameters
+    variable "zone_id" {
+      type        = string
+      description = "请输入可用区ID（例如：cn-hangzhou-k）。请确保该可用区支持您要创建的ECS资源规格。"
+      default     = "cn-hangzhou-k"
+    }
+
+    variable "vpc_cidr_block" {
+      description = "请输入VPC的CIDR块（支持的值包括：192.168.0.0/16、172.16.0.0/12、10.0.0.0/8）。这是您的虚拟私有云的地址范围。"
+      default     = "192.168.0.0/16"
+      validation {
+        condition     = contains(["192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"], var.vpc_cidr_block)
+        error_message = "无效的VPC CIDR块，请检查并重新输入。"
+      }
+    }
+
+    variable "vswitch_cidr_block" {
+      description = "请输入交换机的CIDR块（例如：192.168.0.0/24）。这是您虚拟交换机的地址范围。"
+      default     = "192.168.0.0/24"
+    }
+
+    variable "ecs_instance_type" {
+      description = "请输入ECS实例类型（例如：ecs.e-c1m2.large）。请根据实际需求选择合适的实例规格。"
+      default     = "ecs.e-c1m2.large"
+    }
+
+    variable "instance_password" {
+      description = "请输入服务器登录密码。密码长度为8-30位，必须包含大写字母、小写字母、数字和特殊字符（如：!@#$%^&*_-+=|{}[]:;'<>,.?/）。"
+      type        = string
+      sensitive   = true
+    }
+
+    variable "db_instance_class" {
+      description = "请输入RDS实例规格（例如：mysql.n2m.medium.2c）。根据您的数据库负载选择合适的规格。"
+      default     = "mysql.n2m.medium.2c"
+    }
+
+    variable "db_name" {
+      description = "请输入数据库名称（由小写字母、数字及特殊字符 -_ 组成，以字母开头，字母或数字结尾，最多64个字符）。"
+      default     = "wordpress"
+      validation {
+        condition     = regex("^[a-z][a-z0-9-_]{0,62}[a-z0-9]$", var.db_name) != ""
+        error_message = "数据库名称格式不正确。名称应由小写字母、数字及特殊字符 -_ 组成，以字母开头，字母或数字结尾，最多64个字符。"
+      }
+    }
+
+    variable "db_user" {
+      description = "请输入RDS数据库用户名（长度为2-16个字符，仅允许小写字母、数字和下划线，必须以字母开头，以字母或数字结尾）。"
+      default     = "dbuser"
+      validation {
+        condition     = regex("^[a-z][a-z0-9_]{1,15}$", var.db_user) != ""
+        error_message = "用户名格式不正确。用户名长度应为2-16个字符，仅允许小写字母、数字和下划线，必须以字母开头，以字母或数字结尾。"
+      }
+    }
+
+    variable "db_password" {
+      description = "请输入RDS数据库密码。密码长度为8-32位，需包含大写字母、小写字母、数字和特殊字符（如：!@#$%^&*()_+-=）。如果在本教程中重复配置，请确保 MySQL 数据库密码与模板首次执行时设置的密码完全相同，否则配置结果不可用。"
+      type        = string
+      sensitive   = true
+    }
+
+    variable "word_press_user_name" {
+      description = "请输入WordPress管理员用户名（建议使用独特的用户名以增强安全性）。"
+      default     = "admin"
+    }
+
+    variable "word_press_password" {
+      description = "请输入WordPress管理员密码。密码长度为8-32位，需包含大写字母、小写字母、数字和特殊字符（如：!@#$%^&*()_+-=）。"
+      type        = string
+      sensitive   = true
+    }
+
+    variable "word_press_user_email" {
+      description = "请输入WordPress管理员邮箱（用于系统通知和找回密码）。"
+      default     = "admin@example.com"
+    }
+  main.tf: |-
+    provider "alicloud" {
+    }
+    resource "random_id" "suffix" {
+      byte_length = 8
+    }
+
+    locals {
+      common_name = "${random_id.suffix.id}"
+    }
+    # VPC Resources
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = "vpc"
+      cidr_block = var.vpc_cidr_block
+    }
+
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = var.vswitch_cidr_block
+      zone_id      = var.zone_id
+      vswitch_name = "vsw"
+    }
+
+    # Security Group
+    resource "alicloud_security_group" "security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg"
+      security_group_type = "normal"
+    }
+
+    resource "alicloud_security_group_rule" "http" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "80/80"
+      cidr_ip           = "0.0.0.0/0"
+      security_group_id = alicloud_security_group.security_group.id
+    }
+
+    resource "alicloud_security_group_rule" "https" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "22/22"
+      cidr_ip           = "0.0.0.0/0"
+      security_group_id = alicloud_security_group.security_group.id
+    }
+
+    # RDS Resources
+    resource "alicloud_db_instance" "rds_db_instance" {
+      engine                   = "MySQL"
+      engine_version           = "8.0"
+      instance_type            = var.db_instance_class
+      instance_storage         = 50
+      db_instance_storage_type = "cloud_essd"
+      vswitch_id               = alicloud_vswitch.vswitch.id
+      zone_id                  = var.zone_id
+      security_group_ids = [alicloud_security_group.security_group.id]
+    }
+
+    resource "alicloud_db_database" "rds_database" {
+      instance_id   = alicloud_db_instance.rds_db_instance.id
+      name          = var.db_name
+      character_set = "utf8mb4"
+    }
+
+    resource "alicloud_db_account" "rds_account" {
+      db_instance_id   = alicloud_db_instance.rds_db_instance.id
+      account_name     = var.db_user
+      account_type     = "Normal"
+      account_password = var.db_password
+    }
+
+    resource "alicloud_db_account_privilege" "rds_account_privilege" {
+      instance_id  = alicloud_db_instance.rds_db_instance.id
+      account_name = alicloud_db_account.rds_account.account_name
+      db_names     = alicloud_db_database.rds_database.*.name
+      privilege    = "ReadWrite"
+    }
+
+    # ECS Resources
+    resource "alicloud_instance" "ecs_instance" {
+      instance_name              = "ecs-${local.common_name}"
+      system_disk_category       = "cloud_essd"
+      image_id                   = "centos_7_9_x64_20G_alibase_20240628.vhd"
+      vswitch_id                 = alicloud_vswitch.vswitch.id
+      password                   = var.instance_password
+      instance_type              = var.ecs_instance_type
+      internet_max_bandwidth_out = 5
+      security_groups = [alicloud_security_group.security_group.id]
+    }
+    resource "alicloud_ecs_command" "run_command" {
+      name = "commond-install"
+      command_content = base64encode(<<OUTER_EOF
+    #!/bin/bash
+    cat << INNER_EOF >> ~/.bash_profile
+    export DB_NAME=${var.db_name}
+    export DB_USERNAME=${var.db_user}
+    export DB_PASSWORD=${var.db_password}
+    export DB_CONNECTION=${alicloud_db_instance.rds_db_instance.connection_string}
+    export ROS_DEPLOY=true
+    INNER_EOF
+
+    source ~/.bash_profile
+
+    curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/develop-your-wechat-mini-program-in-10-minutes/install.sh|bash
+
+    ## 调整db连接配置
+    sed -i 's/localhost/${alicloud_db_instance.rds_db_instance.connection_string}/' /var/www/html/wp-config.php
+    sed -i 's/username_here/${var.db_user}/' /var/www/html/wp-config.php
+    sed -i 's/password_here/${var.db_password}/' /var/www/html/wp-config.php
+    sed -i 's/database_name_here/${var.db_name}/' /var/www/html/wp-config.php
+
+    cd /var/www/html
+    sudo cat << INNER_EOF > .htaccess
+    # BEGIN WordPress
+    <IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond \%\{HTTP:Authorization\} ^(.*)
+    RewriteRule ^(.*) - [E=HTTP_AUTHORIZATION:%1]
+    RewriteBase /
+    RewriteRule ^index\.php$ - [L]
+    RewriteCond \%\{REQUEST_FILENAME\} !-f
+    RewriteCond \%\{REQUEST_FILENAME\} !-d
+    RewriteRule . /index.php [L]
+    </IfModule>
+    # END WordPress
+    INNER_EOF
+    sed -i 's/AllowOverride None/AllowOverride All/g' /etc/httpd/conf/httpd.conf
+
+    wget https://downloads.wordpress.org/plugin/jwt-authentication-for-wp-rest-api.zip
+    yum -y install unzip
+    unzip jwt-authentication-for-wp-rest-api.zip -d jwt-authentication-for-wp-rest-api
+    cp -r ./jwt-authentication-for-wp-rest-api/jwt-authentication-for-wp-rest-api /var/www/html/wp-content/plugins
+    rm -rf jwt-authentication-for-wp-rest-api.zip
+    rm -rf jwt-authentication-for-wp-rest-api
+    wget https://gitee.com/qin-yangming/open-tools/raw/master/wp-cli.phar
+    chmod +x wp-cli.phar
+    mv wp-cli.phar /usr/local/bin/wp
+
+    SECRET_KEY=$(openssl rand -base64 32) && sed -i "/Database settings/i define('JWT_AUTH_SECRET_KEY', '$SECRET_KEY');\ndefine('JWT_AUTH_CORS_ENABLE', true);\n" /var/www/html/wp-config.php
+    sed -i 's/\r$//' /var/www/html/wp-config.php
+    wp core install --url=${alicloud_instance.ecs_instance.public_ip} --title="Hello World" --admin_user=${var.word_press_user_name} --admin_password=${var.word_press_password} --admin_email=${var.word_press_user_email} --skip-email --allow-root
+
+    wp plugin activate jwt-authentication-for-wp-rest-api --allow-root --path=/var/www/html
+
+    systemctl restart httpd
+    OUTER_EOF
+      )
+      working_dir = "/root"
+      type        = "RunShellScript"
+      timeout     = 3600
+    }
+    resource "alicloud_ecs_invocation" "run_command" {
+      instance_id = [alicloud_instance.ecs_instance.id]
+      command_id = alicloud_ecs_command.run_command.id
+      timeouts {
+        create = "10m"
+        delete = "10m"
+      }
+    }
+  output.tf: |-
+    # Outputs
+    output "wordpress_url" {
+      value = "http://${alicloud_instance.ecs_instance.public_ip}/wp-admin"
+    }
