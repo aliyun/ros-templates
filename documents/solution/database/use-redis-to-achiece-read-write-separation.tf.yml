@@ -1,0 +1,228 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 部署一个包含Redis实例和ECS实例（CentOS 
+    7）的环境，配置安全组、付费方式、网络设置及实例规格。ECS实例通过UserData连接到Redis。
+  en: Deploy an environment comprising a Redis instance and an Elastic Compute 
+    Service (ECS) instance running CentOS 7, with configurations including 
+    security groups, payment methods, network settings, and instance 
+    specifications. The ECS instance connects to the Redis instance via UserData
+    scripting.
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - zone_id
+      - ecs_instance_type
+      - ecs_instance_password
+      Label:
+        default:
+          en: Instance
+          zh-cn: ECS实例配置
+    - Parameters:
+      - db_password
+      Label:
+        default:
+          zh-cn: Tair配置（Tair数据库所在可用区与ECS实例可用区保持一致）
+          en: Tair Configuration
+    TemplateTags:
+    - acs:document-help:database:通过代理实现 Tair 读写分离-tech_solu_233
+
+Parameters:
+  zone_id:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+    Label:
+      zh-cn: 交换机可用区ID
+      en: Available Zone ID
+  db_password:
+    Type: String
+    Description:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：!@#$%^&*()_+-=
+      en: The 8-30 long login password of instance, consists of the uppercase, 
+        lowercase letter and number. <br> special characters 
+        include!@#$%^&*()_+-=
+    Label:
+      zh-cn: Tair数据库密码
+      en: Tair DB Password
+    NoEcho: true
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, 
+        numbers,Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）
+    AllowedPattern: ^[0-9A-Za-z_!@#$%^&*()_+\-=\+]+$
+    MinLength: 8
+    MaxLength: 30
+  ecs_instance_type:
+    Type: String
+    Label:
+      en: ECS Instance Type
+      zh-cn: ECS 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${zone_id}
+      InstanceChargeType: PostPaid
+  ecs_instance_password:
+    Type: String
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital 
+        letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 
+        Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 
+        中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, 
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    AllowedPattern:
+      ^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$
+    MinLength: 8
+    MaxLength: 30
+    NoEcho: true
+Workspace:
+  variable.tf: |-
+    # Parameters
+    variable "zone_id" {
+      type        = string
+      description = "交换机可用区ID"
+      default     = "cn-hangzhou-k"
+    }
+
+    variable "db_password" {
+      type        = string
+      description = "Tair数据库密码。长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；特殊字符包括：!@#$%^&*()_+-="
+      sensitive   = true
+      validation {
+        condition     = can(regex("^[0-9A-Za-z_!@#$%^&*()_+\\-=\\+]+$", var.db_password)) && length(var.db_password) >= 8 && length(var.db_password) <= 30
+        error_message = "长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）"
+      }
+    }
+
+    variable "ecs_instance_type" {
+      type        = string
+      description = "ECS 实例类型"
+      default     = "ecs.e-c1m2.large"
+    }
+
+    variable "ecs_instance_password" {
+      type        = string
+      description = "ECS实例密码。服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）"
+      sensitive   = true
+      validation {
+        condition     = can(regex("^[a-zA-Z0-9-\\(\\)\\`\\~\\!\\@\\#\\$\\%\\^\\&\\*\\_\\-\\+\\=\\|\\{\\}\\[\\]\\:\\;\\<\\>\\,\\.\\?\\/]*$", var.ecs_instance_password)) && length(var.ecs_instance_password) >= 8 && length(var.ecs_instance_password) <= 30
+        error_message = "长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;<>,.?/ 中的特殊符号）"
+      }
+    }
+  main.tf: |-
+    provider "alicloud" {
+    }
+
+    resource "random_id" "suffix" {
+      byte_length = 8
+    }
+
+    locals {
+      common_name = "${random_id.suffix.id}"
+      redis_install_script = <<-SCRIPT
+    #!/bin/bash
+    export ROS_DEPLOY=true
+    curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/read-write-splitting-through-tair-proxy/install.sh | bash
+    SCRIPT
+    }
+
+    # VPC Resources
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = "VPC_HZ"
+      cidr_block = "0.0.0.0/0"
+    }
+
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "0.0.0.0/0"
+      zone_id      = var.zone_id
+      vswitch_name = "vsw_001"
+    }
+
+    # Security Group
+    resource "alicloud_security_group" "ecs_security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "SecurityGroup_1"
+      security_group_type = "normal"
+    }
+
+    resource "alicloud_security_group_rule" "http" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "80/80"
+      cidr_ip           = "0.0.0.0/0"
+      security_group_id = alicloud_security_group.ecs_security_group.id
+    }
+
+    # Redis Instance
+    resource "alicloud_kvstore_instance" "redis" {
+      db_instance_name  = "redis"
+      instance_class    = "redis.shard.small.2.ce"
+      engine_version    = "7.0"
+      password          = var.db_password
+      payment_type      = "PostPaid"
+      vswitch_id        = alicloud_vswitch.vswitch.id
+      zone_id           = var.zone_id
+      read_only_count   = 1
+      security_ips      = ["0.0.0.0/0"]
+    }
+
+    # ECS Instance
+    resource "alicloud_instance" "ecs_instance" {
+      instance_name              = "ecs-${local.common_name}"
+      system_disk_category       = "cloud_essd"
+      system_disk_size           = 100
+      image_id                   = "aliyun_3_x64_20G_alibase_20250629.vhd"
+      vswitch_id                 = alicloud_vswitch.vswitch.id
+      password                   = var.ecs_instance_password
+      instance_type              = var.ecs_instance_type
+      internet_max_bandwidth_out = 5
+      security_groups            = [alicloud_security_group.ecs_security_group.id]
+    }
+
+    # Install Redis Client Command
+    resource "alicloud_ecs_command" "install_redis_client" {
+      name            = "install-redis-client-${local.common_name}"
+      description     = "Install Redis client on ECS instance"
+      type            = "RunShellScript"
+      command_content = base64encode(local.redis_install_script)
+      timeout         = 600
+      working_dir     = "/root"
+    }
+
+    resource "alicloud_ecs_invocation" "install_redis_client" {
+      instance_id = [alicloud_instance.ecs_instance.id]
+      command_id  = alicloud_ecs_command.install_redis_client.id
+      depends_on  = [alicloud_kvstore_instance.redis]
+      timeouts {
+        create = "10m"
+      }
+    }
+  output.tf: |-
+    # Outputs
+    output "ecs_login_address" {
+      description = "ECS登录地址"
+      value       = "https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${data.alicloud_regions.current.regions[0].id}&instanceId=${alicloud_instance.ecs_instance.id}"
+    }
+
+    output "redis_connection_address" {
+      description = "Redis连接地址"
+      value       = alicloud_kvstore_instance.redis.connection_domain
+    }
+
+    output "ecs_public_ip" {
+      description = "ECS公网IP"
+      value       = alicloud_instance.ecs_instance.public_ip
+    }
+
+    data "alicloud_regions" "current" {
+      current = true
+    }
