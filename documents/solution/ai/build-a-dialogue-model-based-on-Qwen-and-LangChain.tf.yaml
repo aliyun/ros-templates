@@ -1,0 +1,252 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 创建VPC环境，配置安全组，搭建NFS文件系统，启用PAI服务，部署基于Qwen和LangChain的对话模型WebUI。
+  en: Create a VPC environment, configure security groups, set up an NFS file system, enable PAI services, and deploy a conversation model WebUI based on Qwen and LangChain.
+
+Parameters:
+  zone_id:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 可用区
+    Description:
+      en: Availability Zone ID
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建EAS资源的规格</font></b>
+    AssociationProperty: ZoneId
+    Default: cn-hangzhou-f
+  instance_type:
+    Type: String
+    Label:
+      en: PAI-EAS instance type.
+      zh-cn: PAI-EAS实例规格
+    Description:
+      en: PAI-EAS instance type.
+      zh-cn: PAI-EAS 使用的实例规格。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建所选的实例规格</font></b>
+    AllowedValues:
+      - ml.gu7i.c8m30.1-gu30
+      - ecs.gn6e-c12g1.3xlarge
+      - ecs.gn7i-c8g1.2xlarge
+      - ecs.gn6i-c16g1.4xlarge
+      - ecs.gn7i-c16g1.4xlarge
+      - ecs.gn6i-c8g1.2xlarge
+      - ecs.gn6i-c4g1.xlarge
+    Default: ml.gu7i.c8m30.1-gu30
+
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - zone_id
+          - instance_type
+        Label:
+          default:
+            en: Basic Configuration
+            zh-cn: 基础配置
+    TemplateTags:
+      - acs:technical-solution:AI:通义千问和LangChain搭建对话模型
+
+Workspace:
+  variables.tf: |-
+    variable "zone_id" {
+      type        = string
+      description = "可用区ID"
+    }
+
+    variable "instance_type" {
+      type        = string
+      description = "PAI-EAS实例规格"
+      default     = "ml.gu7i.c8m30.1-gu30"
+      
+      validation {
+        condition = can(regex("(^ecs.*gn.*)|(^ml.*)|(^ecs.*gu.*)", var.instance_type))
+        error_message = "实例类型必须匹配模式 (^ecs.*gn.*)|(^ml.*)|(^ecs.*gu.*)"
+      }
+    }
+
+  main.tf: |-
+    provider "alicloud" {
+    }
+
+    # 生成随机字符串
+    resource "random_string" "random_string" {
+      length  = 8
+      special = false
+      upper   = false
+      numeric = true
+      lower   = true
+    }
+
+    # VPC
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "vpc_qwen_demo"
+    }
+
+    # VSwitch
+    resource "alicloud_vswitch" "vswitch" {
+      zone_id    = var.zone_id
+      vpc_id     = alicloud_vpc.vpc.id
+      cidr_block = "192.168.0.0/24"
+      vswitch_name = "vswitch_qwen_demo"
+    }
+
+    # 安全组
+    resource "alicloud_security_group" "security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg_qwen_demo"
+      security_group_type = "normal"
+    }
+
+    # 安全组入站规则 - 80端口
+    resource "alicloud_security_group_rule" "allow_http" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "80/80"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # 安全组入站规则 - 443端口
+    resource "alicloud_security_group_rule" "allow_https" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "443/443"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # 安全组入站规则 - 3389端口
+    resource "alicloud_security_group_rule" "allow_rdp" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "3389/3389"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # NAS文件系统
+    resource "alicloud_nas_file_system" "nas_file_system" {
+      protocol_type = "NFS"
+      file_system_type = "standard"
+      storage_type   = "Performance"
+      zone_id        = var.zone_id
+      vpc_id         = alicloud_vpc.vpc.id
+      vswitch_id     = alicloud_vswitch.vswitch.id
+      description    = "NAS文件系统用于Qwen和LangChain对话模型"
+    }
+
+    # NAS访问组
+    resource "alicloud_nas_access_group" "nas_access_group" {
+      access_group_type = "Vpc"
+      access_group_name = "nas-access-group-qwen-demo"
+    }
+
+    # NAS挂载点
+    resource "alicloud_nas_mount_target" "nas_mount_target" {
+      vpc_id           = alicloud_vpc.vpc.id
+      vswitch_id       = alicloud_vswitch.vswitch.id
+      network_type     = "Vpc"
+      access_group_name = alicloud_nas_access_group.nas_access_group.access_group_name
+      file_system_id   = alicloud_nas_file_system.nas_file_system.id
+      
+      depends_on = [alicloud_nas_access_rule.nas_access_rule]
+    }
+
+    # NAS访问规则
+    resource "alicloud_nas_access_rule" "nas_access_rule" {
+      source_cidr_ip    = "0.0.0.0/0"
+      access_group_name = alicloud_nas_access_group.nas_access_group.access_group_name
+    }
+
+    # PAI-EAS服务
+    resource "alicloud_pai_service" "pai_eas" {
+      service_config = jsonencode({
+        metadata = {
+          name = "qwen_demo_${random_string.random_string.result}"
+          instance = 1
+          enable_webservice = "true"
+        }
+        cloud = {
+          computing = {
+            instance_type = var.instance_type
+          }
+        }
+        containers = [
+          {
+            image = "eas-registry-vpc.${data.alicloud_regions.current.regions.0.id}.cr.aliyuncs.com/pai-eas/chat-llm-webui:2.1"
+            script = "python webui/webui_server.py --port=8000 --model-path=Qwen/Qwen-7B-Chat"
+            port = 8000
+          }
+        ]
+      })
+      
+      timeouts {
+        create = "20m"
+      }
+    }
+
+    # 获取当前区域信息
+    data "alicloud_regions" "current" {
+      current = true
+    }
+
+  outputs.tf: |-
+    output "vpc_id" {
+      description = "VPC ID"
+      value       = alicloud_vpc.vpc.id
+    }
+
+    output "vswitch_id" {
+      description = "VSwitch ID"
+      value       = alicloud_vswitch.vswitch.id
+    }
+
+    output "security_group_id" {
+      description = "安全组ID"
+      value       = alicloud_security_group.security_group.id
+    }
+
+    output "nas_file_system_id" {
+      description = "NAS文件系统ID"
+      value       = alicloud_nas_file_system.nas_file_system.id
+    }
+
+    output "nas_mount_target_domain" {
+      description = "NAS挂载点域名"
+      value       = alicloud_nas_mount_target.nas_mount_target.mount_target_domain
+    }
+
+    output "pai_service_id" {
+      description = "PAI-EAS服务ID"
+      value       = alicloud_pai_service.pai_eas.id
+    }
+
+    output "service_name" {
+      description = "PAI-EAS服务名称"
+      value       = "qwen_demo_${random_string.random_string.result}"
+    }
+
+    output "service_status" {
+      description = "PAI-EAS服务状态"
+      value       = alicloud_pai_service.pai_eas.status
+    }
+
+    output "create_time" {
+      description = "PAI-EAS服务创建时间"
+      value       = alicloud_pai_service.pai_eas.create_time
+    }
+
+    output "region_id" {
+      description = "部署区域ID"
+      value       = data.alicloud_regions.current.regions.0.id
+    }
