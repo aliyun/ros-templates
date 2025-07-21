@@ -83,6 +83,7 @@ Parameters:
       ZoneId: ${ZoneId}
       InstanceChargeType: PostPaid
       SystemDiskCategory: cloud_essd
+    Default: ecs.e-c1m2.large
   InstancePassword:
     Type: String
     Label:
@@ -161,33 +162,6 @@ Resources:
     Properties:
       VpcId:
         Ref: VPC
-  SecurityGroupIngress_80:
-    Type: ALIYUN::ECS::SecurityGroupIngress
-    Properties:
-      SecurityGroupId:
-        Ref: SecurityGroup
-      SourceCidrIp: 0.0.0.0/0
-      IpProtocol: tcp
-      NicType: intranet
-      PortRange: 80/80
-  SecurityGroupIngress_3306:
-    Type: ALIYUN::ECS::SecurityGroupIngress
-    Properties:
-      SecurityGroupId:
-        Ref: SecurityGroup
-      SourceCidrIp: 0.0.0.0/0
-      IpProtocol: tcp
-      NicType: intranet
-      PortRange: 3306/3306
-  SecurityGroupIngress_443:
-    Type: ALIYUN::ECS::SecurityGroupIngress
-    Properties:
-      SecurityGroupId:
-        Ref: SecurityGroup
-      SourceCidrIp: 0.0.0.0/0
-      IpProtocol: tcp
-      NicType: intranet
-      PortRange: 443/443
   RdsInstance:
     Type: ALIYUN::RDS::DBInstance
     Properties:
@@ -244,7 +218,7 @@ Resources:
           - Ref: DBInstanceClass
       VpcId:
         Ref: VPC
-      DBClusterVersion: 22.8.5.29
+      DBClusterVersion: '23.8'
       DBNodeCount: 1
       PaymentType: Postpaid
       DBClusterNetworkType: VPC
@@ -257,7 +231,7 @@ Resources:
         Ref: VSwitch
       SecurityGroupId:
         Ref: SecurityGroup
-      ImageId: centos_7_8
+      ImageId: centos_7_9
       InstanceType:
         Ref: InstanceType
       SystemDiskCategory: cloud_essd
@@ -267,36 +241,8 @@ Resources:
       AllocatePublicIP: true
       ZoneId:
         Ref: ZoneId
-  InstallEnv:
-    Type: ALIYUN::ECS::RunCommand
-    Properties:
-      InstanceIds:
-        - Fn::GetAtt:
-            - EcsInstance
-            - InstanceId
-      Type: RunShellScript
-      Sync: true
-      Timeout: 3600
-      CommandContent:
-        Fn::Sub: |
-          #!/bin/bash
-          wget http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
-          yum -y install mysql57-community-release-el7-10.noarch.rpm
-          yum -y install * --nogpgcheck mysql-community-server
-          yum -y install gcc gcc-c++ autoconf automake make libtool bzr mysql-devel git mysql unzip --nogpgcheck
-          bzr branch lp:~percona-dev/perconatools/tpcc-mysql
-          cd tpcc-mysql/src
-          make
-          cd ..
-          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser} -p${DataBasePassword} -D tpcc < create_table.sql
-          mysql -h${RdsInstance.InnerConnectionString} -u${RDSDBUser} -p${DataBasePassword} -D tpcc < add_fkey_idx.sql
-          IpAddr=`ping ${RdsInstance.InnerConnectionString} -c 1 | sed '1{s/[^(]*(//;s/).*//;q}'`
-          echo $IpAddr
-          ./tpcc_load $IpAddr tpcc ${RDSDBUser} ${DataBasePassword} 10
   RunTpcc:
     Type: ALIYUN::ECS::RunCommand
-    DependsOn:
-      - InstallEnv
     Properties:
       InstanceIds:
         - Fn::GetAtt:
@@ -305,9 +251,17 @@ Resources:
       Type: RunShellScript
       Timeout: 3600
       CommandContent:
-        Fn::Sub: |
-          #!/bin/bash
-          tpcc-mysql/tpcc_start -h ${RdsInstance.InnerConnectionString} -d tpcc -u ${RDSDBUser} -p ${DataBasePassword} -w 10 -c 100 -r 180 -l 600 -i 10 > tpcc.log 2>&1 &
+        'Fn::Sub': |-
+            #!/bin/bash
+            cat << EOF >> ~/.bash_profile
+            export RDS_URL=${RdsInstance.InnerConnectionString}
+            export RDS_USERNAME=${RDSDBUser}
+            export RDS_PASSWORD=${DataBasePassword}
+            export ROS_DEPLOY=true
+            EOF
+            
+            source ~/.bash_profile
+            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/rdsclickhouse-htap/install_htap.sh|sh
   ModuleAcsOosExecuteTemplate:
     Version: default
     Type: MODULE::ACS::OOS::ExecuteTemplate
@@ -348,36 +302,3 @@ Resources:
               Action: ACS::Sleep
               Properties:
                 Duration: 20s
-  SynDb:
-    Type: ALIYUN::ClickHouse::SynDb
-    DependsOn:
-      - ModuleAcsOosExecuteTemplate
-      - RdsInstance
-      - Database
-      - InstallEnv
-    Properties:
-      DbClusterId:
-        Ref: ClickHouse
-      CkUserName:
-        Ref: ClickHouseUser
-      CkPassword:
-        Ref: DataBasePassword
-      RdsId:
-        Ref: RdsInstance
-      RdsUserName:
-        Ref: RDSDBUser
-      RdsPassword:
-        Ref: DataBasePassword
-      SkipUnsupported: true
-      SynDbTables:
-        - Schema: tpcc
-          Tables:
-            - customer
-            - district
-            - history
-            - item
-            - new_orders
-            - order_line
-            - orders
-            - stock
-            - warehouse
