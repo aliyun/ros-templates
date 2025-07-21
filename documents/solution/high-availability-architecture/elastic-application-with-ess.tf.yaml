@@ -1,0 +1,434 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 创建双可用区ALB负载均衡，搭配ESS自动扩缩容，确保应用高可用性，含安全组与自动安装nginx配置。
+  en: Create a dual-Availability-Zone ALB (Application Load Balancer) along with
+    ESS (Elastic Scale Service) for automatic scaling, ensuring high application
+    availability, inclusive of security groups and automated installation of 
+    nginx configurations.
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - zone_id1
+      - zone_id2
+      - instance_type1
+      - instance_type2
+      - ecs_instance_password
+      - scaling_time
+      - scaling_time2
+    TemplateTags:
+    - acs:technical-solution:high-availability-architecture:通过ALB+ESS提升应用的可用性-tech_solu_117
+    Hidden:
+    - common_name
+Parameters:
+  common_name:
+    Type: String
+    Default: elastic-app
+    Label:
+      en: Elastic application name
+      zh-cn: 弹性应用名称
+
+  zone_id1:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - zone_id2
+    Label:
+      en: Availability Zone 1
+      zh-cn: 可用区1
+
+  zone_id2:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - zone_id1
+    Label:
+      en: Availability Zone 2
+      zh-cn: 可用区2
+
+  instance_type1:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${zone_id1}
+    Label:
+      en: Instance Type 1
+      zh-cn: 实例规格1
+
+  instance_type2:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${zone_id2}
+    Label:
+      en: Instance Type 2
+      zh-cn: 实例规格2
+
+  ecs_instance_password:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Default:
+
+  scaling_time:
+    Type: String
+    Label:
+      en: Automatic expansion execution time
+      zh-cn: 自动扩容执行时间
+    AssociationProperty: DateTime
+    AssociationPropertyMetadata:
+      Format: YYYY-MM-DDThh:mmZ
+    Description:
+      zh-cn: 本方案创建完成预计需要 3-5 分钟，建议选择 5 分钟之后的时间观察扩容效果。
+      en: >-
+        It is estimated that it will take 3-5 minutes to complete the creation of
+        this solution.  It is recommended to choose a time after 5 minutes to observe
+        the expansion effect.
+
+  scaling_time2:
+    Type: String
+    Label:
+      en: Automatic scaling execution time
+      zh-cn: 自动缩容执行时间
+    AssociationProperty: DateTime
+    AssociationPropertyMetadata:
+      Format: YYYY-MM-DDThh:mmZ
+    Description:
+      zh-cn: 建议选择扩容时间之后的 5-10 分钟观察缩容效果。
+      en: It is recommended to observe the shrinkage effect 5-10 minutes after 
+        the expansion time.
+Workspace:
+  provider.tf: |-
+    # 定义阿里云provider
+    provider "alicloud" {}
+  variable.tf: |-
+    variable "common_name" {
+      description = "弹性应用名称"
+      type        = string
+      default     = "elastic-app"
+    }
+
+    variable "zone_id1" {
+      description = "可用区ID1"
+      type        = string
+      default = "cn-hangzhou-j"
+    }
+
+    variable "zone_id2" {
+      description = "可用区ID2"
+      type        = string
+      default = "cn-hangzhou-k"
+    }
+
+    variable "instance_type1" {
+      description = "实例规格1，[在售的实例规格族](https://help.aliyun.com/zh/ecs/user-guide/overview-of-instance-families)"
+      type        = string
+      default = "ecs.g7.large"
+    }
+
+    variable "instance_type2" {
+      description = "实例规格2，[在售的实例规格族](https://help.aliyun.com/zh/ecs/user-guide/overview-of-instance-families)"
+      type        = string
+      default = "ecs.g7.xlarge"
+    }
+
+    variable "ecs_instance_password" {
+      description = "服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/中的特殊符号）"
+      type        = string
+      sensitive   = true
+    }
+
+    variable "scaling_time" {
+      description = "自动扩容执行时间"
+      type        = string
+      default = "2025-07-15T00:00Z"
+    }
+
+    variable "scaling_time2" {
+      description = "自动缩容执行时间"
+      type        = string
+      default = "2025-07-15T01:00Z"
+    }
+  main.tf: |+
+    # 创建VPC
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = var.common_name
+      cidr_block = "192.168.0.0/16"
+    }
+
+    # 创建VSwitch1
+    resource "alicloud_vswitch" "vswitch_1" {
+      vpc_id     = alicloud_vpc.vpc.id
+      cidr_block = "192.168.1.0/24"
+      zone_id    = var.zone_id1
+      vswitch_name = "${var.common_name}-vsw"
+    }
+
+    # 创建VSwitch2
+    resource "alicloud_vswitch" "vswitch_2" {
+      vpc_id     = alicloud_vpc.vpc.id
+      cidr_block = "192.168.2.0/24"
+      zone_id    = var.zone_id2
+      vswitch_name = "${var.common_name}-vsw"
+    }
+
+    # 创建安全组
+    resource "alicloud_security_group" "security_group" {
+      security_group_name = "${var.common_name}-sg"
+      vpc_id              = alicloud_vpc.vpc.id
+    }
+
+    # 添加安全组规则 - HTTP
+    resource "alicloud_security_group_rule" "security_group_http" {
+      security_group_id = alicloud_security_group.security_group.id
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "80/80"
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # 添加安全组规则 - HTTPS
+    resource "alicloud_security_group_rule" "security_group_https" {
+      security_group_id = alicloud_security_group.security_group.id
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "443/443"
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # 创建ALB负载均衡器
+    resource "alicloud_alb_load_balancer" "alb" {
+      load_balancer_name    = "${var.common_name}-alb"
+      load_balancer_edition = "Basic"
+      vpc_id                = alicloud_vpc.vpc.id
+      address_type          = "Internet"
+
+      load_balancer_billing_config {
+        pay_type = "PayAsYouGo"
+      }
+
+      zone_mappings {
+        zone_id    = var.zone_id1
+        vswitch_id = alicloud_vswitch.vswitch_1.id
+      }
+
+      zone_mappings {
+        zone_id    = var.zone_id2
+        vswitch_id = alicloud_vswitch.vswitch_2.id
+      }
+    }
+
+    # 创建ALB服务器组
+    resource "alicloud_alb_server_group" "alb_server_group" {
+      server_group_name = "${var.common_name}-server-group"
+      vpc_id            = alicloud_vpc.vpc.id
+      protocol          = "HTTP"
+
+      health_check_config {
+        health_check_enabled      = true
+        health_check_protocol     = "HTTP"
+        health_check_path         = "/"
+        health_check_codes        = ["http_2xx", "http_3xx"]
+        health_check_connect_port = 80
+      }
+
+      sticky_session_config {
+        sticky_session_enabled = false
+      }
+    }
+
+    # 创建ALB监听器
+    resource "alicloud_alb_listener" "alb_listener" {
+      listener_protocol = "HTTP"
+      listener_port     = 80
+      load_balancer_id  = alicloud_alb_load_balancer.alb.id
+
+      default_actions {
+        type = "ForwardGroup"
+        forward_group_config {
+          server_group_tuples {
+            server_group_id = alicloud_alb_server_group.alb_server_group.id
+          }
+        }
+      }
+    }
+
+    resource "random_integer" "default" {
+      min = 10000
+      max = 99999
+    }
+
+    # 创建ESS伸缩组
+    resource "alicloud_ess_scaling_group" "ess_scaling_group" {
+      scaling_group_name = "${var.common_name}-scaling-group-${random_integer.default.result}"
+      min_size           = 0
+      max_size           = 5
+      vswitch_ids        = [alicloud_vswitch.vswitch_1.id, alicloud_vswitch.vswitch_2.id]
+      removal_policies   = ["NewestInstance"]
+      default_cooldown   = 300
+      multi_az_policy    = "COMPOSABLE"
+      az_balance         = true
+      depends_on         = [alicloud_security_group.security_group]
+    }
+
+    # 配置ESS服务器组关联
+    resource "alicloud_ess_server_group_attachment" "ess_server_group" {
+      scaling_group_id = alicloud_ess_scaling_group.ess_scaling_group.id
+      server_group_id = alicloud_alb_server_group.alb_server_group.id
+      port = 80
+      type = "ALB"
+      weight = 100
+      force_attach =  true
+    }
+
+    locals {
+      instance_user_data = <<-SHELL
+      #!/bin/bash
+      yum -y install nginx-1.20.1
+      instanceId=`curl http://100.100.100.200/latest/meta-data/instance-id`
+      echo "This instance from ess, the instance id is $instanceId" > /usr/share/nginx/html/index.html
+      systemctl start nginx
+      systemctl enable nginx
+      SHELL
+    }
+
+    data "alicloud_images" "instance_image" {
+      name_regex  = "^aliyun_3_9_x64_20G_*"
+      most_recent = true
+      owners      = "system"
+    }
+
+    # 创建ESS伸缩配置
+    resource "alicloud_ess_scaling_configuration" "ess_scaling_configuration" {
+      scaling_group_id      = alicloud_ess_scaling_group.ess_scaling_group.id
+      enable                = true
+      active                = true
+      force_delete          = true
+      image_id              = data.alicloud_images.instance_image.images[0].id
+      instance_types        = [var.instance_type1, var.instance_type2]
+      security_group_id     = alicloud_security_group.security_group.id
+      system_disk_category  = "cloud_essd"
+      system_disk_size      = 40
+      password              = var.ecs_instance_password
+      instance_name         = "${var.common_name}-ess"
+      user_data             = local.instance_user_data
+    }
+
+
+    data "alicloud_images" "instance_image1" {
+      name_regex  = "^aliyun_3_9_x64_20G_*"
+      most_recent = true
+      owners      = "system"
+      instance_type = var.instance_type1
+    }
+
+    resource "alicloud_instance" "ecs_instance1" {
+      instance_name              = "${var.common_name}-ecs-1"
+      image_id                   = data.alicloud_images.instance_image1.images[0].id
+      instance_type              = var.instance_type1
+      security_groups = [alicloud_security_group.security_group.id]
+      vswitch_id                 = alicloud_vswitch.vswitch_1.id
+      system_disk_category       = "cloud_essd"
+      internet_max_bandwidth_out = 0
+      password                   = var.ecs_instance_password
+      user_data = local.instance_user_data
+    }
+
+    data "alicloud_images" "instance_image2" {
+      name_regex  = "^aliyun_3_9_x64_20G_*"
+      most_recent = true
+      owners      = "system"
+      instance_type = var.instance_type2
+    }
+
+    resource "alicloud_instance" "ecs_instance2" {
+      instance_name              = "${var.common_name}-ecs-2"
+      image_id                   = data.alicloud_images.instance_image2.images[0].id
+      instance_type              = var.instance_type2
+      security_groups = [alicloud_security_group.security_group.id]
+      vswitch_id                 = alicloud_vswitch.vswitch_2.id
+      system_disk_category       = "cloud_essd"
+      internet_max_bandwidth_out = 0
+      password                   = var.ecs_instance_password
+      user_data = local.instance_user_data
+    }
+
+
+    resource "alicloud_ess_attachment" "default" {
+      depends_on = [alicloud_ess_scaling_configuration.ess_scaling_configuration]
+      scaling_group_id = alicloud_ess_scaling_group.ess_scaling_group.id
+      instance_ids     = [alicloud_instance.ecs_instance1.id, alicloud_instance.ecs_instance2.id]
+      force            = true
+      entrusted        = true
+    }
+
+    # 创建ESS伸缩规则1（扩容）
+    resource "alicloud_ess_scaling_rule" "ess_scaling_rule1" {
+      scaling_group_id    = alicloud_ess_scaling_group.ess_scaling_group.id
+      scaling_rule_name   = "${var.common_name}-asr-rule"
+      scaling_rule_type   = "SimpleScalingRule"
+      adjustment_type     = "QuantityChangeInCapacity"
+      adjustment_value    = 1
+      cooldown            = 60
+    }
+
+    # 创建ESS伸缩规则2（缩容）
+    resource "alicloud_ess_scaling_rule" "ess_scaling_rule2" {
+      scaling_group_id    = alicloud_ess_scaling_group.ess_scaling_group.id
+      scaling_rule_name   = "${var.common_name}-asr-rule2"
+      scaling_rule_type   = "SimpleScalingRule"
+      adjustment_type     = "QuantityChangeInCapacity"
+      adjustment_value    = -1
+      cooldown            = 60
+    }
+
+    # 创建定时任务1（自动扩容）
+    resource "alicloud_ess_scheduled_task" "scheduled_task1" {
+      scheduled_task_name = "${var.common_name}-task1-${random_integer.default.result}"
+      launch_time         = var.scaling_time
+      scheduled_action    = alicloud_ess_scaling_rule.ess_scaling_rule1.ari
+      launch_expiration_time = 10
+    }
+
+    # 创建定时任务2（自动缩容）
+    resource "alicloud_ess_scheduled_task" "scheduled_task2" {
+      scheduled_task_name = "${var.common_name}-task2-${random_integer.default.result}"
+      launch_time         = var.scaling_time2
+      scheduled_action    = alicloud_ess_scaling_rule.ess_scaling_rule2.ari
+      launch_expiration_time = 10
+    }
+
+  output.tf: |-
+    # 输出负载均衡地址
+    output "WebUrl" {
+      description = <<EOT
+        {
+          "zh-cn": "Web 访问地址。",
+          "en": "The Addresses of Web."
+        }
+      EOT
+      value = format("http://%s", alicloud_alb_load_balancer.alb.dns_name)
+    }
