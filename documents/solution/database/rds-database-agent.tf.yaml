@@ -1,0 +1,405 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 通过RDS数据库代理实现读写分离。
+  en: Read and write separation is realized by RDS database agent.
+Parameters:
+  common_name:
+    Type: String
+    Default: rds-database-agent
+  zone_id_1:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - zone_id_2
+    Label:
+      en: Primary Availability Zone
+      zh-cn: 主可用区
+  zone_id_2:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - zone_id_1
+    Label:
+      en: Standby Availability Zone
+      zh-cn: 备可用区
+  instance_type:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${zone_id_1}
+    Label:
+      en: ECS Instance Type
+      zh-cn: ECS 实例规格
+  ecs_instance_password:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Default:
+  db_instance_class:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${zone_id_1}
+      EngineVersion: '8.0'
+      Engine: MySQL
+      Category: HighAvailability
+      InstanceChargeType: PostPaid
+      DBInstanceStorageType: cloud_essd
+      CommodityCode: bards
+    Default: mysql.n2.medium.2c
+  rds_read_only_instance_class:
+    Type: String
+    Label:
+      en: Read Only Instance Class
+      zh-cn: 只读实例规格
+    AllowedValues:
+    - mysqlro.n2.small.1c
+    - mysqlro.n2.medium.1c
+    - mysqlro.n4.medium.1c
+    - mysqlro.n8.medium.1c
+    - mysqlro.n2.large.1c
+    - mysqlro.n4.large.1c
+    - mysqlro.n8.large.1c
+    - mysqlro.n2.xlarge.1c
+    - mysqlro.n4.xlarge.1c
+    - mysqlro.n8.xlarge.1c
+    Default: mysqlro.n2.medium.1c
+  db_user_name:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库账号
+    Description:
+      en: The value can contain a maximum of 32 letters, including lowercase 
+        letters, uppercase letters, digits, and underscores (_). It must start 
+        with a letter and end with a letter or digit.
+      zh-cn: 由小写字母、大写字母、数字、下划线（_）组成，以字母开头，以字母或数字结尾，最多32个字符。
+    Default: testuser
+  db_password:
+    Type: String
+    Label:
+      en: Password
+      zh-cn: 密码
+    Description:
+      en: 'The password must be 8 to 32 characters in length and must contain at least
+        three of the following types: uppercase letters, lowercase letter, digits,
+        and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span 
+        style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    NoEcho: true
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - zone_id_1
+      - zone_id_2
+      - db_instance_class
+      - rds_read_only_instance_class
+      - db_user_name
+      - db_password
+      Label:
+        default:
+          en: RDS Configuration
+          zh-cn: RDS配置
+    - Parameters:
+      - instance_type
+      - ecs_instance_password
+      Label:
+        default:
+          en: ECS Instance Configuration(The availability zone where the ECS 
+            instance resides must be the same as the primary availability zone 
+            of the RDS instance)
+          zh-cn: ECS实例配置（ECS实例所在可用区与RDS实例主可用区保持一致）
+    TemplateTags:
+    - acs:technical-solution:database:通过RDS数据库代理实现读写分离-tech_solu_209
+    Hidden:
+    - common_name
+    - image_id
+    - db_name
+    - vswitch2_cidr_block
+    - vswitch1_cidr_block
+    - vpc_cidr_block
+Workspace:
+  variable.tf: |-
+    # Parameters
+    variable "common_name" {
+      description = "Common name prefix for resources"
+      type        = string
+      default     = "rds-database-agent"
+    }
+
+    variable "zone_id_1" {
+      type        = string
+      description = "请输入主可用区ID（例如：cn-hangzhou-k）。请确保该可用区支持您要创建的ECS和RDS资源规格。"
+      default     = "cn-hangzhou-k"
+    }
+
+    variable "zone_id_2" {
+      type        = string
+      description = "请输入备可用区ID（例如：cn-hangzhou-j）。请确保该可用区支持您要创建的RDS资源规格。"
+      default     = "cn-hangzhou-j"
+    }
+
+    variable "vpc_cidr_block" {
+      description = "请输入VPC的CIDR块（支持的值包括：192.168.0.0/16、172.16.0.0/12、10.0.0.0/8）。这是您的虚拟私有云的地址范围。"
+      default     = "192.168.0.0/16"
+      validation {
+        condition     = contains(["192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"], var.vpc_cidr_block)
+        error_message = "无效的VPC CIDR块，请检查并重新输入。"
+      }
+    }
+
+    variable "vswitch1_cidr_block" {
+      description = "请输入主交换机的CIDR块（例如：192.168.1.0/24）。这是您主虚拟交换机的地址范围。"
+      default     = "192.168.1.0/24"
+    }
+
+    variable "vswitch2_cidr_block" {
+      description = "请输入备交换机的CIDR块（例如：192.168.2.0/24）。这是您备虚拟交换机的地址范围。"
+      default     = "192.168.2.0/24"
+    }
+
+    variable "instance_type" {
+      description = "请输入ECS实例类型（例如：ecs.e-c1m2.large）。请根据实际需求选择合适的实例规格。"
+      default     = "ecs.e-c1m2.large"
+    }
+
+    variable "image_id" {
+      description = "请输入ECS实例的镜像ID。"
+      default     = "aliyun_3_x64_20G_alibase_20250629.vhd"
+    }
+
+    variable "ecs_instance_password" {
+      description = "请输入服务器登录密码。密码长度为8-30位，必须包含大写字母、小写字母、数字和特殊字符（如：!@#$%^&*_-+=|{}[]:;'<>,.?/）。"
+      type        = string
+      sensitive   = true
+    }
+
+    variable "db_instance_class" {
+      description = "请输入RDS实例规格（例如：mysql.n2.medium.2c）。根据您的数据库负载选择合适的规格。"
+      default     = "mysql.n2.medium.2c"
+    }
+
+    variable "rds_read_only_instance_class" {
+      description = "请输入RDS只读实例规格。根据您的数据库负载选择合适的规格。"
+      default     = "mysqlro.n2.medium.1c"
+      validation {
+        condition = contains([
+          "mysqlro.n2.small.1c",
+          "mysqlro.n2.medium.1c",
+          "mysqlro.n4.medium.1c",
+          "mysqlro.n8.medium.1c",
+          "mysqlro.n2.large.1c",
+          "mysqlro.n4.large.1c",
+          "mysqlro.n8.large.1c",
+          "mysqlro.n2.xlarge.1c",
+          "mysqlro.n4.xlarge.1c",
+          "mysqlro.n8.xlarge.1c"
+        ], var.rds_read_only_instance_class)
+        error_message = "只读实例规格必须是允许的值之一。"
+      }
+    }
+
+    variable "db_name" {
+      description = "请输入数据库名称（由小写字母、数字及特殊字符 -_ 组成，以字母开头，字母或数字结尾，最多64个字符）。"
+      default     = "db_test"
+      validation {
+        condition     = regex("^[a-z][a-z0-9-_]{0,62}[a-z0-9]$", var.db_name) != ""
+        error_message = "数据库名称格式不正确。名称应由小写字母、数字及特殊字符 -_ 组成，以字母开头，字母或数字结尾，最多64个字符。"
+      }
+    }
+
+    variable "db_user_name" {
+      description = "请输入RDS数据库用户名（长度为2-16个字符，仅允许小写字母、数字和下划线，必须以字母开头，以字母或数字结尾）。"
+      type        = string
+      default     = "testuser"
+      validation {
+        condition     = can(regex("^[a-zA-Z][a-zA-Z0-9_]{0,30}[a-zA-Z0-9]$", var.db_user_name))
+        error_message = "数据库用户名必须以字母开头，以字母或数字结尾，只能包含字母、数字和下划线。最多32个字符。"
+      }
+    }
+
+    variable "db_password" {
+      description = "请输入RDS数据库密码。密码长度为8-32位，需包含大写字母、小写字母、数字和特殊字符（如：!@#$%^&*()_+-=）。"
+      type        = string
+      sensitive   = true
+    }
+  main.tf: |-
+    provider "alicloud" {
+    }
+
+    resource "random_id" "suffix" {
+      byte_length = 8
+    }
+
+    locals {
+      common_name    = random_id.suffix.id
+      install_script = <<SCRIPT
+    #!/bin/sh
+    export ROS_DEPLOY=true
+    curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/read-write-splitting-for-databases/install.sh | bash
+
+    SCRIPT
+    }
+
+    # VPC Resources
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = "vpc"
+      cidr_block = var.vpc_cidr_block
+    }
+
+    # VSwitch Resources
+    resource "alicloud_vswitch" "vswitch1" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = var.vswitch1_cidr_block
+      zone_id      = var.zone_id_1
+      vswitch_name = "vsw_001"
+    }
+
+    resource "alicloud_vswitch" "vswitch2" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = var.vswitch2_cidr_block
+      zone_id      = var.zone_id_2
+      vswitch_name = "vsw_002"
+    }
+
+    # Security Group
+    resource "alicloud_security_group" "security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg"
+      security_group_type = "normal"
+    }
+
+    resource "alicloud_security_group_rule" "allow_http" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "80/80"
+      cidr_ip           = "0.0.0.0/0"
+      security_group_id = alicloud_security_group.security_group.id
+    }
+
+    # ECS Resources
+    resource "alicloud_instance" "ecs_instance" {
+      instance_name              = "ecs-${local.common_name}"
+      system_disk_category       = "cloud_essd"
+      system_disk_size           = 40
+      image_id                   = var.image_id
+      vswitch_id                 = alicloud_vswitch.vswitch1.id
+      password                   = var.ecs_instance_password
+      instance_type              = var.instance_type
+      internet_max_bandwidth_out = 5
+      security_groups            = [alicloud_security_group.security_group.id]
+    }
+
+    # RDS Resources
+    resource "alicloud_db_instance" "database" {
+      engine               = "MySQL"
+      engine_version       = "8.0"
+      instance_type        = var.db_instance_class
+      instance_storage     = 20
+      instance_charge_type = "Postpaid"
+      instance_name        = "rds-${local.common_name}"
+      vswitch_id           = alicloud_vswitch.vswitch1.id
+      monitoring_period    = 60
+      zone_id              = var.zone_id_1
+      zone_id_slave_a      = var.zone_id_2
+      category             = "HighAvailability"
+      security_ips         = [var.vpc_cidr_block]
+    }
+
+    resource "alicloud_db_database" "rds_database" {
+      instance_id   = alicloud_db_instance.database.id
+      name          = var.db_name
+      character_set = "utf8"
+    }
+
+    resource "alicloud_db_account" "db_account" {
+      db_instance_id   = alicloud_db_instance.database.id
+      account_name     = var.db_user_name
+      account_password = var.db_password
+      account_type     = "Normal"
+    }
+
+    resource "alicloud_db_account_privilege" "account_privilege" {
+      instance_id  = alicloud_db_instance.database.id
+      account_name = alicloud_db_account.db_account.account_name
+      privilege    = "ReadWrite"
+      db_names     = [alicloud_db_database.rds_database.name]
+      depends_on   = [alicloud_db_database.rds_database]
+    }
+
+    # RDS DB Proxy
+    resource "alicloud_rds_db_proxy" "db_proxy" {
+      instance_id            = alicloud_db_instance.database.id
+      db_proxy_instance_type = "common"
+      vpc_id                 = alicloud_vpc.vpc.id
+      vswitch_id             = alicloud_vswitch.vswitch1.id
+      db_proxy_features      = "ReadWriteSplitting"
+      instance_network_type  = "VPC"
+      db_proxy_instance_num  = 2
+
+      depends_on = [alicloud_db_account_privilege.account_privilege]
+    }
+
+    resource "alicloud_db_readonly_instance" "readonly_instance" {
+      master_db_instance_id = alicloud_db_instance.database.id
+      zone_id               = var.zone_id_1
+      vswitch_id            = alicloud_vswitch.vswitch1.id
+      instance_type         = var.rds_read_only_instance_class
+      instance_storage      = 20
+      instance_name         = "readonly-${local.common_name}"
+      engine_version        = "8.0"
+      depends_on            = [alicloud_rds_db_proxy.db_proxy]
+    }
+
+    # ECS Command
+    resource "alicloud_ecs_command" "install_script" {
+      name            = "install-${local.common_name}"
+      command_content = base64encode(local.install_script)
+      description     = "Install read-write splitting application"
+      type            = "RunShellScript"
+      working_dir     = "/root"
+      timeout         = 3600
+    }
+
+    resource "alicloud_ecs_invocation" "run_install" {
+      command_id  = alicloud_ecs_command.install_script.id
+      instance_id = [alicloud_instance.ecs_instance.id]
+      depends_on  = [alicloud_db_readonly_instance.readonly_instance]
+      timeouts {
+        create = "10m"
+      }
+    }
+  output.tf: |-
+    output "ecs_login_address_1" {
+      description = "ECS登录地址"
+      value       = "https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${data.alicloud_regions.current.regions.0.id}&instanceId=${alicloud_instance.ecs_instance.id}"
+    }
+    data "alicloud_regions" "current" {
+      current = true
+    }
