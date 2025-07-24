@@ -1,0 +1,411 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  en: AnalyticDB and Bailian build intelligent question and answer system using Terraform.
+  zh-cn: 使用Terraform搭建AnalyticDB与百炼智能问答系统。
+Parameters:
+  zone_id:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 可用区
+    Description:
+      en: Availability Zone ID
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+    AssociationProperty: ZoneId
+    Default: cn-hangzhou-h
+  instance_type:
+    Type: String
+    Label:
+      en: ECS instance type.
+      zh-cn: ECS实例规格
+    Description:
+      en: ECS instance type.
+      zh-cn: ECS 使用的实例规格。<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建所选的实例规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${zone_id}
+    Default: ecs.g6.large
+  dashscope_api_key:
+    NoEcho: true
+    Type: String
+    Label:
+      en: Bailian application API-KEY
+      zh-cn: 百炼应用的API-KEY
+    Description:
+      zh-cn: "开通百炼模型服务，并获得 API-KEY，请参考： <a href=\"https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key\"  target=\"_blank\">获取 API-KEY</a>。"
+      en: "Activate Bailian and obtain the API-KEY. Please refer to:  <a href=\"https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key\"  target=\"_blank\">Get API-KEY</a>."
+  app_id:
+    Type: String
+    Label:
+      en: Application ID of Bilian application
+      zh-cn: 百炼应用的应用ID
+    Description:
+      zh-cn: "创建百炼应用，并获得应用ID，请参考： <a href=\"https://help.aliyun.com/zh/model-studio/developer-reference/create-application\"  target=\"_blank\">创建应用</a>。"
+      en: "Create Bailian application and obtain the application ID. Please refer to:  <a href=\"https://help.aliyun.com/zh/model-studio/developer-reference/create-application\"  target=\"_blank\">Create Application</a>."
+  instance_password:
+    NoEcho: true
+    Type: String
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    Description:
+      zh-cn: "服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、特殊符号）"
+      en: "Server login password, length 8-30, must contain three items (uppercase letters, lowercase letters, numbers, special symbols)"
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、特殊符号）
+      en: Length 8-30, must contain three items (uppercase letters, lowercase letters, numbers, special symbols)
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  common_name:
+    Type: String
+    Label:
+      en: Resource Name Prefix
+      zh-cn: 资源名称前缀
+    Description:
+      zh-cn: 资源名称前缀，用于标识和管理资源
+      en: Resource name prefix for resource identification and management
+    Default: RAG
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - zone_id
+          - instance_type
+          - instance_password
+        Label:
+          default:
+            en: ECS Configuration
+            zh-cn: ECS 实例配置
+      - Parameters:
+          - dashscope_api_key
+          - app_id
+        Label:
+          default:
+            en: Bailian Configuration
+            zh-cn: 百炼配置
+    Hidden:
+      - common_name
+    TemplateTags:
+      - acs:technical-solution:ai:AnalyticDB与百炼搭建智能问答系统-tech_solu_150
+Workspace:
+  variables.tf: |-
+    variable "zone_id" {
+      type        = string
+      description = "可用区ID"
+    }
+
+    variable "dashscope_api_key" {
+      type        = string
+      sensitive   = true
+      description = "百炼应用的API-KEY"
+    }
+
+    variable "app_id" {
+      type        = string
+      description = "百炼应用的应用ID"
+    }
+
+    variable "instance_type" {
+      type        = string
+      description = "ECS实例规格"
+    }
+
+    variable "instance_password" {
+      type        = string
+      sensitive   = true
+      description = "服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、特殊符号）"
+      
+      validation {
+        condition = length(var.instance_password) >= 8 && length(var.instance_password) <= 30
+        error_message = "密码长度必须在8-30位之间"
+      }
+    }
+
+    variable "common_name" {
+      type        = string
+      description = "资源名称前缀"
+    }
+
+  main.tf: |-
+    provider "alicloud" {
+      region = "cn-hangzhou"
+    }
+
+    # 生成随机字符串
+    resource "random_string" "random_string" {
+      length  = 8
+      special = false
+      upper   = false
+      numeric = true
+      lower   = true
+    }
+
+    # 获取当前区域信息
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # 动态查询可用区
+    data "alicloud_zones" "default" {
+      available_disk_category     = "cloud_essd"
+      available_resource_creation = "VSwitch"
+      available_instance_type     = var.instance_type
+    }
+
+    # 动态查询镜像
+    data "alicloud_images" "default" {
+      name_regex = "^aliyun_3_x64_20G_alibase_.*"
+      most_recent = true
+      owners = "system"
+    }
+
+    # VPC
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "vpc_${var.common_name}"
+    }
+
+    # VSwitch
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id     = alicloud_vpc.vpc.id
+      cidr_block = "192.168.0.0/24"
+      zone_id    = var.zone_id
+      vswitch_name = "vsw_${var.common_name}"
+    }
+
+    # 安全组
+    resource "alicloud_security_group" "security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "${var.common_name}-sg"
+      security_group_type = "normal"
+    }
+
+    # 安全组入站规则 - SSH端口
+    # 注意：在VPC中，nic_type必须设置为"intranet"，但这不会阻止从公网访问
+    # 只要ECS实例有公网IP并且cidr_ip允许相应访问即可
+    resource "alicloud_security_group_rule" "allow_ssh" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "22/22"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # 安全组入站规则 - 5000端口
+    # 注意：在VPC中，nic_type必须设置为"intranet"，但这不会阻止从公网访问
+    # 只要ECS实例有公网IP并且cidr_ip允许相应访问即可
+    resource "alicloud_security_group_rule" "allow_app" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "5000/5000"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # ECS实例
+    resource "alicloud_instance" "ecs_instance" {
+      instance_name = "${var.common_name}-ecs_adb"
+      image_id      = data.alicloud_images.default.images[0].id
+      instance_type = var.instance_type
+      system_disk_category = "cloud_essd"
+      vswitch_id    = alicloud_vswitch.vswitch.id
+      security_groups = [alicloud_security_group.security_group.id]
+      password      = var.instance_password
+      internet_max_bandwidth_out = 100
+    }
+
+    # AnalyticDB实例
+    resource "alicloud_gpdb_instance" "analyticdb" {
+      engine         = "gpdb"
+      engine_version = "6.0"
+      instance_spec  = "4C16G"
+      zone_id        = var.zone_id
+      vswitch_id     = alicloud_vswitch.vswitch.id
+      seg_node_num   = 2
+      seg_storage_type = "cloud_essd"
+      seg_disk_performance_level = "pl1"
+      storage_size   = 50
+      vpc_id         = alicloud_vpc.vpc.id
+      security_ip_list = ["192.168.0.0/24"]
+      description    = "${var.common_name}-adb"
+      payment_type   = "PayAsYouGo"
+      db_instance_category = "Basic"
+      db_instance_mode = "StorageElastic"
+    }
+
+    # ECS命令
+    resource "alicloud_ecs_command" "run_command" {
+      name = "adb-bailian-install"
+      command_content = base64encode(<<EOF
+    #!/bin/bash
+
+    # script exit code:
+    # 0 - success
+    # 1 - unsupported system
+    # 2 - network not available
+    # 3 - failed to git clone
+    # 4 - failed to init python environment
+    # 5 - failed to init git
+    # 6 - failed to run flask app
+
+    # 环境变量配置
+    cat << EOT >> ~/.bashrc
+    export SOCKET_ENDPOINT=${alicloud_instance.ecs_instance.public_ip}:5000
+    export APP_ID=${var.app_id}
+    export DASHSCOPE_API_KEY=${var.dashscope_api_key}
+    EOT
+    source ~/.bashrc
+
+    # 检查是否已经配置过
+    if [ ! -f .ros.provision ]; then
+      echo "Name: 手动搭建AnalyticDB与百炼搭建智能问答系统" > .ros.provision
+    fi
+
+    name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    if [[ "$name" != "手动搭建AnalyticDB与百炼搭建智能问答系统" ]]; then
+      echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
+      exit 1
+    fi
+
+    # Step1: Prepare Environment
+    if ! grep -q "^Step1: Prepare Environment$" .ros.provision; then
+      echo "#########################"
+      echo "# Prepare Environment "
+      echo "#########################"
+      
+      # 安装Python-3.9.7
+      sudo yum update -y && \
+      sudo yum groupinstall "Development Tools" -y && \
+      sudo yum install openssl-devel bzip2-devel libffi-devel -y
+      
+      cd /usr/src && \
+      sudo curl -O https://help-static-aliyun-doc.aliyuncs.com/software/Python-3.9.0.tgz && \
+      sudo tar xzf Python-3.9.0.tgz && \
+      cd Python-3.9.0 && \
+      sudo ./configure --enable-optimizations && \
+      sudo make altinstall
+
+      python3.9 --version && \
+      python3.9 -m ensurepip && \
+      python3.9 -m pip install --upgrade pip
+
+      echo "Step1: Prepare Environment" >> .ros.provision
+    else
+      echo "#########################"
+      echo "# Environment has been ready"
+      echo "#########################"
+    fi
+
+    # Step2: Deployment service
+    if ! grep -q "^Step2: Deployment service$" .ros.provision; then
+      echo "#########################"
+      echo "# Deployment service "
+      echo "#########################"
+      
+      cd /root
+      wget https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20240729/unpfxr/demo.zip
+      sudo yum install -y unzip
+      unzip demo.zip
+      cd demo
+      python3.9 -m venv $(pwd)/venv
+      source $(pwd)/venv/bin/activate
+      pip3 install -r requirements.txt
+      # 解决Python包版本兼容性问题
+      # 1. 卸载可能存在问题的包
+      pip3 uninstall -y aiohttp flask-socketio python-socketio
+      # 2. 安装已知兼容的特定版本
+      pip3 install aiohttp==3.8.1 flask-socketio==5.3.0 python-socketio==5.6.0
+      sed "s/socketio.run(app, debug=True, host='0.0.0.0')/socketio.run(app, debug=True, host='0.0.0.0', allow_unsafe_werkzeug=True)/" app-stream.py > temp_app_stream.py
+      mv temp_app_stream.py app-stream.py
+      rm -rf temp_app_stream.py
+      nohup python3.9 app-stream.py > app-stream.log 2>&1 &
+      
+      echo "Step2: Deployment service" >> .ros.provision
+    else
+      echo "#########################"
+      echo "# Service deployed"
+      echo "#########################"
+    fi
+
+    echo "Deployment completed successfully!"
+    EOF
+      )
+      working_dir = "/root"
+      type        = "RunShellScript"
+      timeout      = 7200
+    }
+
+    # 调用命令资源
+    resource "alicloud_ecs_invocation" "invoke_script" {
+      instance_id = [alicloud_instance.ecs_instance.id]
+      command_id  = alicloud_ecs_command.run_command.id
+      timeouts {
+        create = "120m"
+      }
+    }
+
+  outputs.tf: |-
+    output "web_url" {
+      description = "Web 访问地址"
+      value       = format("http://%s:5000/home", alicloud_instance.ecs_instance.public_ip)
+    }
+
+    output "ecs_login_address" {
+      description = "ECS登录地址"
+      value       = format("https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=%s&instanceId=%s", 
+                          data.alicloud_regions.current_region_ds.regions[0].id, 
+                          alicloud_instance.ecs_instance.id)
+    }
+
+    output "vpc_id" {
+      description = "VPC ID"
+      value       = alicloud_vpc.vpc.id
+    }
+
+    output "vswitch_id" {
+      description = "VSwitch ID"
+      value       = alicloud_vswitch.vswitch.id
+    }
+
+    output "security_group_id" {
+      description = "安全组ID"
+      value       = alicloud_security_group.security_group.id
+    }
+
+    output "ecs_instance_id" {
+      description = "ECS实例ID"
+      value       = alicloud_instance.ecs_instance.id
+    }
+
+    output "ecs_public_ip" {
+      description = "ECS公网IP"
+      value       = alicloud_instance.ecs_instance.public_ip
+    }
+
+    output "analyticdb_instance_id" {
+      description = "AnalyticDB实例ID"
+      value       = alicloud_gpdb_instance.analyticdb.id
+    }
+
+    output "analyticdb_connection_string" {
+      description = "AnalyticDB连接字符串"
+      value       = alicloud_gpdb_instance.analyticdb.connection_string
+    }
+
+    output "region_id" {
+      description = "部署区域ID"
+      value       = data.alicloud_regions.current_region_ds.regions[0].id
+    }
+
+    output "zone_id" {
+      description = "部署可用区ID"
+      value       = var.zone_id
+    }
