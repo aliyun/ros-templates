@@ -1,0 +1,214 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 通过创建VPC、VSwitch、OSS Bucket和Flink实例与Kafka实例实现对统一元数据和数据存储及管理平台，为客户提供元数据管理、权限管理和存储优化等功能。
+  en: Through the creation of VPC, VSwitch, OSS Bucket, Flink instances and Kafka
+    instances, a unified metadata and data storage and management platform is realized,
+    providing customers with metadata management, permission management, storage optimization
+    and other functions.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
+    Description:
+      zh-cn: 可用区ID。<br><b>注：用于创建VSwitch，并给Flink实例使用。
+      en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
+        VSwitch and used for Flink instance.</font></b>
+    AssociationProperty: ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: ${ZoneId}
+  InstancePassword:
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    Description:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase
+        letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers,
+        special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  BucketName:
+    Type: String
+    Label:
+      zh-cn: 新建存储空间名称
+      en: NewBucketName
+    Description:
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+      en: Bucket names must be globally unique within the scope of OSS. The length
+        is 3~63 characters. Must start and end with a lowercase English letter or
+        number, and can contain lowercase English letters, numbers, and dashes (-).
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: test-bucketname-
+      CharacterClasses:
+      - Class: lowercase
+        min: 1
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+Resources:
+  ECSVPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: VPC_Streaming_Lakehouse
+      CidrBlock: 192.168.0.0/16
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: ECSVPC
+      SecurityGroupName: SecurityGroup_1
+  ECSVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: ECSVPC
+      VSwitchName: vsw_streaming_Lakehouse
+      CidrBlock: 192.168.1.0/24
+  KafkaInstance:
+    Type: ALIYUN::KAFKA::Instance
+    Properties:
+      DeployType: 5
+      DeployOption:
+        VpcId:
+          Ref: ECSVPC
+        SecurityGroup:
+          Ref: EcsSecurityGroup
+        ZoneId:
+          Ref: ZoneId
+        ServiceVersion: 2.2.0
+        VSwitchId:
+          Ref: ECSVSwitch
+        DeployModule: vpc
+        Config:
+          kafka.log.retention.hours: '33'
+      OpenConnector: 'false'
+      PayType: Hour
+      DiskType: '1'
+      DiskSize: 500
+      IoMaxSpec: alikafka.hw.2xlarge
+      TopicQuota: 50
+      SpecType: normal
+      DeletionForce: 'false'
+  Topic:
+    Type: ALIYUN::KAFKA::Topic
+    Properties:
+      InstanceId:
+        Ref: KafkaInstance
+      Topic: topic_dlf_paimon_demo
+      Remark: dlf paimon test
+      PartitionNum: 12
+  ConsumerGroup:
+    Type: ALIYUN::KAFKA::ConsumerGroup
+    Properties:
+      InstanceId:
+        Ref: KafkaInstance
+      ConsumerId: group_dlf_paimon_demo
+      Remark: dlf paimon group
+  OSSBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+  FlinkInstance:
+    Type: ALIYUN::Flink::Instance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: ECSVPC
+      VSwitchIds:
+      - Ref: ECSVSwitch
+      Bucket:
+        Ref: OSSBucket
+      ChargeType: Postpaid
+      InstanceName:
+        Fn::Sub: streaming-lakehouse-flink-${ALIYUN::StackId}
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+        - ECSVPC
+        - VpcId
+      VSwitchId:
+        Ref: ECSVSwitch
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      SystemDiskCategory: cloud_essd
+      AllocatePublicIP: true
+      SystemDiskSize: 40
+      InternetMaxBandwidthOut: 20
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: InstanceType
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: {}
+  WaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3000
+  InstanceRunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+      - Ref: EcsInstance
+      Type: RunShellScript
+      CommandContent:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            cat << EOF >> ~/.bash_profile
+            export ROS_DEPLOY=true
+            EOF
+
+            source ~/.bash_profile
+            curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/streaming-lakehouse/init_data.sh | bash
+            # 执行成功回调WaitCondition结束waitCondition的等待
+            ${CurlCli} -d "{\"Data\" : \"Success\", \"status\" : \"SUCCESS\"}"
+          - CurlCli:
+              Fn::GetAtt:
+                - WaitConditionHandle
+                - CurlCli
+      Timeout: 3600
+      Sync: true
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      Label:
+        default:
+          zh-cn: 可用区配置
+          en: Availability Zone
+    - Parameters:
+      - InstanceType
+      - InstancePassword
+      Label:
+        default:
+          zh-cn: ECS 配置
+          en: ECS
+    TemplateTags:
+    - acs:technical-solution:data-analysis:Streaming LakeHouse-tech_solu_280
+    Hidden:
+    - BucketName
