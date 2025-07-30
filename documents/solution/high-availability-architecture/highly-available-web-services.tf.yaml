@@ -1,0 +1,505 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  en: Highly available web services.
+  zh-cn: 高可用及共享存储Web服务。
+Metadata:
+  ALIYUN::ROS::Interface:
+    Hidden:
+    - common_name
+    ParameterGroups:
+    - Label:
+        default:
+          en: Availability Zone
+          zh-cn: 可用区配置
+      Parameters:
+      - zone1
+      - zone2
+    - Label:
+        default:
+          en: Instance Configure
+          zh-cn: ECS实例配置
+      Parameters:
+      - ecs_instance_type1
+      - ecs_instance_type2
+      - ecs_instance_password
+    TemplateTags:
+    - acs:technical-solution:high-availability-architecture:高可用及共享存储Web服务-tech_solu_12
+Parameters:
+  common_name:
+    Default: high-availability
+    Type: String
+  zone1:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - zone2
+    Description:
+      en: Availability zone 1 must be different from Availability zone 2.
+      zh-cn: 可用区1要不同与可用区2。
+    Label:
+      en: VSwitch Availability Zone1
+      zh-cn: 交换机可用区1
+    Type: String
+  zone2:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - zone1
+    Description:
+      en: Availability zone 2 must be different from Availability zone 1.
+      zh-cn: 可用区2要不同与可用区1。
+    Label:
+      en: VSwitch Availability Zone2
+      zh-cn: 交换机可用区2
+    Type: String
+  ecs_instance_type1:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${zone1}
+    Label:
+      en: Instance Type Of Availability Zone1
+      zh-cn: 可用区1的实例规格
+    Type: String
+  ecs_instance_type2:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${zone2}
+    Label:
+      en: Instance Type Of Availability Zone2
+      zh-cn: 可用区2的实例规格
+    Type: String
+  ecs_instance_password:
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    ConstraintDescription:
+      en: Length 8~30, must contain three(Capital letters, lowercase letters, 
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8~30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    Description:
+      en: Server login password, Length 8~30, must contain three(Capital 
+        letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 
+        Special symbol in).
+      zh-cn: 服务器登录密码,长度8~30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 
+        中的特殊符号）。
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    MaxLength: 30
+    MinLength: 8
+    NoEcho: true
+    Type: String
+Workspace:
+  provider.tf: |-
+    provider "alicloud" {}
+  variable.tf: |-
+    variable "common_name" {
+      type        = string
+      description = "通用名称"
+      default     = "high-availability"
+    }
+
+    variable "ecs_instance_type1" {
+      type        = string
+      description = "可用区1的实例类型"
+      default     = "ecs.g7.large"
+    }
+
+    variable "ecs_instance_type2" {
+      type        = string
+      description = "可用区2的实例类型"
+      default     = "ecs.g7.large"
+    }
+
+    variable "ecs_instance_password" {
+      type        = string
+      description = "服务器登录密码,长度8~30，必须包含三项（大写字母、小写字母、数字、特殊符号）"
+      sensitive   = true
+    }
+
+    variable "zone1" {
+      type        = string
+      description = "交换机可用区1"
+      default     = "cn-hangzhou-k"
+    }
+
+    variable "zone2" {
+      type        = string
+      description = "交换机可用区2"
+      default     = "cn-hangzhou-k"
+    }
+  main.tf: |-
+    data "alicloud_regions" "current" {
+      current = true
+    }
+
+    data "alicloud_images" "instance_image" {
+      name_regex  = "^aliyun_3_9_x64_20G_*"
+      most_recent = true
+      owners      = "system"
+    }
+
+    data "alicloud_nas_zones" "default" {
+      file_system_type = "standard"
+    }
+
+    locals {
+      valid_zones = [
+        for zone in data.alicloud_nas_zones.default.zones : zone.zone_id
+        if anytrue([
+          for t in zone.instance_types :
+          t.protocol_type == "nfs" && t.storage_type == "Capacity"
+        ])
+      ]
+
+      # 如果有两个或更多 zone，取前两个；否则重复第一个 zone 两次
+      nas_target_zones = length(local.valid_zones) >= 2 ? slice(local.valid_zones, 0, 2) : (
+        length(local.valid_zones) == 1 ? [local.valid_zones[0], local.valid_zones[0]] : ["invalid-zone", "invalid-zone"]
+      )
+    }
+
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = "${var.common_name}-vpc"
+      cidr_block = "192.168.0.0/16"
+    }
+
+    resource "alicloud_vswitch" "vswitch1" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.1.0/24"
+      zone_id      = var.zone1
+      vswitch_name = "${var.common_name}-vsw-1"
+    }
+
+    resource "alicloud_vswitch" "vswitch2" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.2.0/24"
+      zone_id      = var.zone2
+      vswitch_name = "${var.common_name}-vsw-2"
+    }
+
+    resource "alicloud_vswitch" "vswitch3" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.3.0/24"
+      zone_id      = local.nas_target_zones.0
+      vswitch_name = "${var.common_name}-vsw-3"
+    }
+
+    resource "alicloud_vswitch" "vswitch4" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.4.0/24"
+      zone_id      = local.nas_target_zones.1
+      vswitch_name = "${var.common_name}-vsw-4"
+    }
+
+    resource "alicloud_security_group" "security_group" {
+      security_group_name = "${var.common_name}-sg"
+      vpc_id              = alicloud_vpc.vpc.id
+    }
+
+    resource "alicloud_security_group_rule" "http" {
+      security_group_id = alicloud_security_group.security_group.id
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "80/80"
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    resource "alicloud_security_group_rule" "ssh" {
+      security_group_id = alicloud_security_group.security_group.id
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "22/22"
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    resource "alicloud_instance" "ecs_instance1" {
+      instance_name              = "${var.common_name}-ecs-1"
+      image_id                   = data.alicloud_images.instance_image.images[0].id
+      instance_type              = var.ecs_instance_type1
+      internet_max_bandwidth_out = 10
+      security_groups            = [alicloud_security_group.security_group.id]
+      vswitch_id                 = alicloud_vswitch.vswitch1.id
+      system_disk_category       = "cloud_essd"
+      password                   = var.ecs_instance_password
+    }
+
+    resource "alicloud_instance" "ecs_instance2" {
+      instance_name              = "${var.common_name}-ecs-2"
+      image_id                   = data.alicloud_images.instance_image.images[0].id
+      instance_type              = var.ecs_instance_type2
+      internet_max_bandwidth_out = 10
+      security_groups            = [alicloud_security_group.security_group.id]
+      vswitch_id                 = alicloud_vswitch.vswitch2.id
+      system_disk_category       = "cloud_essd"
+      password                   = var.ecs_instance_password
+    }
+
+    resource "alicloud_nas_file_system" "master_fs" {
+      protocol_type = "NFS"
+      storage_type  = "Capacity"
+      description   = "MasterNAS"
+      vpc_id        = alicloud_vpc.vpc.id
+      zone_id       = local.nas_target_zones.0
+    }
+
+    resource "alicloud_nas_mount_target" "master_mt" {
+      file_system_id    = alicloud_nas_file_system.master_fs.id
+      access_group_name = "DEFAULT_VPC_GROUP_NAME"
+      network_type      = "Vpc"
+      vswitch_id        = alicloud_vswitch.vswitch3.id
+    }
+
+    resource "alicloud_nas_file_system" "backup_fs" {
+      protocol_type = "NFS"
+      storage_type  = "Capacity"
+      description   = "BackupNAS"
+      vpc_id        = alicloud_vpc.vpc.id
+      zone_id       = local.nas_target_zones.1
+    }
+
+    resource "alicloud_nas_mount_target" "backup_mt" {
+      file_system_id    = alicloud_nas_file_system.backup_fs.id
+      access_group_name = "DEFAULT_VPC_GROUP_NAME"
+      network_type      = "Vpc"
+      vswitch_id        = alicloud_vswitch.vswitch4.id
+    }
+
+    resource "alicloud_slb_load_balancer" "slb" {
+      load_balancer_name   = "${var.common_name}-slb"
+      address_type         = "internet"
+      instance_charge_type = "PayByCLCU"
+    }
+
+    resource "alicloud_slb_backend_server" "slb_backend" {
+      load_balancer_id = alicloud_slb_load_balancer.slb.id
+      backend_servers {
+        server_id = alicloud_instance.ecs_instance1.id
+        weight    = 100
+      }
+      backend_servers {
+        server_id = alicloud_instance.ecs_instance2.id
+        weight    = 100
+      }
+    }
+
+    resource "alicloud_slb_listener" "http_listener" {
+      load_balancer_id          = alicloud_slb_load_balancer.slb.id
+      backend_port              = 80
+      frontend_port             = 80
+      protocol                  = "http"
+      bandwidth                 = 10
+      health_check              = "on"
+      health_check_uri          = "/"
+      health_check_connect_port = 80
+      healthy_threshold         = 3
+      unhealthy_threshold       = 3
+      health_check_timeout      = 5
+      health_check_interval     = 2
+      health_check_http_code    = "http_2xx,http_3xx,http_4xx,http_5xx"
+      request_timeout           = 60
+      idle_timeout              = 30
+    }
+
+    locals {
+      ecs_command = <<-SHELL
+        #!/bin/bash
+        if [ ! -f .ros.provision ]; then
+          echo "Name: 高可用及共享存储Web服务" > .ros.provision
+        fi
+
+        name=$(grep "^Name:" .ros.provision | awk -F':' '{print $2}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        if [[ "$name" != "高可用及共享存储Web服务" ]]; then
+          echo "当前实例已使用过\"$name\"教程的一键配置，不能再使用本教程的一键配置"
+          exit 0
+        fi
+
+        echo "#########################"
+        echo "# Check Network"
+        echo "#########################"
+        ping -c 2 -W 2 aliyun.com > /dev/null
+        if [[ $? -ne 0 ]]; then
+          echo "当前实例无法访问公网"
+          exit 0
+        fi
+
+        if ! grep -q "^Step1: Prepare Environment$" .ros.provision; then
+          echo "#########################"
+          echo "# Prepare Environment"
+          echo "#########################"
+          systemctl status firewalld
+          systemctl stop firewalld
+          echo "Step1: Prepare Environment" >> .ros.provision
+        else
+          echo "#########################"
+          echo "# Environment has been ready"
+          echo "#########################"
+        fi
+
+        if ! grep -q "^Step2: Install Nginx and deploy service$" .ros.provision; then
+          echo "#########################"
+          echo "# Install Nginx"
+          echo "#########################"
+          sudo yum -y install nginx
+          sudo wget -O /usr/share/nginx/html/index.html https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20231013/jhgg/index.html
+          sudo wget -O /usr/share/nginx/html/lipstick.png https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20230925/zevs/lipstick.png
+          sudo systemctl start nginx
+          sudo systemctl enable nginx
+          echo "Step2: Install Nginx and deploy service" >> .ros.provision
+        else
+          echo "#########################"
+          echo "# Nginx has been installed"
+          echo "#########################"
+        fi
+
+        if ! grep -q "^Step3: Mount to the ECS" .ros.provision; then
+          echo "#########################"
+          echo "# Mount to the ECS"
+          echo "#########################"
+          mkdir /nas_master
+          mkdir /nas_backup
+          sudo yum install -y nfs-utils
+          sudo echo "options sunrpc tcp_slot_table_entries=128" >>  /etc/modprobe.d/sunrpc.conf
+          sudo echo "options sunrpc tcp_max_slot_table_entries=128" >>  /etc/modprobe.d/sunrpc.conf
+          sudo mount -t nfs -o vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${alicloud_nas_mount_target.master_mt.mount_target_domain}:/ /nas_master
+          sudo mount -t nfs -o vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${alicloud_nas_mount_target.backup_mt.mount_target_domain}:/ /nas_backup
+
+          sudo echo "${alicloud_nas_mount_target.master_mt.mount_target_domain}:/ /nas_master nfs vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev,noresvport 0 0" >> /etc/fstab
+
+          sudo echo "${alicloud_nas_mount_target.backup_mt.mount_target_domain}:/ /nas_backup nfs vers=3,nolock,proto=tcp,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev,noresvport 0 0" >> /etc/fstab
+
+          df -h | grep aliyun
+        else
+          echo "#########################"
+          echo "# The ECS has been attached to the Nas"
+          echo "#########################"
+        fi
+
+        if ! grep -q "^Step4: Shared file$" .ros.provision; then
+          echo "#########################"
+          echo "# Shared file"
+          echo "#########################"
+          sudo cp -Lvr /usr/share/nginx/html /nas_master
+          sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+          echo "Step4: Shared file" >> .ros.provision
+        else
+          echo "#########################"
+          echo "# File has been Shared"
+          echo "#########################"
+        fi
+
+        if ! grep -q "^Step5: Install inotify-tools、rsync$" .ros.provision; then
+          echo "#########################"
+          echo "# Install inotify-tools、rsync"
+          echo "#########################"
+          sudo yum install -y inotify-tools rsync
+          echo "Step6: Install inotify-tools、rsync" >> .ros.provision
+        else
+          echo "#########################"
+          echo "# Inotify-tools has been installed"
+          echo "#########################"
+        fi
+        if ! grep -q "^Step6: Install synchronization server$" .ros.provision; then
+          echo "#########################"
+          echo "# Install synchronization server"
+          echo "#########################"
+          sudo wget -P /etc/systemd/system/ https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/zh-CN/20231017/pftz/sync_nas.sh
+          sudo wget -P /etc/systemd/system/ https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/file-manage-files/en-US/20230925/wmaj/sync_check_switch.sh
+          sudo chmod +x /etc/systemd/system/sync_nas.sh
+          sudo chmod +x /etc/systemd/system/sync_check_switch.sh
+          cat > /etc/systemd/system/sync-check-switch.service <<\EOF
+        [Unit]
+        Description=Sync Check Switch
+        After=network.target
+
+        [Service]
+        ExecStart=/etc/systemd/system/sync_check_switch.sh
+        RestartSec=3
+        Restart=always
+
+        [Install]
+        WantedBy=default.target
+        EOF
+
+          cat > /etc/systemd/system/sync-nas.service <<\EOF
+        [Unit]
+        Description=Sync NAS Service
+        After=network.target
+
+        [Service]
+        ExecStart=/etc/systemd/system/sync_nas.sh
+        Restart=always
+        RestartSec=3
+
+        [Install]
+        WantedBy=default.target
+        EOF
+
+          sudo systemctl daemon-reload
+          sudo systemctl start sync-nas.service
+          sudo systemctl enable sync-check-switch.service
+          sudo systemctl start sync-check-switch.service
+          sudo systemctl enable sync-nas.service
+          echo "Step6: Install " >> .ros.provision
+        else
+          echo "#########################"
+          echo "# Synchronization server has been installed"
+          echo "#########################"
+        fi
+      SHELL
+    }
+
+    resource "alicloud_ecs_command" "ecs_command" {
+      name             = "${var.common_name}-command"
+      description      = "ECS initialization command"
+      enable_parameter = false
+      type             = "RunShellScript"
+      command_content  = base64encode(local.ecs_command)
+      timeout          = 300
+      working_dir      = "/root"
+    }
+
+    resource "alicloud_ecs_invocation" "invocation" {
+      instance_id = [alicloud_instance.ecs_instance1.id, alicloud_instance.ecs_instance2.id]
+      command_id  = alicloud_ecs_command.ecs_command.id
+      timeouts {
+        create = "5m"
+      }
+    }
+  output.tf: |-
+    output "ecs1_url" {
+      description = "ECS 1 URL"
+      value       = format("https://ecs.console.aliyun.com/#/server/region/%s?instanceIds=%s", data.alicloud_regions.current.regions[0].id, alicloud_instance.ecs_instance1.id)
+    }
+
+    output "ecs2_url" {
+      description = "ECS 2 URL"
+      value       = format("https://ecs.console.aliyun.com/#/server/region/%s?instanceIds=%s", data.alicloud_regions.current.regions[0].id, alicloud_instance.ecs_instance2.id)
+    }
+
+    output "master_nas_url" {
+      description = "Master NAS"
+      value       = format("https://nasnext.console.aliyun.com/%s/filesystem/%s", data.alicloud_regions.current.regions[0].id, alicloud_nas_file_system.master_fs.id)
+    }
+
+    output "backup_nas_url" {
+      description = "Backup NAS"
+      value       = format("https://nasnext.console.aliyun.com/%s/filesystem/%s", data.alicloud_regions.current.regions[0].id, alicloud_nas_file_system.backup_fs.id)
+    }
+
+    output "mount_dir1" {
+      description = "NAS在ECS上的挂载目录1"
+      value       = "/nas_master"
+    }
+
+    output "mount_dir2" {
+      description = "NAS在ECS上的挂载目录2"
+      value       = "/nas_backup"
+    }
+
+    output "slb_address" {
+      description = "对外暴露的公网IP地址"
+      value       = format("http://%s", alicloud_slb_load_balancer.slb.address)
+    }
