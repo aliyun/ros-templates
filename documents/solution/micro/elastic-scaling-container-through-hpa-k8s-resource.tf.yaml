@@ -1,0 +1,418 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 在集群内配置HPA等服务。
+  en: Configure HPA service in the cluster.
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - sls_project_name
+      - cluster_id
+Parameters:
+  sls_project_name:
+    Type: String
+    Label:
+      en: Name of sls project
+      zh-cn: 日志项目的名称
+    Description:
+      en: The name contains 3 to 36 characters. It must start and end with a 
+        lowercase letter or number. The value can contain lowercase letters, 
+        digits, and hyphens (-).
+      zh-cn: 长度为3~36个字符。必须以小写英文字母或数字开头和结尾。可包含小写英文字母、数字和短划线（-）。
+  cluster_id:
+    Type: String
+    Label:
+      en: Managed Kubernetes Cluster ID
+      zh-cn: ACK托管版集群ID
+    AssociationProperty: ALIYUN::CS::Cluster::ClusterId
+Workspace:
+  provider.tf: |-
+    provider "alicloud" {}
+
+    provider "kubernetes" {
+      host                   = data.alicloud_cs_managed_kubernetes_clusters.k8s_clusters.clusters.0.connections.api_server_internet
+      cluster_ca_certificate = base64decode(data.alicloud_cs_cluster_credential.kube_config.certificate_authority.cluster_cert)
+      client_key = base64decode(data.alicloud_cs_cluster_credential.kube_config.certificate_authority.client_key)
+      client_certificate = base64decode(data.alicloud_cs_cluster_credential.kube_config.certificate_authority.client_cert)
+    }
+
+    provider "helm" {
+      kubernetes = {
+        host                   = data.alicloud_cs_managed_kubernetes_clusters.k8s_clusters.clusters.0.connections.api_server_internet
+        cluster_ca_certificate = base64decode(data.alicloud_cs_cluster_credential.kube_config.certificate_authority.cluster_cert)
+        client_key = base64decode(data.alicloud_cs_cluster_credential.kube_config.certificate_authority.client_key)
+        client_certificate = base64decode(data.alicloud_cs_cluster_credential.kube_config.certificate_authority.client_cert)
+      }
+    }
+  variable.tf: |-
+    variable "cluster_id" {
+      description = "The ID of the cluster"
+      type        = string
+    }
+
+    variable "sls_project_name" {
+      description = "The name of the SLS project"
+      type        = string
+    }
+  main.tf: |-
+    # 查询地域
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # 获取集群连接信息
+    data "alicloud_cs_cluster_credential" "kube_config" {
+      cluster_id = var.cluster_id
+      temporary_duration_minutes = 60
+    }
+
+    # 获取集群信息
+    data "alicloud_cs_managed_kubernetes_clusters" "k8s_clusters" {
+      ids = [var.cluster_id]
+      enable_details = true
+    }
+
+    resource "helm_release" "ack_alibaba_cloud_metrics_adapter" {
+      depends_on = [data.alicloud_cs_cluster_credential.kube_config]
+      name       = "ack-alibaba-cloud-metrics-adapter"
+      namespace  = "kube-system"
+      repository = "https://aliacs-app-catalog.oss-cn-hangzhou.aliyuncs.com/charts-incubator"
+      chart      = "ack-alibaba-cloud-metrics-adapter"
+      version    = "1.3.3"
+
+      values = [local.metrics_adapter_helm_values]
+    }
+
+    # create Backend Apps
+    resource "kubernetes_manifest" "coffee_deployment" {
+      depends_on = [helm_release.ack_alibaba_cloud_metrics_adapter]
+      manifest = yamldecode(local.backend_app_yaml.coffee_deployment)
+    }
+
+    resource "kubernetes_manifest" "coffee_service" {
+      depends_on = [helm_release.ack_alibaba_cloud_metrics_adapter]
+      manifest = yamldecode(local.backend_app_yaml.coffee_service)
+    }
+
+    resource "kubernetes_manifest" "tea_deployment" {
+      depends_on = [helm_release.ack_alibaba_cloud_metrics_adapter]
+      manifest = yamldecode(local.backend_app_yaml.tea_deployment)
+    }
+
+    resource "kubernetes_manifest" "tea_service" {
+      depends_on = [helm_release.ack_alibaba_cloud_metrics_adapter]
+      manifest = yamldecode(local.backend_app_yaml.tea_service)
+    }
+
+    # create alb config ingress
+    resource "kubernetes_manifest" "alb_config" {
+      depends_on = [kubernetes_manifest.coffee_deployment, kubernetes_manifest.coffee_service, kubernetes_manifest.tea_deployment, kubernetes_manifest.tea_service]
+      manifest = yamldecode(local.alb_config_yaml)
+    }
+
+    resource "kubernetes_manifest" "alb_ingress_class" {
+      depends_on = [kubernetes_manifest.alb_config]
+      manifest = yamldecode(local.alb_ingress_class_yaml)
+    }
+
+    resource "kubernetes_manifest" "alb_ingress" {
+      depends_on = [kubernetes_manifest.alb_ingress_class]
+      manifest = yamldecode(local.alb_ingress_yaml)
+    }
+
+    resource "time_sleep" "wait_alb_ingress_ready" {
+      depends_on = [kubernetes_manifest.alb_ingress]
+      create_duration = "180s"
+    }
+
+    resource "kubernetes_manifest" "hpa" {
+      depends_on = [time_sleep.wait_alb_ingress_ready]
+      manifest = yamldecode(local.hpa_yaml)
+    }
+
+    data "kubernetes_ingress_v1" "ingress" {
+      depends_on = [time_sleep.wait_alb_ingress_ready]
+      metadata {
+        name = "k8s-hpa-alb-ingress"
+        namespace = "default"
+      }
+    }
+
+    locals {
+      metrics_adapter_helm_values = <<-YAML
+    AlibabaCloudMetricsAdapter:
+      commonLabels: ""
+      replicas: 1
+      resources:
+        metricsAdapterDeployment:
+          resources:
+            limits:
+              cpu: 0.5
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+        configReloader:
+          resources:
+            limits:
+              cpu: 20m
+              memory: 30Mi
+            requests:
+              cpu: 20m
+              memory: 30Mi
+      listenPort: 443
+      costWeights:
+        cpu: "1.0"
+        memory: "0.0"
+      image:
+        repository: registry-cn-hangzhou-vpc.ack.aliyuncs.com/acs/alibaba-cloud-metrics-adapter-amd64
+        tag: v0.2.7-f1ee5c3-aliyun
+        pullPolicy: Always
+      nameOverride: ""
+      fullnameOverride: ""
+      service:
+        type: ClusterIP
+      serviceAccountName: ack-alibaba-cloud-metrics-adapter
+      annotations: {}
+      nodeSelector: {}
+      tolerations: []
+      env:
+      - AccessKeyId: ""
+      - AccessKeySecret: ""
+      - Region: ""
+      affinity: {}
+      prometheus:
+        enabled: true
+        url: {}
+        metricsRelistInterval: 1m
+        logLevel: 5
+        adapter:
+          rules:
+            default: false
+            custom:
+            - seriesQuery: 'container_memory_working_set_bytes{namespace!="",pod!=""}'
+              resources:
+                overrides:
+                  namespace: { resource: "namespace" }
+                  pod: { resource: "pod" }
+              name:
+                matches: "^(.*)_bytes"
+                as: "${1}_bytes_per_second"
+              metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)'
+            - seriesQuery: 'container_cpu_usage_seconds_total{namespace!="",pod!=""}'
+              resources:
+                overrides:
+                  namespace: { resource: "namespace" }
+                  pod: { resource: "pod" }
+              name:
+                matches: "^(.*)_seconds_total"
+                as: "${1}_core_per_second"
+              metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)'
+    ConfigReloader:
+      image:
+        repository: registry-vpc.cn-hangzhou.aliyuncs.com/acs/configmap-reload
+        tag: v0.0.1
+    YAML
+
+      backend_app_yaml = {
+        coffee_deployment = <<-YAML
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: coffee
+            namespace: default
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: coffee
+            template:
+              metadata:
+                labels:
+                  app: coffee
+              spec:
+                containers:
+                - name: coffee
+                  image: registry.${data.alicloud_regions.current_region_ds.regions.0.region_id}.aliyuncs.com/acs-sample/nginxdemos:latest
+                  ports:
+                  - containerPort: 80
+                  resources:
+                    limits:
+                      cpu: 500m
+                      memory: 1Gi
+                    requests:
+                      cpu: 500m
+                      memory: 512Mi
+        YAML
+
+        coffee_service = <<-YAML
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: coffee-svc
+            namespace: default
+          spec:
+            ports:
+            - port: 80
+              targetPort: 80
+              protocol: TCP
+            selector:
+              app: coffee
+            type: NodePort
+        YAML
+
+        tea_deployment = <<-YAML
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: tea
+            namespace: default
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: tea
+            template:
+              metadata:
+                labels:
+                  app: tea
+              spec:
+                containers:
+                - name: tea
+                  image: registry.${data.alicloud_regions.current_region_ds.regions.0.region_id}.aliyuncs.com/acs-sample/nginxdemos:latest
+                  ports:
+                  - containerPort: 80
+                  resources:
+                    limits:
+                      cpu: 500m
+                      memory: 1Gi
+                    requests:
+                      cpu: 500m
+                      memory: 512Mi
+        YAML
+
+        tea_service = <<-YAML
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: tea-svc
+            namespace: default
+          spec:
+            ports:
+            - port: 80
+              targetPort: 80
+              protocol: TCP
+            selector:
+              app: tea
+            type: NodePort
+        YAML
+      }
+
+      alb_config_yaml = <<-YAML
+        apiVersion: alibabacloud.com/v1
+        kind: AlbConfig
+        metadata:
+          name: k8s-hpa-alb-config
+        spec:
+          config:
+            name: k8s-hpa-alb
+            addressType: Internet
+            accessLogConfig:
+              logProject: ${var.sls_project_name}
+              logStore: "alb_k8s_hpa_sls_logstore"
+          listeners:
+            - port: 80
+              protocol: HTTP
+      YAML
+
+      alb_ingress_class_yaml = <<-YAML
+        apiVersion: networking.k8s.io/v1
+        kind: IngressClass
+        metadata:
+          name: k8s-hpa-alb-ingress-class
+        spec:
+          controller: ingress.k8s.alibabacloud/alb
+          parameters:
+            apiGroup: alibabacloud.com
+            kind: AlbConfig
+            name: k8s-hpa-alb-config
+      YAML
+
+      alb_ingress_yaml = <<-YAML
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: k8s-hpa-alb-ingress
+          namespace: default  # 添加命名空间
+        spec:
+          ingressClassName: k8s-hpa-alb-ingress-class
+          rules:
+           - http:
+              paths:
+              - path: /tea
+                pathType: ImplementationSpecific
+                backend:
+                  service:
+                    name: tea-svc
+                    port:
+                      number: 80
+              - path: /coffee
+                pathType: ImplementationSpecific
+                backend:
+                  service:
+                    name: coffee-svc
+                    port:
+                      number: 80
+      YAML
+
+      hpa_yaml = <<-YAML
+        apiVersion: autoscaling/v2
+        kind: HorizontalPodAutoscaler
+        metadata:
+          name: k8s-alb-tea-hpa
+          namespace: default
+        spec:
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: tea
+          minReplicas: 2
+          maxReplicas: 10
+          metrics:
+            - type: External
+              external:
+                metric:
+                  name: sls_alb_ingress_qps
+                  selector:
+                    matchLabels:
+                      sls.project: ${var.sls_project_name}
+                      sls.logstore: "alb_k8s_hpa_sls_logstore"
+                      sls.ingress.route: "default-tea-svc-80"
+                target:
+                  type: AverageValue
+                  averageValue: 2
+            - resource:
+                name: cpu
+                target:
+                  averageUtilization: 80
+                  type: Utilization
+              type: Resource
+            - resource:
+                name: memory
+                target:
+                  averageUtilization: 80
+                  type: Utilization
+              type: Resource
+      YAML
+    }
+  output.tf: |-
+    output "tea_url" {
+      description = "tea服务访问地址"
+      value       = "http://${data.kubernetes_ingress_v1.ingress.status[0].load_balancer[0].ingress[0].hostname}/tea"
+    }
+
+    output "coffee_url" {
+      description = "coffee服务访问地址"
+      value       = "http://${data.kubernetes_ingress_v1.ingress.status[0].load_balancer[0].ingress[0].hostname}/coffee"
+    }
