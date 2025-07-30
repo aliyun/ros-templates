@@ -1,0 +1,407 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 创建VPC、ECS、RDS及SchedulerX资源，配置分布式任务调度环境，含安全组与网络设置，部署Java应用自动执行。
+  en: Create VPC, ECS, RDS, and SchedulerX resources, configure a distributed 
+    task scheduling environment including security groups and network 
+    configurations, and deploy Java applications for automatic execution.
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - demo_user_name
+      - demo_user_password
+      Label:
+        en: Application login information configuration
+        zh-cn: 应用登录信息配置
+    - Parameters:
+      - zone_id
+      - instance_type
+      - ecs_instance_password
+      Label:
+        en: ECS configuration
+        zh-cn: ECS 参数配置
+    - Parameters:
+      - db_user_name
+      - db_password
+      - db_instance_class
+      Label:
+        en: Database configuration
+        zh-cn: 数据库配置
+    - Parameters:
+      - scheduler_x_endpoint
+      - scheduler_x_namespace
+      - scheduler_x_group_id
+      - scheduler_x_app_key
+      Label:
+        en: SchedulerX configuration
+        zh-cn: SchedulerX配置
+    TemplateTags:
+    - acs:technical-solution:internet-application-development:通过SchedulerX实现分布式任务调度-tech_solu_143
+    Hidden:
+    - common_name
+Parameters:
+  demo_user_name:
+    ConstraintDescription:
+      zh-cn: 3 到 63 个字母组成。
+      en: 3 to 63 letters.
+    Description:
+      zh-cn: 在浏览器中登录示例应用程序时的用户名。
+      en: Username when logging into the sample application in the browser.
+    Label:
+      zh-cn: 登录用户名
+      en: Login Username
+    AllowedPattern: ^[a-zA-Z-]{3,63}$
+    Type: String
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: demo-user-
+      CharacterClasses:
+      - Class: lowercase
+        min: 1
+  demo_user_password:
+    NoEcho: true
+    Type: String
+    Label:
+      en: Login Password
+      zh-cn: 登录密码
+    Description:
+      en: >-
+        Must contain three or more types: uppercase letters, lowercase letters,  numbers,
+        and special symbols. The length is 8 to 32 bits.  Special characters include!@%^&()_+-=
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-=
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+  zone_id:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+  instance_type:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${zone_id}
+  ecs_instance_password:
+    Type: String
+    NoEcho: true
+    Default:
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  db_user_name:
+    Type: String
+    ConstraintDescription:
+      en: >-
+        Consist of 2 to 32 characters of lowercase letters, underline.  Must begin
+        with a letter and be end with an alphanumeric character
+      zh-cn: >-
+        由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头。
+    Label:
+      zh-cn: RDS数据库账号
+      en: RDS DB Username
+    Default: user_test
+    AllowedPattern: ^[a-z][a-z0-9_]{0,31}$
+    ReadOnly: true
+  db_password:
+    NoEcho: true
+    Type: String
+    Label:
+      en: RDS Instance Password
+      zh-cn: RDS数据库密码
+    Description:
+      en: >-
+        Must contain three or more types: uppercase letters, lowercase letters,  numbers,
+        and special symbols. The length is 8 to 32 bits.  Special characters include!@%^&()_+-=
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-=
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+  db_instance_class:
+    Type: String
+    Label:
+      en: RDS Instance Class
+      zh-cn: RDS实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId:
+        Ref: zone_id
+      EngineVersion: '8.0'
+      DBInstanceStorageType: cloud_essd
+      Engine: MySQL
+      Category: Basic
+      CommodityCode: bards
+    Default: mysql.n2e.medium.1
+  scheduler_x_endpoint:
+    Type: String
+    Label:
+      en: SchedulerX Endpoint
+      zh-cn: SchedulerX Endpoint
+    Description:
+      en: Please enter the endpoint obtained in the access configuration of the 
+        SchedulerX console.
+      zh-cn: 请输入在SchedulerX控制台的接入配置中获取的Endpoint。
+  scheduler_x_namespace:
+    Type: String
+    Label:
+      en: SchedulerX Namespace
+      zh-cn: SchedulerX命名空间
+    Description:
+      en: Please enter the namespace obtained in the access configuration of the
+        SchedulerX console.
+      zh-cn: 请输入在SchedulerX控制台的接入配置中获取的命名空间。
+    AllowedPattern: 
+      ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+  scheduler_x_group_id:
+    Type: String
+    Label:
+      en: SchedulerX GroupId
+      zh-cn: SchedulerX应用ID
+    Description:
+      en: Please enter the namespace obtained in the access configuration of the
+        SchedulerX console.
+      zh-cn: 请输入在SchedulerX控制台的接入配置中获取的应用ID。
+  scheduler_x_app_key:
+    Type: String
+    Label:
+      en: SchedulerX AppKey
+      zh-cn: SchedulerX应用密钥
+    Description:
+      en: Please enter the namespace obtained in the access configuration of the
+        SchedulerX console.
+      zh-cn: 请输入在SchedulerX控制台的接入配置中获取的应用密钥。
+  common_name:
+    Type: String
+    Default: scheduler-demo
+Workspace:
+  provider.tf: |-
+    provider "alicloud" {}
+  variable.tf: |-
+    variable "demo_user_name" {
+      type        = string
+      description = "在浏览器中登录示例应用程序时的用户名。"
+      default     = "demo-user-example"
+    }
+
+    variable "demo_user_password" {
+      type        = string
+      description = "登录密码，必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-="
+      sensitive   = true
+    }
+
+    variable "zone_id" {
+      type        = string
+      description = "可用区"
+      default     = "cn-hangzhou-k"
+    }
+
+    variable "instance_type" {
+      type        = string
+      description = "实例类型"
+      default     = "ecs.g7.large"
+    }
+
+    variable "ecs_instance_password" {
+      type        = string
+      description = "服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、特殊符号）"
+      sensitive   = true
+    }
+
+    variable "db_user_name" {
+      type        = string
+      description = "RDS数据库账号，由2到32个小写字母组成，支持小写字母、数字和下划线，以小写字母开头"
+      default     = "user_test"
+    }
+
+    variable "db_password" {
+      type        = string
+      description = "RDS数据库密码，必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-="
+      sensitive   = true
+    }
+
+    variable "db_instance_class" {
+      type        = string
+      description = "RDS实例规格"
+      default     = "mysql.n2.small.2c"
+    }
+
+    variable "scheduler_x_endpoint" {
+      type        = string
+      description = "SchedulerX接入地址，请输入在SchedulerX控制台的接入配置中获取的接入地址"
+      default     = "addr-hz-internal.edas.aliyun.com"
+    }
+
+    variable "scheduler_x_namespace" {
+      type        = string
+      description = "SchedulerX命名空间，请输入在SchedulerX控制台的接入配置中获取的命名空间"
+      default     = "00000000-00000000-00000000-00000000"
+    }
+
+    variable "scheduler_x_group_id" {
+      type        = string
+      description = "SchedulerX应用ID，请输入在SchedulerX控制台的接入配置中获取的应用ID"
+      default     = "test"
+    }
+
+    variable "scheduler_x_app_key" {
+      type        = string
+      description = "SchedulerX应用密钥，请输入在SchedulerX控制台的接入配置中获取的应用密钥"
+      sensitive   = true
+    }
+
+    variable "common_name" {
+      type        = string
+      description = "应用名称"
+      default     = "scheduler-demo"
+    }
+  main.tf: |-
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = "${var.common_name}-vpc"
+      cidr_block = "192.168.0.0/16"
+    }
+
+    resource "alicloud_vswitch" "vsw" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.0.0/24"
+      zone_id      = var.zone_id
+      vswitch_name = "${var.common_name}-vsw"
+    }
+
+    resource "alicloud_security_group" "sg" {
+      security_group_name = "${var.common_name}-sg"
+      vpc_id              = alicloud_vpc.vpc.id
+    }
+
+    resource "alicloud_security_group_rule" "http" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "80/80"
+      cidr_ip           = "0.0.0.0/0"
+      security_group_id = alicloud_security_group.sg.id
+    }
+
+    data "alicloud_images" "instance_image" {
+      name_regex    = "^aliyun_3_9_x64_20G_*"
+      most_recent   = true
+      owners        = "system"
+      instance_type = var.instance_type
+    }
+
+    resource "alicloud_instance" "ecs" {
+      instance_name              = "${var.common_name}-ecs"
+      instance_type              = var.instance_type
+      vswitch_id                 = alicloud_vswitch.vsw.id
+      security_groups            = [alicloud_security_group.sg.id]
+      image_id                   = data.alicloud_images.instance_image.images[0].id
+      system_disk_category       = "cloud_essd"
+      internet_max_bandwidth_out = 5
+      password                   = var.ecs_instance_password
+      count                      = 2
+    }
+
+    resource "alicloud_db_instance" "rds" {
+      engine               = "MySQL"
+      engine_version       = "8.0"
+      instance_type        = var.db_instance_class
+      instance_storage     = 40
+      instance_charge_type = "Postpaid"
+      vswitch_id           = alicloud_vswitch.vsw.id
+      security_ips         = ["192.168.0.0/24"]
+    }
+
+    resource "alicloud_rds_account" "create_db_user" {
+      db_instance_id   = alicloud_db_instance.rds.id
+      account_name     = var.db_user_name
+      account_password = var.db_password
+      account_type     = "Super"
+    }
+
+    resource "alicloud_ecs_command" "deploy" {
+      name            = "${var.common_name}-deploy"
+      type            = "RunShellScript"
+      command_content = base64encode(local.deploy_application_script)
+      working_dir     = "/root"
+      timeout         = 300
+    }
+
+    resource "alicloud_ecs_invocation" "deploy_invocation" {
+      instance_id = alicloud_instance.ecs.*.id
+      command_id  = alicloud_ecs_command.deploy.id
+      timeouts {
+        create = "5m"
+      }
+      depends_on = [alicloud_rds_account.create_db_user]
+    }
+
+    locals {
+      deploy_application_script = <<-SHELL
+      #!/bin/bash
+
+      function log_info() {
+          printf "%s [INFO] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+      }
+
+      function log_error() {
+          printf "%s [ERROR] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+      }
+
+      function debug_exec(){
+          local cmd="$@"
+          log_info "$cmd"
+          eval "$cmd"
+          ret=$?
+          echo ""
+          log_info "$cmd, exit code: $ret"
+          return $ret
+      }
+
+      cat << EOF >> ~/.bash_profile
+      export DEMO_SCHEDULERX_ENDPOINT="addr-hz-internal.edas.aliyun.com"
+      export DEMO_SCHEDULERX_NAMESPACE="${var.scheduler_x_namespace}"
+      export DEMO_SCHEDULERX_GROUPID="${var.scheduler_x_group_id}"
+      export DEMO_SCHEDULERX_APPKEY="${var.scheduler_x_app_key}"
+
+      export DEMO_MYSQL_URL="${alicloud_db_instance.rds.connection_string}:3306"
+      export DEMO_MYSQL_USERNAME="${var.db_user_name}"
+      export DEMO_MYSQL_PASSWORD="${var.db_password}"
+
+      export DEMO_USERNAME="${var.demo_user_name}"
+      export DEMO_PASSWORD="${var.demo_user_password}"
+
+      export ROS_DEPLOY=true
+      EOF
+      source ~/.bash_profile
+
+      curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/mse-schedulerx/install.sh | bash
+      SHELL
+    }
+  output.tf: |-
+    output "DemoUserName" {
+      description = "Login Username."
+      value       = var.demo_user_name
+    }
+
+    output "DemoUrl" {
+      description = "Demo URL."
+      value       = "http://${alicloud_instance.ecs[0].public_ip}/schedulerx-demo"
+    }
