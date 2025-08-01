@@ -1,0 +1,478 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 创建托管Kubernetes集群，配置VPC、节点池、HPA及日志服务，实现容器应用的自动伸缩与监控。
+  en: Create a managed Kubernetes cluster, configure Virtual Private Cloud 
+    (VPC), node pools, Horizontal Pod Autoscaler (HPA), and logging services to 
+    enable automatic scaling and monitoring of containerized applications.
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - sls_project_name
+      - managed_kubernetes_cluster_name
+      - zone1
+      - zone2
+      - instance_types
+      - ecs_instance_password
+    TemplateTags:
+    - acs:technical-solution:micro:通过HPA实现容器应用的水平弹性伸缩-tech_solu_125
+    Hidden:
+    - common_name
+Parameters:
+  common_name:
+    Type: String
+    Default: k8s-hpa-cluster
+  sls_project_name:
+    Type: String
+    Label:
+      en: Name of sls project
+      zh-cn: 日志项目的名称
+    Description:
+      en: The name contains 3 to 36 characters. It must start and end with a 
+        lowercase letter or number. The value can contain lowercase letters, 
+        digits, and hyphens (-).
+      zh-cn: 长度为3~36个字符。必须以小写英文字母或数字开头和结尾。可包含小写英文字母、数字和短划线（-）。
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: k8s-hpa-sls-project-
+      CharacterClasses:
+      - Class: lowercase
+        min: 1
+  managed_kubernetes_cluster_name:
+    Type: String
+    Label:
+      en: Managed Kubernetes Cluster Name
+      zh-cn: ACK托管版集群名称
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: k8s-hpa-cluster-
+      CharacterClasses:
+      - Class: lowercase
+        min: 1
+  zone1:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - zone2
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区1
+  zone2:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+      - zone1
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区2
+  instance_types:
+    Type: CommaDelimitedList
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${zone1}
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      CreateACKClusterParams:
+        NetworkPlugin: terway-eniip
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  ecs_instance_password:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Default:
+Workspace:
+  provider.tf: |-
+    provider "alicloud" {}
+  variable.tf: |-
+    variable "common_name" {
+      type        = string
+      description = "集群名称"
+      default     = "k8s-hpa-cluster"
+    }
+
+    variable "sls_project_name" {
+      type        = string
+      default     = "k8s-hpa-sls-project"
+      description = "日志项目的名称，长度为3~36个字符。必须以小写英文字母或数字开头和结尾。可包含小写英文字母、数字和短划线（-）"
+    }
+
+    variable "managed_kubernetes_cluster_name" {
+      type        = string
+      description = "ACK托管版集群名称"
+    }
+
+    variable "zone1" {
+      type        = string
+      description = "可用区1"
+    }
+
+    variable "zone2" {
+      type        = string
+      description = "可用区2"
+    }
+
+    variable "instance_types" {
+      type        = list(string)
+      description = "实例规格"
+    }
+
+    variable "ecs_instance_password" {
+      type        = string
+      description = "服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、特殊符号）"
+      sensitive   = true
+    }
+  main.tf: |
+    # 开通sls服务
+    data "alicloud_log_service" "open_sls" {
+      enable = "On"
+    }
+
+    # 开通ack pro
+    data "alicloud_ack_service" "open_ack" {
+      enable = "On"
+      type   = "propayasgo"
+    }
+
+
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "10.0.0.0/8"
+      vpc_name   = "${var.common_name}-vpc"
+    }
+
+    resource "alicloud_vswitch" "vswitch1" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "10.0.0.0/24"
+      zone_id      = var.zone1
+      vswitch_name = "${var.common_name}-vsw"
+    }
+
+    resource "alicloud_vswitch" "vswitch2" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "10.0.1.0/24"
+      zone_id      = var.zone2
+      vswitch_name = "${var.common_name}-vsw"
+    }
+
+    resource "alicloud_security_group" "sg" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "${var.common_name}-sg"
+    }
+
+    resource "alicloud_security_group_rule" "ingress_https" {
+      security_group_id = alicloud_security_group.sg.id
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "443/443"
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    resource "alicloud_security_group_rule" "ingress_http" {
+      security_group_id = alicloud_security_group.sg.id
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "80/80"
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    resource "alicloud_log_project" "sls_project" {
+      project_name = var.sls_project_name
+    }
+
+    resource "alicloud_cs_managed_kubernetes" "ack" {
+      depends_on = [
+        data.alicloud_log_service.open_sls, data.alicloud_ack_service.open_ack, alicloud_ram_role.role,
+        alicloud_ram_role_policy_attachment.attach
+      ]
+      name                 = var.managed_kubernetes_cluster_name
+      cluster_spec         = "ack.pro.small"
+      vswitch_ids          = [alicloud_vswitch.vswitch1.id, alicloud_vswitch.vswitch2.id]
+      pod_vswitch_ids      = [alicloud_vswitch.vswitch1.id, alicloud_vswitch.vswitch2.id]
+      service_cidr         = "172.16.0.0/16"
+      new_nat_gateway      = true
+      slb_internet_enabled = true
+      security_group_id    = alicloud_security_group.sg.id
+
+      addons {
+        name = "ack-node-local-dns"
+      }
+      addons {
+        name = "terway-eniip"
+        config = jsonencode({
+          IPVlan        = "false"
+          NetworkPolicy = "false"
+          ENITrunking   = "false"
+        })
+      }
+      addons {
+        name = "csi-plugin"
+      }
+      addons {
+        name = "csi-provisioner"
+      }
+      addons {
+        name = "storage-operator"
+        config = jsonencode({
+          CnfsOssEnable = "false"
+          CnfsNasEnable = "false"
+        })
+      }
+      addons {
+        name     = "nginx-ingress-controller"
+        disabled = true
+      }
+      addons {
+        name = "logtail-ds"
+        config = jsonencode({
+          IngressDashboardEnabled = "true"
+        })
+      }
+      addons {
+        name    = "alb-ingress-controller"
+        version = ""
+        config = jsonencode({
+          albIngress = {
+            AddressType = "Internet"
+            ZoneMappings = {
+              "${var.zone1}" = ["${alicloud_vswitch.vswitch1.id}"]
+              "${var.zone2}" = ["${alicloud_vswitch.vswitch2.id}"]
+            }
+            CreateDefaultALBConfig = true
+          }
+        })
+      }
+      addons {
+        name = "ack-helm-manager"
+      }
+      addons {
+        name = "arms-prometheus"
+      }
+
+      delete_options {
+        delete_mode   = "delete"
+        resource_type = "ALB"
+      }
+
+      delete_options {
+        delete_mode   = "delete"
+        resource_type = "SLB"
+      }
+
+      delete_options {
+        delete_mode   = "delete"
+        resource_type = "SLS_Data"
+      }
+
+      delete_options {
+        delete_mode   = "delete"
+        resource_type = "SLS_ControlPlane"
+      }
+
+      delete_options {
+        delete_mode   = "delete"
+        resource_type = "PrivateZone"
+      }
+    }
+
+    resource "alicloud_cs_kubernetes_node_pool" "node_pool" {
+      node_pool_name       = "${var.common_name}-nodepool"
+      cluster_id           = alicloud_cs_managed_kubernetes.ack.id
+      vswitch_ids          = [alicloud_vswitch.vswitch1.id, alicloud_vswitch.vswitch2.id]
+      instance_types       = var.instance_types
+      password             = var.ecs_instance_password
+      system_disk_category = "cloud_essd"
+      system_disk_size     = 40
+
+      runtime_name    = "containerd"
+      runtime_version = "1.6.28"
+
+      scaling_config {
+        enable   = true
+        min_size = 2
+        max_size = 10
+      }
+    }
+
+    # 等待节点池Ready
+    resource "time_sleep" "wait_node_ready" {
+      depends_on      = [alicloud_cs_kubernetes_node_pool.node_pool]
+      create_duration = "300s"
+    }
+
+    # 通过ROS在集群内部署资源
+    resource "random_integer" "default" {
+      min = 100000
+      max = 999999
+    }
+
+    resource "alicloud_ros_stack" "deploy_k8s_resource" {
+      stack_name   = "${var.common_name}-k8s-resource-${random_integer.default.result}"
+      template_url = " https://ros-public-templates.oss-cn-hangzhou.aliyuncs.com/ros-templates/documents/solution/micro/elastic-scaling-container-through-hpa-k8s-resource.tf.yaml"
+      parameters {
+        parameter_key   = "cluster_id"
+        parameter_value = alicloud_cs_managed_kubernetes.ack.id
+      }
+      parameters {
+        parameter_key   = "sls_project_name"
+        parameter_value = alicloud_log_project.sls_project.project_name
+      }
+      depends_on = [time_sleep.wait_node_ready]
+    }
+
+
+    # 定义本地变量，包含所有要创建的 RAM Role 及其策略
+    locals {
+      cs_roles = [
+        {
+          name            = "AliyunCSManagedLogRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群的日志组件使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSManagedLogRolePolicy"
+        },
+        {
+          name            = "AliyunCSManagedCmsRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群的CMS组件使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSManagedCmsRolePolicy"
+        },
+        {
+          name            = "AliyunCSManagedCsiRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群的存储组件使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSManagedCsiRolePolicy"
+        },
+        {
+          name            = "AliyunCSManagedCsiPluginRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群的存储组件使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSManagedCsiPluginRolePolicy"
+        },
+        {
+          name            = "AliyunCSManagedCsiProvisionerRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群的存储组件使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSManagedCsiProvisionerRolePolicy"
+        },
+        {
+          name            = "AliyunCSManagedVKRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "ACK Serverless集群的VK组件使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSManagedVKRolePolicy"
+        },
+        {
+          name            = "AliyunCSServerlessKubernetesRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群默认使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSServerlessKubernetesRolePolicy"
+        },
+        {
+          name            = "AliyunCSKubernetesAuditRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群审计功能使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSKubernetesAuditRolePolicy"
+        },
+        {
+          name            = "AliyunCSManagedNetworkRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群网络组件使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSManagedNetworkRolePolicy"
+        },
+        {
+          name            = "AliyunCSDefaultRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群操作时默认使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSDefaultRolePolicy"
+        },
+        {
+          name            = "AliyunCSManagedKubernetesRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群默认使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSManagedKubernetesRolePolicy"
+        },
+        {
+          name            = "AliyunCSManagedArmsRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群Arms插件使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSManagedArmsRolePolicy"
+        },
+        {
+          name            = "AliyunCISDefaultRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "容器服务（CS）智能运维使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCISDefaultRolePolicy"
+        },
+        {
+          name            = "AliyunOOSLifecycleHook4CSRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"oos.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群扩缩容节点池依赖OOS服务，OOS使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunOOSLifecycleHook4CSRolePolicy"
+        },
+        {
+          name            = "AliyunCSManagedAutoScalerRole"
+          policy_document = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"cs.aliyuncs.com\"]}}],\"Version\":\"1\"}"
+          description     = "集群的弹性伸缩组件使用此角色来访问您在其他云产品中的资源。"
+          policy_name     = "AliyunCSManagedAutoScalerRolePolicy"
+        }
+      ]
+    }
+
+    // 查询RAM角色列表
+    data "alicloud_ram_roles" "roles" {
+      policy_type = "Custom"
+      name_regex  = "^Aliyun.*Role$"
+    }
+
+    locals {
+      # 提取所有所需RAM角色name
+      all_role_names = [for role in local.cs_roles : role.name]
+      # 提取已存在的RAM角色name
+      created_role_names = [for role in data.alicloud_ram_roles.roles.roles : role.name]
+      # 计算补集：即找出还未创建的所需RAM角色
+      complement_names = setsubtract(local.all_role_names, local.created_role_names)
+      # 待创建的RAM角色
+      complement_roles = [for role in local.cs_roles : role if contains(local.complement_names, role.name)]
+    }
+
+    // 创建角色。
+    resource "alicloud_ram_role" "role" {
+      for_each                    = { for r in local.complement_roles : r.name => r }
+      role_name                   = each.value.name
+      assume_role_policy_document = each.value.policy_document
+      description                 = each.value.description
+      force                       = true
+    }
+
+    // 角色关联系统权限。
+    resource "alicloud_ram_role_policy_attachment" "attach" {
+      for_each    = { for r in local.complement_roles : r.name => r }
+      policy_name = each.value.policy_name
+      policy_type = "System"
+      role_name   = each.value.name
+      depends_on  = [alicloud_ram_role.role]
+    }
+  output.tf: |-
+    output "cluster_id" {
+      value = alicloud_cs_managed_kubernetes.ack.id
+    }
