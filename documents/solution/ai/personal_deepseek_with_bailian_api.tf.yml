@@ -1,0 +1,274 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 创建VPC、ECS实例、RAM用户及策略，配置安全组和登录凭据，部署Open WenUI应用，调用DeepSeek-R1、Qwen-max等模型。
+  en: Create a Virtual Private Cloud (VPC), Elastic Compute Service (ECS) instances, Resource Access Management (RAM) users and policies, configure security groups and login credentials, deploy the Open WenUI application, and call models such as DeepSeek-R1, Qwen-max, etc.
+Parameters:
+  BaiLianApiKey:
+    Type: String
+    Label:
+      en: BaiLian API-KEY
+      zh-cn: 百炼 API-KEY
+    # 由于此组件选择sk后返回的是json，会导致在本地执行terraform命令和在控制台上执行无法同时有效兼容，因此临时使用字符串输入，不用组件选择
+    # AssociationProperty: ALIYUN::Bailian::ApiKey::ApiKeyInfo
+    Description:
+      zh-cn: 开通百炼模型服务，并获得 API-KEY。请参考： <a href="https://help.aliyun.com/zh/model-studio/getting-started/first-api-call-to-qwen"  target="_blank">首次调用通义千问API</a>。
+      en: 'Activate BaiLian and obtain the API-KEY. Please refer to:  <a href="https://help.aliyun.com/zh/model-studio/getting-started/first-api-call-to-qwen"  target="_blank">First call to Tongyi Qianwen API</a>.'
+  ZoneId:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+  InstanceType:
+    Type: String
+    Default: ecs.e-c1m1.large
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      Constraints:
+        Architecture:
+          - X86
+        vCPU:
+          - 2
+        Memory:
+          - 2
+  instance_password:
+    Type: String
+    NoEcho: true
+    Confirm: true
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  CommonName:
+    Type: String
+    Default: deepseek-private-ai
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - BaiLianApiKey
+          - ZoneId
+          - InstanceType
+          - instance_password
+        Label:
+          default:
+            en: Cloud resource information configuration
+            zh-cn: 云资源信息配置
+    Hidden:
+      - CommonName
+    TemplateTags:
+      - acs:technical-solution:ai:构建专属智能平台：私有化部署DeepSeek AI与知识库集成-tech_solu_219
+Workspace:
+  variables.tf: |-
+    variable "ZoneId" {
+      type        = string
+      description = <<EOT
+      {
+        "AssociationProperty": "ALIYUN::ECS::Instance::ZoneId",
+        "Description": {
+          "zh-cn": "可用区",
+          "en": "Availability Zone"
+        },
+        "Label": {
+          "zh-cn": "可用区",
+          "en": "Availability Zone"
+        }
+      }
+      EOT
+    }
+
+    variable "InstanceType" {
+      type        = string
+      default     = "ecs.e-c1m1.large"
+      description = <<EOT
+      {
+        "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
+        "AssociationPropertyMetadata": {
+          "ZoneId": "$${ZoneId}",
+          "InstanceChargeType": "PostPaid",
+          "SystemDiskCategory": "cloud_essd",
+          "Constraints": {
+            "Architecture": ["X86"],
+            "vCPU": [2],
+            "Memory": [2]
+          }
+        },
+        "Label": {
+          "zh-cn": "实例类型",
+          "en": "Instance Type"
+        }
+      }
+      EOT
+    }
+
+    variable "instance_password" {
+      type        = string
+      sensitive   = true
+      description = <<EOT
+      {
+        "Description": {
+          "en": "Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)",
+          "zh-cn": "服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）"
+        },
+        "Label": {
+          "en": "Instance Password",
+          "zh-cn": "实例密码"
+        },
+        "ConstraintDescription": {
+          "en": "Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)",
+          "zh-cn": "长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）"
+        },
+        "AssociationProperty": "ALIYUN::ECS::Instance::Password"
+      }
+      EOT
+    }
+
+    variable "BaiLianApiKey" {
+      type        = string
+      description = <<EOT
+      {
+        "Label": {
+          "en": "BaiLian API-KEY",
+          "zh-cn": "百炼 API-KEY"
+        },
+        "AssociationProperty": "ALIYUN::Bailian::ApiKey::ApiKeyInfo",
+        "Description": {
+          "zh-cn": "开通百炼模型服务，并获得 API-KEY。请参考： <a href=\"https://help.aliyun.com/zh/model-studio/getting-started/first-api-call-to-qwen\"  target=\"_blank\">首次调用通义千问API</a>。",
+          "en": "Activate BaiLian and obtain the API-KEY. Please refer to:  <a href=\"https://help.aliyun.com/zh/model-studio/getting-started/first-api-call-to-qwen\"  target=\"_blank\">First call to Tongyi Qianwen API</a>."
+        }
+      }
+      EOT
+    }
+
+    variable "CommonName" {
+      type    = string
+      default = "deepseek-private-ai"
+    }
+  main.tf: |-
+    provider "alicloud" {
+    }
+
+    resource "random_id" "suffix" {
+      byte_length = 8
+    }
+
+    locals {
+      common_name = "${var.CommonName}-${random_id.suffix.hex}"
+    }
+
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "${local.common_name}-vpc"
+    }
+
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id     = alicloud_vpc.vpc.id
+      cidr_block = "192.168.0.0/24"
+      zone_id    = var.ZoneId
+      vswitch_name = "${local.common_name}-vsw"
+    }
+
+    resource "alicloud_security_group" "security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "${local.common_name}-sg"
+    }
+
+    resource "alicloud_security_group_rule" "allow_tcp_8080" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "8080/8080"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    resource "alicloud_instance" "ecs_instance" {
+      instance_name              = "${local.common_name}-ecs"
+      system_disk_category       = "cloud_essd"
+      image_id                   = "aliyun_3_x64_20G_alibase_20250117.vhd"
+      vswitch_id                 = alicloud_vswitch.vswitch.id
+      password                   = var.instance_password
+      instance_type              = var.InstanceType
+      internet_max_bandwidth_out = 10
+      security_groups            = [alicloud_security_group.security_group.id]
+    }
+
+    resource "alicloud_ram_user" "user" {
+      name = "create_by_solution-${local.common_name}"
+    }
+
+    resource "alicloud_ecs_command" "install_app" {
+      name            = "install-deepseek-app"
+      command_content = base64encode(<<EOF
+    #!/bin/bash
+    cat <<EOT >> ~/.bash_profile
+    export API_KEY="${var.BaiLianApiKey}"
+    export ROS_DEPLOY=true
+    EOT
+
+    source ~/.bash_profile 
+    curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/deepseek-r1-private/install.sh|bash
+    EOF
+      )
+      working_dir = "/root"
+      type        = "RunShellScript"
+      timeout     = 3600
+    }
+
+    resource "alicloud_ecs_invocation" "invoke_script" {
+      instance_id = [alicloud_instance.ecs_instance.id]
+      command_id  = alicloud_ecs_command.install_app.id
+      timeouts {
+        create = "15m"
+      }
+    }
+  outputs.tf: |-
+    output "ecs_login_address" {
+      description = <<EOT
+      {
+        "Description": {
+          "en": "Ecs login address.",
+          "zh-cn": "ECS登录地址。"
+        }
+      }
+      EOT
+      value = "https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${data.alicloud_regions.current.id}&instanceId=${alicloud_instance.ecs_instance.id}"
+    }
+
+    output "demo_url" {
+      description = <<EOT
+      {
+        "Label": {
+          "zh-cn": "体验地址",
+          "en": "Experience Addresses"
+        },
+        "Description": {
+          "en": "Experience address.",
+          "zh-cn": "体验地址。"
+        }
+      }
+      EOT
+      value = "http://${alicloud_instance.ecs_instance.public_ip}:8080"
+    }
+
+    # 获取当前区域信息的数据源
+    data "alicloud_regions" "current" {
+      current = true
+    }
