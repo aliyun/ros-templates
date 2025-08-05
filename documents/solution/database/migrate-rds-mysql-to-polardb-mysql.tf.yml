@@ -1,0 +1,396 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 一键升级RDS MySQL到PolarDB MySQL，自动配置网络、安全与数据迁移，无需改动应用代码。
+  en: One-click upgrade from RDS MySQL to PolarDB MySQL, with automatic 
+    configuration of network, security, and data migration, eliminating the need
+    for any modifications to application code.
+Parameters:
+  zone_id:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID。<br><b>注： <font 
+        color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  instance_type:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: zone_id
+  system_disk_category:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      ZoneId: ${zone_id}
+      InstanceType: ${instance_type}
+    Default: cloud_essd
+  ecs_instance_password:
+    Type: String
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    Description:
+      en: 'The password must be 8 to 32 characters in length and must contain at least
+        three of the following types: uppercase letters, lowercase letter, digits,
+        and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span 
+        style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    NoEcho: true
+  db_instance_class:
+    Type: String
+    Label:
+      en: RDS Instance Class
+      zh-cn: RDS实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${zone_id}
+      EngineVersion: '8.0'
+      DBInstanceStorageType: cloud_essd
+      Engine: MySQL
+      Category: HighAvailability
+      CommodityCode: bards
+  db_instance_storage:
+    Type: Number
+    Label:
+      en: Instance Storage
+      zh-cn: 实例存储
+    Description:
+      en: 'Incrementing in every 5G, unit: GB'
+      zh-cn: 每5G递增，单位：GB
+    ConstraintDescription:
+      en: '[20, 32000] Incrementing in every 5G, unit: GB'
+      zh-cn: '[20, 32000] 每 5G 递增，单位：GB'
+    MinValue: 20
+    MaxValue: 32000
+    Default: 100
+  db_password:
+    Type: String
+    Label:
+      en: RDS Account Password
+      zh-cn: RDS账号密码
+    Description:
+      en: 'The password must be 8 to 32 characters in length and must contain at least
+        three of the following types: uppercase letters, lowercase letter, digits,
+        and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span 
+        style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    NoEcho: true
+  polardb_node_class:
+    Type: String
+    Label:
+      en: PolarDBNodeClass
+      zh-cn: PolarDB集群规格
+    Default: polar.mysql.x4.large
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - ZoneId
+      Label:
+        en: Basic Configuration
+        zh-cn: 基础配置
+    - Parameters:
+      - instance_type
+      - system_disk_category
+      - ecs_instance_password
+      Label:
+        en: ECS Configuration
+        zh-cn: ECS配置
+    - Parameters:
+      - db_instance_class
+      - db_instance_storage
+      - db_password
+      Label:
+        en: RDS Configuration
+        zh-cn: RDS配置
+    - Parameters:
+      - polardb_node_class
+      Label:
+        en: PolarDB Configuration
+        zh-cn: PolarDB配置
+    TemplateTags:
+    - acs:technical-solution:db:RDS MySQL迁移至PolarDB MySQL版-tech_solu_25
+    Hidden:
+    - vpc_cidr_block
+    - vswitch_cidr_block
+Workspace:
+  variable.tf: |-
+    # Parameters
+    variable "zone_id" {
+      type        = string
+      description = "可用区ID"
+      default     = "cn-hangzhou-j"
+    }
+
+    variable "instance_type" {
+      type        = string
+      description = "ECS实例类型"
+      default     = "ecs.c6.large"
+    }
+
+    variable "system_disk_category" {
+      type        = string
+      description = "系统盘类型"
+      default     = "cloud_essd"
+    }
+
+    variable "ecs_instance_password" {
+      type        = string
+      description = "ECS实例密码。必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-="
+      sensitive   = true
+      validation {
+        condition     = can(regex("^[0-9A-Za-z!@#$%^&*()_+=-]+$", var.ecs_instance_password)) && length(var.ecs_instance_password) >= 8 && length(var.ecs_instance_password) <= 32
+        error_message = "必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-="
+      }
+    }
+
+    variable "db_instance_class" {
+      type        = string
+      description = "RDS实例规格"
+      default     = "mysql.n2.medium.2c"
+    }
+
+    variable "db_instance_storage" {
+      type        = number
+      description = "实例存储。每5G递增，单位：GB"
+      default     = 100
+      validation {
+        condition     = var.db_instance_storage >= 20 && var.db_instance_storage <= 32000 && var.db_instance_storage % 5 == 0
+        error_message = "[20, 32000] 每 5G 递增，单位：GB"
+      }
+    }
+
+    variable "db_password" {
+      type        = string
+      description = "RDS账号密码。必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-="
+      sensitive   = true
+      validation {
+        condition     = can(regex("^[0-9A-Za-z!@#$%^&*()_+=-]+$", var.db_password)) && length(var.db_password) >= 8 && length(var.db_password) <= 32
+        error_message = "必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-="
+      }
+    }
+
+    variable "polardb_node_class" {
+      type        = string
+      description = "PolarDB集群规格"
+      default     = "polar.mysql.x4.large"
+    }
+
+    # VPC and VSwitch CIDR blocks
+    variable "vpc_cidr_block" {
+      type        = string
+      description = "VPC的CIDR块"
+      default     = "192.168.0.0/16"
+    }
+
+    variable "vswitch_cidr_block" {
+      type        = string
+      description = "交换机的CIDR块"
+      default     = "192.168.0.0/24"
+    }
+  main.tf: |-
+    provider "alicloud" {
+    }
+    data "alicloud_images" "default" {
+      name_regex  = "^centos_7_6*"
+      most_recent = true
+      owners      = "system"
+    }
+    resource "random_id" "suffix" {
+      byte_length = 8
+    }
+
+    locals {
+      common_name = random_id.suffix.hex
+      # MySQL installation and setup script
+      prepare_mysql_environment = <<-SCRIPT
+    #!/bin/bash
+    echo "################################"
+    echo "# Install MySQL"
+    echo "################################"
+    yum -y install mysql
+    mysql --version
+
+    echo "################################"
+    echo "# Create MySQL Table"
+    echo "################################"
+    mysql -h${alicloud_db_instance.rds.connection_string} -uu_rds2polardb -p${var.db_password} -Ddb_rds2polardb -e"CREATE TABLE t_rds2polardb(id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY, gmt_create datetime NOT NULL);"
+
+    echo "################################"
+    echo "# Prepare MySQL Script"
+    echo "################################"
+    cat > ~/loop_insert_query_mysql.sh << \EOF
+    export MYSQL_HOST=${alicloud_db_instance.rds.connection_string}
+    export MYSQL_PWD=${var.db_password}
+    while true; do
+        mysql -A -uu_rds2polardb -Ddb_rds2polardb -NBe'insert into t_rds2polardb(gmt_create) values(now());select concat("系统时间:",now(),"   数据写入时间:",max(gmt_create),"   总行数:",count(*)) from t_rds2polardb;show variables like "polardb_version";'
+        sleep 5
+    done
+    EOF
+    chmod +x ~/loop_insert_query_mysql.sh
+
+    cat > ~/loop_query_polardb.sh << \EOF
+    export MYSQL_HOST=${alicloud_polardb_cluster.polardb.connection_string}
+    export MYSQL_PWD=${var.db_password}
+    while true; do
+        mysql -A -uu_rds2polardb -Ddb_rds2polardb -NBe'select concat("系统时间:",now(),"   数据写入时间:",max(gmt_create),"   总行数:",count(*)) from t_rds2polardb;show variables like "polardb_version";'
+        sleep 5
+    done
+    EOF
+    chmod +x ~/loop_query_polardb.sh
+    SCRIPT
+    }
+
+    # Data source for current region
+    data "alicloud_regions" "current" {
+      current = true
+    }
+
+    # VPC Resources
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = "vpc_rds2polardb_${local.common_name}"
+      cidr_block = var.vpc_cidr_block
+    }
+
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = var.vswitch_cidr_block
+      zone_id      = var.zone_id
+      vswitch_name = "vsw_rds2polardb_${local.common_name}"
+    }
+
+    # Security Group
+    resource "alicloud_security_group" "security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg_rds2polardb_${local.common_name}"
+      security_group_type = "normal"
+    }
+
+    resource "alicloud_security_group_rule" "mysql_ingress" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "3306/3306"
+      cidr_ip           = "0.0.0.0/0"
+      security_group_id = alicloud_security_group.security_group.id
+      nic_type          = "intranet"
+    }
+
+    # RDS Instance
+    resource "alicloud_db_instance" "rds" {
+      engine             = "MySQL"
+      engine_version     = "8.0"
+      instance_type      = var.db_instance_class
+      instance_storage   = var.db_instance_storage
+      vpc_id             = alicloud_vpc.vpc.id
+      vswitch_id         = alicloud_vswitch.vswitch.id
+      zone_id            = var.zone_id
+      instance_name      = "rds_2polardb_${local.common_name}"
+      security_ips       = [var.vpc_cidr_block]
+      security_group_ids = [alicloud_security_group.security_group.id]
+    }
+
+    # RDS Database
+    resource "alicloud_db_database" "database" {
+      instance_id   = alicloud_db_instance.rds.id
+      name          = "db_rds2polardb_${local.common_name}"
+      character_set = "utf8mb4"
+    }
+
+    # RDS Account
+    resource "alicloud_db_account" "account" {
+      db_instance_id   = alicloud_db_instance.rds.id
+      account_name     = "u_rds2polardb_${local.common_name}"
+      account_password = var.db_password
+      account_type     = "Normal"
+    }
+
+    # RDS Account Privilege
+    resource "alicloud_db_account_privilege" "privilege" {
+      instance_id  = alicloud_db_instance.rds.id
+      account_name = alicloud_db_account.account.account_name
+      db_names     = [alicloud_db_database.database.name]
+      privilege    = "ReadWrite"
+    }
+
+    # ECS Instance Group
+    resource "alicloud_instance" "ecs_instance" {
+      instance_name              = "ecs_rds2polardb_${local.common_name}"
+      vpc_id                     = alicloud_vpc.vpc.id
+      vswitch_id                 = alicloud_vswitch.vswitch.id
+      availability_zone          = var.zone_id
+      security_groups            = [alicloud_security_group.security_group.id]
+      image_id                   = data.alicloud_images.default.images[0].id
+      instance_type              = var.instance_type
+      system_disk_category       = var.system_disk_category
+      system_disk_size           = 40
+      password                   = var.ecs_instance_password
+      internet_max_bandwidth_out = 100
+      internet_charge_type       = "PayByTraffic"
+      tags = {
+        rds = "polardb"
+      }
+
+      depends_on = [
+        alicloud_db_account_privilege.privilege
+      ]
+    }
+
+    # Prepare MySQL Environment Command
+    resource "alicloud_ecs_command" "prepare_mysql" {
+      name            = "prepare-mysql-environment-${local.common_name}"
+      description     = "Prepare MySQL environment for RDS to PolarDB migration"
+      type            = "RunShellScript"
+      command_content = base64encode(local.prepare_mysql_environment)
+      timeout         = 7200
+      working_dir     = "/root"
+    }
+
+    # Execute MySQL Environment Setup
+    resource "alicloud_ecs_invocation" "prepare_mysql" {
+      instance_id = [alicloud_instance.ecs_instance.id]
+      command_id  = alicloud_ecs_command.prepare_mysql.id
+
+      depends_on = [
+        alicloud_db_account_privilege.privilege,
+        alicloud_instance.ecs_instance
+      ]
+
+      timeouts {
+        create = "120m"
+      }
+    }
+
+    # PolarDB Cluster
+    resource "alicloud_polardb_cluster" "polardb" {
+      db_type            = "MySQL"
+      db_version         = "8.0"
+      db_node_class      = var.polardb_node_class
+      vpc_id             = alicloud_vpc.vpc.id
+      vswitch_id         = alicloud_vswitch.vswitch.id
+      zone_id            = var.zone_id
+      security_group_ids = [alicloud_security_group.security_group.id]
+      pay_type           = "PostPaid"
+      creation_option    = "MigrationFromRDS"
+      source_resource_id = alicloud_db_instance.rds.id
+      storage_type       = "PSL5"
+      security_ips       = [var.vpc_cidr_block]
+
+      depends_on = [
+        alicloud_db_account_privilege.privilege
+      ]
+    }
+  output.tf: |
+    # Outputs
+    output "rds_inner_connection_string" {
+      description = "RDS内网连接地址"
+      value       = alicloud_db_instance.rds.connection_string
+    }
