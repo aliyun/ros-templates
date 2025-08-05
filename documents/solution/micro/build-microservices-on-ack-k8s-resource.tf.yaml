@@ -1,0 +1,313 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  zh-cn: 在集群内部署Demo服务。
+  en: Configure demo service in the cluster.
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - cluster_id
+Parameters:
+  cluster_id:
+    Type: String
+    Label:
+      en: Managed Kubernetes Cluster ID
+      zh-cn: ACK托管版集群ID
+    AssociationProperty: ALIYUN::CS::Cluster::ClusterId
+Workspace:
+  provider.tf: |-
+    provider "alicloud" {}
+
+    provider "kubernetes" {
+      host                   = data.alicloud_cs_managed_kubernetes_clusters.k8s_clusters.clusters.0.connections.api_server_internet
+      cluster_ca_certificate = base64decode(data.alicloud_cs_cluster_credential.kube_config.certificate_authority.cluster_cert)
+      client_key = base64decode(data.alicloud_cs_cluster_credential.kube_config.certificate_authority.client_key)
+      client_certificate = base64decode(data.alicloud_cs_cluster_credential.kube_config.certificate_authority.client_cert)
+    }
+  variable.tf: |-
+    variable "cluster_id" {
+      description = "The ID of the cluster"
+      type        = string
+    }
+  main.tf: |-
+    # 查询地域
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # 获取集群连接信息
+    data "alicloud_cs_cluster_credential" "kube_config" {
+      cluster_id = var.cluster_id
+      temporary_duration_minutes = 60
+    }
+
+    # 获取集群信息
+    data "alicloud_cs_managed_kubernetes_clusters" "k8s_clusters" {
+      ids = [var.cluster_id]
+      enable_details = true
+    }
+
+    # create Backend Apps
+    resource "kubernetes_manifest" "a_deployment" {
+      manifest = yamldecode(local.backend_app_yaml.a_deployment)
+    }
+
+    resource "kubernetes_manifest" "a_service" {
+      manifest = yamldecode(local.backend_app_yaml.a_service)
+    }
+
+    resource "kubernetes_manifest" "b_deployment" {
+      manifest = yamldecode(local.backend_app_yaml.b_deployment)
+    }
+
+    resource "kubernetes_manifest" "b_service" {
+      manifest = yamldecode(local.backend_app_yaml.b_service)
+    }
+
+    # create alb config ingress
+    resource "kubernetes_manifest" "alb_config" {
+      depends_on = [kubernetes_manifest.a_deployment, kubernetes_manifest.a_service, kubernetes_manifest.b_deployment, kubernetes_manifest.b_service]
+      manifest = yamldecode(local.alb_yaml.config)
+    }
+
+    resource "kubernetes_manifest" "alb_ingress_class" {
+      depends_on = [kubernetes_manifest.alb_config]
+      manifest = yamldecode(local.alb_yaml.ingress_class)
+    }
+
+    resource "kubernetes_manifest" "alb_ingress" {
+      depends_on = [kubernetes_manifest.alb_ingress_class]
+      manifest = yamldecode(local.alb_yaml.ingress)
+    }
+
+    resource "time_sleep" "wait_alb_ingress_ready" {
+      depends_on = [kubernetes_manifest.alb_ingress]
+      create_duration = "180s"
+    }
+
+    data "kubernetes_ingress_v1" "ingress" {
+      depends_on = [time_sleep.wait_alb_ingress_ready]
+      metadata {
+        name = "ecs-ack-test-alb-ingress"
+        namespace = "default"
+      }
+    }
+
+    locals {
+      backend_app_yaml = {
+        a_deployment = <<-YAML
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ecs-ack-test-service-a
+            namespace: default
+            labels:
+              app: ecs-ack-test-service-a
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: ecs-ack-test-service-a
+            template:
+              metadata:
+                labels:
+                  app: ecs-ack-test-service-a
+              spec:
+                initContainers:
+                  - name: download-jar
+                    image: dragonwell-registry.cn-hangzhou.cr.aliyuncs.com/dragonwell/dragonwell:8-alinux
+                    command:
+                      - "/bin/sh"
+                      - "-c"
+                      - "curl -o /app/app.jar https://help-static-aliyun-doc.aliyuncs.com/tech-solution/MicroServiceOnAckDemo-1.0.1.jar && echo 'Download jar OK!'"
+                    volumeMounts:
+                      - name: app-jar
+                        mountPath: /app
+                containers:
+                  - args:
+                      - '-DbHost=http://ecs-ack-test-service-b:8080'
+                      - '-jar'
+                      - '/app/app.jar'
+                    command:
+                      - java
+                    name: ecs-ack-test-service-a
+                    image: dragonwell-registry.cn-hangzhou.cr.aliyuncs.com/dragonwell/dragonwell:8-alinux
+                    env:
+                    - name: APP_MANUAL_DEPLOY
+                      value: "false"
+                    ports:
+                      - containerPort: 8080
+                    resources:
+                      limits:
+                        cpu: '2'
+                        ephemeral-storage: 40Gi
+                        memory: 2Gi
+                      requests:
+                        cpu: '1'
+                        ephemeral-storage: 20Gi
+                        memory: 1Gi
+                    volumeMounts:
+                      - name: app-jar
+                        mountPath: /app
+                volumes:
+                  - name: app-jar
+                    emptyDir: {}
+        YAML
+
+        a_service = <<-YAML
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ecs-ack-test-service-a
+            namespace: default
+          spec:
+            selector:
+              app: ecs-ack-test-service-a
+            ports:
+              - protocol: TCP
+                port: 8080
+                targetPort: 8080
+        YAML
+
+        b_deployment = <<-YAML
+          apiVersion: apps/v1 # for versions before 1.8.0 use apps/v1beta1
+          kind: Deployment
+          metadata:
+            name: ecs-ack-test-service-b
+            namespace: default
+            labels:
+              app: ecs-ack-test-service-b
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: ecs-ack-test-service-b
+            template:
+              metadata:
+                labels:
+                  app: ecs-ack-test-service-b
+              spec:
+                initContainers:
+                  - name: download-jar
+                    image: dragonwell-registry.cn-hangzhou.cr.aliyuncs.com/dragonwell/dragonwell:8-alinux
+                    command:
+                      - "/bin/sh"
+                      - "-c"
+                      - "curl -o /app/app.jar https://help-static-aliyun-doc.aliyuncs.com/tech-solution/MicroServiceOnAckDemo-1.0.1.jar && echo 'Download jar OK!'"
+                    volumeMounts:
+                      - name: app-jar
+                        mountPath: /app
+                containers:
+                  - args:
+                      - '-DbHost=http://ecs-ack-test-service-b:8080'
+                      - '-jar'
+                      - '/app/app.jar'
+                    command:
+                      - java
+                    name: ecs-ack-test-service-b
+                    image: dragonwell-registry.cn-hangzhou.cr.aliyuncs.com/dragonwell/dragonwell:8-alinux
+                    env:
+                    - name: APP_MANUAL_DEPLOY
+                      value: "false"
+                    ports:
+                      - containerPort: 8080
+                    resources:
+                      limits:
+                        cpu: '2'
+                        ephemeral-storage: 40Gi
+                        memory: 2Gi
+                      requests:
+                        cpu: '1'
+                        ephemeral-storage: 20Gi
+                        memory: 1Gi
+                    volumeMounts:
+                      - name: app-jar
+                        mountPath: /app
+                volumes:
+                  - name: app-jar
+                    emptyDir: {}
+        YAML
+
+        b_service = <<-YAML
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ecs-ack-test-service-b
+            namespace: default
+          spec:
+            selector:
+              app: ecs-ack-test-service-b
+            ports:
+              - protocol: TCP
+                port: 8080
+                targetPort: 8080
+        YAML
+      }
+
+      alb_yaml = {
+        config = <<-YAML
+          apiVersion: alibabacloud.com/v1
+          kind: AlbConfig
+          metadata:
+            name: ecs-ack-test-alb-config
+          spec:
+            config:
+              name: ecs-ack-test-alb
+              addressType: Internet
+            listeners:
+              - port: 80
+                protocol: HTTP
+        YAML
+
+        ingress_class = <<-YAML
+          apiVersion: networking.k8s.io/v1
+          kind: IngressClass
+          metadata:
+            name: ecs-ack-test-alb
+          spec:
+            controller: ingress.k8s.alibabacloud/alb
+            parameters:
+              apiGroup: alibabacloud.com
+              kind: AlbConfig
+              name: ecs-ack-test-alb-config
+        YAML
+
+        ingress = <<-YAML
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: ecs-ack-test-alb-ingress
+            namespace: default
+          spec:
+            ingressClassName:  ecs-ack-test-alb
+            rules:
+             - http:
+                paths:
+                - path: /a
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: ecs-ack-test-service-a
+                      port:
+                        number: 8080
+                - path: /b
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: ecs-ack-test-service-b
+                      port:
+                        number: 8080
+        YAML
+      }
+    }
+  output.tf: |-
+    output "a_service_url" {
+      description = "a服务访问地址"
+      value       = "http://${data.kubernetes_ingress_v1.ingress.status[0].load_balancer[0].ingress[0].hostname}/a"
+    }
+
+    output "b_service_url" {
+      description = "b服务访问地址"
+      value       = "http://${data.kubernetes_ingress_v1.ingress.status[0].load_balancer[0].ingress[0].hostname}/b"
+    }
