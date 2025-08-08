@@ -16,6 +16,21 @@ Parameters:
       en: Availability Zone ID,<br><b>note： <font color='blue'>It is used to create
         VSwitch and used for Flink instance.</font></b>
     AssociationProperty: ZoneId
+  FlinkInstanceName:
+    Type: String
+    Label:
+      zh-cn: Flink实例名称
+      en: Flink Instance Name
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 3
+      Prefix: streaming-lakehouse-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    Description:
+      zh-cn: '长度为1~60个字符，必须以小写字母开头和结尾，可以包含小写字母、数字和连字符(-); 注：需要全网唯一性，已经存在的不能再创建。'
+      en: '1 to 60 characters in length, must start and end with a lowercase letter, and can contain lowercase letters, numbers, and hyphens (-); Note: The uniqueness of the whole network is required, and the existing one cannot be created.'
   InstanceType:
     Type: String
     Label:
@@ -55,9 +70,36 @@ Parameters:
       Length: 6
       Prefix: test-bucketname-
       CharacterClasses:
-      - Class: lowercase
-        min: 1
+        - Class: lowercase
+          min: 1
     AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+  KafkaTopicName:
+    Type: String
+    Label:
+      zh-cn: Topic名称
+      en: The name of the topic
+    Description:
+      zh-cn: '主题的名称。名称只能包含字母、数字、连字符（-）和下划线（_）。 名称的长度必须为3到64个字符，并且将被自动截断如果它包含更多字符。名称创建后不能修改。'
+      en: 'The name of the topic. The value of this parameter must meet the following requirements:
+          The name can only contain letters, digits, hyphens (-), and underscores (_).
+          The name must be 3 to 64 characters in length, and will be automatically truncated
+          if it contains more characters.
+          The name cannot be modified after being created.'
+    Default: topic_dlf_paimon_demo
+  KafkaConsumerName:
+    Label:
+      zh-cn: 消费组名称
+      en: GroupName
+    Description:
+      en: 'Group name. Value:
+          Can only contain letters, numbers, dashes (-), underscores (_), and at least
+          one English or number.
+          The length is limited to 3 to 128 characters, and more than 128 characters
+          will be automatically intercepted.
+          Once the group name is created, it cannot be modified.'
+      zh-cn: '消费组名称。只能包含字母、数字、短划线（-）、下划线（_），并且至少一个英语或数字。长度限制为3到128个字符，超过128个字符会被自动拦截。组名一旦创建，就不能修改。'
+    Type: String
+    Default: group_dlf_paimon_demo
 Resources:
   ECSVPC:
     Type: ALIYUN::ECS::VPC
@@ -109,7 +151,8 @@ Resources:
     Properties:
       InstanceId:
         Ref: KafkaInstance
-      Topic: topic_dlf_paimon_demo
+      Topic:
+        Ref: KafkaTopicName
       Remark: dlf paimon test
       PartitionNum: 12
   ConsumerGroup:
@@ -117,7 +160,8 @@ Resources:
     Properties:
       InstanceId:
         Ref: KafkaInstance
-      ConsumerId: group_dlf_paimon_demo
+      ConsumerId:
+        Ref: KafkaConsumerName
       Remark: dlf paimon group
   OSSBucket:
     Type: ALIYUN::OSS::Bucket
@@ -132,19 +176,19 @@ Resources:
       VpcId:
         Ref: ECSVPC
       VSwitchIds:
-      - Ref: ECSVSwitch
+        - Ref: ECSVSwitch
       Bucket:
         Ref: OSSBucket
       ChargeType: Postpaid
       InstanceName:
-        Fn::Sub: streaming-lakehouse-${ALIYUN::StackId}
+        Ref: FlinkInstanceName
   EcsInstance:
     Type: ALIYUN::ECS::Instance
     Properties:
       VpcId:
         Fn::GetAtt:
-        - ECSVPC
-        - VpcId
+          - ECSVPC
+          - VpcId
       VSwitchId:
         Ref: ECSVSwitch
       SecurityGroupId:
@@ -160,7 +204,7 @@ Resources:
         Ref: InstanceType
   WaitConditionHandle:
     Type: ALIYUN::ROS::WaitConditionHandle
-    Properties: {}
+    Properties: { }
   WaitCondition:
     Type: ALIYUN::ROS::WaitCondition
     Properties:
@@ -172,7 +216,7 @@ Resources:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       InstanceIds:
-      - Ref: EcsInstance
+        - Ref: EcsInstance
       Type: RunShellScript
       CommandContent:
         Fn::Sub:
@@ -193,21 +237,60 @@ Resources:
       Sync: true
 Metadata:
   ALIYUN::ROS::Interface:
+    Outputs:
+      - EcsInstanceUser
+      - EcsInstancePassword
+      - EcsLoginAddress
     ParameterGroups:
-    - Parameters:
-      - ZoneId
-      Label:
-        default:
-          zh-cn: 可用区配置
-          en: Availability Zone
-    - Parameters:
-      - InstanceType
-      - InstancePassword
-      Label:
-        default:
-          zh-cn: ECS 配置
-          en: ECS
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            zh-cn: 可用区配置
+            en: Availability Zone
+      - Parameters:
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            zh-cn: ECS 配置
+            en: ECS Configuration
+      - Parameters:
+          - FlinkInstanceName
+        Label:
+          default:
+            zh-cn: Flink配置
+            en: Flink Configuration
+      - Parameters:
+          - KafkaTopicName
+          - KafkaConsumerName
+        Label:
+          default:
+            zh-cn: Kafka配置
+            en: Kafka Configuration
     TemplateTags:
-    - acs:technical-solution:data-analysis:Streaming LakeHouse-tech_solu_280
+      - acs:technical-solution:data-analysis:Streaming LakeHouse-tech_solu_280
     Hidden:
-    - BucketName
+      - BucketName
+Outputs:
+  EcsLoginAddress:
+    Description:
+      en: Ecs login address.
+      zh-cn: ECS登录地址。
+    Value:
+      Fn::Sub:
+      - https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+      - InstanceId:
+          Fn::GetAtt:
+            - EcsInstance
+            - InstanceId
+        Region:
+          Ref: ALIYUN::Region
+  EcsInstanceUser:
+    Description: ECS实例用户名
+    Value: root
+  EcsInstancePassword:
+    Description: ECS实例用户密码
+    Value:
+      Ref: InstancePassword
+    NoEcho: true
