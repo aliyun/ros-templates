@@ -1,0 +1,575 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: To handle high concurrency, the Redis version cache is utilized to achieve ultra-fast response.
+  zh-cn: 应对高并发，利用Redis版缓存实现极速响应。
+Parameters:
+  CommonName:
+    Type: String
+    Default: cache
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+  InstanceType:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+      Constraints:
+        Memory:
+          - 4
+          - 6
+          - 8
+          - 10
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+    Default: ecs.c6.large
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  DBUserName:
+    Type: String
+    ConstraintDescription:
+      en: >-
+        Consist of 2 to 32 characters of lowercase letters, underline. 
+        Must begin with a letter and be end with an alphanumeric character
+      zh-cn: >-
+        由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头。
+    Label:
+      zh-cn: RDS数据库账号
+      en: RDS DB Username
+    Default: rds
+    AllowedPattern: '^[a-z][a-z0-9_]{0,31}$'
+    ReadOnly: true
+  DBPassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        RDS user password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, !@#$%^&*()_+-= Special
+        symbol in)
+      zh-cn: >-
+        数据库账号密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=
+        中的特殊符号）
+    Label:
+      en: RDS Instance Password
+      zh-cn: RDS数据库密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, !@#$%^&*()_+-= Special symbol in)
+      zh-cn: '必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-='
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: RDS Instance Class
+      zh-cn: RDS实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId:
+        Ref: ZoneId
+      EngineVersion: '8.0'
+      DBInstanceStorageType: cloud_essd
+      Engine: MySQL
+      Category: Basic
+      CommodityCode: bards
+    Default: mysql.n4.medium.1
+  RedisAccountName:
+    Type: String
+    ConstraintDescription:
+      en: >-
+        Consist of 2 to 32 characters of lowercase letters, underline. 
+        Must begin with a letter and be end with an alphanumeric character
+      zh-cn: >-
+        由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头。
+    Label:
+      zh-cn: Redis数据库账号
+      en: Redis DB Username
+    Default: redis
+    ReadOnly: true
+    AllowedPattern: '^[a-z][a-z0-9_]{0,31}$'
+  RedisAccountPassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        RDS user password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        数据库账号密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Redis Instance Password
+      zh-cn: Redis 数据库密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括!@#$%^&*()_+-='
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+  RedisClass:
+    Type: String
+    Label:
+      en: Redis Specifications
+      zh-cn: Redis 规格
+    Description:
+      en: >-
+        'Fill in instance specifications based on redis type and availability
+        zone support;<br>see detail: <a href=''https://help.aliyun.com/zh/redis/product
+        -overview/instance-types-of-cloud-native-community-edition-instances''
+        target=''_blank''><b><font color=''blue''>Specification inquiry</font></b></a>'
+      zh-cn: >-
+        根据redis类型和可用区支持的情况填写实例规格；<br>请参见详细信息：
+        <a href='https://help.aliyun.com/zh/redis/product-overview/
+        instance-types-of-cloud-native-community-edition-instances'
+        target='_blank'><b><font color='blue'>规格查询</font></b></a>
+    Default: redis.shard.micro.ce
+    AssociationProperty: 'ALIYUN::REDIS::Instance::InstanceClass'
+    AssociationPropertyMetadata:
+      Engine: Redis
+      ProductType: OnECS
+      InstanceChargeType: PostPaid
+      ZoneId: ${ZoneId}
+      OrderType: BUY
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+  EcsInstance:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 5
+      Password:
+        Ref: InstancePassword
+  InstallAppWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: { }
+  InstallAppWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    DependsOn:
+      - DBInstanceParameterGroup
+      - RedisInstance
+    Properties:
+      Handle:
+        Ref: InstallAppWaitConditionHandle
+      Timeout: 3600
+      Count: 1
+  InstallWeb:
+    Type: 'ALIYUN::ECS::RunCommand'
+    DependsOn:
+      - RedisAccount
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - EcsInstance
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub: |-
+          cat << EOF >> ~/.bash_profile
+          export MYSQL_URL="${RdsInstance.InnerConnectionString}"
+          export MYSQL_PASSWORD="${DBPassword}"
+          export REDIS_URL="${RedisInstance.VpcPrivateConnectionString}"
+          export REDIS_PASSWORD="${RedisAccountPassword}"
+          export ROS_DEPLOY=true
+          EOF
+          
+          source ~/.bash_profile
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/redis-cache-speedup/init_speed.sh|bash
+          ${InstallAppWaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+  RdsInstance:
+    Type: 'ALIYUN::RDS::DBInstance'
+    Properties:
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      ZoneId:
+        Ref: ZoneId
+      DBInstanceStorage: 40
+      Category: Basic
+      DBInstanceStorageType: cloud_essd
+      VSwitchId:
+        Ref: VSwitch
+      Engine: MySQL
+      VpcId:
+        Ref: Vpc
+      EngineVersion: '8.0'
+      SecurityIPList: '192.168.0.0/24'
+      MasterUsername:
+        Ref: DBUserName
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUserType: Super
+  DBInstanceParameterGroup:
+    Type: ALIYUN::RDS::DBInstanceParameterGroup
+    Properties:
+      Parameters:
+        - Key: innodb_flush_log_at_trx_commit
+          Value: '2'
+        - Key: sync_binlog
+          Value: '1000'
+      DBInstanceId:
+        Ref: RdsInstance
+      Forcerestart: 'false'
+  RedisInstance:
+    Type: 'ALIYUN::REDIS::Instance'
+    Properties:
+      EngineVersion: '7.0'
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      InstanceClass:
+        Ref: RedisClass
+      InstanceName:
+        Fn::Sub: ${CommonName}-redis
+      Password:
+        Ref: RedisAccountPassword
+      ProductType: 'OnECS'
+      DeletionForce: true
+      NodeType: MASTER_SLAVE
+  RedisWhitelist:
+    Type: ALIYUN::REDIS::Whitelist
+    Properties:
+      InstanceId:
+        Ref: RedisInstance
+      SecurityIps: '192.168.0.0/24'
+  RedisAccount:
+    Type: 'ALIYUN::REDIS::Account'
+    Properties:
+      InstanceId:
+        Ref: RedisInstance
+      AccountName:
+        Ref: RedisAccountName
+      AccountPrivilege: RoleReadWrite
+      AccountType: Normal
+      AccountPassword:
+        Ref: RedisAccountPassword
+Outputs:
+  RDSDatabaseUserName:
+    Description:
+      zh-cn: RDS 数据库用户名。
+      en: The name of RDS database user.
+    Value:
+      Ref: DBUserName
+  RDSDatabaseEndpoint:
+    Description:
+      zh-cn: RDS 数据库链接地址。
+      en: The connection address of RDS database.
+    Value:
+      Fn::GetAtt:
+        - RdsInstance
+        - InnerConnectionString
+  RedisAccountName:
+    Description:
+      zh-cn: Redis 数据库用户名。
+      en: The name of redis database user.
+    Value:
+      Ref: RedisAccountName
+  RedisEndpoint:
+    Description:
+      zh-cn: Redis 数据库链接地址。
+      en: The connection address of Redis database.
+    Value:
+      Fn::GetAtt:
+        - RedisInstance
+        - VpcPrivateConnectionString
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub': >-
+        https://ecs-workbench.aliyun.com/?from=
+        EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
+  EcsPublicIPAddress:
+    Description:
+      zh-cn: ECS公网IP地址。
+      en: Ecs Public IP Address.
+    Value:
+      Fn::Select:
+        - 0
+        - 'Fn::GetAtt':
+            - EcsInstance
+            - PublicIps
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - InstanceType
+          - InstancePassword
+        Label:
+          default:
+            zh-cn: ECS 配置
+            en: ECS Configuration
+      - Parameters:
+          - DBUserName
+          - DBPassword
+          - DBInstanceClass
+        Label:
+          default:
+            zh-cn: RDS 配置
+            en: RDS Configuration
+      - Parameters:
+          - RedisAccountName
+          - RedisAccountPassword
+          - RedisClass
+        Label:
+          default:
+            zh-cn: Redis 配置
+            en: Redis Configuration
+    TemplateTags:
+      - acs:technical-solution:database:应对高并发，利用Redis版缓存实现极速响应-tech_solu_147
+    Hidden:
+      - CommonName
+  ALIYUN::ROS::Composer:
+    739015ce:
+      Rect:
+        - 734
+        - 631
+        - 16
+        - 100
+        - 1
+        - 0
+      ResT: Composer::ROSParameter::AlibabaCloud
+    4909e43c:
+      Parent: 739015ce
+      Rect:
+        - 669
+        - 553
+        - 42
+        - 150
+        - 2
+        - 0
+      ResT: Composer::ROSParameter::Region
+    2b639d66:
+      Res:
+        - Vpc
+      Parent: 4909e43c
+      Rect:
+        - 480
+        - 392
+        - 140
+        - 200
+        - 3
+        - 0
+    01cd93a2:
+      Res:
+        - InstallAppWaitConditionHandle
+      Parent: 4909e43c
+      Rect:
+        - 40
+        - 40
+        - 435
+        - 619
+        - 3
+        - 0
+    b3d7df1b:
+      Res:
+        - InstallAppWaitCondition
+      Parent: 4909e43c
+      Rect:
+        - 40
+        - 40
+        - 560
+        - 619
+        - 3
+        - 0
+    0a211f18:
+      Res:
+        - InstallWeb
+      Parent: 4909e43c
+      Rect:
+        - 40
+        - 40
+        - 70
+        - 380
+        - 3
+        - 0
+    35f5141e:
+      Res:
+        - DBInstanceParameterGroup
+      Parent: 4909e43c
+      Rect:
+        - 40
+        - 40
+        - 650
+        - 380
+        - 3
+        - 0
+    426b0995:
+      Res:
+        - RedisWhitelist
+      Parent: 4909e43c
+      Rect:
+        - 40
+        - 40
+        - 275
+        - 619
+        - 3
+        - 0
+    b78a5641:
+      Res:
+        - RedisAccount
+      Parent: 4909e43c
+      Rect:
+        - 40
+        - 40
+        - 70
+        - 470
+        - 3
+        - 0
+    8dfc80a2:
+      Parent: 2b639d66
+      Rect:
+        - 439
+        - 319
+        - 161
+        - 250
+        - 4
+        - 0
+      ResT: Composer::ROSParameter::Zone
+    dca9f825:
+      Res:
+        - VSwitch
+      Parent: 8dfc80a2
+      Rect:
+        - 403
+        - 248
+        - 177
+        - 300
+        - 5
+        - 0
+    c53a5291:
+      Res:
+        - RdsInstance
+      Parent: dca9f825
+      Rect:
+        - 40
+        - 40
+        - 435
+        - 380
+        - 6
+        - 0
+    '8687e051':
+      Res:
+        - RedisInstance
+      Parent: dca9f825
+      Rect:
+        - 40
+        - 40
+        - 275
+        - 470
+        - 11
+        - 0
+    b6882705:
+      Res:
+        - SecurityGroup
+      Parent: 2b639d66
+      Rect:
+        - 125
+        - 105
+        - 232
+        - 350
+        - 15
+        - 0
+    c2adcf48:
+      Res:
+        - EcsInstance
+      Parent: dca9f825
+      Rect:
+        - 40
+        - 40
+        - 274
+        - 380
+        - 16
+        - 0
+      Layer:
+        - b6882705
+    d775f38f:
+      Parent: 4909e43c
+      Edge:
+        - b3d7df1b
+        - 01cd93a2
+      Line: 0:0:0:gray:0
+    92fdadee:
+      Parent: 4909e43c
+      Edge:
+        - 0a211f18
+        - c2adcf48
+      Line: 0:0:0:gray:0
+    9ebf4612:
+      Parent: 4909e43c
+      Edge:
+        - 35f5141e
+        - c53a5291
+      Line: 0:0:0:gray:0
+    febb3480:
+      Parent: 4909e43c
+      Edge:
+        - 426b0995
+        - '8687e051'
+      Line: 0:0:0:gray:0
+    ead1fc3c:
+      Parent: 4909e43c
+      Edge:
+        - b78a5641
+        - '8687e051'
+      Line: 0:0:0:gray:0
