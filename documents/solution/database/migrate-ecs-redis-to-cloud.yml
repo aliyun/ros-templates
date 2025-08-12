@@ -1,0 +1,515 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 自建 Redis 迁移到云数据库。
+  en: Migrate self-built Redis to the cloud database.
+Parameters:
+  CommonName:
+    Type: String
+    Default: Migrate
+  Zone:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+    Description:
+      zh-cn: 用于创建ECS和Redis的可用区。
+      en: Used to create availability zones for ECS and Redis.
+    Label:
+      zh-cn: 可用区
+      en: Availability Zone.
+  EcsInstanceType:
+    Type: String
+    Label:
+      zh-cn: ECS实例类型
+      en: ECS instance type.
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: ${Zone}
+    Default: ecs.e-c1m2.large
+  SelfRedisPassword:
+    Type: String
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin with a letter and be end with an alphanumeric character
+      zh-cn: 大写、小写、数字、特殊字符占三种，长度为8－32位；特殊字符为!@#$%^&*()_+-=
+    Label:
+      zh-cn: ECS 自建 Redis 数据库密码
+      en: ECS builds its own Redis database password
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+    Description:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin with a letter and be end with an alphanumeric character
+      zh-cn: 大写、小写、数字、特殊字符占三种，长度为8－32位；特殊字符为!@#$%^&*()_+-=
+    AllowedPattern: ^(?:(?=.*[a-z])(?=.*[A-Z])(?=.*\d)|(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=])|(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=])|(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=]))[A-Za-z\d!@#$%^&*()_+\-=]{8,32}$
+    MinLength: '8'
+    MaxLength: '32'
+    NoEcho: true
+  InstancePassword:
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+  RedisInstanceClass:
+    Type: String
+    Label:
+      en: Tair Specifications
+      zh-cn: Tair 规格
+    Description:
+      en: <font color='blue'><b>Before selecting a model, please confirm whether the model is in stock in the current availability zone. To save testing costs, it is recommended to use a model with 1G memory, for example:tair.rdb.1g</b></font>, see detail:<a href='https://help.aliyun.com/zh/redis/product-overview/enhanced-performance' target='_blank'><b><font color='red'>Specification inquiry</font></b></a>.
+      zh-cn: <font color='blue'><b>选择机型前请先确认当前可用区下该机型是否有库存，为节省测试成本，推荐使用1GB的规格，例如：tair.rdb.1g</b></font>，<a href='https://help.aliyun.com/zh/redis/product-overview/enhanced-performance' target='_blank'><b><font color='red'>规格查询</font></b></a>。
+    AssociationProperty: ALIYUN::REDIS::Instance::InstanceClass
+    AssociationPropertyMetadata:
+      Engine: Redis
+      ProductType: Tair_rdb
+      InstanceChargeType: PostPaid
+      ZoneId: ${Zone}
+      OrderType: BUY
+    Default: tair.rdb.1g
+  RedisPassword:
+    Type: String
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin with a letter and be end with an alphanumeric character
+      zh-cn: 大写、小写、数字、特殊字符占三种，长度为8－32位；特殊字符为!@#$%^&*()_+-=
+    Label:
+      zh-cn: Redis 数据库密码
+      en: Redis database password
+    AssociationProperty: 'ALIYUN::RDS::Instance::AccountPassword'
+    AllowedPattern: ^(?:(?=.*[a-z])(?=.*[A-Z])(?=.*\d)|(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=])|(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=])|(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=]))[A-Za-z\d!@#$%^&*()_+\-=]{8,32}$
+    MinLength: '8'
+    MaxLength: '32'
+    NoEcho: true
+Resources:
+  RosWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Count: 1
+      Handle:
+        Ref: RosWaitConditionHandle
+      Timeout: 3600
+  RosWaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      CidrBlock: 192.168.0.0/24
+      VSwitchName:
+        Fn::Sub: vsw_001_${CommonName}
+      ZoneId:
+        Ref: Zone
+      VpcId:
+        Fn::GetAtt:
+          - Vpc
+          - VpcId
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: vpc_${CommonName}
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName:
+        Fn::Sub: SecurityGroup_1_${CommonName}
+      VpcId:
+        Fn::GetAtt:
+          - Vpc
+          - VpcId
+  WebServer:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      IoOptimized: optimized
+      ImageId: aliyun_3_x64_20G_alibase_
+      SecurityGroupId:
+        Ref: SecurityGroup
+      Password:
+        Ref: InstancePassword
+      ImageOptions:
+        LoginAsNonRoot: true
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 80
+      VSwitchId:
+        Ref: VSwitch
+      VpcId:
+        Ref: Vpc
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory: cloud_essd
+      AllocatePublicIP: true
+      ZoneId:
+        Ref: Zone
+  RunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+          - WebServer
+          - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      Username: ecs-user
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/sh
+          export ROS_DEPLOY=true
+          echo 'export db_pwd="${SelfRedisPassword}"' >> ~/.bashrc
+
+          source ~/.bash_profile
+          
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/migrate-self-managed-redis-to-cloud/install_redis.sh|sh 
+          ${RosWaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
+  RedisInstance:
+    Type: ALIYUN::REDIS::Instance
+    Properties:
+      ZoneId:
+        Ref: Zone
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      InstanceClass:
+        Ref: RedisInstanceClass
+      ProductType: Tair_rdb
+      NodeType: double
+      InstanceName:
+        Fn::Sub: tair
+      EngineVersion: '7.0'
+      EvictionPolicy: noeviction
+      Password:
+        Ref: RedisPassword
+  MigrationJob:
+    Type: ALIYUN::DTS::SynchronizationJob2
+    DependsOn:
+      - RosWaitCondition
+    Properties:
+      DtsJobName:
+        Fn::Sub: ${CommonName}-ecs_redis_2_cloud_dts
+      SourceEndpoint:
+        InstanceType: ECS
+        InstanceID:
+          Fn::Select:
+            - 0
+            - Fn::GetAtt:
+                - WebServer
+                - InstanceIds
+        EngineName: Redis
+        Port: '6379'
+        Region:
+          Ref: ALIYUN::Region
+        Password:
+          Ref: SelfRedisPassword
+      DestinationEndpoint:
+        InstanceType: Redis
+        InstanceID:
+          Ref: RedisInstance
+        EngineName: Redis
+        Port: '6379'
+        Region:
+          Ref: ALIYUN::Region
+        Password:
+          Ref: RedisPassword
+      StructureInitialization: false
+      DataInitialization: false
+      DataSynchronization: true
+      DataCheckConfigure:
+        fullCheckModel: 1
+        fullCheckRatio: 100
+        fullCheckMaxReadRps: 0
+        fullCheckMaxReadBps: 0
+        fullCheckReferEndpoint: all
+        fullCheckErrorNotice: false
+        fullCheckValidFailNotice: false
+        fullCheckNoticeValue: 1
+        fullDataCheck: true
+        incrementalDataCheck: false
+        dataCheckDbList: '{"0":{"name":"0","all":true},"1":{"name":"1","all":true},"2":{"name":"2","all":true},"3":{"name":"3","all":true},"4":{"name":"4","all":true},"5":{"name":"5","all":true},"6":{"name":"6","all":true},"7":{"name":"7","all":true},"8":{"name":"8","all":true},"9":{"name":"9","all":true},"10":{"name":"10","all":true},"11":{"name":"11","all":true},"12":{"name":"12","all":true},"13":{"name":"13","all":true},"14":{"name":"14","all":true},"15":{"name":"15","all":true},"16":{"name":"16","all":true},"17":{"name":"17","all":true},"18":{"name":"18","all":true},"19":{"name":"19","all":true},"20":{"name":"20","all":true},"21":{"name":"21","all":true},"22":{"name":"22","all":true},"23":{"name":"23","all":true},"24":{"name":"24","all":true},"25":{"name":"25","all":true},"26":{"name":"26","all":true},"27":{"name":"27","all":true},"28":{"name":"28","all":true},"29":{"name":"29","all":true},"30":{"name":"30","all":true},"31":{"name":"31","all":true},"32":{"name":"32","all":true},"33":{"name":"33","all":true},"34":{"name":"34","all":true},"35":{"name":"35","all":true},"36":{"name":"36","all":true},"37":{"name":"37","all":true},"38":{"name":"38","all":true},"39":{"name":"39","all":true},"40":{"name":"40","all":true},"41":{"name":"41","all":true},"42":{"name":"42","all":true},"43":{"name":"43","all":true},"44":{"name":"44","all":true},"45":{"name":"45","all":true},"46":{"name":"46","all":true},"47":{"name":"47","all":true},"48":{"name":"48","all":true},"49":{"name":"49","all":true},"50":{"name":"50","all":true},"51":{"name":"51","all":true},"52":{"name":"52","all":true},"53":{"name":"53","all":true},"54":{"name":"54","all":true},"55":{"name":"55","all":true},"56":{"name":"56","all":true},"57":{"name":"57","all":true},"58":{"name":"58","all":true},"59":{"name":"59","all":true},"60":{"name":"60","all":true},"61":{"name":"61","all":true},"62":{"name":"62","all":true},"63":{"name":"63","all":true},"64":{"name":"64","all":true},"65":{"name":"65","all":true},"66":{"name":"66","all":true},"67":{"name":"67","all":true},"68":{"name":"68","all":true},"69":{"name":"69","all":true},"70":{"name":"70","all":true},"71":{"name":"71","all":true},"72":{"name":"72","all":true},"73":{"name":"73","all":true},"74":{"name":"74","all":true},"75":{"name":"75","all":true},"76":{"name":"76","all":true},"77":{"name":"77","all":true},"78":{"name":"78","all":true},"79":{"name":"79","all":true},"80":{"name":"80","all":true},"81":{"name":"81","all":true},"82":{"name":"82","all":true},"83":{"name":"83","all":true},"84":{"name":"84","all":true},"85":{"name":"85","all":true},"86":{"name":"86","all":true},"87":{"name":"87","all":true},"88":{"name":"88","all":true},"89":{"name":"89","all":true},"90":{"name":"90","all":true},"91":{"name":"91","all":true},"92":{"name":"92","all":true},"93":{"name":"93","all":true},"94":{"name":"94","all":true},"95":{"name":"95","all":true},"96":{"name":"96","all":true},"97":{"name":"97","all":true},"98":{"name":"98","all":true},"99":{"name":"99","all":true},"100":{"name":"100","all":true},"101":{"name":"101","all":true},"102":{"name":"102","all":true},"103":{"name":"103","all":true},"104":{"name":"104","all":true},"105":{"name":"105","all":true},"106":{"name":"106","all":true},"107":{"name":"107","all":true},"108":{"name":"108","all":true},"109":{"name":"109","all":true},"110":{"name":"110","all":true},"111":{"name":"111","all":true},"112":{"name":"112","all":true},"113":{"name":"113","all":true},"114":{"name":"114","all":true},"115":{"name":"115","all":true},"116":{"name":"116","all":true},"117":{"name":"117","all":true},"118":{"name":"118","all":true},"119":{"name":"119","all":true},"120":{"name":"120","all":true},"121":{"name":"121","all":true},"122":{"name":"122","all":true},"123":{"name":"123","all":true},"124":{"name":"124","all":true},"125":{"name":"125","all":true},"126":{"name":"126","all":true},"127":{"name":"127","all":true},"128":{"name":"128","all":true},"129":{"name":"129","all":true},"130":{"name":"130","all":true},"131":{"name":"131","all":true},"132":{"name":"132","all":true},"133":{"name":"133","all":true},"134":{"name":"134","all":true},"135":{"name":"135","all":true},"136":{"name":"136","all":true},"137":{"name":"137","all":true},"138":{"name":"138","all":true},"139":{"name":"139","all":true},"140":{"name":"140","all":true},"141":{"name":"141","all":true},"142":{"name":"142","all":true},"143":{"name":"143","all":true},"144":{"name":"144","all":true},"145":{"name":"145","all":true},"146":{"name":"146","all":true},"147":{"name":"147","all":true},"148":{"name":"148","all":true},"149":{"name":"149","all":true},"150":{"name":"150","all":true},"151":{"name":"151","all":true},"152":{"name":"152","all":true},"153":{"name":"153","all":true},"154":{"name":"154","all":true},"155":{"name":"155","all":true},"156":{"name":"156","all":true},"157":{"name":"157","all":true},"158":{"name":"158","all":true},"159":{"name":"159","all":true},"160":{"name":"160","all":true},"161":{"name":"161","all":true},"162":{"name":"162","all":true},"163":{"name":"163","all":true},"164":{"name":"164","all":true},"165":{"name":"165","all":true},"166":{"name":"166","all":true},"167":{"name":"167","all":true},"168":{"name":"168","all":true},"169":{"name":"169","all":true},"170":{"name":"170","all":true},"171":{"name":"171","all":true},"172":{"name":"172","all":true},"173":{"name":"173","all":true},"174":{"name":"174","all":true},"175":{"name":"175","all":true},"176":{"name":"176","all":true},"177":{"name":"177","all":true},"178":{"name":"178","all":true},"179":{"name":"179","all":true},"180":{"name":"180","all":true},"181":{"name":"181","all":true},"182":{"name":"182","all":true},"183":{"name":"183","all":true},"184":{"name":"184","all":true},"185":{"name":"185","all":true},"186":{"name":"186","all":true},"187":{"name":"187","all":true},"188":{"name":"188","all":true},"189":{"name":"189","all":true},"190":{"name":"190","all":true},"191":{"name":"191","all":true},"192":{"name":"192","all":true},"193":{"name":"193","all":true},"194":{"name":"194","all":true},"195":{"name":"195","all":true},"196":{"name":"196","all":true},"197":{"name":"197","all":true},"198":{"name":"198","all":true},"199":{"name":"199","all":true},"200":{"name":"200","all":true},"201":{"name":"201","all":true},"202":{"name":"202","all":true},"203":{"name":"203","all":true},"204":{"name":"204","all":true},"205":{"name":"205","all":true},"206":{"name":"206","all":true},"207":{"name":"207","all":true},"208":{"name":"208","all":true},"209":{"name":"209","all":true},"210":{"name":"210","all":true},"211":{"name":"211","all":true},"212":{"name":"212","all":true},"213":{"name":"213","all":true},"214":{"name":"214","all":true},"215":{"name":"215","all":true},"216":{"name":"216","all":true},"217":{"name":"217","all":true},"218":{"name":"218","all":true},"219":{"name":"219","all":true},"220":{"name":"220","all":true},"221":{"name":"221","all":true},"222":{"name":"222","all":true},"223":{"name":"223","all":true},"224":{"name":"224","all":true},"225":{"name":"225","all":true},"226":{"name":"226","all":true},"227":{"name":"227","all":true},"228":{"name":"228","all":true},"229":{"name":"229","all":true},"230":{"name":"230","all":true},"231":{"name":"231","all":true},"232":{"name":"232","all":true},"233":{"name":"233","all":true},"234":{"name":"234","all":true},"235":{"name":"235","all":true},"236":{"name":"236","all":true},"237":{"name":"237","all":true},"238":{"name":"238","all":true},"239":{"name":"239","all":true},"240":{"name":"240","all":true},"241":{"name":"241","all":true},"242":{"name":"242","all":true},"243":{"name":"243","all":true},"244":{"name":"244","all":true},"245":{"name":"245","all":true},"246":{"name":"246","all":true},"247":{"name":"247","all":true},"248":{"name":"248","all":true},"249":{"name":"249","all":true},"250":{"name":"250","all":true},"251":{"name":"251","all":true},"252":{"name":"252","all":true},"253":{"name":"253","all":true},"254":{"name":"254","all":true},"255":{"name":"255","all":true}}'
+      DbList:
+        { "0": { "name": "0","all": true },"1": { "name": "1","all": true },"2": { "name": "2","all": true },"3": { "name": "3","all": true },"4": { "name": "4","all": true },"5": { "name": "5","all": true },"6": { "name": "6","all": true },"7": { "name": "7","all": true },"8": { "name": "8","all": true },"9": { "name": "9","all": true },"10": { "name": "10","all": true },"11": { "name": "11","all": true },"12": { "name": "12","all": true },"13": { "name": "13","all": true },"14": { "name": "14","all": true },"15": { "name": "15","all": true },"16": { "name": "16","all": true },"17": { "name": "17","all": true },"18": { "name": "18","all": true },"19": { "name": "19","all": true },"20": { "name": "20","all": true },"21": { "name": "21","all": true },"22": { "name": "22","all": true },"23": { "name": "23","all": true },"24": { "name": "24","all": true },"25": { "name": "25","all": true },"26": { "name": "26","all": true },"27": { "name": "27","all": true },"28": { "name": "28","all": true },"29": { "name": "29","all": true },"30": { "name": "30","all": true },"31": { "name": "31","all": true },"32": { "name": "32","all": true },"33": { "name": "33","all": true },"34": { "name": "34","all": true },"35": { "name": "35","all": true },"36": { "name": "36","all": true },"37": { "name": "37","all": true },"38": { "name": "38","all": true },"39": { "name": "39","all": true },"40": { "name": "40","all": true },"41": { "name": "41","all": true },"42": { "name": "42","all": true },"43": { "name": "43","all": true },"44": { "name": "44","all": true },"45": { "name": "45","all": true },"46": { "name": "46","all": true },"47": { "name": "47","all": true },"48": { "name": "48","all": true },"49": { "name": "49","all": true },"50": { "name": "50","all": true },"51": { "name": "51","all": true },"52": { "name": "52","all": true },"53": { "name": "53","all": true },"54": { "name": "54","all": true },"55": { "name": "55","all": true },"56": { "name": "56","all": true },"57": { "name": "57","all": true },"58": { "name": "58","all": true },"59": { "name": "59","all": true },"60": { "name": "60","all": true },"61": { "name": "61","all": true },"62": { "name": "62","all": true },"63": { "name": "63","all": true },"64": { "name": "64","all": true },"65": { "name": "65","all": true },"66": { "name": "66","all": true },"67": { "name": "67","all": true },"68": { "name": "68","all": true },"69": { "name": "69","all": true },"70": { "name": "70","all": true },"71": { "name": "71","all": true },"72": { "name": "72","all": true },"73": { "name": "73","all": true },"74": { "name": "74","all": true },"75": { "name": "75","all": true },"76": { "name": "76","all": true },"77": { "name": "77","all": true },"78": { "name": "78","all": true },"79": { "name": "79","all": true },"80": { "name": "80","all": true },"81": { "name": "81","all": true },"82": { "name": "82","all": true },"83": { "name": "83","all": true },"84": { "name": "84","all": true },"85": { "name": "85","all": true },"86": { "name": "86","all": true },"87": { "name": "87","all": true },"88": { "name": "88","all": true },"89": { "name": "89","all": true },"90": { "name": "90","all": true },"91": { "name": "91","all": true },"92": { "name": "92","all": true },"93": { "name": "93","all": true },"94": { "name": "94","all": true },"95": { "name": "95","all": true },"96": { "name": "96","all": true },"97": { "name": "97","all": true },"98": { "name": "98","all": true },"99": { "name": "99","all": true },"100": { "name": "100","all": true },"101": { "name": "101","all": true },"102": { "name": "102","all": true },"103": { "name": "103","all": true },"104": { "name": "104","all": true },"105": { "name": "105","all": true },"106": { "name": "106","all": true },"107": { "name": "107","all": true },"108": { "name": "108","all": true },"109": { "name": "109","all": true },"110": { "name": "110","all": true },"111": { "name": "111","all": true },"112": { "name": "112","all": true },"113": { "name": "113","all": true },"114": { "name": "114","all": true },"115": { "name": "115","all": true },"116": { "name": "116","all": true },"117": { "name": "117","all": true },"118": { "name": "118","all": true },"119": { "name": "119","all": true },"120": { "name": "120","all": true },"121": { "name": "121","all": true },"122": { "name": "122","all": true },"123": { "name": "123","all": true },"124": { "name": "124","all": true },"125": { "name": "125","all": true },"126": { "name": "126","all": true },"127": { "name": "127","all": true },"128": { "name": "128","all": true },"129": { "name": "129","all": true },"130": { "name": "130","all": true },"131": { "name": "131","all": true },"132": { "name": "132","all": true },"133": { "name": "133","all": true },"134": { "name": "134","all": true },"135": { "name": "135","all": true },"136": { "name": "136","all": true },"137": { "name": "137","all": true },"138": { "name": "138","all": true },"139": { "name": "139","all": true },"140": { "name": "140","all": true },"141": { "name": "141","all": true },"142": { "name": "142","all": true },"143": { "name": "143","all": true },"144": { "name": "144","all": true },"145": { "name": "145","all": true },"146": { "name": "146","all": true },"147": { "name": "147","all": true },"148": { "name": "148","all": true },"149": { "name": "149","all": true },"150": { "name": "150","all": true },"151": { "name": "151","all": true },"152": { "name": "152","all": true },"153": { "name": "153","all": true },"154": { "name": "154","all": true },"155": { "name": "155","all": true },"156": { "name": "156","all": true },"157": { "name": "157","all": true },"158": { "name": "158","all": true },"159": { "name": "159","all": true },"160": { "name": "160","all": true },"161": { "name": "161","all": true },"162": { "name": "162","all": true },"163": { "name": "163","all": true },"164": { "name": "164","all": true },"165": { "name": "165","all": true },"166": { "name": "166","all": true },"167": { "name": "167","all": true },"168": { "name": "168","all": true },"169": { "name": "169","all": true },"170": { "name": "170","all": true },"171": { "name": "171","all": true },"172": { "name": "172","all": true },"173": { "name": "173","all": true },"174": { "name": "174","all": true },"175": { "name": "175","all": true },"176": { "name": "176","all": true },"177": { "name": "177","all": true },"178": { "name": "178","all": true },"179": { "name": "179","all": true },"180": { "name": "180","all": true },"181": { "name": "181","all": true },"182": { "name": "182","all": true },"183": { "name": "183","all": true },"184": { "name": "184","all": true },"185": { "name": "185","all": true },"186": { "name": "186","all": true },"187": { "name": "187","all": true },"188": { "name": "188","all": true },"189": { "name": "189","all": true },"190": { "name": "190","all": true },"191": { "name": "191","all": true },"192": { "name": "192","all": true },"193": { "name": "193","all": true },"194": { "name": "194","all": true },"195": { "name": "195","all": true },"196": { "name": "196","all": true },"197": { "name": "197","all": true },"198": { "name": "198","all": true },"199": { "name": "199","all": true },"200": { "name": "200","all": true },"201": { "name": "201","all": true },"202": { "name": "202","all": true },"203": { "name": "203","all": true },"204": { "name": "204","all": true },"205": { "name": "205","all": true },"206": { "name": "206","all": true },"207": { "name": "207","all": true },"208": { "name": "208","all": true },"209": { "name": "209","all": true },"210": { "name": "210","all": true },"211": { "name": "211","all": true },"212": { "name": "212","all": true },"213": { "name": "213","all": true },"214": { "name": "214","all": true },"215": { "name": "215","all": true },"216": { "name": "216","all": true },"217": { "name": "217","all": true },"218": { "name": "218","all": true },"219": { "name": "219","all": true },"220": { "name": "220","all": true },"221": { "name": "221","all": true },"222": { "name": "222","all": true },"223": { "name": "223","all": true },"224": { "name": "224","all": true },"225": { "name": "225","all": true },"226": { "name": "226","all": true },"227": { "name": "227","all": true },"228": { "name": "228","all": true },"229": { "name": "229","all": true },"230": { "name": "230","all": true },"231": { "name": "231","all": true },"232": { "name": "232","all": true },"233": { "name": "233","all": true },"234": { "name": "234","all": true },"235": { "name": "235","all": true },"236": { "name": "236","all": true },"237": { "name": "237","all": true },"238": { "name": "238","all": true },"239": { "name": "239","all": true },"240": { "name": "240","all": true },"241": { "name": "241","all": true },"242": { "name": "242","all": true },"243": { "name": "243","all": true },"244": { "name": "244","all": true },"245": { "name": "245","all": true },"246": { "name": "246","all": true },"247": { "name": "247","all": true },"248": { "name": "248","all": true },"249": { "name": "249","all": true },"250": { "name": "250","all": true },"251": { "name": "251","all": true },"252": { "name": "252","all": true },"253": { "name": "253","all": true },"254": { "name": "254","all": true },"255": { "name": "255","all": true } }
+  DtsInstance:
+    Type: ALIYUN::DTS::Instance
+    Properties:
+      JobId:
+        Fn::GetAtt:
+          - MigrationJob
+          - DtsJobId
+      InstanceClass: micro
+      PayType: PostPaid
+      AutoStart: false
+      Type: SYNC
+      SourceRegion:
+        Ref: ALIYUN::Region
+      DestinationRegion:
+        Ref: ALIYUN::Region
+      SourceEndpointEngineName: Redis
+      DestinationEndpointEngineName: Redis
+Outputs:
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      'Fn::Sub':
+        - >-
+          https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${Region}&instanceId=${InstanceId}
+        - InstanceId:
+            'Fn::Select':
+              - 0
+              - 'Fn::GetAtt':
+                  - WebServer
+                  - InstanceIds
+          Region:
+            Ref: 'ALIYUN::Region'
+  InstancePassword:
+    Description:
+      en: ECS Instance Password
+      zh-cn: ECS 实例密码
+    NoEcho: true
+    Value:
+      Ref: InstancePassword
+  SelfRedisPassword:
+    Description:
+      zh-cn: ECS 自建 Redis 数据库密码。
+      en: ECS builds its own Redis database password.
+    NoEcho: true
+    Value:
+      Ref: SelfRedisPassword
+  TairInstanceAddress:
+    Description:
+      en: Tair Instance Address.
+      zh-cn: Tair实例地址。
+    Value:
+      'Fn::Sub':
+        - 'https://kvstore.console.aliyun.com/Redis/instance/${Region}/${InstanceID}'
+        - InstanceID:
+            Ref: RedisInstance
+          Region:
+            Ref: ALIYUN::Region
+  TairInstancePassword:
+    Description:
+      zh-cn: Tair实例密码。
+      en: Tair instance password.
+    NoEcho: true
+    Value:
+      Ref: RedisPassword
+  DtsInstance:
+    Description:
+      zh-cn: 数据同步实例地址。
+      en: Data synchronization instance address.
+    NoEcho: true
+    Value:
+      'Fn::Sub':
+        - 'https://dtsnew.console.aliyun.com/sync/detail/manager/${InstanceID}?regionId=${Region}'
+        - InstanceID:
+            Ref: DtsInstance
+          Region:
+            Ref: ALIYUN::Region
+Metadata:
+  ALIYUN::ROS::Interface:
+    Outputs:
+      - EcsLoginAddress
+      - InstancePassword
+      - SelfRedisPassword
+      - TairInstanceAddress
+      - TairInstancePassword
+      - DtsInstance
+    ParameterGroups:
+      - Parameters:
+          - EcsInstanceType
+          - InstancePassword
+          - SelfRedisPassword
+        Label:
+          default: ECS
+      - Parameters:
+          - RedisInstanceClass
+          - RedisPassword
+        Label:
+          default: Redis
+    TemplateTags:
+      - acs:technical-solution:database:自建 Redis 迁移到云数据库-tech_solu_284
+    Hidden:
+      - CommonName
+  ALIYUN::ROS::Composer:
+    9607a4e4:
+      Rect:
+        - 790
+        - 605
+        - -453
+        - 105
+        - 1
+        - 0
+      ResT: Composer::ROSParameter::AlibabaCloud
+    6a3829e5:
+      Parent: 9607a4e4
+      Rect:
+        - 731
+        - 524
+        - -424
+        - 159
+        - 2
+        - 0
+      ResT: Composer::ROSParameter::Region
+    cb6b2cb1:
+      Res:
+        - RosWaitCondition
+      Parent: 6a3829e5
+      Rect:
+        - 40
+        - 40
+        - 214
+        - 361
+        - 3
+        - 0
+    f86d7ea6:
+      Res:
+        - RosWaitConditionHandle
+      Parent: 6a3829e5
+      Rect:
+        - 40
+        - 40
+        - 214
+        - 519
+        - 3
+        - 0
+    6ff9cf88:
+      Res:
+        - Vpc
+      Parent: 6a3829e5
+      Rect:
+        - 556
+        - 435
+        - -385
+        - 213
+        - 3
+        - 0
+    c4bb98be:
+      Res:
+        - RunCommand
+      Parent: 6a3829e5
+      Rect:
+        - 40
+        - 40
+        - -351
+        - 401
+        - 3
+        - 0
+    e4a42348:
+      Res:
+        - MigrationJob
+      Parent: 6a3829e5
+      Rect:
+        - 40
+        - 40
+        - -92
+        - 559
+        - 3
+        - 0
+    fdc5bc7c:
+      Res:
+        - DtsInstance
+      Parent: 6a3829e5
+      Rect:
+        - 40
+        - 40
+        - -236
+        - 559
+        - 3
+        - 0
+    a43285e9:
+      Parent: 6ff9cf88
+      Rect:
+        - 440
+        - 275
+        - -285
+        - 276
+        - 4
+        - 0
+      ResT: Composer::ROSParameter::Zone
+    a3b76be1:
+      Res:
+        - VSwitch
+      Parent: a43285e9
+      Rect:
+        - 400
+        - 200
+        - -265
+        - 316
+        - 5
+        - 0
+    bd8a8339:
+      Res:
+        - RedisInstance
+      Parent: a3b76be1
+      Rect:
+        - 40
+        - 40
+        - 3
+        - 401
+        - 6
+        - 0
+    9d8ad605:
+      Res:
+        - SecurityGroup
+      Parent: 6ff9cf88
+      Rect:
+        - 130
+        - 116
+        - -222
+        - 372
+        - 13
+        - 0
+    d8e1dd32:
+      Res:
+        - WebServer
+      Parent: a3b76be1
+      Rect:
+        - 40
+        - 40
+        - -177
+        - 401
+        - 14
+        - 0
+      Layer:
+        - 9d8ad605
+    d23fc9cc:
+      Parent: 6a3829e5
+      Edge:
+        - cb6b2cb1
+        - f86d7ea6
+      Line: 0:0:0:gray:0
+    35daa5f6:
+      Parent: 6a3829e5
+      Edge:
+        - c4bb98be
+        - d8e1dd32
+      Line: 0:0:0:gray:0
+    95ad0d3c:
+      Parent: 6a3829e5
+      Edge:
+        - e4a42348
+        - d8e1dd32
+      Line: 0:0:0:gray:0
+    ab6c3e01:
+      Parent: 6a3829e5
+      Edge:
+        - e4a42348
+        - bd8a8339
+      Line: 0:0:0:gray:0
+    74a3e301:
+      Parent: 6a3829e5
+      Edge:
+        - fdc5bc7c
+        - e4a42348
+      Line: 0:0:0:gray:0
