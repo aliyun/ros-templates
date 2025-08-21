@@ -524,6 +524,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [Modern-SelectDB-Lakehouse-Platform.yaml](documents/solution/database/Modern-SelectDB-Lakehouse-Platform.yaml)                    | Low cost, high performance lake warehouse integrated architecture based on SelectDB.                                              |
 | [Native-SQL-Multimodal-Search.yml](documents/solution/database/Native-SQL-Multimodal-Search.yml)                    | Native SQL easily realizes multimodal intelligent retrieval.                       |
 | [Redis-for-High-Concurrency.yml](documents/solution/database/Redis-for-High-Concurrency.yml)                     | To handle high concurrency, the Redis version cache is utilized to achieve ultra-fast response.                      |
+| [migrate-ecs-redis-to-cloud.yml](documents/solution/database/migrate-ecs-redis-to-cloud.yml)                     | Migrate self-built Redis to the cloud database.                     |
 
 - iot
 
