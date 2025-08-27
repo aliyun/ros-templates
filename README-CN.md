@@ -525,6 +525,7 @@ ROS 模板的示例和最佳实践。模板分类如下：
 | [Native-SQL-Multimodal-Search.yml](documents/solution/database/Native-SQL-Multimodal-Search.yml)                     | 原生 SQL 轻松实现多模态智能检索。                                                                                                        |
 | [Redis-for-High-Concurrency.yml](documents/solution/database/Redis-for-High-Concurrency.yml)                     | 应对高并发，利用Redis版缓存实现极速响应。                                                                                                        |
 | [migrate-ecs-redis-to-cloud.yml](documents/solution/database/migrate-ecs-redis-to-cloud.yml)                     | 自建 Redis 迁移到云数据库。                                                                                                        |
+| [database-office-security-protection.yml](documents/solution/database/database-office-security-protection.yml)                     | 通过SASE快速实现数据库办公安全防护。                                                                                                        |
 
 - iot
 
