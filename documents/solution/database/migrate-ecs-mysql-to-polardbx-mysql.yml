@@ -1,0 +1,300 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 一键部署自建MySQL 数据库向云原生数据库 PolarDB 分布式版架构的平滑迁移与系统能力升级，助力企业突破传统单机数据库在扩展性、高可用性方面的瓶颈，构建高性能、高可靠的数据服务底座，满足业务快速增长的数据处理需求。
+  en: The smooth migration and system capability upgrade from self-built MySQL database to cloud native database PolarDB distributed architecture with one-click deployment helps enterprises break through the bottleneck of traditional stand-alone database in scalability and high availability, build a high-performance and highly reliable data service base, and meet the data processing needs of rapid business growth.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  InstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      InstanceType: ${InstanceType}
+    Default: cloud_essd
+  Password:
+    Type: String
+    Label:
+      en: ECS Instance Password
+      zh-cn: ECS实例密码
+    Description:
+      en: 'The password must be 8 to 32 characters in length and must contain at least
+        three of the following types: uppercase letters, lowercase letter, digits,
+        and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    NoEcho: true
+  DBAccountName:
+    Type: String
+    Label:
+      en: PolarDB-X Database Account
+      zh-cn: PolarDB-X数据库账号
+    Description:
+      en: The account name must be 2 to 32 characters in length and can contain lowercase
+        letters, digits, and underscores (_). It must start with a letter and end
+        with a letter or digit.
+      zh-cn: 由小写字母、数字、下划线（_）组成，以字母开头，以字母或数字结尾，最多32个字符。
+    Default: test_user
+    AllowedPattern: ^[a-z][a-z0-9_-]{0,30}[a-z0-9]$
+  DBAccountPassword:
+    Type: String
+    Label:
+      en: PolarDB-X Database account password
+      zh-cn: PolarDB-X数据库账号密码
+    Description:
+      en: 'The password must be 8 to 32 characters in length and must contain at least
+        three of the following types: uppercase letters, lowercase letter, digits,
+        and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: VPC_HZ
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName: vsw_001
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName: SecurityGroup_1
+      VpcId:
+        Ref: Vpc
+  SecurityGroupIngress_3306:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SourceCidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      NicType: intranet
+      PortRange: 3306/3306
+  InstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      ZoneId:
+        Ref: ZoneId
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_x64_20G_alibase_
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      SystemDiskSize: 40
+      Password:
+        Ref: Password
+      IoOptimized: optimized
+      MaxAmount: 1
+      AllocatePublicIP: true
+      InternetMaxBandwidthOut: 10
+      InternetChargeType: PayByTraffic
+  PolarDBX:
+    Type: ALIYUN::PolarDBX::DBInstance
+    Properties:
+      TopologyType: 1azone
+      DBNodeCount: 2
+      VPCId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      EngineVersion: '8.0'
+      DBNodeClass: polarx.x4.medium.2e
+      PrimaryZone:
+        Ref: ZoneId
+      SecurityIpConfig:
+        GroupName: ecs
+        ModifyMode: '0'
+        SecurityIPList: '192.168.0.0/24,192.168.1.0/24'
+  PolarDBXAccount:
+    Type: ALIYUN::PolarDBX::Account
+    Properties:
+      AccountName:
+        Ref: DBAccountName
+      AccountPassword:
+        Ref: DBAccountPassword
+      DBInstanceId:
+        Ref: PolarDBX
+Outputs:
+  DBConnectionString:
+    Description:
+      en: Database ConnectionString.
+      zh-cn: 数据库内网连接地址。
+    Value:
+      Fn::GetAtt:
+        - PolarDBX
+        - ConnectionString
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+        Label:
+          en: Basic Configuration
+          zh-cn: 基础配置
+      - Parameters:
+          - InstanceType
+          - SystemDiskCategory
+          - Password
+        Label:
+          en: ECS Configuration
+          zh-cn: ECS配置
+      - Parameters:
+          - DBAccountName
+          - DBAccountPassword
+        Label:
+          en: PolarDBX Configuration
+          zh-cn: PolarDBX配置
+    TemplateTags:
+      - acs:technical-solution:db:自建 MySQL 迁移至 PolarDB-X ROS版部署版-tech_solu_285
+  ALIYUN::ROS::Composer:
+    df7423fc:
+      Rect:
+        - 620
+        - 540
+        - 40
+        - 100
+        - 1
+        - 0
+      ResT: Composer::ROSParameter::AlibabaCloud
+    ba4d64a0:
+      Parent: df7423fc
+      Rect:
+        - 580
+        - 470
+        - 60
+        - 150
+        - 2
+        - 0
+      ResT: Composer::ROSParameter::Region
+    ad7de220:
+      Res:
+        - Vpc
+      Parent: ba4d64a0
+      Rect:
+        - 480
+        - 340
+        - 140
+        - 200
+        - 3
+        - 0
+    441b5872:
+      Res:
+        - SecurityGroupIngress_3306
+      Parent: ba4d64a0
+      Rect:
+        - 40
+        - 40
+        - 80
+        - 200
+        - 3
+        - 0
+      Hidden: true
+    31f16119:
+      Res:
+        - PolarDBXAccount
+      Parent: ba4d64a0
+      Rect:
+        - 40
+        - 40
+        - 472
+        - 557
+        - 3
+        - 0
+    4b910003:
+      Res:
+        - ZoneId
+      Parent: ad7de220
+      Rect:
+        - 440
+        - 270
+        - 160
+        - 250
+        - 4
+        - 0
+      ResT: Composer::ROSParameter::Zone
+    e0959f7d:
+      Res:
+        - VSwitch
+      Parent: 4b910003
+      Rect:
+        - 400
+        - 200
+        - 180
+        - 300
+        - 5
+        - 0
+    9a9016b5:
+      Res:
+        - PolarDBX
+      Parent: e0959f7d
+      Rect:
+        - 40
+        - 40
+        - 472
+        - 380
+        - 6
+        - 0
+    bd1031ae:
+      Res:
+        - SecurityGroup
+      Parent: ad7de220
+      Rect:
+        - 177
+        - 134
+        - 200
+        - 350
+        - 10
+        - 0
+    fddf75ab:
+      Edge:
+        - 441b5872
+        - bd1031ae
+      Line: 0:0:0:gray:0
+    a1e5845d:
+      Parent: ba4d64a0
+      Edge:
+        - 31f16119
+        - 9a9016b5
+      Line: 0:0:0:gray:0
+    4b9ad036:
+      Res:
+        - InstanceGroup
+      Parent: e0959f7d
+      Rect:
+        - 40
+        - 40
+        - 269
+        - 380
+        - 11
+        - 0
+      Layer:
+        - bd1031ae
