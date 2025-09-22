@@ -3,13 +3,36 @@ Description:
   zh-cn: 从服务器获取签名信息并上传数据到OSS。
   en: Obtain signature information from the server and upload data to OSS.
 Parameters:
-  CommonName:
+  SystemDiskCategory:
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      ZoneId: ${ZoneId}
     Type: String
-    Default: oss-server-sign
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Category
+  IP:
+    Type: String
+    Description:
+      zh-cn: 输入您的IP信息，<b><a href='https://www.ip.cn/' target='_blank'><font color='blue'>IP查询地址</font></a></b>。
+      en: Enter your IP information,<b><a href="https://www.ip.cn/" target ="_blank"><fontcolor='blue'> IP address query </font> </a> </b>.
+    Label:
+      zh-cn: IP 地址
+      en: IP Address
+  ZoneId:
+    AssociationProperty: ALIYUN::VPC::Zone::ZoneId
+    Type: String
+    Description:
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch or not.
+    Label:
+      zh-cn: 可用区ID
+      en: Zone ID
   BucketName:
     AssociationPropertyMetadata:
       Length: 6
-      Prefix: test-bucketname-
+      Prefix: testbucketname-
       CharacterClasses:
         - Class: lowercase
           min: 1
@@ -22,70 +45,77 @@ Parameters:
     AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
     AssociationProperty: AutoCompleteInput
     Type: String
-  ZoneId:
-    Type: String
-    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
-    AssociationPropertyMetadata:
-      AutoSelectFirst: true
+  Password:
+    Description:
+      zh-cn: 长度为8-30位，需包含大写字母、小写字母、特殊符号和数字中的三个，允许的特殊字符包括<span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>。
+      en: |-
+        The password must be 8 to 32 characters in length. <br>
+        It must consist three of the the following character types: uppercase letters, lowercase letters, digits, and special characters. <br>
+        Special characters include <span style="background:#E7E9EB;"><b>()`~!@#$%^&*_-+=|{}[]:;'<>,.?/</b></span>.<br>
+    Default: Null
+    MinLength: 8
     Label:
-      en: Availability Zone
-      zh-cn: 可用区
-  InstanceType:
+      zh-cn: 实例密码
+      en: Login Password
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    NoEcho: true
+    MaxLength: 30
     Type: String
+  InstanceType:
     AssociationProperty: ALIYUN::ECS::Instance::InstanceType
     AssociationPropertyMetadata:
-      InstanceChargeType: PostPaid
-      SystemDiskCategory: cloud_essd
       ZoneId: ${ZoneId}
-    Label:
-      en: Instance Type
-      zh-cn: 实例规格
-  Password:
-    NoEcho: true
     Type: String
-    Description:
-      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: 服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
     Label:
-      en: ECS Instance Password
-      zh-cn: ECS实例密码
-    ConstraintDescription:
-      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
-      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
-    AssociationProperty: ALIYUN::ECS::Instance::Password
+      zh-cn: 实例类型
+      en: Instance Type
 Outputs:
-  Console.Bucket:
-    Label:
-      zh-cn: Bucket
-      en: Bucket
-    Description:
-      zh-cn: 文件上传到的bucket控制台页面。可访问该链接查看上传情况。
-      en: Bucket console page, view upload status.
-    Value: 
-      Fn::Sub:
-        - https://oss.console.aliyun.com/bucket/oss-${Region}/${BucketName}
-        - Region:
-            Ref: ALIYUN::Region
-          BucketName:
-            Ref: BucketName
-  Console.OssClientAddress:
-    Label:
-      en: OSS Client Address
-      zh-cn: 客户端地址
+  OssClientAddress:
     Description:
       zh-cn: 客户端地址，使用此地址可直接体验文件上传。
       en: Client address, use this address to directly experience file upload.
     Value:
-      Fn::Sub: 
-        - http://${ServerAddress}:3001/index.html
-        - ServerAddress:
-            Fn::Select:
-              - 0
-              - Fn::GetAtt:
-                - InstanceGroup
-                - PublicIps
-  
+      Fn::Sub: http://${Eip.EipAddress}:3001/index.html
 Resources:
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: 5
+      Name: create_by_document
+  SecurityGroupIngress_22:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      SecurityGroupId:
+        Ref: SecurityGroup
+      NicType: intranet
+      SourceCidrIp:
+        Ref: IP
+      PortRange: 22/22
+  EipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Fn::Select:
+          - 0
+          - Fn::GetAtt:
+              - InstanceGroup
+              - InstanceIds
+      AllocationId:
+        Fn::GetAtt:
+          - Eip
+          - AllocationId
+  SecurityGroupIngress_3001:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      SecurityGroupId:
+        Ref: SecurityGroup
+      NicType: intranet
+      SourceCidrIp:
+        Ref: IP
+      PortRange: 3001/3001
   AccessKey:
     Type: ALIYUN::RAM::AccessKey
     Properties:
@@ -94,25 +124,22 @@ Resources:
   InstanceGroup:
     Type: ALIYUN::ECS::InstanceGroup
     Properties:
-      ZoneId:
-        Ref: ZoneId
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
       VpcId:
-          Ref: Vpc
-      VSwitchId:
-          Ref: VSwitch
+        Ref: Vpc
       SecurityGroupId:
         Ref: SecurityGroup
-      ImageId: aliyun_3_x64_20g_alibase_20240528.vhd
-      InstanceName:
-        Fn::Sub: ${CommonName}-ecs
-      InstanceType:
-        Ref: InstanceType
-      SystemDiskCategory: cloud_essd
-      SystemDiskSize: 40
-      MaxAmount: 1
-      InternetMaxBandwidthOut: 5
+      ImageId: centos_7
+      AllocatePublicIP: false
+      VSwitchId:
+        Ref: VSwitch
+      IoOptimized: optimized
       Password:
         Ref: Password
+      InstanceType:
+        Ref: InstanceType
+      MaxAmount: 1
   Bucket:
     Type: ALIYUN::OSS::Bucket
     Properties:
@@ -132,10 +159,6 @@ Resources:
     Properties:
       VpcId:
         Ref: Vpc
-      SecurityGroupIngress:
-        - PortRange: 3001/3001
-          SourceCidrIp: 0.0.0.0/0
-          IpProtocol: tcp
   Role:
     Type: ALIYUN::RAM::Role
     Properties:
@@ -184,12 +207,14 @@ Resources:
     Type: ALIYUN::ECS::RunCommand
     Properties:
       CommandContent:
-        Fn::Sub: 
-        - |
+        Fn::Sub: |-
           #!/bin/bash
           yum -y install unzip
-          yum install -y npm
-          
+
+          curl -o- https://gitee.com/mirrors/nvm/raw/v0.39.7/install.sh | bash
+          source /root/.bashrc
+          nvm install 16
+
           wget -O server-signed-direct-upload.zip 'https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20240626/xfnqmy/server-signed-direct-upload.zip'
           unzip -o server-signed-direct-upload.zip
           rm -rf server-signed-direct-upload.zip
@@ -202,18 +227,10 @@ Resources:
             roleArn: "${Role.Arn}",
           };
           EOF
-          sed -i 's/127.0.0.1/${ServerAddress}/g' /root/server-signed-direct-upload/node-html-post-object/index.html
+          sed -i 's/127.0.0.1/${Eip.EipAddress}/g' /root/server-signed-direct-upload/node-html-post-object/index.html
           cd /root/server-signed-direct-upload/node-html-post-object/
           source /root/.bashrc
-          npm config set registry https://registry.npmmirror.com
-          npm install
-          nohup node server/index.js > output.log 2>&1 &
-        - ServerAddress:
-            Fn::Select:
-              - 0
-              - Fn::GetAtt:
-                - InstanceGroup
-                - PublicIps
+          nohup npm start > output.log 2>&1 &
       Type: RunShellScript
       Sync: true
       InstanceIds:
@@ -222,159 +239,18 @@ Resources:
           - InstanceIds
       Timeout: 3600
     DependsOn:
-      - SecurityGroup
+      - SecurityGroupIngress_3001
+      - SecurityGroupIngress_22
+      - EipAssociation
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
       - Parameters:
           - BucketName
           - ZoneId
+          - IP
           - InstanceType
+          - SystemDiskCategory
           - Password
     TemplateTags:
       - acs:document-help:oss:服务端签名后直传
-  ALIYUN::ROS::Composer:
-    '14533323':
-      Rect:
-        - 680
-        - 540
-        - 40
-        - 100
-        - 1
-        - 0
-      ResT: Composer::ROSParameter::AlibabaCloud
-    8c27d9f6:
-      Parent: '14533323'
-      Rect:
-        - 640
-        - 470
-        - 60
-        - 150
-        - 2
-        - 0
-      ResT: Composer::ROSParameter::Region
-    89ef2077:
-      Res:
-        - AccessKey
-      Parent: 8c27d9f6
-      Rect:
-        - 40
-        - 40
-        - 282
-        - 560
-        - 3
-        - 0
-    762d04a9:
-      Res:
-        - Bucket
-      Parent: 8c27d9f6
-      Rect:
-        - 40
-        - 40
-        - 510
-        - 560
-        - 3
-        - 0
-    267adc41:
-      Res:
-        - Role
-      Parent: 8c27d9f6
-      Rect:
-        - 40
-        - 40
-        - 180
-        - 560
-        - 3
-        - 0
-    6a2c1602:
-      Res:
-        - User
-      Parent: 8c27d9f6
-      Rect:
-        - 40
-        - 40
-        - 384
-        - 560
-        - 3
-        - 0
-    efd8b40a:
-      Res:
-        - Vpc
-      Parent: 8c27d9f6
-      Rect:
-        - 536
-        - 340
-        - 84
-        - 200
-        - 3
-        - 0
-    e81206b5:
-      Res:
-        - ServerCommand
-      Parent: efd8b40a
-      Rect:
-        - 40
-        - 40
-        - 100
-        - 380
-        - 4
-        - 0
-    882ad181:
-      Res:
-        - ZoneId
-      Parent: efd8b40a
-      Rect:
-        - 440
-        - 270
-        - 160
-        - 250
-        - 4
-        - 0
-      ResT: Composer::ROSParameter::Zone
-    e12827c5:
-      Res:
-        - VSwitch
-      Parent: 882ad181
-      Rect:
-        - 400
-        - 200
-        - 180
-        - 300
-        - 5
-        - 0
-    e04839d8:
-      Parent: 8c27d9f6
-      Edge:
-        - 89ef2077
-        - 6a2c1602
-      Line: 0:0:0:gray:0
-    3dd2b471:
-      Parent: efd8b40a
-      Edge:
-        - e81206b5
-        - f5cd84a9
-      Line: 0:0:0:gray:0
-    276ccee9:
-      Res:
-        - SecurityGroup
-      Parent: efd8b40a
-      Rect:
-        - 213
-        - 102
-        - 246
-        - 348
-        - 12
-        - 0
-    f5cd84a9:
-      Res:
-        - InstanceGroup
-      Parent: e12827c5
-      Rect:
-        - 40
-        - 40
-        - 332
-        - 380
-        - 13
-        - 0
-      Layer:
-        - 276ccee9
