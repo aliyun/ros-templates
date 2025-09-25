@@ -214,39 +214,21 @@ Workspace:
       # MySQL installation and setup script
       prepare_mysql_environment = <<-SCRIPT
     #!/bin/bash
-    echo "################################"
-    echo "# Install MySQL"
-    echo "################################"
-    yum -y install mysql
-    mysql --version
-
-    echo "################################"
-    echo "# Create MySQL Table"
-    echo "################################"
-    mysql -h${alicloud_db_instance.rds.connection_string} -uu_rds2polardb -p${var.db_password} -Ddb_rds2polardb -e"CREATE TABLE t_rds2polardb(id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY, gmt_create datetime NOT NULL);"
-
-    echo "################################"
-    echo "# Prepare MySQL Script"
-    echo "################################"
-    cat > ~/loop_insert_query_mysql.sh << \EOF
-    export MYSQL_HOST=${alicloud_db_instance.rds.connection_string}
-    export MYSQL_PWD=${var.db_password}
-    while true; do
-        mysql -A -uu_rds2polardb -Ddb_rds2polardb -NBe'insert into t_rds2polardb(gmt_create) values(now());select concat("系统时间:",now(),"   数据写入时间:",max(gmt_create),"   总行数:",count(*)) from t_rds2polardb;show variables like "polardb_version";'
-        sleep 5
-    done
+    
+    sudo yum install -y dnf
+          
+    cat << EOF >> ~/.bash_profile
+    export RDS_HOST="${alicloud_db_instance.rds.connection_string}"
+    export RDS_USER="u_rds2polardb"
+    export RDS_PWD="${var.db_password}"
+    export RDS_DB_NAME="db_rds2polardb"
+    export ROS_DEPLOY=true
     EOF
-    chmod +x ~/loop_insert_query_mysql.sh
-
-    cat > ~/loop_query_polardb.sh << \EOF
-    export MYSQL_HOST=${alicloud_polardb_cluster.polardb.connection_string}
-    export MYSQL_PWD=${var.db_password}
-    while true; do
-        mysql -A -uu_rds2polardb -Ddb_rds2polardb -NBe'select concat("系统时间:",now(),"   数据写入时间:",max(gmt_create),"   总行数:",count(*)) from t_rds2polardb;show variables like "polardb_version";'
-        sleep 5
-    done
-    EOF
-    chmod +x ~/loop_query_polardb.sh
+    
+    source ~/.bash_profile
+    
+    curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/rds_polardb/install.sh|bash
+    
     SCRIPT
     }
 
@@ -301,14 +283,14 @@ Workspace:
     # RDS Database
     resource "alicloud_db_database" "database" {
       instance_id   = alicloud_db_instance.rds.id
-      name          = "db_rds2polardb_${local.common_name}"
+      name          = "db_rds2polardb"
       character_set = "utf8mb4"
     }
 
     # RDS Account
     resource "alicloud_db_account" "account" {
       db_instance_id   = alicloud_db_instance.rds.id
-      account_name     = "u_rds2polardb_${local.common_name}"
+      account_name     = "u_rds2polardb"
       account_password = var.db_password
       account_type     = "Normal"
     }
