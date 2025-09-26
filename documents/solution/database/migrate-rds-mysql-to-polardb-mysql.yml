@@ -150,6 +150,8 @@ Resources:
       DBName: db_rds2polardb
   RdsAccount:
     Type: ALIYUN::RDS::Account
+    DependsOn:
+      - RdsDatabase
     Properties:
       AccountName: u_rds2polardb
       AccountType: Normal
@@ -195,6 +197,16 @@ Resources:
       Tags:
         - Key: rds
           Value: polardb
+  WaitConditionHandle:
+    Type: ALIYUN::ROS::WaitConditionHandle
+    Properties: { }
+  AppWaitCondition:
+    Type: ALIYUN::ROS::WaitCondition
+    Properties:
+      Handle:
+        Ref: WaitConditionHandle
+      Timeout: 3600
+      Count: 1
   PrepareMySQLEnvironment:
     Type: ALIYUN::ECS::RunCommand
     Properties:
@@ -208,39 +220,22 @@ Resources:
       CommandContent:
         Fn::Sub: |-
           #!/bin/bash
-          echo "################################"
-          echo "# Install MySQL"
-          echo "################################"
-          yum -y install mysql
-          mysql --version
           
-          echo "################################"
-          echo "# Create MySQL Table"
-          echo "################################"
-          mysql -h${RdsInstance.InnerConnectionString} -uu_rds2polardb -p${RdsAccountPassword} -Ddb_rds2polardb -e"CREATE TABLE t_rds2polardb(id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY, gmt_create datetime NOT NULL);"
+          sudo yum install -y dnf
           
-          echo "################################"
-          echo "# Prepare MySQL Script"
-          echo "################################"
-          cat > ~/loop_insert_query_mysql.sh << \EOF
-          export MYSQL_HOST=${RdsInstance.InnerConnectionString}
-          export MYSQL_PWD=${RdsAccountPassword}
-          while true; do
-              mysql -A -uu_rds2polardb -Ddb_rds2polardb -NBe'insert into t_rds2polardb(gmt_create) values(now());select concat("系统时间:",now(),"   数据写入时间:",max(gmt_create),"   总行数:",count(*)) from t_rds2polardb;show variables like "polardb_version";'
-              sleep 5
-          done
+          cat << EOF >> ~/.bash_profile
+          export RDS_HOST="${RdsInstance.InnerConnectionString}"
+          export RDS_USER="u_rds2polardb"
+          export RDS_PWD="${RdsAccountPassword}"
+          export RDS_DB_NAME="db_rds2polardb"
+          export ROS_DEPLOY=true
           EOF
-          chmod +x ~/loop_insert_query_mysql.sh
           
-          cat > ~/loop_query_polardb.sh << \EOF
-          export MYSQL_HOST=${PolarDBCluster.PrimaryConnectionString}
-          export MYSQL_PWD=${RdsAccountPassword}
-          while true; do
-              mysql -A -uu_rds2polardb -Ddb_rds2polardb -NBe'select concat("系统时间:",now(),"   数据写入时间:",max(gmt_create),"   总行数:",count(*)) from t_rds2polardb;show variables like "polardb_version";'
-              sleep 5
-          done
-          EOF
-          chmod +x ~/loop_query_polardb.sh
+          source ~/.bash_profile
+          
+          curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/rds_polardb/install.sh|bash
+          
+          ${WaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}'
     DependsOn:
       - RdsAccountPrivilege
   PolarDBCluster:
