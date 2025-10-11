@@ -62,8 +62,20 @@ Parameters:
     Type: String
 Workspace:
   provider.tf: |-
-    provider "alicloud" {}
+    # 配置阿里云提供商 (Provider)
+    provider "alicloud" {
+      # 资源部署地域：杭州
+      region = "cn-hangzhou"
+    }
   variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量 (Module Input Variables)
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量及其校验规则。
+    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
+    # 请参考这些描述来正确配置模块。
+    # ------------------------------------------------------------------------------
+    
     variable "bucket_name" {
       type        = string
       description = "存储空间名称，长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-)。需要全网唯一性，已经存在的不能在创建。"
@@ -87,18 +99,29 @@ Workspace:
       default     = "domestic"
     }
   main.tf: |-
+    # ------------------------------------------------------------------------------
+    # 核心资源定义 (Main Resource Definitions)
+    #
+    # 本文件包含了模块的核心基础设施资源。
+    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    # ------------------------------------------------------------------------------
+    
+    # 检查CDN服务是否开启
     data "alicloud_cdn_service" "open_cdn" {
       enable = "On"
     }
 
+    # 检查OSS服务是否开启
     data "alicloud_oss_service" "open_oss" {
       enable = "On"
     }
 
+    # 创建OSS存储桶
     resource "alicloud_oss_bucket" "oss_bucket" {
       bucket = var.bucket_name
     }
 
+    # 创建CDN域名。加速域名为输入的domain_name，源站为创建的OSS存储桶。
     resource "alicloud_cdn_domain_new" "domain" {
       domain_name = "${var.domain_name.DomainPrefix}.${var.domain_name.DomainName}"
       cdn_type    = "web"
@@ -112,12 +135,13 @@ Workspace:
       }
     }
 
+    # 为加速域名创建缓存配置。设置文件类型为jpg、png、jpeg、gif，权重为99，缓存时间为2592000秒（30天）。
     resource "alicloud_cdn_domain_config" "domain_config1" {
       domain_name   = alicloud_cdn_domain_new.domain.domain_name
       function_name = "filetype_based_ttl_set"
       function_args {
         arg_name  = "file_type"
-        arg_value = "jpg,png,jpeg"
+        arg_value = "jpg,png,jpeg,gif"
       }
       function_args {
         arg_name  = "weight"
@@ -125,10 +149,11 @@ Workspace:
       }
       function_args {
         arg_name  = "ttl"
-        arg_value = "7776000"
+        arg_value = "2592000"
       }
     }
 
+    # 为加速域名创建OSS鉴权配置。设置OSS鉴权为开启。
     resource "alicloud_cdn_domain_config" "domain_config2" {
       domain_name   = alicloud_cdn_domain_new.domain.domain_name
       function_name = "l2_oss_key"
@@ -142,6 +167,7 @@ Workspace:
       }
     }
 
+    # 为加速域名创建图片压缩规则。jpeg类型的文件，压缩比例为90%。
     resource "alicloud_cdn_domain_config" "domain_config3" {
       domain_name   = alicloud_cdn_domain_new.domain.domain_name
       function_name = "image_transform"
@@ -167,6 +193,7 @@ Workspace:
       }
     }
 
+    # 为加速域名创建CNAME记录。CNAME记录为加速域名的CNAME记录。
     resource "alicloud_dns_record" "domain_record" {
       name        = var.domain_name.DomainName
       host_record = var.domain_name.DomainPrefix
@@ -174,7 +201,8 @@ Workspace:
       value       = alicloud_cdn_domain_new.domain.cname
     }
 
-    # 授权CND访问OSS
+
+    # 授权CND访问OSS。创建CDN回源私有OSS Bucket角色的授权角色和授权策略。
     data "alicloud_ram_roles" "default" {
       name_regex = local.AliyunCDNAccessingPrivateOSSRole.name
     }
