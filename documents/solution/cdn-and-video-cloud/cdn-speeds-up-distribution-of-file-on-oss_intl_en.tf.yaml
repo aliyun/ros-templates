@@ -1,0 +1,294 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Description:
+  en: Create an OSS bucket and enable CDN acceleration, configure domain name 
+    resolution, and optimize file distribution strategies to support global 
+    access and custom caching rules.
+  zh-cn: 创建OSS存储桶并启用CDN加速，配置域名解析与优化文件分发策略，支持全球访问与自定义缓存规则。
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+    - Parameters:
+      - scope
+      - domain_name
+      - bucket_name
+    TemplateTags:
+    - acs:technical-solution:cdn-and-video-cloud:文件下载加速及成本优化-tech_solu_38
+Parameters:
+  bucket_name:
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      CharacterClasses:
+      - Class: lowercase
+        min: 1
+      Length: 6
+      Prefix: image-example-
+    Description:
+      en: The name must be 3 to 63 bytes in length, The name must start and end 
+        with a lowercase letter or digit.The name can contain only lowercase 
+        letters, digits, and hyphens (-).;<br><b>note：<font color='blue'>A 
+        bucket name must be globally unique within OSS. Bucket names cannot be 
+        changed after the bucket is created.</b></font>
+      zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font 
+        color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
+    Label:
+      en: Bucket Name
+      zh-cn: 存储空间名称
+    Type: String
+  domain_name:
+    Description:
+      en: Accelerated domain name refers to the domain name of the access CDN 
+        used to accelerate the source site. Please fill in the domain name under
+        your account.
+      zh-cn: 加速域名是指接入CDN，用于加速源站的域名。请填写您账号下的域名。
+    Label:
+      en: Accelerated domain name
+      zh-cn: 加速域名
+    Type: Json
+    AssociationProperty: ALIYUN::DomainName
+  scope:
+    AllowedValues:
+    - domestic
+    - overseas
+    - global
+    Default: domestic
+    Description:
+      en: Select the acceleration area. When the acceleration region is only in 
+        mainland China and the world, the service domain name must be filed.
+      zh-cn: 选择加速区域。加速区域为仅中国内地和全球时，服务域名必须备案。
+    Label:
+      en: Acceleration area
+      zh-cn: 加速区域
+    Type: String
+Workspace:
+  provider.tf: |-
+    # Configure Alibaba Cloud provider (Provider)
+    provider "alicloud" {
+      # Resource deployment region: Singapore
+      region = "ap-southeast-1"
+    }
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # Module Input Variables
+    #
+    # This file defines all configurable input variables for this Terraform module along with their validation rules.
+    # Each variable includes a detailed 'description' to explain its purpose, format, and default value logic.
+    # Please refer to these descriptions to configure the module correctly.
+    # ------------------------------------------------------------------------------
+
+    variable "bucket_name" {
+      type        = string
+      description = "Bucket name. The name must be 3 to 63 bytes in length, The name must start and end 
+        with a lowercase letter or digit.The name can contain only lowercase 
+        letters, digits, and hyphens (-). A bucket name must be globally unique within OSS. 
+        Bucket names cannot be changed after the bucket is created."
+      validation {
+        condition     = can(regex("^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$", var.bucket_name))
+        error_message = "The name must be 3 to 63 bytes in length, The name must start and end 
+          with a lowercase letter or digit.The name can contain only lowercase 
+          letters, digits, and hyphens (-)."
+      }
+    }
+
+    variable "domain_name" {
+      description = "Domain name"
+      type = object({
+        DomainPrefix = string
+        DomainName   = string
+      })
+    }
+
+    variable "scope" {
+      type        = string
+      description = "Select the acceleration area. When the acceleration region is only in mainland China and the world, 
+        the service domain name must be filed."
+      default     = "domestic"
+    }
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # Main Resource Definitions
+    #
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on the input variables.
+    # ------------------------------------------------------------------------------
+
+    # Check if CDN service is enabled
+    data "alicloud_cdn_service" "open_cdn" {
+      enable = "On"
+    }
+
+    # Check if OSS service is enabled
+    data "alicloud_oss_service" "open_oss" {
+      enable = "On"
+    }
+
+    # Create OSS bucket
+    resource "alicloud_oss_bucket" "oss_bucket" {
+      bucket = var.bucket_name
+    }
+
+    # Create CDN domain. The accelerated domain name is the input domain_name, and the origin server is the created OSS bucket.
+    resource "alicloud_cdn_domain_new" "domain" {
+      domain_name = "${var.domain_name.DomainPrefix}.${var.domain_name.DomainName}"
+      cdn_type    = "web"
+      scope       = var.scope
+      sources {
+        content  = "${alicloud_oss_bucket.oss_bucket.id}.${alicloud_oss_bucket.oss_bucket.extranet_endpoint}"
+        type     = "oss"
+        priority = 20
+        port     = 80
+        weight   = 10
+      }
+    }
+
+    # Create CDN domain config. Set the file type to jpg, png, jpeg, gif, weight to 99, and cache time to 2592000 seconds.
+    resource "alicloud_cdn_domain_config" "domain_config1" {
+      domain_name   = alicloud_cdn_domain_new.domain.domain_name
+      function_name = "filetype_based_ttl_set"
+      function_args {
+        arg_name  = "file_type"
+        arg_value = "jpg,png,jpeg,gif"
+      }
+      function_args {
+        arg_name  = "weight"
+        arg_value = "99"
+      }
+      function_args {
+        arg_name  = "ttl"
+        arg_value = "2592000"
+      }
+    }
+
+    # Create CDN domain config. Set the OSS auth to on.
+    resource "alicloud_cdn_domain_config" "domain_config2" {
+      domain_name   = alicloud_cdn_domain_new.domain.domain_name
+      function_name = "l2_oss_key"
+      function_args {
+        arg_name  = "private_oss_auth"
+        arg_value = "on"
+      }
+      function_args {
+        arg_name  = "perm_private_oss_tbl"
+        arg_value = ""
+      }
+    }
+
+    # Create CDN domain config. Set the image transform to jpeg, webp to off, orient to off, slim to 90, and enable to on.
+    resource "alicloud_cdn_domain_config" "domain_config3" {
+      domain_name   = alicloud_cdn_domain_new.domain.domain_name
+      function_name = "image_transform"
+      function_args {
+        arg_name  = "filetype"
+        arg_value = "jpeg"
+      }
+      function_args {
+        arg_name  = "webp"
+        arg_value = "off"
+      }
+      function_args {
+        arg_name  = "orient"
+        arg_value = "off"
+      }
+      function_args {
+        arg_name  = "slim"
+        arg_value = "90"
+      }
+      function_args {
+        arg_name  = "enable"
+        arg_value = "on"
+      }
+    }
+
+    # Create CNAME record. The CNAME record is the CNAME record of the accelerated domain name.
+    resource "alicloud_dns_record" "domain_record" {
+      name        = var.domain_name.DomainName
+      host_record = var.domain_name.DomainPrefix
+      type        = "CNAME"
+      value       = alicloud_cdn_domain_new.domain.cname
+    }
+
+    # Authorize CND to access OSS. Create the authorization role and authorization policy for the CDN back-to-origin role to access a private OSS bucket.
+    data "alicloud_ram_roles" "default" {
+      name_regex = local.AliyunCDNAccessingPrivateOSSRole.name
+    }
+
+    resource "alicloud_ram_role" "role" {
+      count                       = length(data.alicloud_ram_roles.default.names) > 0 ? 0 : 1
+      role_name                   = local.AliyunCDNAccessingPrivateOSSRole.name
+      assume_role_policy_document = local.AliyunCDNAccessingPrivateOSSRole.document
+      description                 = local.AliyunCDNAccessingPrivateOSSRole.description
+    }
+
+    resource "alicloud_ram_policy" "policy" {
+      policy_name     = "${local.AliyunCDNAccessingPrivateOSSRolePolicy.name}-${alicloud_oss_bucket.oss_bucket.id}"
+      policy_document = local.AliyunCDNAccessingPrivateOSSRolePolicy.document
+      description     = local.AliyunCDNAccessingPrivateOSSRolePolicy.description
+    }
+
+    resource "alicloud_ram_role_policy_attachment" "attach" {
+      role_name   = local.AliyunCDNAccessingPrivateOSSRole.name
+      policy_name = alicloud_ram_policy.policy.policy_name
+      policy_type = "Custom"
+
+      depends_on = [alicloud_ram_role.role]
+    }
+
+    locals {
+      AliyunCDNAccessingPrivateOSSRole = {
+        name        = "AliyunCDNAccessingPrivateOSSRole"
+        description = "The authorization role for CDN back-to-origin access to private OSS buckets."
+        document    = <<-JSON
+        {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "cdn.aliyuncs.com"
+                ]
+              }
+            }
+          ],
+          "Version": "1"
+        }
+        JSON
+      }
+      AliyunCDNAccessingPrivateOSSRolePolicy = {
+        name        = "AliyunCDNAccessingPrivateOSSRolePolicy"
+        description = "Authorization policy for the CDN back-to-origin role to access a private OSS bucket, which includes OSS read-only permissions."
+        document    = <<-JSON
+        {
+          "Version": "1",
+          "Statement": [
+            {
+              "Action": [
+                "oss:List*",
+                "oss:Get*"
+              ],
+              "Resource": [
+                    "acs:oss:*:*:${alicloud_oss_bucket.oss_bucket.id}",
+                    "acs:oss:*:*:${alicloud_oss_bucket.oss_bucket.id}/*"
+              ],
+              "Effect": "Allow"
+            }
+          ]
+        }
+        JSON
+      }
+    }
+  output.tf: |
+    output "accelerate_domain_name" {
+      description = "Accelerated domain name"
+      value       = alicloud_cdn_domain_new.domain.domain_name
+    }
+
+    output "cname_domain_name" {
+      description = "CNAME domain name"
+      value       = alicloud_cdn_domain_new.domain.cname
+    }
+
+    output "origin_server" {
+      description = "Origin server"
+      value       = "${alicloud_oss_bucket.oss_bucket.id}.${alicloud_oss_bucket.oss_bucket.extranet_endpoint}"
+    }
