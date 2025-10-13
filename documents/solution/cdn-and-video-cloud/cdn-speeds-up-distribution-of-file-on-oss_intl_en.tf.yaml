@@ -63,24 +63,24 @@ Parameters:
 Workspace:
   variable.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输入变量 (Module Input Variables)
+    # Module Input Variables
     #
-    # 本文件定义了该 Terraform 模块所有可配置的输入变量及其校验规则。
-    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
-    # 请参考这些描述来正确配置模块。
+    # This file defines all configurable input variables for this Terraform module along with their validation rules.
+    # Each variable includes a detailed 'description' to explain its purpose, format, and default value logic.
+    # Please refer to these descriptions to configure the module correctly.
     # ------------------------------------------------------------------------------
-    
+
     variable "bucket_name" {
       type        = string
-      description = "存储空间名称，长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-)。需要全网唯一性，已经存在的不能在创建。"
+      description = "Bucket name. The name must be 3 to 63 bytes in length, The name must start and end with a lowercase letter or digit. The name can contain only lowercase letters, digits, and hyphens (-). A bucket name must be globally unique within OSS. Bucket names cannot be changed after the bucket is created."
       validation {
         condition     = can(regex("^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$", var.bucket_name))
-        error_message = "必须为3-63个字符，以小写字母或数字开头和结尾，可包含小写字母、数字和连字符(-)"
+        error_message = "The name must be 3 to 63 bytes in length, The name must start and end with a lowercase letter or digit.The name can contain only lowercase letters, digits, and hyphens (-)."
       }
     }
 
     variable "domain_name" {
-      description = "域名"
+      description = "Domain name"
       type = object({
         DomainPrefix = string
         DomainName   = string
@@ -89,39 +89,39 @@ Workspace:
 
     variable "scope" {
       type        = string
-      description = "选择加速区域。加速区域为仅中国内地和全球时，服务域名必须备案。"
+      description = "Select the acceleration area. When the acceleration region is only in mainland China and the world, the service domain name must be filed."
       default     = "domestic"
     }
   main.tf: |-
     # ------------------------------------------------------------------------------
-    # 核心资源定义 (Main Resource Definitions)
+    # Main Resource Definitions
     #
-    # 本文件包含了模块的核心基础设施资源。
-    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on the input variables.
     # ------------------------------------------------------------------------------
 
-    # 配置阿里云提供商 (Provider)
+    # Configure Alibaba Cloud provider (Provider)
     provider "alicloud" {
-      # 资源部署地域：杭州
-      region = "cn-hangzhou"
+      # Resource deployment region: Singapore
+      region = "ap-southeast-1"
     }
-    
-    # 检查CDN服务是否开启
+
+    # Check if CDN service is enabled
     data "alicloud_cdn_service" "open_cdn" {
       enable = "On"
     }
 
-    # 检查OSS服务是否开启
+    # Check if OSS service is enabled
     data "alicloud_oss_service" "open_oss" {
       enable = "On"
     }
 
-    # 创建OSS存储桶
+    # Create OSS bucket
     resource "alicloud_oss_bucket" "oss_bucket" {
       bucket = var.bucket_name
     }
 
-    # 创建CDN域名。加速域名为输入的domain_name，源站为创建的OSS存储桶。
+    # Create CDN domain. The accelerated domain name is the input domain_name, and the origin server is the created OSS bucket.
     resource "alicloud_cdn_domain_new" "domain" {
       domain_name = "${var.domain_name.DomainPrefix}.${var.domain_name.DomainName}"
       cdn_type    = "web"
@@ -135,7 +135,7 @@ Workspace:
       }
     }
 
-    # 为加速域名创建缓存配置。设置文件类型为jpg、png、jpeg、gif，权重为99，缓存时间为2592000秒（30天）。
+    # Create CDN domain config. Set the file type to jpg, png, jpeg, gif, weight to 99, and cache time to 2592000 seconds.
     resource "alicloud_cdn_domain_config" "domain_config1" {
       domain_name   = alicloud_cdn_domain_new.domain.domain_name
       function_name = "filetype_based_ttl_set"
@@ -153,7 +153,7 @@ Workspace:
       }
     }
 
-    # 为加速域名创建OSS鉴权配置。设置OSS鉴权为开启。
+    # Create CDN domain config. Set the OSS auth to on.
     resource "alicloud_cdn_domain_config" "domain_config2" {
       domain_name   = alicloud_cdn_domain_new.domain.domain_name
       function_name = "l2_oss_key"
@@ -167,7 +167,7 @@ Workspace:
       }
     }
 
-    # 为加速域名创建图片压缩规则。jpeg类型的文件，压缩比例为90%。
+    # Create CDN domain config. Set the image transform to jpeg, webp to off, orient to off, slim to 90, and enable to on.
     resource "alicloud_cdn_domain_config" "domain_config3" {
       domain_name   = alicloud_cdn_domain_new.domain.domain_name
       function_name = "image_transform"
@@ -193,7 +193,7 @@ Workspace:
       }
     }
 
-    # 为加速域名创建CNAME记录。CNAME记录为加速域名的CNAME记录。
+    # Create CNAME record. The CNAME record is the CNAME record of the accelerated domain name.
     resource "alicloud_dns_record" "domain_record" {
       name        = var.domain_name.DomainName
       host_record = var.domain_name.DomainPrefix
@@ -201,8 +201,7 @@ Workspace:
       value       = alicloud_cdn_domain_new.domain.cname
     }
 
-
-    # 授权CND访问OSS。创建CDN回源私有OSS Bucket角色的授权角色和授权策略。
+    # Authorize CND to access OSS. Create the authorization role and authorization policy for the CDN back-to-origin role to access a private OSS bucket.
     data "alicloud_ram_roles" "default" {
       name_regex = local.AliyunCDNAccessingPrivateOSSRole.name
     }
@@ -231,7 +230,7 @@ Workspace:
     locals {
       AliyunCDNAccessingPrivateOSSRole = {
         name        = "AliyunCDNAccessingPrivateOSSRole"
-        description = "用于CDN回源私有OSS Bucket角色的授权角色"
+        description = "The authorization role for CDN back-to-origin access to private OSS buckets."
         document    = <<-JSON
         {
           "Statement": [
@@ -251,7 +250,7 @@ Workspace:
       }
       AliyunCDNAccessingPrivateOSSRolePolicy = {
         name        = "AliyunCDNAccessingPrivateOSSRolePolicy"
-        description = "用于CDN回源某一私有OSS Bucket角色的授权策略，包含OSS的只读权限"
+        description = "Authorization policy for the CDN back-to-origin role to access a private OSS bucket, which includes OSS read-only permissions."
         document    = <<-JSON
         {
           "Version": "1",
@@ -274,26 +273,26 @@ Workspace:
     }
   output.tf: |
     # ------------------------------------------------------------------------------
-    # 模块输出值 (Module Outputs)
+    # Module Outputs
     #
-    # 本文件定义了模块执行成功后返回给调用方的值。
-    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    # This file defines the values returned to the caller after the module has been successfully executed.
+    # These outputs can be referenced by other Terraform configurations or displayed to the user at the end of the apply command.
     # ------------------------------------------------------------------------------
-
-    # 输出加速域名
+    
+    # Output accelerated domain name
     output "accelerate_domain_name" {
-      description = "加速域名"
+      description = "Accelerated domain name"
       value       = alicloud_cdn_domain_new.domain.domain_name
     }
 
-    # 输出CNAME域名
+    # Output CNAME domain name
     output "cname_domain_name" {
-      description = "CNAME域名"
+      description = "CNAME domain name"
       value       = alicloud_cdn_domain_new.domain.cname
     }
 
-    # 输出源站
+    # Output origin server
     output "origin_server" {
-      description = "源站"
+      description = "Origin server"
       value       = "${alicloud_oss_bucket.oss_bucket.id}.${alicloud_oss_bucket.oss_bucket.extranet_endpoint}"
     }
