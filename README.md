@@ -15,6 +15,9 @@ Examples and best practices of ROS templates. The templates are categorized as f
 - `solutions`: Solutions that provide template best practices for complex scenarios. The templates are the same as those in the ROS Console [Solution Center](https://ros.console.aliyun.com/cn-beijing/solutions).
 - `transform`: Templates based on [Transform syntax](https://www.alibabacloud.com/help/resource-orchestration-service/latest/template-syntax-transform), offering simplified templates for specific scenarios.
 - `documents`：The templates involved in the Alibaba Cloud documents.
+  - `help`: The templates involved in the Alibaba Cloud Help Center documents.
+  - `solution`: The templates involved in the Alibaba Cloud solutions.
+  - `trial`: The templates involved in the Alibaba Cloud trial tutorial.
 - `compute-nest-best-practice`: Best practice templates for [Compute Nest](https://www.alibabacloud.com/help/computing-nest), providing templates for basic and advanced Compute Nest scenarios.
 
 ## Details
@@ -575,14 +578,14 @@ Examples and best practices of ROS templates. The templates are categorized as f
 
 - cloud-migration
 
-| 模板                                                                                                  | 说明                                                                                                                                      |
-| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml)   | Manually build a WordPress website on a CentOS 7 ECS instance. ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
+| 模板                                                                                                  | 说明                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------- |------------------------------------------------------------------------------------------------------------------------------------------|
+| [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml)   | Manually build a WordPress website on a CentOS 7 ECS instance. ｜ [Solution](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
 | [migrate-prometheus-to-cloud.yml](documents/solution/cloud-migration/migrate-prometheus-to-cloud.yml) | Migrate self-built Prometheus to cloud-managed Prometheus service. ｜                                                                     |
 | [operating-system-migration.yml](documents/solution/cloud-migration/operating-system-migration.yml)   | Manually build a WordPress website on a CentOS 7 ECS instance. ｜ [Solution](https://www.aliyun.com/solution/tech-solution/centos_alinux) |
-| [migrate-kafka-to-cloud.yml](documents/solution/cloud-migration/migrate-kafka-to-cloud.yml)           | Migrate Kafka to Cloud.                                                                                                                   |
-| [migrate-rabbitmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rabbitmq-to-cloud.yml)     | Migrate RabbitMq to Cloud.                                                                                                                |
-| [migrate-rocketmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rocketmq-to-cloud.yml)     | Migrate RocketMQ to Cloud.                                                                                                                |
+| [migrate-kafka-to-cloud.yml](documents/solution/cloud-migration/migrate-kafka-to-cloud.yml)           | Migrate Kafka to Cloud.                                                                                                                  |
+| [migrate-rabbitmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rabbitmq-to-cloud.yml)     | Migrate RabbitMq to Cloud.                                                                                                               |
+| [migrate-rocketmq-to-cloud.yml](documents/solution/cloud-migration/migrate-rocketmq-to-cloud.yml)     | Migrate RocketMQ to Cloud.                                                                                                               |
 
 - high-availability-architecture
 
@@ -646,7 +649,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | Efficiently build a new account with security and compliance.            |
 | [multiple-accounts-support-configuration-auditing.yml](documents/solution/security-and-compliance/multiple-accounts-support-configuration-auditing.yml)                         | Configure unified compliance audit for multiple accounts.                |
-| [cloud-firewall-in-multiple-accounts.yml](documents/solution/security-and-compliance/cloud-firewall-in-multiple-accounts.yml)                                                   | Create a VPC type ECS and bind EIP.                                      |
+| [cloud-firewall-in-multiple-accounts.yml](documents/solution/security-and-compliance/cloud-firewall-in-multiple-accounts.yml)                                                   | Cloud firewall enables unified management of multiple accounts for enterprises.                                      |
 | [enterprise-multi-account-identity-permissions.yml](documents/solution/security-and-compliance/enterprise-multi-account-identity-permissions.yml)                               | Centralized management of enterprise multi-account identity permissions. |
 | [only-approved-cloud-services.yml](documents/solution/security-and-compliance/only-approved-cloud-services.yml)                                                                 | Restrict enterprises to only approved cloud services.                    |
 | [protect-web-applications-with-WAF.yml](documents/solution/security-and-compliance/protect-web-applications-with-WAF.yml)                                                       | Protect web applications with WAF.                                       |

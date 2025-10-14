@@ -15,6 +15,9 @@ ROS 模板的示例和最佳实践。模板分类如下：
 - `solutions`：解决方案，提供面向复杂场景的模板最佳实践。模板同 ROS 控制台[解决方案中心](https://ros.console.aliyun.com/cn-beijing/solutions)。
 - `transform`：基于 [Transform 语法](https://www.alibabacloud.com/help/resource-orchestration-service/latest/template-syntax-transform)的模板，提供面向特定场景的简化模板。
 - `documents`：阿里云文档中涉及的模板。
+    - `help`: 阿里云帮助文档相关的模板。
+    - `solutions`: 阿里云解决方案相关的模板。
+    - `trail`: 阿里云试用教程相关的模板。
 - `compute-nest-best-practice`：[计算巢](https://www.alibabacloud.com/help/computing-nest)最佳实践模板，提供面向计算巢基础和进阶场景的模板。
 
 ## 详细说明
@@ -641,14 +644,14 @@ ROS 模板的示例和最佳实践。模板分类如下：
 
 - security-and-compliance
 
-| 模板                                                                                                                                                                            | 说明                                                                                                  |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | 高效构建安全合规的新账号。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ecosacna)       |
-| [multiple-accounts-support-configuration-auditing.yml](documents/solution/security-and-compliance/multiple-accounts-support-configuration-auditing.yml)                         | 企业多账号配置统一合规审计。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ucafmac)      |
-| [cloud-firewall-in-multiple-accounts.yml](documents/solution/security-and-compliance/cloud-firewall-in-multiple-accounts.yml)                                                   | 创建 VPC 类型 ECS，并绑定 EIP。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/umomaicf) |
-| [enterprise-multi-account-identity-permissions.yml](documents/solution/security-and-compliance/enterprise-multi-account-identity-permissions.yml)                               | 企业多账号身份权限集中管理。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/cmomaip)     |
-| [only-approved-cloud-services.yml](documents/solution/security-and-compliance/only-approved-cloud-services.yml)                                                                 | 限制企业仅使用已批准的云服务。                                                                        |
-| [protect-web-applications-with-WAF.yml](documents/solution/security-and-compliance/protect-web-applications-with-WAF.yml)                                                       | 通过 WAF 防护 Web 应用。                                                                              |
+| 模板                                                                                                                                                                            | 说明                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |---------------------------------------------------------------------------------|
+| [efficiently-build-a-new-account-with-security-and-compliance.yml](documents/solution/security-and-compliance/efficiently-build-a-new-account-with-security-and-compliance.yml) | 高效构建安全合规的新账号。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ecosacna)   |
+| [multiple-accounts-support-configuration-auditing.yml](documents/solution/security-and-compliance/multiple-accounts-support-configuration-auditing.yml)                         | 企业多账号配置统一合规审计。｜ [解决方案](https://www.aliyun.com/solution/tech-solution/ucafmac)   |
+| [cloud-firewall-in-multiple-accounts.yml](documents/solution/security-and-compliance/cloud-firewall-in-multiple-accounts.yml)                                                   | 云防火墙企业多账号统一管理。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/umomaicf) |
+| [enterprise-multi-account-identity-permissions.yml](documents/solution/security-and-compliance/enterprise-multi-account-identity-permissions.yml)                               | 企业多账号身份权限集中管理。 ｜ [解决方案](https://www.aliyun.com/solution/tech-solution/cmomaip)  |
+| [only-approved-cloud-services.yml](documents/solution/security-and-compliance/only-approved-cloud-services.yml)                                                                 | 限制企业仅使用已批准的云服务。                                                                 |
+| [protect-web-applications-with-WAF.yml](documents/solution/security-and-compliance/protect-web-applications-with-WAF.yml)                                                       | 通过 WAF 防护 Web 应用。                                                               |
 
   </details>
 
