@@ -1,0 +1,414 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:access-model-studio-by-privatelink:通过私有网络安全高效访问百炼服务-tech_solu_240
+Workspace:
+  main.tf: |
+    # ------------------------------------------------------------------------------
+    # 核心资源定义 (Main Resource Definitions)
+    #
+    # 本文件包含了模块的核心基础设施资源。
+    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    # ------------------------------------------------------------------------------
+
+    # 马来西亚地域
+    provider "alicloud" {
+      alias  = "region_malaysia"
+      region = "ap-southeast-3"
+    }
+
+    # 新加坡地域
+    provider "alicloud" {
+      alias  = "region_singapore"
+      region = "ap-southeast-1"
+    }
+
+    # 生成随机后缀，确保资源名称唯一性
+    resource "random_id" "suffix" {
+      byte_length = 8
+    }
+
+    # 本地变量定义
+    locals {
+      common_name = random_id.suffix.id  # 所有资源的通用名称前缀
+    }
+
+    # 马来西亚 VPC
+    resource "alicloud_vpc" "vpc_my" {
+      provider   = alicloud.region_malaysia
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "${local.common_name}-my-vpc"
+    }
+
+    # 马来西亚可用区1交换机
+    resource "alicloud_vswitch" "vsw1_my" {
+      provider     = alicloud.region_malaysia
+      vpc_id       = alicloud_vpc.vpc_my.id
+      cidr_block   = "192.168.1.0/24"
+      zone_id      = var.my_zone_id1
+      vswitch_name = "${local.common_name}-my-vsw1"
+    }
+
+    # 马来西亚可用区2交换机
+    resource "alicloud_vswitch" "vsw2_my" {
+      provider     = alicloud.region_malaysia
+      vpc_id       = alicloud_vpc.vpc_my.id
+      cidr_block   = "192.168.2.0/24"
+      zone_id      = var.my_zone_id2
+      vswitch_name = "${local.common_name}-my-vsw2"
+    }
+
+    # 安全组
+    resource "alicloud_security_group" "sg_my" {
+      provider            = alicloud.region_malaysia
+      security_group_name = "${local.common_name}-my-sg"
+      vpc_id              = alicloud_vpc.vpc_my.id
+    }
+
+    # 允许云助手连接（SSH）
+    resource "alicloud_security_group_rule" "allow_workbench" {
+      provider          = alicloud.region_malaysia
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "22/22"
+      cidr_ip           = "100.104.0.0/16"
+      security_group_id = alicloud_security_group.sg_my.id
+    }
+
+    # 马来西亚 ECS 实例
+    resource "alicloud_instance" "ecs_my" {
+      provider             = alicloud.region_malaysia
+      instance_name        = "${local.common_name}-ecs-1"
+      image_id             = "aliyun_3_9_x64_20G_alibase_20231219.vhd"
+      instance_type        = var.instance_type
+      system_disk_category = "cloud_essd"
+      system_disk_size     = 40
+      vswitch_id           = alicloud_vswitch.vsw1_my.id
+      security_groups      = [alicloud_security_group.sg_my.id]
+      password             = var.ecs_instance_password
+    }
+
+    # 新加坡 VPC
+    resource "alicloud_vpc" "vpc_sg" {
+      provider   = alicloud.region_singapore
+      cidr_block = "172.16.0.0/16"
+      vpc_name   = "${local.common_name}-sg-vpc"
+    }
+
+    # 新加坡可用区1交换机
+    resource "alicloud_vswitch" "vsw1_sg" {
+      provider     = alicloud.region_singapore
+      vpc_id       = alicloud_vpc.vpc_sg.id
+      cidr_block   = "172.16.1.0/24"
+      zone_id      = var.sg_zone_id1
+      vswitch_name = "${local.common_name}-sg-vsw1"
+    }
+
+    # 新加坡可用区2交换机
+    resource "alicloud_vswitch" "vsw2_sg" {
+      provider     = alicloud.region_singapore
+      vpc_id       = alicloud_vpc.vpc_sg.id
+      cidr_block   = "172.16.2.0/24"
+      zone_id      = var.sg_zone_id2
+      vswitch_name = "${local.common_name}-sg-vsw2"
+    }
+
+
+    # 安全组
+    resource "alicloud_security_group" "sg_sg" {
+      provider            = alicloud.region_singapore
+      security_group_name = "${local.common_name}-sg-sg"
+      vpc_id              = alicloud_vpc.vpc_sg.id
+    }
+
+    # 允许来自马来西亚 VPC 的 HTTP 访问
+    resource "alicloud_security_group_rule" "http_ingress_rule" {
+      provider          = alicloud.region_singapore
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "80/80"
+      priority          = 1
+      security_group_id = alicloud_security_group.sg_sg.id
+      cidr_ip           = alicloud_vpc.vpc_my.cidr_block
+    }
+
+    # 允许来自马来西亚 VPC 的 HTTPS 访问
+    resource "alicloud_security_group_rule" "https_ingress_rule" {
+      provider          = alicloud.region_singapore
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "443/443"
+      priority          = 1
+      security_group_id = alicloud_security_group.sg_sg.id
+      cidr_ip           = alicloud_vpc.vpc_my.cidr_block
+    }
+
+    # CEN 实例 - 跨地域网络连接
+    resource "alicloud_cen_instance" "cen" {
+      cen_instance_name = "${local.common_name}-cen"
+      description       = "CEN instance for cross-region connectivity with route synchronization"
+    }
+
+    # 马来西亚 Transit Router
+    resource "alicloud_cen_transit_router" "my-tr" {
+      provider            = alicloud.region_malaysia
+      cen_id              = alicloud_cen_instance.cen.id
+      transit_router_name = "${local.common_name}-my-tr"
+    }
+
+    # 新加坡 Transit Router
+    resource "alicloud_cen_transit_router" "sg-tr" {
+      provider            = alicloud.region_singapore
+      cen_id              = alicloud_cen_instance.cen.id
+      transit_router_name = "${local.common_name}-sg-tr"
+    }
+
+    # 马来西亚 VPC 连接到马来西亚 Transit Router
+    resource "alicloud_cen_transit_router_vpc_attachment" "my_vpc_attachment" {
+      provider          = alicloud.region_malaysia
+      cen_id            = alicloud_cen_instance.cen.id
+      transit_router_id = alicloud_cen_transit_router.my-tr.transit_router_id
+      vpc_id            = alicloud_vpc.vpc_my.id
+      
+      # 多可用区映射
+      zone_mappings {
+        zone_id    = var.my_zone_id1
+        vswitch_id = alicloud_vswitch.vsw1_my.id
+      }
+      zone_mappings {
+        zone_id    = var.my_zone_id2
+        vswitch_id = alicloud_vswitch.vsw2_my.id
+      }
+      transit_router_vpc_attachment_name = "${local.common_name}-my-vpc-attachment"
+      auto_publish_route_enabled         = true
+    }
+
+    # 新加坡 VPC 连接到新加坡 Transit Router
+    resource "alicloud_cen_transit_router_vpc_attachment" "sg_vpc_attachment" {
+      provider          = alicloud.region_singapore
+      cen_id            = alicloud_cen_instance.cen.id
+      transit_router_id = alicloud_cen_transit_router.sg-tr.transit_router_id
+      vpc_id            = alicloud_vpc.vpc_sg.id
+      
+      # 多可用区映射
+      zone_mappings {
+        zone_id    = var.sg_zone_id1
+        vswitch_id = alicloud_vswitch.vsw1_sg.id
+      }
+      zone_mappings {
+        zone_id    = var.sg_zone_id2
+        vswitch_id = alicloud_vswitch.vsw2_sg.id
+      }
+      transit_router_vpc_attachment_name = "${local.common_name}-sg-vpc-attachment"
+      auto_publish_route_enabled         = true
+    }
+
+    # 马来西亚 Transit Router 系统路由表查询
+    data "alicloud_cen_transit_router_route_tables" "my-tr-rt" {
+      provider                        = alicloud.region_malaysia
+      transit_router_id               = alicloud_cen_transit_router.my-tr.transit_router_id
+      transit_router_route_table_type = "System"
+    }
+
+    # 新加坡 Transit Router 系统路由表查询
+    data "alicloud_cen_transit_router_route_tables" "sg-tr-rt" {
+      provider                        = alicloud.region_singapore
+      transit_router_id               = alicloud_cen_transit_router.sg-tr.transit_router_id
+      transit_router_route_table_type = "System"
+    }
+
+    # 提取系统路由表ID
+    locals {
+      my_system_route_table_id = data.alicloud_cen_transit_router_route_tables.my-tr-rt.tables[0].transit_router_route_table_id
+      sg_system_route_table_id = data.alicloud_cen_transit_router_route_tables.sg-tr-rt.tables[0].transit_router_route_table_id
+    }
+
+    # 马来西亚到新加坡的跨地域连接
+    resource "alicloud_cen_transit_router_peer_attachment" "cen-tr-peer-attachment" {
+      provider                            = alicloud.region_malaysia
+      cen_id                              = alicloud_cen_instance.cen.id
+      transit_router_id                   = alicloud_cen_transit_router.my-tr.transit_router_id
+      peer_transit_router_region_id       = "ap-southeast-1"
+      peer_transit_router_id              = alicloud_cen_transit_router.sg-tr.transit_router_id
+      bandwidth_type                      = "DataTransfer"
+      bandwidth                           = 5
+      transit_router_peer_attachment_name = "${local.common_name}-peer-attachment"
+      auto_publish_route_enabled          = true
+    }
+
+    # 马来西亚 VPC 连接关联到马来西亚系统路由表
+    resource "alicloud_cen_transit_router_route_table_association" "my_vpc_attachment" {
+      provider                      = alicloud.region_malaysia
+      transit_router_route_table_id = local.my_system_route_table_id
+      transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.my_vpc_attachment.transit_router_attachment_id
+    }
+
+    # 新加坡 VPC 连接关联到新加坡系统路由表
+    resource "alicloud_cen_transit_router_route_table_association" "sg_vpc_attachment" {
+      provider                      = alicloud.region_singapore
+      transit_router_route_table_id = local.sg_system_route_table_id
+      transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.sg_vpc_attachment.transit_router_attachment_id
+    }
+
+    # 跨地域连接关联到新加坡系统路由表
+    resource "alicloud_cen_transit_router_route_table_association" "sg_peer_attachment" {
+      provider                      = alicloud.region_singapore
+      transit_router_route_table_id = local.sg_system_route_table_id
+      transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.cen-tr-peer-attachment.transit_router_attachment_id
+    }
+
+    # 跨地域连接关联到马来西亚系统路由表
+    resource "alicloud_cen_transit_router_route_table_association" "my_peer_attachment" {
+      provider                      = alicloud.region_malaysia
+      transit_router_route_table_id = local.my_system_route_table_id
+      transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.cen-tr-peer-attachment.transit_router_attachment_id
+    }
+
+    # 马来西亚 VPC 路由传播到马来西亚系统路由表
+    resource "alicloud_cen_transit_router_route_table_propagation" "my_vpc_propagation" {
+      provider                      = alicloud.region_malaysia
+      transit_router_route_table_id = local.my_system_route_table_id
+      transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.my_vpc_attachment.transit_router_attachment_id
+    }
+
+    # 新加坡 VPC 路由传播到新加坡系统路由表
+    resource "alicloud_cen_transit_router_route_table_propagation" "sg_vpc_propagation" {
+      provider                      = alicloud.region_singapore
+      transit_router_route_table_id = local.sg_system_route_table_id
+      transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.sg_vpc_attachment.transit_router_attachment_id
+    }
+
+    # 跨地域连接路由传播到新加坡系统路由表
+    resource "alicloud_cen_transit_router_route_table_propagation" "sg_peer_propagation" {
+      provider                      = alicloud.region_singapore
+      transit_router_route_table_id = local.sg_system_route_table_id
+      transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.cen-tr-peer-attachment.transit_router_attachment_id
+    }
+
+    # 跨地域连接路由传播到马来西亚系统路由表
+    resource "alicloud_cen_transit_router_route_table_propagation" "my_peer_propagation" {
+      provider                      = alicloud.region_malaysia
+      transit_router_route_table_id = local.my_system_route_table_id
+      transit_router_attachment_id  = alicloud_cen_transit_router_peer_attachment.cen-tr-peer-attachment.transit_router_attachment_id
+    }
+
+    # PrivateLink
+    resource "alicloud_privatelink_vpc_endpoint" "dashscope_endpoint" {
+      provider           = alicloud.region_singapore
+      service_name       = "com.aliyuncs.dashscope"
+      vpc_endpoint_name  = "${local.common_name}-dashscope-endpoint"
+      security_group_ids = [alicloud_security_group.sg_sg.id]
+      vpc_id             = alicloud_vpc.vpc_sg.id
+    }
+
+    # 终端节点可用区1配置
+    resource "alicloud_privatelink_vpc_endpoint_zone" "zone1" {
+      provider    = alicloud.region_singapore
+      endpoint_id = alicloud_privatelink_vpc_endpoint.dashscope_endpoint.id
+      vswitch_id  = alicloud_vswitch.vsw1_sg.id
+      zone_id     = var.sg_zone_id1
+    }
+
+    # 终端节点可用区2配置
+    resource "alicloud_privatelink_vpc_endpoint_zone" "zone2" {
+      provider    = alicloud.region_singapore
+      endpoint_id = alicloud_privatelink_vpc_endpoint.dashscope_endpoint.id
+      vswitch_id  = alicloud_vswitch.vsw2_sg.id
+      zone_id     = var.sg_zone_id2
+    }
+
+    # 私有 DNS 配置
+    resource "alicloud_pvtz_zone" "dashscope_pvtz_zone" {
+      provider  = alicloud.region_malaysia
+      zone_name = "vpc-ap-southeast-1.dashscope.aliyuncs.com"
+    }
+
+    # DNS CNAME 记录指向新加坡 PrivateLink 终端节点
+    resource "alicloud_pvtz_zone_record" "dashscope_cname_record" {
+      provider = alicloud.region_malaysia
+      zone_id  = alicloud_pvtz_zone.dashscope_pvtz_zone.id
+      value    = alicloud_privatelink_vpc_endpoint.dashscope_endpoint.endpoint_domain
+      rr       = "@"
+      type     = "CNAME"
+      ttl      = 60
+      status   = "ENABLE"
+    }
+
+    # 将马来西亚 VPC 绑定到私有 DNS 区域
+    resource "alicloud_pvtz_zone_attachment" "my_vpc_attachment" {
+      provider = alicloud.region_malaysia
+      zone_id  = alicloud_pvtz_zone.dashscope_pvtz_zone.id
+      vpcs {
+        vpc_id    = alicloud_vpc.vpc_my.id
+        region_id = "ap-southeast-3"
+      }
+    }
+  outputs.tf: |
+    # ------------------------------------------------------------------------------
+    # 模块输出值 (Module Outputs)
+    #
+    # 本文件定义了模块执行成功后返回给调用方的值。
+    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    # ------------------------------------------------------------------------------
+
+    # ECS登录地址
+    output "ecs_login_address" {
+      description = "ECS登录地址"
+      value       = format("https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=%s&instanceId=%s", "ap-southeast-3", alicloud_instance.ecs_my.id)
+    }
+  variables.tf: |
+    # ------------------------------------------------------------------------------
+    # 模块输入变量 (Module Input Variables)
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
+    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
+    # 请参考这些描述来正确配置模块。
+    # ------------------------------------------------------------------------------
+
+    # 新加坡地域可用区1
+    variable "sg_zone_id1" {
+      type        = string
+      description = "新加坡可用区1"
+      default     = "ap-southeast-1a"
+    }
+
+    # 新加坡地域可用区2
+    variable "sg_zone_id2" {
+      type        = string
+      description = "新加坡可用区2"
+      default     = "ap-southeast-1b"
+    }
+
+    # ECS 实例规格
+    variable "instance_type" {
+      type        = string
+      description = "ECS实例规格"
+      default     = "ecs.e-c1m2.large"
+    }
+
+    # ECS 实例登录密码
+    variable "ecs_instance_password" {
+      type        = string
+      sensitive   = true
+      description = "服务器登录密码，长度8-30，必须包含三项（大写字母、小写字母、数字、特殊符号）"
+    }
+
+    # 马来西亚地域可用区1
+    variable "my_zone_id1" {
+      type        = string
+      description = "马来西亚可用区1"
+      default     = "ap-southeast-3a"
+    }
+
+    # 马来西亚地域可用区2
+    variable "my_zone_id2" {
+      type        = string
+      description = "马来西亚可用区2"
+      default     = "ap-southeast-3b"
+    }
