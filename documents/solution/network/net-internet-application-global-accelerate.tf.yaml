@@ -1,0 +1,217 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Workspace:
+  main.tf: |-
+    provider "alicloud" {
+      region = "us-east-1"
+    }
+
+    resource "alicloud_vpc" "vpc" {
+      vpc_name   = "VPC"
+      cidr_block = "192.168.0.0/16"
+    }
+
+    resource "alicloud_vswitch" "vswitch1" {
+      vpc_id       = alicloud_vpc.vpc.id
+      zone_id      = var.zone1
+      vswitch_name = "vsw_001"
+      cidr_block   = "192.168.1.0/24"
+    }
+
+    resource "alicloud_vswitch" "vswitch2" {
+      vpc_id       = alicloud_vpc.vpc.id
+      zone_id      = var.zone2
+      vswitch_name = "vsw_002"
+      cidr_block   = "192.168.2.0/24"
+    }
+
+    resource "alicloud_security_group" "security_group" {
+      security_group_name = "SecurityGroup_1"
+      vpc_id = alicloud_vpc.vpc.id
+    }
+
+    resource "alicloud_security_group_rule" "allow_tcp_80" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      policy            = "accept"
+      port_range        = "80/80"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "192.168.0.0/16"
+    }
+
+
+    resource "alicloud_instance" "ecs_instance_01" {
+      instance_name = "ECS01"
+      vswitch_id = alicloud_vswitch.vswitch1.id
+      security_groups = [alicloud_security_group.security_group.id]
+      image_id = "centos_7_6_x64_20G_alibase_20211130.vhd"
+      instance_type = var.ecs_instance_type
+      password = var.ecs_instance_password
+      system_disk_category = "cloud_essd"
+      system_disk_size = 40
+    }
+
+    resource "alicloud_instance" "ecs_instance_02" {
+      instance_name = "ECS02"
+      vswitch_id = alicloud_vswitch.vswitch2.id
+      security_groups = [alicloud_security_group.security_group.id]
+      image_id = "centos_7_6_x64_20G_alibase_20211130.vhd"
+      instance_type = var.ecs_instance_type
+      password = var.ecs_instance_password
+      system_disk_category = "cloud_essd"
+      system_disk_size = 40
+    }
+
+    resource "alicloud_ecs_command" "run_command_ecs01" {
+      name = "Deploy testing ecs01 website"
+      command_content = base64encode(<<-EOF
+      yum install -y nginx
+      systemctl start nginx.service
+      cd /usr/share/nginx/html/
+      echo "Hello World ! This is ECS01." > index.html
+      EOF
+      )
+      type = "RunShellScript"
+      timeout = 60
+    }
+
+    resource "alicloud_ecs_invocation" "invoke_script_ecs01" {
+      instance_id = [alicloud_instance.ecs_instance_01.id]
+      command_id = alicloud_ecs_command.run_command_ecs01.id
+    }
+
+    resource "alicloud_ecs_command" "run_command_ecs02" {
+      name = "Deploy testing ecs02 website"
+      command_content = base64encode(<<-EOF
+      yum install -y nginx
+      systemctl start nginx.service
+      cd /usr/share/nginx/html/
+      echo "Hello World ! This is ECS02." > index.html
+      EOF
+      )
+      type = "RunShellScript"
+      timeout = 60
+    }
+
+    resource "alicloud_ecs_invocation" "invoke_script_ecs02" {
+      instance_id = [alicloud_instance.ecs_instance_02.id]
+      command_id = alicloud_ecs_command.run_command_ecs02.id
+    }
+
+    resource "alicloud_nlb_load_balancer" "nlb_load_balancer" {
+      vpc_id             = alicloud_vpc.vpc.id
+      load_balancer_name = "NLB_EU"
+      address_type       = "Intranet"
+      address_ip_version = "Ipv4"
+      zone_mappings {
+        zone_id    = var.zone1
+        vswitch_id = alicloud_vswitch.vswitch1.id
+      }
+      zone_mappings {
+        zone_id    = var.zone2
+        vswitch_id = alicloud_vswitch.vswitch2.id
+      }
+    }
+
+    resource "alicloud_nlb_server_group" "nlb_server_group" {
+      vpc_id = alicloud_vpc.vpc.id
+      server_group_name = "NLB_SERVER_GROUP"
+    }
+
+    resource "alicloud_nlb_server_group_server_attachment" "server_attachment1" {
+      server_group_id = alicloud_nlb_server_group.nlb_server_group.id
+      server_type = "Ecs"
+      server_id   = alicloud_instance.ecs_instance_01.id
+      port        = 80
+    }
+
+    resource "alicloud_nlb_server_group_server_attachment" "server_attachment2" {
+      server_group_id = alicloud_nlb_server_group.nlb_server_group.id
+      server_type = "Ecs"
+      server_id   = alicloud_instance.ecs_instance_02.id
+      port        = 80
+    }
+
+    resource "alicloud_nlb_listener" "nlb_listener" {
+      listener_port     = 80
+      listener_protocol = "TCP"
+      load_balancer_id  = alicloud_nlb_load_balancer.nlb_load_balancer.id
+      server_group_id   = alicloud_nlb_server_group.nlb_server_group.id
+    }
+
+    resource "alicloud_ga_accelerator" "accelerator" {
+      bandwidth_billing_type = "CDT"
+      payment_type = "PayAsYouGo"
+    }
+
+    resource "alicloud_ga_ip_set" "accelerate_region" {
+      accelerate_region_id = var.accelerate_region_id
+      bandwidth            = "2"
+      accelerator_id       = alicloud_ga_accelerator.accelerator.id
+      isp_type             = "BGP"
+    }
+
+    resource "alicloud_ga_listener" "ga_listener" {
+      name = "TCP_80"
+      port_ranges {
+        from_port = 80
+        to_port   = 80
+      }
+      protocol       = "TCP"
+      accelerator_id = alicloud_ga_accelerator.accelerator.id
+      client_affinity = "SOURCE_IP"
+    }
+  outputs.tf: |-
+    output "nlb_dns_name" {
+      description = "NLB的DNS名称"
+      value       = alicloud_nlb_load_balancer.nlb_load_balancer.dns_name
+    }
+
+    output "accelerator_id" {
+      description = "全球加速实例ID"
+      value       = alicloud_ga_accelerator.accelerator.id
+    }
+
+  variables.tf: |-
+    variable "ecs_instance_type" {
+      type        = string
+      description = "ECS实例规格"
+      default = "ecs.e-c1m1.large"
+    }
+
+    variable "ecs_instance_password" {
+      type        = string
+      sensitive   = true
+      description = "服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）"
+      # default = "Alicloud@123"
+    }
+
+    variable "region" {
+      type        = string
+      description = "资源部署地域"
+      default = "us-east-1"
+    }
+
+    variable "zone1" {
+      type        = string
+      description = "交换机可用区1"
+      default = "us-east-1a"
+    }
+
+    variable "zone2" {
+      type        = string
+      description = "交换机可用区2，请确保交换机可用区2与交换机可用区1不相同"
+      default = "us-east-1b"
+    }
+
+    variable "accelerate_region_id" {
+      type        = string
+      default     = "cn-hongkong"
+      description = "加速地域ID"
+    }
+
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:network:net-internet-application-global-accelerate
