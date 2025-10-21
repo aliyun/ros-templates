@@ -1,0 +1,340 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:应用日志数据归档-tech_solu_08
+Workspace:
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量 (Module Input Variables)
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
+    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
+    # 请参考这些描述来正确配置模块。
+    # ------------------------------------------------------------------------------
+
+    # 指定创建的ECS云服务器的规格。
+    variable "ecs_instance_type" {
+      type        = string
+      default     = "ecs.t6-c1m2.large"
+      description = "实例类型"
+    }
+
+    # 用于登录ECS实例的密码。
+    variable "ecs_instance_password" {
+      type        = string
+      sensitive   = true
+      description = "服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）"
+      # default   = ""
+    }
+
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # 核心资源定义 (Main Resource Definitions)
+    #
+    # 本文件包含了模块的核心基础设施资源。
+    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    # ------------------------------------------------------------------------------
+    
+    # 配置阿里云提供商 (Provider)
+    provider "alicloud" {
+      region = "cn-hangzhou"
+    }
+    
+    # 查询当前部署地域
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # 查询支持指定ECS实例规格和磁盘类型的可用区
+    data "alicloud_zones" "default" {
+      available_disk_category     = "cloud_essd"
+      available_resource_creation = "VSwitch"
+      available_instance_type     = var.ecs_instance_type
+    }
+
+    # 创建一个随机ID，用于生成唯一的资源名称后缀，避免命名冲突
+    resource "random_string" "suffix" {
+      length  = 8
+      lower   = true
+      upper   = false
+      numeric = false
+      special = false
+    }
+
+    # 定义一个局部变量，将随机ID用作通用名称后缀
+    locals {
+      common_name = random_string.suffix.id
+      region = data.alicloud_regions.current_region_ds.regions.0.id
+    }
+
+    # 创建一个专有网络（VPC），为云资源提供一个隔离的网络环境
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "vpc-${local.common_name}"
+    }
+
+    # 创建一个交换机（VSwitch），用于在VPC内划分一个子网
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.0.0/24"
+      zone_id      = data.alicloud_zones.default.zones.0.id
+      vswitch_name = "vswitch-${local.common_name}"
+    }
+
+    # 创建一个安全组，作为虚拟防火墙来控制ECS实例的网络访问
+    resource "alicloud_security_group" "security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg-${local.common_name}"
+    }
+
+    # 在安全组中添加入方向规则，允许外部流量访问80端口
+    resource "alicloud_security_group_rule" "allow_http" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "80/80"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # 在安全组中添加入方向规则，允许外部流量访问3306端口
+    resource "alicloud_security_group_rule" "allow_db" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "3306/3306"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # 查询可用的阿里云镜像
+    data "alicloud_images" "default" {
+      name_regex  = "^aliyun_3_x64_20G_alibase_.*"
+      most_recent = true
+      owners      = "system"
+    }
+
+    # 创建一个RAM用户，用于后续给ECS实例授权访问其他云服务
+    resource "alicloud_ram_user" "ram_user" {
+      name = "ram-user-${local.common_name}"
+    }
+
+    # 为前面创建的RAM用户生成一个Access Key
+    resource "alicloud_ram_access_key" "ramak" {
+      user_name = alicloud_ram_user.ram_user.name
+    }
+
+    # 为RAM用户附加一个系统策略
+    resource "alicloud_ram_user_policy_attachment" "attach_policy_to_user" {
+      user_name   = alicloud_ram_user.ram_user.name
+      # 策略类型为系统预设策略
+      policy_type = "System"
+      # 授予日志服务的完全访问权限
+      policy_name = "AliyunLogFullAccess"
+    }
+
+    # 创建一台ECS实例（云服务器）
+    resource "alicloud_instance" "ecs_instance" {
+      instance_name              = "ecs-${local.common_name}"
+      image_id                   = data.alicloud_images.default.images[0].id
+      instance_type              = var.ecs_instance_type
+      system_disk_category       = "cloud_essd"
+      security_groups            = [alicloud_security_group.security_group.id]
+      vswitch_id                 = alicloud_vswitch.vswitch.id
+      password                   = var.ecs_instance_password
+      internet_max_bandwidth_out = 5
+    }
+
+    # 创建一个云助手命令，指令用于：模拟生成日志，并安装LoongCollector来采集日志
+    resource "alicloud_ecs_command" "run_command_nginx_loongcollector" {
+      name = "command-run-nginx-loongcollector-${local.common_name}"
+      command_content = base64encode(<<EOF
+    #!/bin/bash
+    yum update -y
+    yum install -y nginx
+    systemctl start nginx
+    systemctl enable nginx
+
+    wget http://aliyun-observability-release-${local.region}.oss-${local.region}.aliyuncs.com/loongcollector/linux64/latest/loongcollector.sh -O loongcollector.sh
+    chmod +x loongcollector.sh
+    ./loongcollector.sh install ${local.region}-internet
+
+    cat << EOJ >> genlog.sh
+    echo "127.0.0.1 - - [\$(date +'%d/%b/%Y:%H:%M:%S %z')] \"GET /HTTP/1.1\" 200 4897 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36\"" >> /var/log/nginx/access.log
+    EOJ
+    chmod +x genlog.sh
+
+    cat << EOT >> crontest.cron
+    * * * * * ./genlog.sh
+    EOT
+
+    crontab crontest.cron
+    EOF
+      )
+      working_dir = "/root"
+      type        = "RunShellScript"
+      timeout     = 3600
+    }
+
+    # 在指定的ECS实例上执行上面创建的云助手命令
+    resource "alicloud_ecs_invocation" "invoke_script_nginx_loongcollector" {
+      instance_id = [alicloud_instance.ecs_instance.id]
+      command_id  = alicloud_ecs_command.run_command_nginx_loongcollector.id
+      timeouts {
+        create = "15m"
+      }
+    }
+
+    # 确认已开通日志服务，如果未开通则进行开通
+    data "alicloud_log_service" "open" {
+      enable = "On"
+    }
+
+    # 创建一个日志服务项目
+    resource "alicloud_log_project" "sls_project" {
+      project_name = "sls-project-${local.common_name}"
+    }
+
+    # 创建一个日志存储
+    resource "alicloud_log_store" "sls_log_store" {
+      logstore_name = "sls-logstore-${local.common_name}"
+      project_name  = alicloud_log_project.sls_project.project_name
+    }
+
+    # 创建一个日志服务机器组
+    resource "alicloud_log_machine_group" "this" {
+      identify_list = alicloud_instance.ecs_instance[*].primary_ip_address
+      name          = "lmg-${local.common_name}"
+      project       = alicloud_log_project.sls_project.project_name
+      identify_type = "ip"
+    }
+
+    # 创建一个日志采集配置
+    resource "alicloud_logtail_config" "this" {
+      project      = alicloud_log_project.sls_project.project_name
+      input_detail = <<EOF
+    {
+      "discardUnmatch": false,
+      "enableRawLog": true,
+      "fileEncoding": "utf8",
+      "filePattern": "access.log",
+      "logPath": "/var/log/nginx/",
+      "logType": "common_reg_log",
+      "maxDepth": 10,
+      "topicFormat": "none"
+    }
+    EOF
+      input_type   = "file"
+      logstore     = alicloud_log_store.sls_log_store.logstore_name
+      name         = "lc-${local.common_name}"
+      output_type  = "LogService"
+    }
+
+    # 将日志采集配置绑定到机器组
+    resource "alicloud_logtail_attachment" "this" {
+      project             = alicloud_log_project.sls_project.project_name
+      logtail_config_name = alicloud_logtail_config.this.name
+      machine_group_name  = alicloud_log_machine_group.this.name
+    }
+
+    # 创建一个日志索引
+    resource "alicloud_log_store_index" "sls_index" {
+      project  = alicloud_log_project.sls_project.project_name
+      logstore = alicloud_log_store.sls_log_store.logstore_name
+      full_text {
+        token = " :#$^*\r\n\t"
+      }
+      field_search {
+        name  = "content"
+        type  = "text"
+        token = " :#$^*\r\n\t"
+      }
+    }
+
+    # 确认已开通OSS服务，如果未开通则进行开通
+    data "alicloud_oss_service" "open" {
+      enable = "On"
+    }
+
+    # 创建一个RAM角色
+    resource "alicloud_ram_role" "log_default_role" {
+      role_name                   = "log-default-role-${local.common_name}"
+      assume_role_policy_document = <<EOF
+      {
+      "Statement": [
+        {
+          "Action": "sts:AssumeRole",
+          "Effect": "Allow",
+          "Principal": {
+            "Service": [
+              "log.aliyuncs.com"
+            ]
+          }
+        }
+      ],
+      "Version": "1"
+      }
+      EOF
+    }
+
+    # 为RAM角色附加一个系统策略
+    resource "alicloud_ram_role_policy_attachment" "attach_policy_to_role" {
+      role_name   = alicloud_ram_role.log_default_role.role_name
+      policy_type = "System"
+      policy_name = "AliyunLogRolePolicy"
+    }
+
+    # 创建一个OSS存储桶
+    resource "alicloud_oss_bucket" "oss_bucket" {
+      bucket        = "bucket-${local.common_name}"
+      storage_class = "IA"
+      force_destroy = true
+    }
+
+    # 创建一个日志导出任务
+    resource "alicloud_sls_oss_export_sink" "default" {
+      project      = alicloud_log_project.sls_project.project_name
+      display_name = "display-${local.common_name}"
+      job_name     = "export-${local.common_name}"
+      configuration {
+        logstore  = alicloud_log_store.sls_log_store.logstore_name
+        role_arn  = alicloud_ram_role.log_default_role.arn
+        from_time = 1
+        to_time   = 0
+        sink {
+          bucket           = alicloud_oss_bucket.oss_bucket.bucket
+          buffer_interval  = "300"
+          buffer_size      = "250"
+          compression_type = "gzip"
+          content_type     = "json"
+          content_detail   = jsonencode({ "enableTag" : true })
+          endpoint         = "https://oss-${local.region}-internal.aliyuncs.com"
+          time_zone        = "+0800"
+          role_arn         = alicloud_ram_role.log_default_role.arn
+          prefix           = "app01"
+          suffix           = ""
+          path_format      = "%Y/%m/%d/%H/%M"
+        }
+      }
+    }
+
+
+
+  output.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输出值 (Module Outputs)
+    #
+    # 本文件定义了模块执行成功后返回给调用方的值。
+    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    # ------------------------------------------------------------------------------
+
+    output "ecs_login_address" {
+      description = "生成日志的ECS实例的登录地址。通过此地址登录ECS后，在本地查看生成日志文件的命令为：tail -f /var/log/nginx/access.log"
+      value       = format("https://ecs-workbench.aliyun.com/?from=ecs&instanceType=ecs&regionId=%s&instanceId=%s&resourceGroupId=", local.region, alicloud_instance.ecs_instance.id)
+    }
