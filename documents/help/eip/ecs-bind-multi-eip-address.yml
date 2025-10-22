@@ -1,4 +1,44 @@
 ROSTemplateFormatVersion: '2015-09-01'
+Locals:
+  DS_Eip1:
+    Type: DATASOURCE::EIP::Address
+    Properties:
+      AllocationId:
+        Ref: EipId1
+  HasEip1:
+    Type: Eval
+    Value:
+      Fn::Not:
+        Fn::Equals:
+          - Fn::Length:
+              Ref: DS_Eip1
+          - 0
+  DS_Eip2:
+    Type: DATASOURCE::EIP::Address
+    Properties:
+      AllocationId:
+        Ref: EipId2
+  HasEip2:
+    Type: Eval
+    Value:
+      Fn::Not:
+        Fn::Equals:
+          - Fn::Length:
+              Ref: DS_Eip2
+          - 0
+  DS_Eip3:
+    Type: DATASOURCE::EIP::Address
+    Properties:
+      AllocationId:
+        Ref: EipId3
+  HasEip3:
+    Type: Eval
+    Value:
+      Fn::Not:
+        Fn::Equals:
+          - Fn::Length:
+              Ref: DS_Eip3
+          - 0
 Parameters:
   EcsCondition:
     Type: String
@@ -39,6 +79,7 @@ Parameters:
   EipId1:
     Type: String
     Default: Null
+    AssociationProperty: ALIYUN::VPC::EIP::AllocationId
     Label:
       en: Elastic IP Address1 Instance ID
       zh-cn: 弹性公网IP1实例ID
@@ -52,6 +93,7 @@ Parameters:
   EipId2:
     Type: String
     Default: Null
+    AssociationProperty: ALIYUN::VPC::EIP::AllocationId
     Label:
       en: Elastic IP Address2 Instance ID
       zh-cn: 弹性公网IP2实例ID
@@ -65,6 +107,7 @@ Parameters:
   EipId3:
     Type: String
     Default: Null
+    AssociationProperty: ALIYUN::VPC::EIP::AllocationId
     Label:
       en: Elastic IP Address3 Instance ID
       zh-cn: 弹性公网IP3实例ID
@@ -162,24 +205,6 @@ Resources:
     Properties:
       NetworkInterfaceIds:
         - Ref: ECSNetworkInterfaceId
-  DS_Eip1:
-    Condition: HasEcs
-    Type: DATASOURCE::EIP::Addresses
-    Properties:
-      AllocationId:
-        Ref: EipId1
-  DS_Eip2:
-    Condition: HasEcs
-    Type: DATASOURCE::EIP::Addresses
-    Properties:
-      AllocationId:
-        Ref: EipId2
-  DS_Eip3:
-    Condition: HasEcs
-    Type: DATASOURCE::EIP::Addresses
-    Properties:
-      AllocationId:
-        Ref: EipId3
   AssignPrivateIpAddresses:
     Type: ALIYUN::ECS::AssignPrivateIpAddresses
     Properties:
@@ -195,6 +220,7 @@ Resources:
     DependsOn:
       - AssignPrivateIpAddresses
     Type: ALIYUN::VPC::EIPAssociation
+    Condition: EipAssociation1
     Properties:
       InstanceId:
         Fn::If:
@@ -225,6 +251,7 @@ Resources:
       Mode: NAT
   EipAssociationSecondaryPrivateIp1:
     Type: ALIYUN::VPC::EIPAssociation
+    Condition: EipAssociation2
     DependsOn:
       - EipAssociationPrimaryPrivateIp
     Properties:
@@ -252,6 +279,7 @@ Resources:
   EipAssociationSecondaryPrivateIp2:
     DependsOn:
       - EipAssociationSecondaryPrivateIp1
+    Condition: EipAssociation3
     Type: ALIYUN::VPC::EIPAssociation
     Properties:
       InstanceId:
@@ -477,6 +505,24 @@ Conditions:
     Fn::Equals:
       - 使用已有ECS/Eip/Eni
       - Ref: EcsCondition
+  HasEip1:
+    Ref: HasEip1
+  HasEip2:
+    Ref: HasEip2
+  HasEip3:
+    Ref: HasEip3
+  EipAssociation1:
+    Fn::Or:
+      - CreateEcs
+      - HasEip1
+  EipAssociation2:
+    Fn::Or:
+      - CreateEcs
+      - HasEip2
+  EipAssociation3:
+    Fn::Or:
+      - CreateEcs
+      - HasEip3
 Description:
   zh-cn: 绑定多EIP至CentOS 7 ECS实例，通过辅助网卡实现弹性公网IP扩展。
   en: Bind multiple EIPs to a CentOS 7 ECS instance via secondary network interfaces
