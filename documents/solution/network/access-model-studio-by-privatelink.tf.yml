@@ -13,6 +13,21 @@ Workspace:
     # 这里的代码负责根据输入变量来创建和配置所有云资源。
     # ------------------------------------------------------------------------------
 
+    # 确认已开通转发路由器服务
+    data "alicloud_cen_transit_router_service" "open" {
+      enable = "On"
+    }
+
+    # 确认已开通私网连接服务
+    data "alicloud_privatelink_service" "open" {
+      enable = "On"
+    }
+
+    # 确认已开通内网 DNS 解析服务
+    data "alicloud_pvtz_service" "open" {
+      enable = "On"
+    }
+
     # 杭州地域
     provider "alicloud" {
       alias  = "region_hangzhou"
@@ -39,7 +54,7 @@ Workspace:
     resource "alicloud_vpc" "vpc_hz" {
       provider   = alicloud.region_hangzhou
       cidr_block = "192.168.0.0/16"
-      vpc_name   = "${local.common_name}-hz-vpc"
+      vpc_name   = "hz-vpc-${local.common_name}"
     }
 
     # 杭州可用区1交换机
@@ -48,22 +63,13 @@ Workspace:
       vpc_id       = alicloud_vpc.vpc_hz.id
       cidr_block   = "192.168.1.0/24"
       zone_id      = var.hz_zone_id1
-      vswitch_name = "${local.common_name}-hz-vsw1"
-    }
-
-    # 杭州可用区2交换机
-    resource "alicloud_vswitch" "vsw2_hz" {
-      provider     = alicloud.region_hangzhou
-      vpc_id       = alicloud_vpc.vpc_hz.id
-      cidr_block   = "192.168.2.0/24"
-      zone_id      = var.hz_zone_id2
-      vswitch_name = "${local.common_name}-hz-vsw2"
+      vswitch_name = "hz-vsw1-${local.common_name}"
     }
 
     # 安全组
     resource "alicloud_security_group" "sg_hz" {
       provider            = alicloud.region_hangzhou
-      security_group_name = "${local.common_name}-hz-sg"
+      security_group_name = "hz-sg-${local.common_name}"
       vpc_id              = alicloud_vpc.vpc_hz.id
     }
 
@@ -80,7 +86,7 @@ Workspace:
     # 杭州 ECS 实例 - 访问百炼服务的客户端
     resource "alicloud_instance" "ecs_hz" {
       provider             = alicloud.region_hangzhou
-      instance_name        = "${local.common_name}-ecs-1"
+      instance_name        = "ecs-1-${local.common_name}"
       image_id             = "aliyun_3_9_x64_20G_alibase_20231219.vhd"
       instance_type        = var.instance_type
       system_disk_category = "cloud_essd"
@@ -94,7 +100,7 @@ Workspace:
     resource "alicloud_vpc" "vpc_bj" {
       provider   = alicloud.region_beijing
       cidr_block = "172.16.0.0/16"
-      vpc_name   = "${local.common_name}-bj-vpc"
+      vpc_name   = "bj-vpc-${local.common_name}"
     }
 
     # 北京可用区1交换机
@@ -103,7 +109,7 @@ Workspace:
       vpc_id       = alicloud_vpc.vpc_bj.id
       cidr_block   = "172.16.1.0/24"
       zone_id      = var.bj_zone_id1
-      vswitch_name = "${local.common_name}-bj-vsw1"
+      vswitch_name = "bj-vsw1-${local.common_name}"
     }
 
     # 北京可用区2交换机
@@ -112,14 +118,14 @@ Workspace:
       vpc_id       = alicloud_vpc.vpc_bj.id
       cidr_block   = "172.16.2.0/24"
       zone_id      = var.bj_zone_id2
-      vswitch_name = "${local.common_name}-bj-vsw2"
+      vswitch_name = "bj-vsw2-${local.common_name}"
     }
 
 
     # 安全组
     resource "alicloud_security_group" "sg_bj" {
       provider            = alicloud.region_beijing
-      security_group_name = "${local.common_name}-bj-sg"
+      security_group_name = "bj-sg-${local.common_name}"
       vpc_id              = alicloud_vpc.vpc_bj.id
     }
 
@@ -150,7 +156,7 @@ Workspace:
     }
     # CEN 实例 - 跨地域网络连接
     resource "alicloud_cen_instance" "cen" {
-      cen_instance_name = "${local.common_name}-cen"
+      cen_instance_name = "cen-${local.common_name}"
       description       = "CEN instance for cross-region connectivity with route synchronization"
     }
 
@@ -158,14 +164,16 @@ Workspace:
     resource "alicloud_cen_transit_router" "hz-tr" {
       provider            = alicloud.region_hangzhou
       cen_id              = alicloud_cen_instance.cen.id
-      transit_router_name = "${local.common_name}-hz-tr"
+      transit_router_name = "hz-tr-${local.common_name}"
+      depends_on          = [data.alicloud_cen_transit_router_service.open]
     }
 
     # 北京 Transit Router
     resource "alicloud_cen_transit_router" "bj-tr" {
       provider            = alicloud.region_beijing
       cen_id              = alicloud_cen_instance.cen.id
-      transit_router_name = "${local.common_name}-bj-tr"
+      transit_router_name = "bj-tr-${local.common_name}"
+      depends_on          = [data.alicloud_cen_transit_router_service.open]
     }
 
     # 杭州 VPC 连接到杭州 Transit Router
@@ -180,11 +188,7 @@ Workspace:
         zone_id    = var.hz_zone_id1
         vswitch_id = alicloud_vswitch.vsw1_hz.id
       }
-      zone_mappings {
-        zone_id    = var.hz_zone_id2
-        vswitch_id = alicloud_vswitch.vsw2_hz.id
-      }
-      transit_router_vpc_attachment_name = "${local.common_name}-hz-vpc-attachment"
+      transit_router_vpc_attachment_name = "hz-vpc-attachment-${local.common_name}"
       auto_publish_route_enabled         = true
     }
 
@@ -204,7 +208,7 @@ Workspace:
         zone_id    = var.bj_zone_id2
         vswitch_id = alicloud_vswitch.vsw2_bj.id
       }
-      transit_router_vpc_attachment_name = "${local.common_name}-bj-vpc-attachment"
+      transit_router_vpc_attachment_name = "bj-vpc-attachment-${local.common_name}"
       auto_publish_route_enabled         = true
     }
 
@@ -237,7 +241,7 @@ Workspace:
       peer_transit_router_id              = alicloud_cen_transit_router.bj-tr.transit_router_id
       bandwidth_type                      = "DataTransfer"
       bandwidth                           = 5
-      transit_router_peer_attachment_name = "${local.common_name}-peer-attachment"
+      transit_router_peer_attachment_name = "peer-attachment-${local.common_name}"
       auto_publish_route_enabled          = true
     }
 
@@ -301,9 +305,10 @@ Workspace:
     resource "alicloud_privatelink_vpc_endpoint" "dashscope_endpoint" {
       provider           = alicloud.region_beijing
       service_name       = "com.aliyuncs.dashscope"
-      vpc_endpoint_name  = "${local.common_name}-dashscope-endpoint"
+      vpc_endpoint_name  = "dashscope-endpoint-${local.common_name}"
       security_group_ids = [alicloud_security_group.sg_bj.id]
       vpc_id             = alicloud_vpc.vpc_bj.id
+      depends_on         = [data.alicloud_privatelink_service.open,alicloud_security_group.sg_bj]
     }
 
     # 终端节点可用区1配置
@@ -326,6 +331,7 @@ Workspace:
     resource "alicloud_pvtz_zone" "dashscope_pvtz_zone" {
       provider  = alicloud.region_hangzhou
       zone_name = "vpc-cn-beijing.dashscope.aliyuncs.com"
+      depends_on = [data.alicloud_pvtz_service.open]
     }
 
     # DNS CNAME 记录指向北京 PrivateLink 终端节点
@@ -403,11 +409,4 @@ Workspace:
       type        = string
       description = "杭州可用区1"
       default     = "cn-hangzhou-j"
-    }
-
-    # 杭州地域可用区2
-    variable "hz_zone_id2" {
-      type        = string
-      description = "杭州可用区2"
-      default     = "cn-hangzhou-k"
     }
