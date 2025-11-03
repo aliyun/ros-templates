@@ -13,6 +13,21 @@ Workspace:
     # 这里的代码负责根据输入变量来创建和配置所有云资源。
     # ------------------------------------------------------------------------------
 
+    # 确认已开通转发路由器服务
+    data "alicloud_cen_transit_router_service" "open" {
+      enable = "On"
+    }
+
+    # 确认已开通私网连接服务
+    data "alicloud_privatelink_service" "open" {
+      enable = "On"
+    }
+
+    # 确认已开通内网 DNS 解析服务
+    data "alicloud_pvtz_service" "open" {
+      enable = "On"
+    }
+
     # 马来西亚地域
     provider "alicloud" {
       alias  = "region_malaysia"
@@ -39,7 +54,7 @@ Workspace:
     resource "alicloud_vpc" "vpc_my" {
       provider   = alicloud.region_malaysia
       cidr_block = "192.168.0.0/16"
-      vpc_name   = "${local.common_name}-my-vpc"
+      vpc_name   = "my-vpc-${local.common_name}"
     }
 
     # 马来西亚可用区1交换机
@@ -48,22 +63,13 @@ Workspace:
       vpc_id       = alicloud_vpc.vpc_my.id
       cidr_block   = "192.168.1.0/24"
       zone_id      = var.my_zone_id1
-      vswitch_name = "${local.common_name}-my-vsw1"
-    }
-
-    # 马来西亚可用区2交换机
-    resource "alicloud_vswitch" "vsw2_my" {
-      provider     = alicloud.region_malaysia
-      vpc_id       = alicloud_vpc.vpc_my.id
-      cidr_block   = "192.168.2.0/24"
-      zone_id      = var.my_zone_id2
-      vswitch_name = "${local.common_name}-my-vsw2"
+      vswitch_name = "my-vsw1-${local.common_name}"
     }
 
     # 安全组
     resource "alicloud_security_group" "sg_my" {
       provider            = alicloud.region_malaysia
-      security_group_name = "${local.common_name}-my-sg"
+      security_group_name = "my-sg-${local.common_name}"
       vpc_id              = alicloud_vpc.vpc_my.id
     }
 
@@ -80,7 +86,7 @@ Workspace:
     # 马来西亚 ECS 实例
     resource "alicloud_instance" "ecs_my" {
       provider             = alicloud.region_malaysia
-      instance_name        = "${local.common_name}-ecs-1"
+      instance_name        = "ecs-1-${local.common_name}"
       image_id             = "aliyun_3_9_x64_20G_alibase_20231219.vhd"
       instance_type        = var.instance_type
       system_disk_category = "cloud_essd"
@@ -94,7 +100,7 @@ Workspace:
     resource "alicloud_vpc" "vpc_sg" {
       provider   = alicloud.region_singapore
       cidr_block = "172.16.0.0/16"
-      vpc_name   = "${local.common_name}-sg-vpc"
+      vpc_name   = "sg-vpc-${local.common_name}"
     }
 
     # 新加坡可用区1交换机
@@ -103,7 +109,7 @@ Workspace:
       vpc_id       = alicloud_vpc.vpc_sg.id
       cidr_block   = "172.16.1.0/24"
       zone_id      = var.sg_zone_id1
-      vswitch_name = "${local.common_name}-sg-vsw1"
+      vswitch_name = "sg-vsw1-${local.common_name}"
     }
 
     # 新加坡可用区2交换机
@@ -112,14 +118,14 @@ Workspace:
       vpc_id       = alicloud_vpc.vpc_sg.id
       cidr_block   = "172.16.2.0/24"
       zone_id      = var.sg_zone_id2
-      vswitch_name = "${local.common_name}-sg-vsw2"
+      vswitch_name = "sg-vsw2-${local.common_name}"
     }
 
 
     # 安全组
     resource "alicloud_security_group" "sg_sg" {
       provider            = alicloud.region_singapore
-      security_group_name = "${local.common_name}-sg-sg"
+      security_group_name = "sg-sg-${local.common_name}"
       vpc_id              = alicloud_vpc.vpc_sg.id
     }
 
@@ -151,7 +157,7 @@ Workspace:
 
     # CEN 实例 - 跨地域网络连接
     resource "alicloud_cen_instance" "cen" {
-      cen_instance_name = "${local.common_name}-cen"
+      cen_instance_name = "cen-${local.common_name}"
       description       = "CEN instance for cross-region connectivity with route synchronization"
     }
 
@@ -159,14 +165,16 @@ Workspace:
     resource "alicloud_cen_transit_router" "my-tr" {
       provider            = alicloud.region_malaysia
       cen_id              = alicloud_cen_instance.cen.id
-      transit_router_name = "${local.common_name}-my-tr"
+      transit_router_name = "my-tr-${local.common_name}"
+      depends_on          = [data.alicloud_cen_transit_router_service.open]
     }
 
     # 新加坡 Transit Router
     resource "alicloud_cen_transit_router" "sg-tr" {
       provider            = alicloud.region_singapore
       cen_id              = alicloud_cen_instance.cen.id
-      transit_router_name = "${local.common_name}-sg-tr"
+      transit_router_name = "sg-tr-${local.common_name}"
+      depends_on          = [data.alicloud_cen_transit_router_service.open]
     }
 
     # 马来西亚 VPC 连接到马来西亚 Transit Router
@@ -181,11 +189,7 @@ Workspace:
         zone_id    = var.my_zone_id1
         vswitch_id = alicloud_vswitch.vsw1_my.id
       }
-      zone_mappings {
-        zone_id    = var.my_zone_id2
-        vswitch_id = alicloud_vswitch.vsw2_my.id
-      }
-      transit_router_vpc_attachment_name = "${local.common_name}-my-vpc-attachment"
+      transit_router_vpc_attachment_name = "my-vpc-attachment-${local.common_name}"
       auto_publish_route_enabled         = true
     }
 
@@ -205,7 +209,7 @@ Workspace:
         zone_id    = var.sg_zone_id2
         vswitch_id = alicloud_vswitch.vsw2_sg.id
       }
-      transit_router_vpc_attachment_name = "${local.common_name}-sg-vpc-attachment"
+      transit_router_vpc_attachment_name = "sg-vpc-attachment-${local.common_name}"
       auto_publish_route_enabled         = true
     }
 
@@ -238,7 +242,7 @@ Workspace:
       peer_transit_router_id              = alicloud_cen_transit_router.sg-tr.transit_router_id
       bandwidth_type                      = "DataTransfer"
       bandwidth                           = 5
-      transit_router_peer_attachment_name = "${local.common_name}-peer-attachment"
+      transit_router_peer_attachment_name = "peer-attachment-${local.common_name}"
       auto_publish_route_enabled          = true
     }
 
@@ -302,9 +306,10 @@ Workspace:
     resource "alicloud_privatelink_vpc_endpoint" "dashscope_endpoint" {
       provider           = alicloud.region_singapore
       service_name       = "com.aliyuncs.dashscope"
-      vpc_endpoint_name  = "${local.common_name}-dashscope-endpoint"
+      vpc_endpoint_name  = "dashscope-endpoint-${local.common_name}"
       security_group_ids = [alicloud_security_group.sg_sg.id]
       vpc_id             = alicloud_vpc.vpc_sg.id
+      depends_on         = [data.alicloud_privatelink_service.open,alicloud_security_group.sg_sg]
     }
 
     # 终端节点可用区1配置
@@ -327,6 +332,7 @@ Workspace:
     resource "alicloud_pvtz_zone" "dashscope_pvtz_zone" {
       provider  = alicloud.region_malaysia
       zone_name = "vpc-ap-southeast-1.dashscope.aliyuncs.com"
+      depends_on = [data.alicloud_pvtz_service.open]
     }
 
     # DNS CNAME 记录指向新加坡 PrivateLink 终端节点
@@ -404,11 +410,4 @@ Workspace:
       type        = string
       description = "马来西亚可用区1"
       default     = "ap-southeast-3a"
-    }
-
-    # 马来西亚地域可用区2
-    variable "my_zone_id2" {
-      type        = string
-      description = "马来西亚可用区2"
-      default     = "ap-southeast-3b"
     }
