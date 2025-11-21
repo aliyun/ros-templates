@@ -1,0 +1,157 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:data-analysis:Elasticsearch 智能运维 AI 助手-tech_solu_266
+Workspace:
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
+    # 每个变量都包含了详细的说明，以帮助用户正确配置模块。
+    #
+    # Module Input Variables
+    #
+    # This file defines all configurable input variables for this Terraform module.
+    # Each variable contains detailed descriptions to help users configure the module correctly.
+    # ------------------------------------------------------------------------------
+
+    # Elasticsearch实例的访问密码
+    # Access password for the Elasticsearch instance.
+    variable "elasticsearch_password" {
+      type        = string
+      sensitive   = true
+      description = "elasticsearch_password"
+      #default     = ""
+      validation {
+        condition     = can(regex("^[0-9A-Za-z_!@#$%^&*()_+\\-=\\+]+$", var.elasticsearch_password)) && length(var.elasticsearch_password) >= 8 && length(var.elasticsearch_password) <= 30
+        error_message = "长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）"
+      }
+    }
+
+    # Elasticsearch实例的公共IP地址
+    # Public IP address for the Elasticsearch instance.
+    variable "public_ip" {
+      type        = string
+      description = "Kibana 公网访问白名单 IP，访问 https://ipinfo.io/ip 查看当前公网 IP"
+      #default     = ""
+    }
+
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # 核心资源定义
+    #
+    # 本文件包含了模块的核心基础设施资源。
+    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    #
+    # Main Resource Definitions
+    #
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on input variables.
+    # ------------------------------------------------------------------------------
+
+    # 配置阿里云提供商
+    # Configure the Alibaba Cloud provider.
+    provider "alicloud" {
+      region = "cn-hangzhou"
+    }
+
+    # 创建随机ID
+    # Create a random ID.
+    resource "random_id" "suffix" {
+      byte_length = 8
+    }
+
+    # 定义本地变量
+    # Define local variable.
+    locals {
+      common_name = "es-${random_id.suffix.id}"
+    }
+
+    # 获取当前区域的信息
+    # Get information about the current region.
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # 声明Elasticsearch可用区数据源
+    # Declare data source for Elasticsearch zones.
+    data "alicloud_elasticsearch_zones" "zones_ids" {
+    }
+
+    # 创建VPC
+    # Create a VPC.
+    resource "alicloud_vpc" "ecs_vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "VPC_${local.common_name}"
+    }
+
+    # 创建交换机
+    # Create a VSwitch.
+    resource "alicloud_vswitch" "ecsvswitch" {
+      vpc_id       = alicloud_vpc.ecs_vpc.id
+      cidr_block   = "192.168.1.0/24"
+      zone_id      = data.alicloud_elasticsearch_zones.zones_ids.zones.0.id
+      vswitch_name = "vsw_001_${local.common_name}"
+    }
+
+    # 创建Elasticsearch实例
+    # Create an Elasticsearch instance.
+    resource "alicloud_elasticsearch_instance" "elasticsearch" {
+      instance_charge_type = "PostPaid"
+      vswitch_id           = alicloud_vswitch.ecsvswitch.id
+      version              = "8.17.0_with_X-Pack"
+      zone_count           = 1
+      data_node_disk_type  = "cloud_essd"
+      data_node_disk_size  = "20"
+      data_node_amount     = "2"
+      data_node_spec       = "elasticsearch.sn1ne.large.new"
+      kibana_whitelist = [var.public_ip]
+      kibana_node_spec     = "elasticsearch.n4.small"
+      password             = var.elasticsearch_password
+      description          = "elasticsearch-test_${local.common_name}"
+    }
+
+  output.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输出值
+    #
+    # 本文件定义了模块执行成功后返回给调用方的值。
+    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    #
+    # Module Outputs
+    #
+    # This file defines the values returned to the caller after successful module execution.
+    # These outputs can be referenced by other Terraform configurations or displayed to users after the apply command completes.
+    # ------------------------------------------------------------------------------
+
+    # 输出Elasticsearch实例的详情地址
+    # Outputs the address of the Elasticsearch instance details.
+    output "elasticsearch_address" {
+      description = "Elasticsearch 实例详情地址"
+      value = format("https://elasticsearch.console.aliyun.com/%s/instances/%s/base", data.alicloud_regions.current_region_ds.regions.0.id, alicloud_elasticsearch_instance.elasticsearch.id)
+    }
+
+    # 输出Elasticsearch实例的访问密码
+    # Outputs the access password for the Elasticsearch instance.
+    output "elasticsearch_password" {
+      sensitive   = true
+      value       = var.elasticsearch_password
+      description = "Elasticsearch 实例密码"
+    }
+
+    # 输出Elasticsearch实例的Kibana地址
+    # Outputs the Kibana address of the Elasticsearch instance.
+    output "kibana_domain" {
+      value       = alicloud_elasticsearch_instance.elasticsearch.kibana_domain
+      description = "Elasticsearch 实例的 Kibana 地址"
+    }
+
+    # 输出Elasticsearch实例的ID
+    # Outputs the ID of the Elasticsearch instance.
+    output "instance_id" {
+      value       = alicloud_elasticsearch_instance.elasticsearch.id
+      description = "Elasticsearch 实例的ID"
+    }
