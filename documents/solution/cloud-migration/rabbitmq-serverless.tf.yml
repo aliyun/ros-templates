@@ -1,0 +1,144 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:cloud-migration:云消息队列RabbitMQ版Serverless系列优势和实践-tech_solu_122
+Workspace:
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量 (Module Input Variables)
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
+    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
+    # 请参考这些描述来正确配置模块。
+    # ------------------------------------------------------------------------------
+
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # 核心资源定义 (Main Resource Definitions)
+    #
+    # 本文件包含了模块的核心基础设施资源。
+    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    # ------------------------------------------------------------------------------
+
+    # 配置阿里云提供商 (Provider) 
+    provider "alicloud" {
+      region = "cn-hangzhou"
+    }
+
+    # 查询当前部署地域
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # 创建一个随机ID，用于生成唯一的资源名称后缀，避免命名冲突
+    resource "random_string" "suffix" {
+      length  = 8
+      lower   = true
+      upper   = false
+      numeric = false
+      special = false
+    }
+
+    # 定义一个局部变量，将随机ID用作通用名称后缀
+    locals {
+      common_name = random_string.suffix.id
+      region = data.alicloud_regions.current_region_ds.regions.0.id
+    }
+
+    # 创建一个RAM用户
+    resource "alicloud_ram_user" "ram_user" {
+      name = "create-by-solution-${local.common_name}"
+    }
+
+    # 为前面创建的RAM用户生成一个Access Key
+    resource "alicloud_ram_access_key" "ramak" {
+      user_name = alicloud_ram_user.ram_user.name
+    }
+
+    # 创建一个RAM策略
+    resource "alicloud_ram_policy" "policy" {
+      policy_name     = "ram-policy-${local.common_name}"
+      policy_document = <<EOF
+      {
+        "Version": "1",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "amqp:*",
+              "amqp-open:*"
+            ],
+            "Resource": "*"
+          }
+        ]
+      }
+      EOF
+      description     = "allow all amqp operations"
+    }
+
+    # 为RAM用户授权RAM策略
+    resource "alicloud_ram_user_policy_attachment" "attach_policy_to_user" {
+      user_name   = alicloud_ram_user.ram_user.name
+      policy_type = "Custom"
+      policy_name = alicloud_ram_policy.policy.policy_name
+    }
+
+    # 创建RabbitMQ实例
+    resource "alicloud_amqp_instance" "default" {
+      instance_name          = "test-instance-${local.common_name}"
+      payment_type           = "PayAsYouGo"
+      serverless_charge_type = "onDemand"
+      support_eip            = true
+      support_tracing        = true
+    }
+
+    resource "alicloud_amqp_static_account" "default" {
+      instance_id = alicloud_amqp_instance.default.id
+      access_key  = alicloud_ram_access_key.ramak.id
+      secret_key  = alicloud_ram_access_key.ramak.secret
+    }
+
+    resource "alicloud_amqp_virtual_host" "default" {
+      instance_id       = alicloud_amqp_instance.default.id
+      virtual_host_name = "test-vhost-${local.common_name}"
+    }
+
+    resource "alicloud_amqp_exchange" "default" {
+      virtual_host_name = alicloud_amqp_virtual_host.default.virtual_host_name
+      instance_id       = alicloud_amqp_instance.default.id
+      internal          = false
+      auto_delete_state = false
+      exchange_name     = "test-exchange-${local.common_name}"
+      exchange_type     = "DIRECT"
+    }
+
+    resource "alicloud_amqp_queue" "default" {
+      instance_id       = alicloud_amqp_instance.default.id
+      queue_name        = "test-queue-${local.common_name}"
+      virtual_host_name = alicloud_amqp_virtual_host.default.virtual_host_name
+      auto_delete_state = false
+    }
+
+    resource "alicloud_amqp_binding" "default" {
+      binding_key       = "binding-key-${local.common_name}"
+      binding_type      = "QUEUE"
+      destination_name  = alicloud_amqp_queue.default.queue_name
+      instance_id       = alicloud_amqp_instance.default.id
+      source_exchange   = alicloud_amqp_exchange.default.exchange_name
+      virtual_host_name = alicloud_amqp_virtual_host.default.virtual_host_name
+    }
+
+  output.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输出值 (Module Outputs)
+    #
+    # 本文件定义了模块执行成功后返回给调用方的值。
+    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    # ------------------------------------------------------------------------------
+
+    output "rabbitmq_detail_address" {
+      description = "RabbitMQ实例详情页。"
+      value       = format("https://amqp.console.aliyun.com/region/%s/instance/%s/instance-detail", local.region, alicloud_amqp_instance.default.id)
+    }

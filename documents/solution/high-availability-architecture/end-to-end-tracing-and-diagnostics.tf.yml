@@ -1,0 +1,474 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:high-availability-architecture:端到端全链路追踪诊断-tech_solu_186
+Workspace:
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量 (Module Input Variables)
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
+    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
+    # 请参考这些描述来正确配置模块。
+    # ------------------------------------------------------------------------------
+
+    # 指定创建的ECS云服务器的规格。
+    variable "ecs_instance_type" {
+      type        = string
+      default     = "ecs.t6-c1m2.large"
+      description = "ECS实例规格"
+    }
+
+    # 用于登录ECS实例的密码。
+    variable "ecs_instance_password" {
+      type        = string
+      sensitive   = true
+      description = "服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）"
+      # default   = ""
+    }
+
+    variable "db_instance_type" {
+      type        = string
+      default     = "mysql.n2.medium.1"
+      description = "RDS实例规格"
+    }
+
+    variable "db_account_name" {
+      type        = string
+      default     = "db_normal_account"
+      description = "RDS数据库账号"
+    }
+
+    variable "db_password" {
+      type        = string
+      sensitive   = true
+      description = "请输入RDS数据库密码。密码长度为8-32位，需包含大写字母、小写字母、数字和特殊字符（如：!@#$%^&*()_+-=）。如果在本教程中重复配置，请确保 MySQL 数据库密码与模板首次执行时设置的密码完全相同，否则配置结果不可用。"
+      # default   = ""
+    }
+
+    variable "redis_instance_type" {
+      type        = string
+      default     = "redis.shard.small.2.ce"
+      description = "Redis实例规格"
+    }
+
+    variable "redis_password" {
+      type        = string
+      sensitive   = true
+      description = "请输入Redis密码。密码长度为8-32位，需包含大写字母、小写字母、数字和特殊字符（如：!@#$%^&*()_+-=）。"
+      # default   = ""
+    }
+
+    variable "rocketmq_username" {
+      type        = string
+      default     = "rmquser"
+      description = "请输入RocketMQ用户名。用户名长度为4-16位，只能包含字母、数字和下划线。"
+    }
+
+    variable "rocketmq_password" {
+      type        = string
+      sensitive   = true
+      description = "请输入RocketMQ密码。密码长度为8-32位，需包含大写字母、小写字母、数字和特殊字符（如：!@#$%^&*()_+-=）。"
+      # default   = ""
+    }
+
+    variable "mse_license_key" {
+      type        = string
+      description = "当前环境 MSE License Key。登录MSE控制台：https://mse.console.aliyun.com，点击治理中心 > 应用治理，在顶部选择地域, 在右上角点击查看License Key，获取MSE License Key。"
+      # default   = ""
+    }
+
+    variable "arms_license_key" {
+      type        = string
+      description = "当前环境 ARMS License Key。登录ARMS 管理控制台：https://arms.console.aliyun.com，点击接入中心 > 服务端应用 > Java 应用监控。在开始接入页签中选择所属环境类型设置为手动安装，在下载Agent步骤中指定部署地域，然后在安装Agent步骤中获取变量-Darms.licenseKey对应的值。"
+      # default   = ""
+    }
+
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # 核心资源定义 (Main Resource Definitions)
+    #
+    # 本文件包含了模块的核心基础设施资源。
+    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    # ------------------------------------------------------------------------------
+
+    # 配置阿里云提供商 (Provider) 
+    provider "alicloud" {
+      region = "cn-hangzhou"
+    }
+
+    # 查询当前部署地域
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # 查询支持指定ECS实例规格和磁盘类型的可用区
+    data "alicloud_zones" "ecs_zones" {
+      available_disk_category     = "cloud_essd"
+      available_resource_creation = "VSwitch"
+      available_instance_type     = var.ecs_instance_type
+    }
+
+    # 查询支持指定RDS实例规格的可用区
+    data "alicloud_db_zones" "rds_zones" {
+      engine                   = "MySQL"
+      engine_version           = "8.0"
+      instance_charge_type     = "PostPaid"
+      category                 = "Basic"
+      db_instance_storage_type = "cloud_essd"
+    }
+
+    # 查询支持指定redis实例规格的可用区
+    data "alicloud_kvstore_zones" "redis_zones" {
+      instance_charge_type = "PostPaid"
+      engine               = "Redis"
+      product_type         = "OnECS"
+    }
+
+    # 创建一个随机ID，用于生成唯一的资源名称后缀，避免命名冲突
+    resource "random_string" "suffix" {
+      length  = 8
+      lower   = true
+      upper   = false
+      numeric = false
+      special = false
+    }
+
+    # 定义一个局部变量，将随机ID用作通用名称后缀
+    locals {
+      common_name = random_string.suffix.id
+      region      = data.alicloud_regions.current_region_ds.regions.0.id
+    }
+
+    # 创建一个专有网络（VPC），为云资源提供一个隔离的网络环境
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "vpc-${local.common_name}"
+    }
+
+    # 创建一个交换机（VSwitch），用于在VPC内划分一个子网
+    resource "alicloud_vswitch" "ecs_vswitch" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.1.0/24"
+      zone_id      = data.alicloud_zones.ecs_zones.zones[0].id
+      vswitch_name = "ecs-vswitch-${local.common_name}"
+    }
+
+    # 创建一个交换机（VSwitch），用于在VPC内划分一个子网
+    resource "alicloud_vswitch" "rds_vswitch" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.2.0/24"
+      zone_id      = data.alicloud_db_zones.rds_zones.zones[0].id
+      vswitch_name = "rds-vswitch-${local.common_name}"
+    }
+
+    # 创建一个交换机（VSwitch），用于在VPC内划分一个子网
+    resource "alicloud_vswitch" "redis_vswitch" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.3.0/24"
+      zone_id      = data.alicloud_kvstore_zones.redis_zones.zones[0].id
+      vswitch_name = "redis-vswitch-${local.common_name}"
+    }
+
+    # 创建一个安全组，作为虚拟防火墙来控制ECS实例的网络访问
+    resource "alicloud_security_group" "security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg-${local.common_name}"
+    }
+
+    # 在安全组中添加入方向规则，允许外部流量访问80端口
+    resource "alicloud_security_group_rule" "allow_web" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "80/80"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # 查询可用的阿里云镜像
+    data "alicloud_images" "default" {
+      name_regex  = "^aliyun_3_x64_20G_alibase_.*"
+      most_recent = true
+      owners      = "system"
+    }
+
+    # 创建一个RAM用户，用于后续给ECS实例授权访问其他云服务
+    resource "alicloud_ram_user" "ram_user" {
+      name = "create_by_solution-${local.common_name}"
+    }
+
+    # 为前面创建的RAM用户生成一个Access Key
+    resource "alicloud_ram_access_key" "ramak" {
+      user_name = alicloud_ram_user.ram_user.name
+    }
+
+    # 为RAM用户附加一个系统策略
+    resource "alicloud_ram_user_policy_attachment" "attach_policy_to_user" {
+      user_name   = alicloud_ram_user.ram_user.name
+      policy_type = "System"
+      policy_name = "AliyunLogFullAccess"
+    }
+
+    # 创建一台ECS实例（云服务器）
+    resource "alicloud_instance" "ecs_instance" {
+      instance_name              = "ecs-${local.common_name}"
+      image_id                   = data.alicloud_images.default.images[0].id
+      instance_type              = var.ecs_instance_type
+      system_disk_category       = "cloud_essd"
+      security_groups            = [alicloud_security_group.security_group.id]
+      vswitch_id                 = alicloud_vswitch.ecs_vswitch.id
+      password                   = var.ecs_instance_password
+      internet_max_bandwidth_out = 5
+    }
+
+    # 创建一个云助手命令，指令用于：部署示例应用
+    resource "alicloud_ecs_command" "run_command" {
+      name = "command-genlog-loongcollector-${local.common_name}"
+      command_content = base64encode(<<EOF
+    cat << EOT >> ~/.bash_profile
+    export REGION=${local.region}
+    export DB_URL=${alicloud_db_instance.rds_instance.connection_string}:3306/${alicloud_db_database.rds_database.name}
+    export DB_USERNAME=${alicloud_rds_account.rds_account.account_name}
+    export DB_PASSWORD=${alicloud_rds_account.rds_account.account_password}
+    export REDIS_HOST=${alicloud_kvstore_instance.redis_instance.connection_domain}
+    export REDIS_PASSWORD=${alicloud_kvstore_instance.redis_instance.password}
+    export NACOS_URL=${data.alicloud_mse_clusters.mse_micro_registry_instance.clusters[0].intranet_domain}:8848
+    export ROCKETMQ_ENDPOINT=${alicloud_rocketmq_instance.rocketmq.network_info[0].endpoints[0].endpoint_url}
+    export ROCKETMQ_USERNAME=${alicloud_rocketmq_account.default.username}
+    export ROCKETMQ_PASSWORD=${alicloud_rocketmq_account.default.password}
+    export MSE_LICENSE_KEY=${var.mse_license_key}
+    export ARMS_LICENSE_KEY=${var.arms_license_key}
+    EOT
+
+    source ~/.bash_profile
+
+    curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/arms-apm/install.sh | bash
+    EOF
+      )
+      working_dir = "/root"
+      type        = "RunShellScript"
+      timeout     = 3600
+    }
+
+    # 在指定的ECS实例上执行上面创建的云助手命令
+    resource "alicloud_ecs_invocation" "invoke_script" {
+      instance_id = [alicloud_instance.ecs_instance.id]
+      command_id  = alicloud_ecs_command.run_command.id
+      timeouts {
+        create = "15m"
+      }
+      depends_on = [
+        alicloud_rocketmq_acl.topic1,
+        alicloud_rocketmq_acl.topic2,
+        alicloud_rocketmq_acl.topic3,
+        alicloud_rocketmq_acl.consumer_group,
+      ]
+    }
+
+    # 创建一个RDS实例
+    resource "alicloud_db_instance" "rds_instance" {
+      instance_type            = var.db_instance_type
+      zone_id                  = data.alicloud_db_zones.rds_zones.zones[0].id
+      instance_storage         = 50
+      category                 = "Basic"
+      db_instance_storage_type = "cloud_essd"
+      vswitch_id               = alicloud_vswitch.rds_vswitch.id
+      engine                   = "MySQL"
+      vpc_id                   = alicloud_vpc.vpc.id
+      engine_version           = "8.0"
+      security_ips             = ["192.168.0.0/16"]
+    }
+
+    # 创建一个RDS账号
+    resource "alicloud_rds_account" "rds_account" {
+      db_instance_id   = alicloud_db_instance.rds_instance.id
+      account_type     = "Normal"
+      account_name     = var.db_account_name
+      account_password = var.db_password
+    }
+
+    # 创建一个RDS数据库
+    resource "alicloud_db_database" "rds_database" {
+      # character_set = "utf8mb4"
+      character_set = "utf8"
+      instance_id   = alicloud_db_instance.rds_instance.id
+      name          = "flashsale"
+    }
+
+    # 为RDS账号授予数据库权限
+    resource "alicloud_db_account_privilege" "account_privilege" {
+      privilege    = "ReadWrite"
+      instance_id  = alicloud_db_instance.rds_instance.id
+      account_name = alicloud_rds_account.rds_account.account_name
+      db_names     = [alicloud_db_database.rds_database.name]
+    }
+
+    # 创建一个Redis实例
+    resource "alicloud_kvstore_instance" "redis_instance" {
+      engine_version   = "7.0"
+      zone_id          = data.alicloud_kvstore_zones.redis_zones.zones[0].id
+      vswitch_id       = alicloud_vswitch.redis_vswitch.id
+      instance_class   = var.redis_instance_type
+      password         = var.redis_password
+      shard_count      = 1
+      db_instance_name = "flashsale-redis-${local.common_name}"
+      security_ips     = ["192.168.0.0/16"]
+    }
+
+    # 创建一个RocketMQ实例
+    resource "alicloud_rocketmq_instance" "rocketmq" {
+      product_info {
+        msg_process_spec       = "rmq.s2.2xlarge"
+        message_retention_time = "70"
+      }
+
+      sub_series_code = "cluster_ha"
+      series_code     = "standard"
+      payment_type    = "PayAsYouGo"
+      instance_name   = "ROCKETMQ5-${local.common_name}"
+      service_code    = "rmq"
+
+      network_info {
+        vpc_info {
+          vpc_id = alicloud_vpc.vpc.id
+          vswitches {
+            vswitch_id = alicloud_vswitch.ecs_vswitch.id
+          }
+        }
+        internet_info {
+          internet_spec = "disable"
+          flow_out_type = "uninvolved"
+        }
+      }
+      acl_info {
+        acl_types             = ["default", "apache_acl"]
+        default_vpc_auth_free = false
+      }
+
+    }
+
+    # 创建RocketMQ账号
+    resource "alicloud_rocketmq_account" "default" {
+      account_status = "ENABLE"
+      instance_id    = alicloud_rocketmq_instance.rocketmq.id
+      username       = var.rocketmq_username
+      password       = var.rocketmq_password
+    }
+
+    # 创建RocketMQ Topic
+    resource "alicloud_rocketmq_topic" "topic1" {
+      instance_id  = alicloud_rocketmq_instance.rocketmq.id
+      remark       = "预扣库存成功后订单创建失败"
+      message_type = "NORMAL"
+      topic_name   = "order-fail-after-pre-deducted-inventory"
+    }
+
+    resource "alicloud_rocketmq_topic" "topic2" {
+      instance_id  = alicloud_rocketmq_instance.rocketmq.id
+      remark       = "库存系统扣减库存成功后订单创建失败"
+      message_type = "NORMAL"
+      topic_name   = "order-fail-after-deducted-inventory"
+    }
+
+    resource "alicloud_rocketmq_topic" "topic3" {
+      instance_id  = alicloud_rocketmq_instance.rocketmq.id
+      remark       = "订单创建成功"
+      message_type = "TRANSACTION"
+      topic_name   = "order-success"
+    }
+
+    # 创建RocketMQ消费者组
+    resource "alicloud_rocketmq_consumer_group" "consumer_group" {
+      consumer_group_id   = "flashsale-service-consumer-group"
+      instance_id         = alicloud_rocketmq_instance.rocketmq.id
+      delivery_order_type = "Concurrently"
+      consume_retry_policy {
+        retry_policy    = "DefaultRetryPolicy"
+        max_retry_times = 5
+      }
+    }
+
+    # 创建RocketMQ ACL
+    resource "alicloud_rocketmq_acl" "topic1" {
+      actions       = ["Pub", "Sub"]
+      instance_id   = alicloud_rocketmq_instance.rocketmq.id
+      username      = alicloud_rocketmq_account.default.username
+      resource_name = alicloud_rocketmq_topic.topic1.topic_name
+      resource_type = "Topic"
+      decision      = "Allow"
+      ip_whitelists = ["192.168.0.0/16"]
+    }
+
+    resource "alicloud_rocketmq_acl" "topic2" {
+      actions       = ["Pub", "Sub"]
+      instance_id   = alicloud_rocketmq_instance.rocketmq.id
+      username      = alicloud_rocketmq_account.default.username
+      resource_name = alicloud_rocketmq_topic.topic2.topic_name
+      resource_type = "Topic"
+      decision      = "Allow"
+      ip_whitelists = ["192.168.0.0/16"]
+    }
+
+    resource "alicloud_rocketmq_acl" "topic3" {
+      actions       = ["Pub", "Sub"]
+      instance_id   = alicloud_rocketmq_instance.rocketmq.id
+      username      = alicloud_rocketmq_account.default.username
+      resource_name = alicloud_rocketmq_topic.topic3.topic_name
+      resource_type = "Topic"
+      decision      = "Allow"
+      ip_whitelists = ["192.168.0.0/16"]
+    }
+
+    resource "alicloud_rocketmq_acl" "consumer_group" {
+      actions       = ["Sub"]
+      instance_id   = alicloud_rocketmq_instance.rocketmq.id
+      username      = alicloud_rocketmq_account.default.username
+      resource_name = alicloud_rocketmq_consumer_group.consumer_group.consumer_group_id
+      resource_type = "Group"
+      decision      = "Allow"
+      ip_whitelists = ["192.168.0.0/16"]
+    }
+
+    # 创建MSE实例
+    resource "alicloud_mse_cluster" "mse_micro_registry_instance" {
+      vpc_id                = alicloud_vpc.vpc.id
+      vswitch_id            = alicloud_vswitch.ecs_vswitch.id
+      mse_version           = "mse_dev"
+      instance_count        = 1
+      cluster_version       = "NACOS_2_0_0"
+      cluster_type          = "Nacos-Ans"
+      cluster_specification = "MSE_SC_1_2_60_c"
+      net_type              = "privatenet"
+      pub_network_flow      = 0
+      cluster_alias_name    = "my-nacos--${local.common_name}"
+    }
+
+    # 查询MSE实例
+    data "alicloud_mse_clusters" "mse_micro_registry_instance" {
+      enable_details = "true"
+      ids            = [alicloud_mse_cluster.mse_micro_registry_instance.id]
+    }
+
+
+  output.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输出值 (Module Outputs)
+    #
+    # 本文件定义了模块执行成功后返回给调用方的值。
+    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    # ------------------------------------------------------------------------------
+
+    output "web_url" {
+      description = "商品秒杀页面地址。(The address of the product flash sale page.)"
+      value       = "http://${alicloud_instance.ecs_instance.public_ip}"
+    }
+
+    output "ecs_login_address" {
+      description = "部署应用的ECS实例的登录地址。"
+      value       = format("https://ecs-workbench.aliyun.com/?from=ecs&instanceType=ecs&regionId=%s&instanceId=%s&resourceGroupId=", local.region, alicloud_instance.ecs_instance.id)
+    }

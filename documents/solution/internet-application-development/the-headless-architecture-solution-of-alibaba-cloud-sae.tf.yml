@@ -1,0 +1,238 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:前后端分离架构升级(SAE版)-tech_solu_195
+Workspace:
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量 (Module Input Variables)
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
+    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
+    # 请参考这些描述来正确配置模块。
+    # ------------------------------------------------------------------------------
+
+
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # 核心资源定义 (Main Resource Definitions)
+    #
+    # 本文件包含了模块的核心基础设施资源。
+    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    # ------------------------------------------------------------------------------
+
+    # 配置阿里云提供商 (Provider)
+    provider "alicloud" {
+      region = "cn-hangzhou"
+    }
+
+    # 查询当前部署地域
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # 查询支持指定ECS实例规格和磁盘类型的可用区
+    data "alicloud_zones" "default" {
+      available_resource_creation = "VSwitch"
+    }
+
+    # 创建一个随机ID，用于生成唯一的资源名称后缀，避免命名冲突
+    resource "random_string" "suffix" {
+      length  = 8
+      lower   = true
+      upper   = false
+      numeric = false
+      special = false
+    }
+
+    # 定义一个局部变量，将随机ID用作通用名称后缀
+    locals {
+      common_name = random_string.suffix.id
+      region      = data.alicloud_regions.current_region_ds.regions.0.id
+    }
+
+    # 创建一个专有网络（VPC），为云资源提供一个隔离的网络环境
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "vpc-${local.common_name}"
+    }
+
+    # 创建一个交换机（VSwitch），用于在VPC内划分一个子网
+    resource "alicloud_vswitch" "vswitch_1" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.1.0/24"
+      zone_id      = data.alicloud_zones.default.zones[0].id
+      vswitch_name = "vswitch-1-${local.common_name}"
+    }
+
+    # 创建一个交换机（VSwitch），用于在VPC内划分一个子网
+    resource "alicloud_vswitch" "vswitch_2" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.2.0/24"
+      zone_id      = data.alicloud_zones.default.zones[0].id
+      vswitch_name = "vswitch-2-${local.common_name}"
+    }
+
+    # 创建一个交换机（VSwitch），用于在VPC内划分一个子网
+    resource "alicloud_vswitch" "vswitch_3" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.3.0/24"
+      zone_id      = data.alicloud_zones.default.zones[1].id
+      vswitch_name = "vswitch-3-${local.common_name}"
+    }
+
+    # 创建一个交换机（VSwitch），用于在VPC内划分一个子网
+    resource "alicloud_vswitch" "vswitch_4" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.4.0/24"
+      zone_id      = data.alicloud_zones.default.zones[1].id
+      vswitch_name = "vswitch-4-${local.common_name}"
+    }
+
+    # 创建一个安全组
+    resource "alicloud_security_group" "security_group_frontend" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg-fe-${local.common_name}"
+    }
+
+    # 创建一个安全组
+    resource "alicloud_security_group" "security_group_backend" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg-be-${local.common_name}"
+    }
+
+    # 创建一个SAE命名空间
+    resource "alicloud_sae_namespace" "sae_namespace" {
+      namespace_name            = "sae-ns-${local.common_name}"
+      namespace_id              = "${local.region}:${local.common_name}"
+      enable_micro_registration = false
+    }
+
+    # 创建一个SAE ConfigMap
+    resource "alicloud_sae_config_map" "nginx_config_map" {
+      namespace_id = alicloud_sae_namespace.sae_namespace.namespace_id
+      name         = "nginx"
+      data = jsonencode({ "default.conf" : <<EOF
+    server {
+        listen       80;
+        listen  [::]:80;
+        server_name  localhost;
+
+        access_log  /var/log/nginx/host.access.log  main;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+        }
+
+        # error_page  404              /404.html;
+
+
+        # redirect server error pages to the static page /50x.html
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+
+        location /saeTest/ {
+            proxy_pass  http://${alicloud_slb_load_balancer.slb_backend.address}:8080/saeTest/; 
+        }
+    }
+    EOF
+
+      })
+
+    }
+
+    # 创建一个SAE后端应用
+    resource "alicloud_sae_application" "sae_backend_app" {
+      app_name             = "sae-be-${local.common_name}"
+      namespace_id         = alicloud_sae_namespace.sae_namespace.id
+      auto_config          = false
+      vpc_id               = alicloud_vpc.vpc.id
+      security_group_id    = alicloud_security_group.security_group_backend.id
+      vswitch_id           = "${alicloud_vswitch.vswitch_2.id},${alicloud_vswitch.vswitch_4.id}"
+      timezone             = "Asia/Beijing"
+      replicas             = "2"
+      cpu                  = "500"
+      memory               = "2048"
+      package_type         = "Image"
+      jdk                  = "Dragonwell 21"
+      image_url            = "registry.${local.region}.aliyuncs.com/sae-serverless-demo/sae-demo:web-springboot-hellosae-v1.0"
+      programming_language = "java"
+    }
+
+    # 创建一个SLB实例
+    resource "alicloud_slb_load_balancer" "slb_backend" {
+      load_balancer_name = "slb-be-${local.common_name}"
+      vswitch_id         = alicloud_vswitch.vswitch_2.id
+      load_balancer_spec = "slb.s2.small"
+      address_type       = "intranet"
+    }
+
+    # 创建一个Service
+    resource "alicloud_sae_load_balancer_intranet" "sae_slb_backend" {
+      app_id          = alicloud_sae_application.sae_backend_app.id
+      intranet_slb_id = alicloud_slb_load_balancer.slb_backend.id
+      intranet {
+        protocol    = "HTTP"
+        port        = 8080
+        target_port = 8080
+      }
+    }
+
+    # 创建一个SAE前端应用
+    resource "alicloud_sae_application" "sae_frontend_app" {
+      app_name             = "sae-fe-${local.common_name}"
+      namespace_id         = alicloud_sae_namespace.sae_namespace.id
+      auto_config          = false
+      vpc_id               = alicloud_vpc.vpc.id
+      security_group_id    = alicloud_security_group.security_group_frontend.id
+      vswitch_id           = "${alicloud_vswitch.vswitch_1.id},${alicloud_vswitch.vswitch_3.id}"
+      timezone             = "Asia/Beijing"
+      replicas             = "2"
+      cpu                  = "500"
+      memory               = "2048"
+      package_type         = "Image"
+      image_url            = "registry.${local.region}.aliyuncs.com/sae-serverless-demo/sae-demo:web-dashboard-hellosae-v1.0"
+      programming_language = "other"
+      config_map_mount_desc_v2 {
+        config_map_id = alicloud_sae_config_map.nginx_config_map.id
+        mount_path    = "/etc/nginx/conf.d/default.conf"
+        key           = "default.conf"
+      }
+    }
+
+    # 创建一个SLB实例
+    resource "alicloud_slb_load_balancer" "slb_frontend" {
+      load_balancer_name = "slb-fe-${local.common_name}"
+      vswitch_id         = alicloud_vswitch.vswitch_1.id
+      load_balancer_spec = "slb.s2.small"
+      address_type       = "internet"
+    }
+
+    # 创建一个Service
+    resource "alicloud_sae_load_balancer_internet" "sae_slb_frontend" {
+      app_id          = alicloud_sae_application.sae_frontend_app.id
+      internet_slb_id = alicloud_slb_load_balancer.slb_frontend.id
+      internet {
+        protocol    = "HTTP"
+        port        = 80
+        target_port = 80
+      }
+    }
+    
+
+  output.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输出值 (Module Outputs)
+    #
+    # 本文件定义了模块执行成功后返回给调用方的值。
+    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    # ------------------------------------------------------------------------------
+    output "web_url" {
+      description = "示例网站地址/Sample website address"
+      value       = "http://${alicloud_slb_load_balancer.slb_frontend.address}"
+    }

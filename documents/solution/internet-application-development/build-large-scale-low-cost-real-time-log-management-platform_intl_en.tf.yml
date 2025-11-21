@@ -1,0 +1,370 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:开源ELK上云构建低成本日志平台-tech_solu_298
+Workspace:
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # Module Input Variables
+    # ------------------------------------------------------------------------------
+    
+    variable "instance_type" {
+      type        = string
+      default     = "ecs.e-c1m2.large"
+      description = "ECS Instance Type"
+    }
+
+    variable "instance_type_xlarge" {
+      type        = string
+      default     = "ecs.e-c1m2.xlarge"
+      description = "ECS Instance Type"
+    }
+
+    variable "ecs_instance_password" {
+      type        = string
+      sensitive   = true
+      description = "ECS login password, 8-30 character, must include three of the followings(uppercase letters, lowercase letters, numbers, special characters including ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/)"
+      # default   = ""
+    }
+
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # Main Resource Definitions
+    # ------------------------------------------------------------------------------
+
+    # Alibaba Cloud Provider
+    provider "alicloud" {
+      region = "ap-southeast-1"
+    }
+
+    # Query the current region
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # Query the available zones
+    data "alicloud_zones" "default" {
+      available_disk_category     = "cloud_essd"
+      available_resource_creation = "VSwitch"
+      available_instance_type     = var.instance_type
+    }
+
+    # Generate a random string for the common name
+    resource "random_string" "suffix" {
+      length  = 8
+      lower   = true
+      upper   = false
+      numeric = false
+      special = false
+    }
+
+    # Define a local variable to use the random ID as a common name suffix
+    locals {
+      common_name = random_string.suffix.id
+      region = data.alicloud_regions.current_region_ds.regions.0.id
+    }
+
+    # Create a Virtual Private Cloud (VPC) to provide an isolated network environment for cloud resources
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "vpc-${local.common_name}"
+    }
+
+    # Create a VSwitch to divide a subnet within the VPC
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.0.0/24"
+      zone_id      = data.alicloud_zones.default.zones.0.id
+      vswitch_name = "vswitch-${local.common_name}"
+    }
+
+    # Create a security group to act as a virtual firewall to control network access to ECS instances
+    resource "alicloud_security_group" "security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg-${local.common_name}"
+    }
+
+    # Query available Alibaba Cloud images
+    data "alicloud_images" "default" {
+      name_regex  = "^aliyun_3_x64_20G_alibase_.*"
+      most_recent = true
+      owners      = "system"
+    }
+
+    # Create a RAM user for subsequently authorizing ECS instances to access other cloud services
+    resource "alicloud_ram_user" "ram_user" {
+      name = "create_by_solution-${local.common_name}"
+    }
+
+    # Generate an Access Key for the previously created RAM user
+    resource "alicloud_ram_access_key" "ramak" {
+      user_name = alicloud_ram_user.ram_user.name
+    }
+
+    # Attach a system policy to the RAM user
+    resource "alicloud_ram_user_policy_attachment" "attach_policy_to_user" {
+      user_name   = alicloud_ram_user.ram_user.name
+      policy_type = "System"
+      policy_name = "AliyunLogFullAccess"
+    }
+
+    # Create an ECS instance to simulate log generation.
+    resource "alicloud_instance" "ecs_instance" {
+      instance_name              = "ecs-${local.common_name}"
+      image_id                   = data.alicloud_images.default.images[0].id
+      instance_type              = var.instance_type
+      system_disk_category       = "cloud_essd"
+      security_groups            = [alicloud_security_group.security_group.id]
+      vswitch_id                 = alicloud_vswitch.vswitch.id
+      password                   = var.ecs_instance_password
+      internet_max_bandwidth_out = 5
+      depends_on                 = [alicloud_log_store_index.sls_index]
+    }
+
+    # Create a cloud assistant command, the instruction is used to simulate log generation and install LoongCollector to collect logs
+    resource "alicloud_ecs_command" "run_command" {
+      name = "command-genlog-loongcollector-${local.common_name}"
+      command_content = base64encode(<<EOF
+    cat << EOT >> ~/.bash_profile
+    export ROS_DEPLOY=true
+    export ALIBABA_CLOUD_ACCESS_KEY_ID=${alicloud_ram_access_key.ramak.id}
+    export ALIBABA_CLOUD_ACCESS_KEY_SECRET=${alicloud_ram_access_key.ramak.secret}
+    EOT
+
+    source ~/.bash_profile
+    sleep 60
+    # Install loongcollector
+    wget http://aliyun-observability-release-${local.region}.oss-${local.region}.aliyuncs.com/loongcollector/linux64/latest/loongcollector.sh -O loongcollector.sh
+    chmod +x loongcollector.sh
+    ./loongcollector.sh install ${local.region}-internet
+    # Generate log
+    curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/tech-solution/install-log-monitoring-alarming-0.1.sh|bash
+    EOF
+      )
+      working_dir = "/root"
+      type        = "RunShellScript"
+      timeout     = 3600
+    }
+
+    # Execute the above-created cloud assistant command on the specified ECS instance
+    resource "alicloud_ecs_invocation" "invoke_script" {
+      instance_id = [alicloud_instance.ecs_instance.id]
+      command_id  = alicloud_ecs_command.run_command.id
+      timeouts {
+        create = "15m"
+      }
+    }
+
+    # Create an SLS project
+    resource "alicloud_log_project" "sls_project" {
+      project_name = "sls-project-${local.common_name}"
+    }
+
+    # Create an SLS log store
+    resource "alicloud_log_store" "sls_log_store" {
+      logstore_name = "sls-logstore-${local.common_name}"
+      project_name  = alicloud_log_project.sls_project.project_name
+    }
+
+    # Create an SLS machine group
+    resource "alicloud_log_machine_group" "this" {
+      identify_list = [alicloud_instance.ecs_instance.primary_ip_address]
+      name          = "lmg-${local.common_name}"
+      project       = alicloud_log_project.sls_project.project_name
+      identify_type = "ip"
+    }
+
+    # Create an SLS logtail configuration
+    resource "alicloud_logtail_config" "this" {
+      project      = alicloud_log_project.sls_project.project_name
+      input_detail = <<EOF
+    {
+      "discardUnmatch": false,
+      "enableRawLog": true,
+      "fileEncoding": "utf8",
+      "filePattern": "sls-monitor-test.log",
+      "logPath": "/tmp",
+      "logType": "common_reg_log",
+      "maxDepth": 10,
+      "topicFormat": "none"
+    }
+    EOF
+      input_type   = "file"
+      logstore     = alicloud_log_store.sls_log_store.logstore_name
+      name         = "lc-${local.common_name}"
+      output_type  = "LogService"
+    }
+
+    # Attach the SLS logtail configuration to the SLS machine group
+    resource "alicloud_logtail_attachment" "this" {
+      project             = alicloud_log_project.sls_project.project_name
+      logtail_config_name = alicloud_logtail_config.this.name
+      machine_group_name  = alicloud_log_machine_group.this.name
+    }
+
+    # Create an SLS log store index
+    resource "alicloud_log_store_index" "sls_index" {
+      project  = alicloud_log_project.sls_project.project_name
+      logstore = alicloud_log_store.sls_log_store.logstore_name
+      full_text {
+        token = " :#$^*\r\n\t"
+      }
+      field_search {
+        name  = "content"
+        type  = "text"
+        token = " :#$^*\r\n\t"
+      }
+    }
+
+    # Create a security group to act as a virtual firewall to control network access to ECS instances
+    resource "alicloud_security_group" "security_group_kibana" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg-kibana-${local.common_name}"
+    }
+
+    # Add an inbound rule to the security group to allow external traffic to access port 5601
+    resource "alicloud_security_group_rule" "allow_kibana" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "5601/5601"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group_kibana.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # Create an ECS instance to deploy Kibana
+    resource "alicloud_instance" "ecs_instance_kibana" {
+      instance_name              = "ecs-kibana-${local.common_name}"
+      image_id                   = data.alicloud_images.default.images[0].id
+      instance_type              = var.instance_type_xlarge
+      system_disk_category       = "cloud_essd"
+      security_groups            = [alicloud_security_group.security_group_kibana.id]
+      vswitch_id                 = alicloud_vswitch.vswitch.id
+      password                   = var.ecs_instance_password
+      internet_max_bandwidth_out = 10
+    }
+
+    resource "alicloud_ecs_command" "run_command_kibana" {
+      name = "command-kibana-${local.common_name}"
+      command_content = base64encode(<<EOF
+    cat << EOT >> ~/.bash_profile
+    export ROS_DEPLOY=true
+    export ALIBABA_CLOUD_ACCESS_KEY_ID=${alicloud_ram_access_key.ramak.id}
+    export ALIBABA_CLOUD_ACCESS_KEY_SECRET=${alicloud_ram_access_key.ramak.secret}
+    EOT
+
+    source ~/.bash_profile
+
+    # Install Docker
+    curl -fsSL https://static-aliyun-doc.oss-cn-hangzhou.aliyuncs.com/install-script/docker/install.sh | bash
+
+    # create a path to store data
+    mkdir sls-kibana
+    cd sls-kibana
+    mkdir data
+    chmod 777 data
+
+    # create a .env file
+    cat << EOJ >> .env
+    ES_PASSWORD=${var.ecs_instance_password}
+    SLS_ENDPOINT=${local.region}.log.aliyuncs.com
+    SLS_PROJECT=${alicloud_log_project.sls_project.project_name}
+    # Need to create a RAM user in advance, and grant Logstore query permissions to the RAM user.
+    # ECS RAM Role：https://www.alibabacloud.com/help/zh/ecs/user-guide/attach-an-instance-ram-role-to-an-ecs-instance
+    # ECS RAM Role policy：https://www.alibabacloud.com/help/zh/sls/compatibility-between-log-service-and-elasticsearch#21f86831f50pw
+    SLS_ACCESS_KEY_ID=${alicloud_ram_access_key.ramak.id}
+    SLS_ACCESS_KEY_SECRET=${alicloud_ram_access_key.ramak.secret}
+    EOJ
+
+    # create docker-compose.yaml
+    cat << EOK >> docker-compose.yaml
+    services:
+      es:
+        image: sls-registry.cn-hangzhou.cr.aliyuncs.com/kproxy/elasticsearch:7.17.26
+        environment:
+          - "discovery.type=single-node"
+          - "ES_JAVA_OPTS=-Xms2G -Xmx2G"
+          - ELASTIC_USERNAME=elastic
+          - ELASTIC_PASSWORD=${var.ecs_instance_password}
+          - xpack.security.enabled=true
+        volumes:
+          - ./data:/usr/share/elasticsearch/data
+      kproxy:
+        image: sls-registry.cn-hangzhou.cr.aliyuncs.com/kproxy/kproxy:2.1.4
+        depends_on:
+          - es
+        environment:
+          - ES_ENDPOINT=es:9200
+          - SLS_ENDPOINT=${local.region}.log.aliyuncs.com
+          - SLS_PROJECT=${alicloud_log_project.sls_project.project_name}
+          - SLS_ACCESS_KEY_ID=${alicloud_ram_access_key.ramak.id}
+          - SLS_ACCESS_KEY_SECRET=${alicloud_ram_access_key.ramak.secret}
+      kibana:
+        image: sls-registry.cn-hangzhou.cr.aliyuncs.com/kproxy/kibana:7.17.26
+        depends_on:
+          - kproxy
+        environment:
+          - ELASTICSEARCH_HOSTS=http://kproxy:9201
+          - ELASTICSEARCH_USERNAME=elastic
+          - ELASTICSEARCH_PASSWORD=${var.ecs_instance_password}
+          - XPACK_MONITORING_UI_CONTAINER_ELASTICSEARCH_ENABLED=true
+        ports:
+          - "5601:5601"
+      # This part is optional，it's to create kibana index pattern
+      index-patterner:
+        image: sls-registry.cn-hangzhou.cr.aliyuncs.com/kproxy/kproxy:2.1.4
+        command: /usr/bin/python3 -u /workspace/create_index_pattern.py
+        depends_on:
+          - kibana
+        environment:
+          - KPROXY_ENDPOINT=http://kproxy:9201
+          - KIBANA_ENDPOINT=http://kibana:5601
+          - KIBANA_USER=elastic
+          - KIBANA_PASSWORD=${var.ecs_instance_password}
+          - SLS_ACCESS_KEY_ID=${alicloud_ram_access_key.ramak.id}
+          - SLS_ACCESS_KEY_SECRET=${alicloud_ram_access_key.ramak.secret}
+    EOK
+
+    # launch Kibana
+    docker compose up -d
+    docker compose ps
+    EOF
+      )
+      working_dir = "/root"
+      type        = "RunShellScript"
+      timeout     = 3600
+    }
+
+    resource "alicloud_ecs_invocation" "invoke_script_kibana" {
+      instance_id = [alicloud_instance.ecs_instance_kibana.id]
+      command_id  = alicloud_ecs_command.run_command_kibana.id
+      timeouts {
+        create = "15m"
+      }
+    }
+
+
+
+  output.tf: |-
+    # ------------------------------------------------------------------------------
+    # Module Outputs
+    # ------------------------------------------------------------------------------
+
+    output "ecs_login_address" {
+      description = "The login address of the ECS instance that generates logs. After logging into the ECS through this address, the command to view the generated log file locally is: tail -f /tmp/sls-monitor-test.log"
+      value       = format("https://ecs-workbench.alibabacloud.com/?from=ecs&instanceType=ecs&regionId=%s&instanceId=%s&resourceGroupId=", local.region, alicloud_instance.ecs_instance.id)
+    }
+
+    output "sls_logsearch_url" {
+      description = "SLS log search entry"
+      value       = format("https://sls.console.alibabacloud.com/lognext/project/%s/logsearch/%s?slsRegion=%s", alicloud_log_project.sls_project.project_name, alicloud_log_store.sls_log_store.logstore_name, local.region)
+    }
+
+    output "kibana_management_url" {
+      description = "Kibana management interface entry, login username is elastic, login password is the password you entered during configuration."
+      value       = format("http://%s:5601", alicloud_instance.ecs_instance_kibana.public_ip)
+    }
