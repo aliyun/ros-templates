@@ -1,0 +1,143 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:data-analysis:基于Hologres轻量高性能OLAP分析-tech_solu_146
+Workspace:
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
+    # 每个变量都包含了详细的说明，以帮助用户正确配置模块。
+    #
+    # Module Input Variables
+    #
+    # This file defines all configurable input variables for this Terraform module.
+    # Each variable contains detailed descriptions to help users configure the module correctly.
+    # ------------------------------------------------------------------------------
+
+    # 指定资源创建的阿里云可用区，默认为cn-hangzhou-j
+    # Specifies the Alibaba Cloud availability zone where resources will be created. Default is cn-hangzhou-j.
+    variable "zone_id" {
+      type        = string
+      description = "选择可用区"
+      default     = "cn-hangzhou-j"
+    }
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # 核心资源定义
+    #
+    # 本文件包含了模块的核心基础设施资源
+    # 这里的代码负责根据输入变量来创建和配置所有云资源
+    #
+    # Main Resource Definitions
+    #
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on input variables.
+    # ------------------------------------------------------------------------------
+
+    # 配置阿里云提供商
+    # Configure the Alibaba Cloud provider.
+    provider "alicloud" {
+      region = "cn-hangzhou"
+    }
+
+    # 创建一个随机ID
+    # Create a random ID.
+    resource "random_id" "suffix" {
+      byte_length = 8
+    }
+
+    # 定义本地变量
+    # Define local variables.
+    locals {
+      common_name = "olap-analysis-${random_id.suffix.id}"
+    }
+
+    # 创建专有网络VPC
+    # Create a VPC.
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "${local.common_name}-vpc"
+    }
+
+    # 创建交换机VSwitch
+    # Create a VSwitch.
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.0.0/24"
+      zone_id      = var.zone_id
+      vswitch_name = "${local.common_name}-vsw"
+    }
+
+    # 创建Hologram实例
+    # Create a Hologram instance.
+    resource "alicloud_hologram_instance" "hologram" {
+      instance_type = "Standard"
+      zone_id       = var.zone_id
+      payment_type  = "PayAsYouGo"
+      pricing_cycle = "Hour"
+      cpu           = 32
+      instance_name = "${local.common_name}-hologram"
+
+      # 配置内网端点
+      # Configure intranet endpoint.
+      endpoints {
+        type = "Intranet"
+      }
+
+      # 配置VPC单通道端点
+      # Configure VPC single tunnel endpoint.
+      endpoints {
+        vpc_id     = alicloud_vpc.vpc.id
+        vswitch_id = alicloud_vswitch.vswitch.id
+        type       = "VPCSingleTunnel"
+      }
+      # 配置互联网端点
+      # Configure internet endpoint.
+      endpoints {
+        type = "Internet"
+      }
+    }
+  output.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输出值
+    #
+    # 本文件定义了模块执行成功后返回给调用方的值。
+    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    #
+    # Module Outputs
+    #
+    # This file defines the values returned to the caller after successful module execution.
+    # These outputs can be referenced by other Terraform configurations or displayed to users after the apply command completes.
+    # ------------------------------------------------------------------------------
+
+    # 输出JDBC连接地址
+    # Outputs the JDBC connection address.
+    output "jdbcaddress" {
+      value       = "rm-bp1z69dodhh85z9qa.mysql.rds.aliyuncs.com:3306"
+      description = "JDBC连接地址"
+    }
+
+    # 输出数据库名称
+    # Outputs the database name.
+    output "data_base_name" {
+      value       = "github_events_share"
+      description = "数据库名称"
+    }
+
+    # 输出数据库用户名
+    # Outputs the database username.
+    output "data_base_user_name" {
+      value       = "workshop"
+      description = "数据库用户名"
+    }
+
+    # 输出数据库密码
+    # Outputs the database password.
+    output "data_base_password" {
+      value       = "workshop#2017"
+      description = "数据库密码"
+    }
