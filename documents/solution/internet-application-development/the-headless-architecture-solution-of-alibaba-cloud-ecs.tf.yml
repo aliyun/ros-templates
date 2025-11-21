@@ -1,0 +1,521 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:10分钟完成前后端分离架构升级（ECS版）-tech_solu_195
+Workspace:
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量 (Module Input Variables)
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
+    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
+    # 请参考这些描述来正确配置模块。
+    # ------------------------------------------------------------------------------
+
+    # 指定创建的ECS云服务器的规格。
+    variable "instance_type" {
+      type        = string
+      default     = "ecs.e-c1m2.large"
+      description = "实例类型"
+    }
+
+
+    # 用于登录ECS实例的密码。
+    variable "ecs_instance_password" {
+      type        = string
+      sensitive   = true
+      description = "服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）"
+      # default   = ""
+    }
+
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # 核心资源定义 (Main Resource Definitions)
+    #
+    # 本文件包含了模块的核心基础设施资源。
+    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    # ------------------------------------------------------------------------------
+
+    # 配置阿里云提供商 (Provider)
+    provider "alicloud" {
+      region = "cn-hangzhou"
+    }
+
+    # 查询当前部署地域
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # 查询支持指定ECS实例规格和磁盘类型的可用区
+    data "alicloud_zones" "default" {
+      available_disk_category     = "cloud_essd"
+      available_resource_creation = "VSwitch"
+      available_instance_type     = var.instance_type
+    }
+
+    # 查询支持ALB的可用区
+    data "alicloud_alb_zones" "alb_zones" {
+    }
+
+    # 创建一个随机ID，用于生成唯一的资源名称后缀，避免命名冲突
+    resource "random_string" "suffix" {
+      length  = 8
+      lower   = true
+      upper   = false
+      numeric = false
+      special = false
+    }
+
+    # 定义一个局部变量，将随机ID用作通用名称后缀
+    locals {
+      common_name = random_string.suffix.id
+      region      = data.alicloud_regions.current_region_ds.regions.0.id
+    }
+
+    # 创建一个专有网络（VPC），为云资源提供一个隔离的网络环境
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "vpc-${local.common_name}"
+    }
+
+    # 创建一个交换机（VSwitch），用于在VPC内划分一个子网
+    resource "alicloud_vswitch" "vswitch_1" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.1.0/24"
+      zone_id      = data.alicloud_zones.default.zones.0.id
+      vswitch_name = "vswitch-1-${local.common_name}"
+    }
+
+    resource "alicloud_vswitch" "vswitch_2" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.2.0/24"
+      zone_id      = data.alicloud_zones.default.zones.0.id
+      vswitch_name = "vswitch-2-${local.common_name}"
+    }
+
+    resource "alicloud_vswitch" "vswitch_3" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.3.0/24"
+      zone_id      = data.alicloud_zones.default.zones.1.id
+      vswitch_name = "vswitch-3-${local.common_name}"
+    }
+
+    resource "alicloud_vswitch" "vswitch_4" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.4.0/24"
+      zone_id      = data.alicloud_zones.default.zones.1.id
+      vswitch_name = "vswitch-4-${local.common_name}"
+    }
+
+    resource "alicloud_vswitch" "vswitch_5" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.5.0/24"
+      zone_id      = data.alicloud_alb_zones.alb_zones.zones.0.id
+      vswitch_name = "vswitch-5-${local.common_name}"
+    }
+
+    resource "alicloud_vswitch" "vswitch_6" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.6.0/24"
+      zone_id      = data.alicloud_alb_zones.alb_zones.zones.1.id
+      vswitch_name = "vswitch-6-${local.common_name}"
+    }
+
+    # 创建一个安全组，作为虚拟防火墙来控制ECS实例的网络访问
+    resource "alicloud_security_group" "security_group_frontend" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg-fe-${local.common_name}"
+    }
+
+    # 创建一个安全组，作为虚拟防火墙来控制ECS实例的网络访问
+    resource "alicloud_security_group" "security_group_backend" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg-be-${local.common_name}"
+    }
+
+    # 创建入方向安全组规则
+    resource "alicloud_security_group_rule" "fe_allow_ssh" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "22/22"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group_frontend.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    resource "alicloud_security_group_rule" "be_allow_ssh" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "22/22"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group_backend.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    resource "alicloud_security_group_rule" "fe_allow_nginx" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "80/80"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group_frontend.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    resource "alicloud_security_group_rule" "be_allow_tomcat" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "8080/8080"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group_backend.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # 查询可用的阿里云镜像
+    data "alicloud_images" "default" {
+      name_regex  = "^aliyun_3_x64_20G_alibase_.*"
+      most_recent = true
+      owners      = "system"
+    }
+
+    # 创建ECS实例
+    resource "alicloud_instance" "ecs_instance_fe_1" {
+      instance_name              = "ecs-fe-1-${local.common_name}"
+      image_id                   = data.alicloud_images.default.images[0].id
+      instance_type              = var.instance_type
+      system_disk_category       = "cloud_essd"
+      security_groups            = [alicloud_security_group.security_group_frontend.id]
+      vswitch_id                 = alicloud_vswitch.vswitch_1.id
+      password                   = var.ecs_instance_password
+      internet_max_bandwidth_out = 5
+    }
+
+    resource "alicloud_instance" "ecs_instance_be_2" {
+      instance_name              = "ecs-be-2-${local.common_name}"
+      image_id                   = data.alicloud_images.default.images[0].id
+      instance_type              = var.instance_type
+      system_disk_category       = "cloud_essd"
+      security_groups            = [alicloud_security_group.security_group_backend.id]
+      vswitch_id                 = alicloud_vswitch.vswitch_2.id
+      password                   = var.ecs_instance_password
+      internet_max_bandwidth_out = 5
+    }
+
+    resource "alicloud_instance" "ecs_instance_fe_3" {
+      instance_name              = "ecs-fe-3-${local.common_name}"
+      image_id                   = data.alicloud_images.default.images[0].id
+      instance_type              = var.instance_type
+      system_disk_category       = "cloud_essd"
+      security_groups            = [alicloud_security_group.security_group_frontend.id]
+      vswitch_id                 = alicloud_vswitch.vswitch_3.id
+      password                   = var.ecs_instance_password
+      internet_max_bandwidth_out = 5
+    }
+
+    resource "alicloud_instance" "ecs_instance_be_4" {
+      instance_name              = "ecs-be-4-${local.common_name}"
+      image_id                   = data.alicloud_images.default.images[0].id
+      instance_type              = var.instance_type
+      system_disk_category       = "cloud_essd"
+      security_groups            = [alicloud_security_group.security_group_backend.id]
+      vswitch_id                 = alicloud_vswitch.vswitch_4.id
+      password                   = var.ecs_instance_password
+      internet_max_bandwidth_out = 5
+    }
+
+    # 创建云助手命令
+    resource "alicloud_ecs_command" "run_command_start_backend" {
+      name = "command-start-backend-${local.common_name}"
+      command_content = base64encode(<<EOF
+
+    # Install and start Java backend
+    curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/java.sh | sudo bash
+    EOF
+      )
+      working_dir = "/root"
+      type        = "RunShellScript"
+      timeout     = 3600
+      depends_on  = [alicloud_instance.ecs_instance_be_2, alicloud_instance.ecs_instance_be_4]
+    }
+
+    resource "alicloud_ecs_invocation" "invoke_script_backend" {
+      instance_id = [alicloud_instance.ecs_instance_be_2.id, alicloud_instance.ecs_instance_be_4.id]
+      command_id  = alicloud_ecs_command.run_command_start_backend.id
+      timeouts {
+        create = "15m"
+      }
+      depends_on = [alicloud_instance.ecs_instance_be_2, alicloud_instance.ecs_instance_be_4]
+    }
+
+    resource "alicloud_ecs_command" "run_command_start_frontend" {
+      name = "command-start-frontend-${local.common_name}"
+      command_content = base64encode(<<EOF
+
+    # Install frontend
+    sudo yum install -y nginx
+
+    # Donwload frontend resources
+    sudo yum install -y unzip
+    sudo wget -O $HOME/pages.zip https://help-static-aliyun-doc.aliyuncs.com/install-script/frontend-backend-separation-architecture/pages.zip
+    sudo unzip -o $HOME/pages.zip 
+    sudo chmod -R a+rx $HOME/dist/ 
+    sudo cp -r $HOME/dist/* /usr/share/nginx/html
+
+    # Config frontend
+    cat << EOT > /etc/nginx/nginx.conf
+    # For more information on configuration, see:
+    #   * Official English Documentation: http://nginx.org/en/docs/
+    #   * Official Russian Documentation: http://nginx.org/ru/docs/
+
+    user nginx;
+    worker_processes auto;
+    error_log /var/log/nginx/error.log;
+    pid /run/nginx.pid;
+
+    # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+    include /usr/share/nginx/modules/*.conf;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                          '$status $body_bytes_sent "$http_referer" '
+                          '"$http_user_agent" "$http_x_forwarded_for"';
+
+        access_log  /var/log/nginx/access.log  main;
+
+        sendfile            on;
+        tcp_nopush          on;
+        tcp_nodelay         on;
+        keepalive_timeout   65;
+        types_hash_max_size 4096;
+
+        include             /etc/nginx/mime.types;
+        default_type        application/octet-stream;
+
+        # Load modular configuration files from the /etc/nginx/conf.d directory.
+        # See http://nginx.org/en/docs/ngx_core_module.html#include
+        # for more information.
+        include /etc/nginx/conf.d/*.conf;
+
+        server {
+            listen       80;
+            listen       [::]:80;
+            server_name  _;
+            root         /usr/share/nginx/html;
+
+            # Load configuration files for the default server block.
+            include /etc/nginx/default.d/*.conf;
+
+            # 客户端访问具体页面地址时对应的静态资源地址
+            location / {
+                root /usr/share/nginx/html; 
+                index index.html;
+            }
+            
+            # 配置请求转发规则
+            location /api/ {
+                # proxy_pass  http://${alicloud_instance.ecs_instance_be_2.primary_ip_address}:8080/api/;
+                proxy_pass  http://${alicloud_alb_load_balancer.backend_alb.dns_name}:8080/api/;
+
+            }
+
+            error_page 404 /404.html;
+                location = /40x.html {
+            }
+
+            error_page 500 502 503 504 /50x.html;
+                location = /50x.html {
+            }
+        }
+    }
+    EOT
+
+    # Start frontend
+    sudo systemctl start nginx
+    sudo systemctl enable nginx
+
+    EOF
+      )
+      working_dir = "/root"
+      type        = "RunShellScript"
+      timeout     = 3600
+      depends_on  = [alicloud_instance.ecs_instance_be_2, alicloud_instance.ecs_instance_be_4]
+    }
+
+    # 在指定的ECS实例上执行上面创建的云助手命令
+    resource "alicloud_ecs_invocation" "invoke_script_frontend" {
+      instance_id = [alicloud_instance.ecs_instance_fe_1.id, alicloud_instance.ecs_instance_fe_3.id]
+      command_id  = alicloud_ecs_command.run_command_start_frontend.id
+      timeouts {
+        create = "15m"
+      }
+      depends_on = [alicloud_instance.ecs_instance_fe_1, alicloud_instance.ecs_instance_fe_3]
+    }
+
+    # 创建负载均衡实例
+    resource "alicloud_alb_load_balancer" "backend_alb" {
+      address_allocated_mode = "Fixed"
+      load_balancer_name     = "lb-be-${local.common_name}"
+      vpc_id                 = alicloud_vpc.vpc.id
+      address_type           = "Intranet"
+      load_balancer_edition  = "Basic"
+      load_balancer_billing_config {
+        pay_type = "PayAsYouGo"
+      }
+      zone_mappings {
+        zone_id    = data.alicloud_alb_zones.alb_zones.zones.0.id
+        vswitch_id = alicloud_vswitch.vswitch_5.id
+      }
+      zone_mappings {
+        zone_id    = data.alicloud_alb_zones.alb_zones.zones.1.id
+        vswitch_id = alicloud_vswitch.vswitch_6.id
+      }
+    }
+
+    resource "alicloud_alb_server_group" "backend_server_group" {
+      server_group_name = "alb-be-server-group-${local.common_name}"
+      protocol          = "HTTP"
+      vpc_id            = alicloud_vpc.vpc.id
+      server_group_type = "Instance"
+      sticky_session_config {
+        sticky_session_enabled = false
+      }
+      health_check_config {
+        health_check_enabled = false
+      }
+      servers {
+        server_type = "Ecs"
+        port        = 8080
+        server_id   = alicloud_instance.ecs_instance_be_2.id
+        server_ip   = alicloud_instance.ecs_instance_be_2.primary_ip_address
+        weight      = 50
+      }
+
+      servers {
+        server_type = "Ecs"
+        port        = 8080
+        server_id   = alicloud_instance.ecs_instance_be_4.id
+        server_ip   = alicloud_instance.ecs_instance_be_4.primary_ip_address
+        weight      = 50
+      }
+    }
+
+    resource "alicloud_alb_listener" "backend_listener" {
+      load_balancer_id  = alicloud_alb_load_balancer.backend_alb.id
+      listener_protocol = "HTTP"
+      listener_port     = 8080
+      default_actions {
+        type = "ForwardGroup"
+        forward_group_config {
+          server_group_tuples {
+            server_group_id = alicloud_alb_server_group.backend_server_group.id
+          }
+        }
+      }
+    }
+
+    resource "alicloud_alb_load_balancer" "frontend_alb" {
+      address_allocated_mode = "Fixed"
+      load_balancer_name     = "lb-fe-${local.common_name}"
+      vpc_id                 = alicloud_vpc.vpc.id
+      address_type           = "Internet"
+      load_balancer_edition  = "Basic"
+      load_balancer_billing_config {
+        pay_type = "PayAsYouGo"
+      }
+      zone_mappings {
+        zone_id    = data.alicloud_alb_zones.alb_zones.zones.0.id
+        vswitch_id = alicloud_vswitch.vswitch_5.id
+      }
+      zone_mappings {
+        zone_id    = data.alicloud_alb_zones.alb_zones.zones.1.id
+        vswitch_id = alicloud_vswitch.vswitch_6.id
+      }
+    }
+
+    resource "alicloud_alb_server_group" "frontend_server_group" {
+      server_group_name = "alb-fe-server-group-${local.common_name}"
+      protocol          = "HTTP"
+      vpc_id            = alicloud_vpc.vpc.id
+      server_group_type = "Instance"
+      sticky_session_config {
+        sticky_session_enabled = false
+      }
+      health_check_config {
+        health_check_enabled = false
+      }
+      servers {
+        server_type = "Ecs"
+        port        = 80
+        server_id   = alicloud_instance.ecs_instance_fe_1.id
+        server_ip   = alicloud_instance.ecs_instance_fe_1.primary_ip_address
+        weight      = 50
+      }
+      servers {
+        server_type = "Ecs"
+        port        = 80
+        server_id   = alicloud_instance.ecs_instance_fe_3.id
+        server_ip   = alicloud_instance.ecs_instance_fe_3.primary_ip_address
+        weight      = 50
+      }
+    }
+
+    resource "alicloud_alb_listener" "frontend_listener" {
+      load_balancer_id  = alicloud_alb_load_balancer.frontend_alb.id
+      listener_protocol = "HTTP"
+      listener_port     = 80
+      default_actions {
+        type = "ForwardGroup"
+        forward_group_config {
+          server_group_tuples {
+            server_group_id = alicloud_alb_server_group.frontend_server_group.id
+          }
+        }
+      }
+    }
+
+    
+
+  output.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输出值 (Module Outputs)
+    #
+    # 本文件定义了模块执行成功后返回给调用方的值。
+    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    # ------------------------------------------------------------------------------
+    output "ecs_backend_login_address" {
+      description = "后端应用的ECS实例的登录地址。通过此地址登录ECS后，在本地验证后端应用部署成功的命令为：curl -I http://localhost:8080/api/getEcsReleaseNotes"
+      value       = format("https://ecs-workbench.aliyun.com/?from=ecs&instanceType=ecs&regionId=%s&instanceId=%s&resourceGroupId=", local.region, alicloud_instance.ecs_instance_be_2.id)
+    }
+
+    output "ecs_frontend_login_address" {
+      description = "前端应用的ECS实例的登录地址。通过此地址登录ECS后，在本地验证前端应用部署成功的命令为：curl -I http://localhost:80/；进一步验证请求能成功转发到后端应用的命令：curl -I http://localhost:80/api/getEcsReleaseNotes"
+      value       = format("https://ecs-workbench.aliyun.com/?from=ecs&instanceType=ecs&regionId=%s&instanceId=%s&resourceGroupId=", local.region, alicloud_instance.ecs_instance_fe_1.id)
+    }
+
+    output "web_url" {
+      description = "示例网站地址/Sample website address"
+      value       = "http://${alicloud_alb_load_balancer.frontend_alb.dns_name}"
+    }
+
+    output "frontend_dns_name" {
+      description = "前端ALB的DNS名称。"
+      value       = alicloud_alb_load_balancer.frontend_alb.dns_name
+    }
+
+    output "backend_dns_name" {
+      description = "后端ALB的DNS名称。"
+      value       = alicloud_alb_load_balancer.backend_alb.dns_name
+    }

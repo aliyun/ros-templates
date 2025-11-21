@@ -1,0 +1,265 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:storage:应用业务日志监控与告警-tech_solu_118
+Workspace:
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量 (Module Input Variables)
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
+    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
+    # 请参考这些描述来正确配置模块。
+    # ------------------------------------------------------------------------------
+    
+    # 指定创建的ECS云服务器的规格。
+    variable "instance_type" {
+      type        = string
+      default     = "ecs.e-c1m2.large"
+      description = "实例类型"
+    }
+
+
+    # 用于登录ECS实例的密码。
+    variable "ecs_instance_password" {
+      type        = string
+      sensitive   = true
+      description = "服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）"
+      # default   = ""
+    }
+
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # 核心资源定义 (Main Resource Definitions)
+    #
+    # 本文件包含了模块的核心基础设施资源。
+    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    # ------------------------------------------------------------------------------
+
+    # 配置阿里云提供商 (Provider) 
+    provider "alicloud" {
+      region = "cn-hangzhou"
+    }
+
+    # 查询当前部署地域
+    data "alicloud_regions" "current_region_ds" {
+      current = true
+    }
+
+    # 查询支持指定ECS实例规格和磁盘类型的可用区
+    data "alicloud_zones" "default" {
+      available_disk_category     = "cloud_essd"
+      available_resource_creation = "VSwitch"
+      available_instance_type     = var.instance_type
+    }
+
+    # 创建一个随机ID，用于生成唯一的资源名称后缀，避免命名冲突
+    resource "random_string" "suffix" {
+      length  = 8
+      lower   = true
+      upper   = false
+      numeric = false
+      special = false
+    }
+
+    # 定义一个局部变量，将随机ID用作通用名称后缀
+    locals {
+      common_name = random_string.suffix.id
+      region = data.alicloud_regions.current_region_ds.regions.0.id
+    }
+
+    # 创建一个专有网络（VPC），为云资源提供一个隔离的网络环境
+    resource "alicloud_vpc" "vpc" {
+      cidr_block = "192.168.0.0/16"
+      vpc_name   = "vpc-${local.common_name}"
+    }
+
+    # 创建一个交换机（VSwitch），用于在VPC内划分一个子网
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id       = alicloud_vpc.vpc.id
+      cidr_block   = "192.168.0.0/24"
+      zone_id      = data.alicloud_zones.default.zones.0.id
+      vswitch_name = "vswitch-${local.common_name}"
+    }
+
+    # 创建一个安全组，作为虚拟防火墙来控制ECS实例的网络访问
+    resource "alicloud_security_group" "security_group" {
+      vpc_id              = alicloud_vpc.vpc.id
+      security_group_name = "sg-${local.common_name}"
+    }
+
+    # 创建一个入方向安全组规则，允许来自Internet的22端口的SSH访问
+    resource "alicloud_security_group_rule" "allow_ssh" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      nic_type          = "intranet"
+      policy            = "accept"
+      port_range        = "22/22"
+      priority          = 1
+      security_group_id = alicloud_security_group.security_group.id
+      cidr_ip           = "0.0.0.0/0"
+    }
+
+    # 查询可用的阿里云镜像
+    data "alicloud_images" "default" {
+      name_regex  = "^aliyun_3_x64_20G_alibase_.*"
+      most_recent = true
+      owners      = "system"
+    }
+
+    # 创建一个RAM用户，用于后续给ECS实例授权访问其他云服务
+    resource "alicloud_ram_user" "ram_user" {
+      name = "create_by_solution-${local.common_name}"
+    }
+
+    # 为前面创建的RAM用户生成一个Access Key
+    resource "alicloud_ram_access_key" "ramak" {
+      user_name = alicloud_ram_user.ram_user.name
+      depends_on = [
+        alicloud_ram_user.ram_user
+      ]
+    }
+
+    # 为RAM用户附加一个系统策略
+    resource "alicloud_ram_user_policy_attachment" "attach_policy_to_user" {
+      user_name   = alicloud_ram_user.ram_user.name
+      policy_type = "System"
+      policy_name = "AliyunLogFullAccess"
+      depends_on = [
+        alicloud_ram_access_key.ramak
+      ]
+    }
+
+    # 创建ECS实例
+    resource "alicloud_instance" "ecs_instance" {
+      count                      = 2
+      instance_name              = "ecs-${local.common_name}"
+      image_id                   = data.alicloud_images.default.images[0].id
+      instance_type              = var.instance_type
+      system_disk_category       = "cloud_essd"
+      security_groups            = [alicloud_security_group.security_group.id]
+      vswitch_id                 = alicloud_vswitch.vswitch.id
+      password                   = var.ecs_instance_password
+      internet_max_bandwidth_out = 5
+    }
+
+    # 创建一个云助手命令
+    resource "alicloud_ecs_command" "run_command" {
+      name = "command-genlog-loongcollector-${local.common_name}"
+      command_content = base64encode(<<EOF
+    cat << EOT >> ~/.bash_profile
+    export ROS_DEPLOY=true
+    export ALIBABA_CLOUD_ACCESS_KEY_ID=${alicloud_ram_access_key.ramak.id}
+    export ALIBABA_CLOUD_ACCESS_KEY_SECRET=${alicloud_ram_access_key.ramak.secret}
+    EOT
+
+    source ~/.bash_profile
+    sleep 60
+    # Install loongcollector
+    wget http://aliyun-observability-release-${local.region}.oss-${local.region}.aliyuncs.com/loongcollector/linux64/latest/loongcollector.sh -O loongcollector.sh
+    chmod +x loongcollector.sh
+    ./loongcollector.sh install ${local.region}-internet
+    # Generate log
+    curl -fsSL https://help-static-aliyun-doc.aliyuncs.com/tech-solution/install-log-monitoring-alarming-0.1.sh|bash
+    EOF
+      )
+      working_dir = "/root"
+      type        = "RunShellScript"
+      timeout     = 3600
+      depends_on  = [alicloud_instance.ecs_instance]
+    }
+
+    # 在指定的ECS实例上执行上面创建的云助手命令
+    resource "alicloud_ecs_invocation" "invoke_script" {
+      instance_id = alicloud_instance.ecs_instance[*].id
+      command_id  = alicloud_ecs_command.run_command.id
+      timeouts {
+        create = "15m"
+      }
+      depends_on = [alicloud_instance.ecs_instance]
+    }
+
+    # 创建一个日志服务项目
+    resource "alicloud_log_project" "sls_project" {
+      project_name = "sls-project-${local.common_name}"
+    }
+
+    # 创建一个日志存储
+    resource "alicloud_log_store" "sls_log_store" {
+      logstore_name = "sls-logstore-${local.common_name}"
+      project_name  = alicloud_log_project.sls_project.project_name
+      depends_on    = [alicloud_log_project.sls_project]
+    }
+
+
+    # 创建一个日志服务机器组
+    resource "alicloud_log_machine_group" "this" {
+      identify_list = alicloud_instance.ecs_instance[*].primary_ip_address
+      name          = "lmg-${local.common_name}"
+      project       = alicloud_log_project.sls_project.project_name
+      identify_type = "ip"
+    }
+
+    # 创建一个日志采集配置
+    resource "alicloud_logtail_config" "this" {
+      project      = alicloud_log_project.sls_project.project_name
+      input_detail = <<EOF
+    {
+      "discardUnmatch": false,
+      "enableRawLog": true,
+      "fileEncoding": "utf8",
+      "filePattern": "sls-monitor-test.log",
+      "logPath": "/tmp",
+      "logType": "common_reg_log",
+      "maxDepth": 10,
+      "topicFormat": "none"
+    }
+    EOF
+      input_type   = "file"
+      logstore     = alicloud_log_store.sls_log_store.logstore_name
+      name         = "lc-${local.common_name}"
+      output_type  = "LogService"
+    }
+
+    # 将日志采集配置绑定到机器组
+    resource "alicloud_logtail_attachment" "this" {
+      project             = alicloud_log_project.sls_project.project_name
+      logtail_config_name = alicloud_logtail_config.this.name
+      machine_group_name  = alicloud_log_machine_group.this.name
+    }
+
+    # 创建一个日志索引
+    resource "alicloud_log_store_index" "sls_index" {
+      project  = alicloud_log_project.sls_project.project_name
+      logstore = alicloud_log_store.sls_log_store.logstore_name
+      full_text {
+        token = " :#$^*\r\n\t"
+      }
+      field_search {
+        name  = "content"
+        type  = "text"
+        token = " :#$^*\r\n\t"
+      }
+      depends_on = [alicloud_log_store.sls_log_store]
+    }
+
+
+  output.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输出值 (Module Outputs)
+    #
+    # 本文件定义了模块执行成功后返回给调用方的值。
+    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    # ------------------------------------------------------------------------------
+
+    output "ecs_login_address" {
+      description = "生成日志的ECS实例的登录地址。通过此地址登录ECS后，在本地查看生成日志文件的命令为：tail -f /tmp/sls-monitor-test.log"
+      value       = format("https://ecs-workbench.aliyun.com/?from=ecs&instanceType=ecs&regionId=%s&instanceId=%s&resourceGroupId=", local.region, alicloud_instance.ecs_instance[0].id)
+    }
+
+    output "sls_logsearch_url" {
+      description = "SLS日志查询入口"
+      value       = format("https://sls.console.aliyun.com/lognext/project/%s/logsearch/%s?slsRegion=%s", alicloud_log_project.sls_project.project_name, alicloud_log_store.sls_log_store.logstore_name, local.region)
+    }
