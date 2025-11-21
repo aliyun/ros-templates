@@ -1,0 +1,174 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Metadata:
+  ALIYUN::ROS::Interface:
+    TemplateTags:
+      - acs:technical-solution:data-analysis:快速搭建企业经营大屏-tech_solu_151
+Workspace:
+  variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量
+    # 每个变量都包含了详细的说明，以帮助用户正确配置模块
+    #
+    # Module Input Variables
+    #
+    # This file defines all configurable input variables for this Terraform module.
+    # Each variable contains detailed descriptions to help users configure the module correctly.
+    # ------------------------------------------------------------------------------
+
+    # 数据库账号名称
+    # Database account name
+    variable "rds_db_user" {
+      type        = string
+      default     = "user_test"
+      validation {
+        condition     = can(regex("^[a-z][a-z0-9_]{0,31}$", var.rds_db_user))
+        error_message = "由 2 到 32 个小写字母组成，支持小写字母、数字和下划线，以小写字母开头"
+      }
+      description = "数据库账号"
+    }
+
+    # MySQL数据库密码
+    # MySQL database password
+    variable "db_password" {
+      type        = string
+      sensitive   = true
+      #default    = ""
+      description = "MySQL数据库密码"
+      validation {
+        condition     = can(regex("^[0-9A-Za-z_!@#$%^&*()_+\\-=\\+]+$", var.db_password)) && length(var.db_password) >= 8 && length(var.db_password) <= 30
+        error_message = "长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）"
+      }
+    }
+
+  main.tf: |-
+    # ------------------------------------------------------------------------------
+    # 核心资源定义
+    #
+    # 本文件包含了模块的核心基础设施资源
+    # 这里的代码负责根据输入变量来创建和配置所有云资源
+    # 
+    # Main Resource Definitions
+    # 
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on input variables.
+    # ------------------------------------------------------------------------------
+
+    # 配置阿里云提供商
+    # Configures the Alibaba Cloud provider.
+    provider "alicloud" {
+      region = "cn-hangzhou"
+    }
+
+    # 创建一个随机ID
+    # Create a random ID.
+    resource "random_id" "suffix" {
+      byte_length = 8
+    }
+
+    # 定义一个局部变量
+    # Define a local variable.
+    locals {
+      common_name = random_id.suffix.id
+    }
+
+    # 查询满足条件的可用区
+    # Query availability zones.
+    data "alicloud_db_zones" "zones_ids" {
+      engine                   = "MySQL"
+      engine_version           = "8.0"
+      instance_charge_type     = "PostPaid"
+      category                 = "Basic"
+      db_instance_storage_type = "cloud_essd"
+    }
+
+    # 创建专有网络VPC
+    # Create a VPC.
+    resource "alicloud_vpc" "vpc" {
+      vpc_name = "vpc-${local.common_name}"
+      cidr_block = "192.168.0.0/16"
+    }
+
+    # 创建交换机VSwitch
+    # Create a VSwitch.
+    resource "alicloud_vswitch" "vswitch" {
+      vpc_id = alicloud_vpc.vpc.id
+      zone_id = data.alicloud_db_zones.zones_ids.ids.1
+      cidr_block = "192.168.0.0/24"
+      vswitch_name = "vsw-${local.common_name}"
+    }
+
+    # 创建安全组
+    # Create a security group.
+    resource "alicloud_security_group" "security_group" {
+      vpc_id = alicloud_vpc.vpc.id
+    }
+
+    # 创建RDS实例
+    # Create an RDS instance.
+    resource "alicloud_db_instance" "rds_instance" {
+      engine = "MySQL"
+      instance_storage = 40
+      engine_version = "8.0"
+      security_ips = ["192.168.0.0/16"]
+      vpc_id = alicloud_vpc.vpc.id
+      zone_id = data.alicloud_db_zones.zones_ids.ids.1
+      vswitch_id = alicloud_vswitch.vswitch.id
+      instance_charge_type = "Postpaid"
+      instance_type = "mysql.n2.medium.1"
+      category = "Basic"
+      db_instance_storage_type = "cloud_essd"
+    }
+
+    # 创建数据库
+    # Create a database.
+    resource "alicloud_db_database" "database" {
+      character_set   = "utf8"
+      instance_id     = alicloud_db_instance.rds_instance.id
+      name            = "mysqltest"
+    }
+
+    # 创建数据库账号
+    # Create a database account.
+    resource "alicloud_db_account" "default" {
+      db_instance_id      = alicloud_db_instance.rds_instance.id
+      account_name        = var.rds_db_user
+      account_password    = var.db_password
+      account_type        = "Super"
+    }
+
+  output.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输出值
+    #
+    # 本文件定义了模块执行成功后返回给调用方的值
+    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户
+    #
+    # Module Outputs
+    #
+    # This file defines the values returned to the caller after successful module execution.
+    # These outputs can be referenced by other Terraform configurations or displayed to users after the apply command completes.
+    # ------------------------------------------------------------------------------
+
+    # 输出创建的RDS实例ID
+    # Outputs the ID of the created RDS instance.
+    output "DBInstanceId" {
+      value       = alicloud_db_instance.rds_instance.id
+      description = "RDS 实例 ID"
+    }
+
+    # 输出RDS实例的内网连接地址
+    # Outputs the internal connection string of the RDS instance.
+    output "InnerConnectionString" {
+      value       = alicloud_db_instance.rds_instance.connection_string
+      description = "RDS 内网连接地址"
+    }
+
+    # 输出RDS实例的内网端口号
+    # Outputs the internal port number of the RDS instance.
+    output "InnerPort" {
+      value       = alicloud_db_instance.rds_instance.port
+      description = "RDS 内网端口"
+    }
