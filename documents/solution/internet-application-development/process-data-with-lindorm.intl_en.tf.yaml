@@ -3,49 +3,48 @@ Transform: Aliyun::Terraform-v1.5
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-      - acs:technical-solution:internet-application-development:Lindorm泛时序数据一站式处理-tech_solu_141
+      - acs:technical-solution:internet-application-development:Lindorm General Time-Series Data One-Stop Processing-tech_solu_141
 Workspace:
   variable.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输入变量
+    # Module Input Variables
     #
-    # 本文件定义了该 Terraform 模块所有可配置的输入变量
-    # 每个变量都包含了详细的说明，以帮助用户正确配置模块
+    # This file defines all configurable input variables for this Terraform module.
+    # Each variable contains detailed descriptions to help users configure the module correctly.
     # ------------------------------------------------------------------------------
 
-    # 指定ECS实例的规格型号
+    # Specifies the ECS instance type.
     variable "instance_type" {
       type = string
-      description = "ECS实例类型"
+      description = "ECS instance type"
       default = "ecs.e-c1m4.2xlarge"
     }
 
-    # ECS实例密码
+    # ECS instance password.
     variable "instance_password" {
       type = string
       sensitive = true
       validation {
         condition     = can(regex("^[0-9A-Za-z_!@#$%^&*()_+\\-=\\+]+$", var.instance_password)) && length(var.instance_password) >= 8 && length(var.instance_password) <= 30
-        error_message = "长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）"
+        error_message = "Length 8-30, must include three items (uppercase letters, lowercase letters, numbers, special symbols from !@#$%^&*()_+-=)"
       }
-      description = "ECS实例密码"
+      description = "ECS instance password"
       #default = ""
     }
 
   main.tf: |-
     # ------------------------------------------------------------------------------
-    # 核心资源定义
-    #
-    # 本文件包含了模块的核心基础设施资源
-    # 这里的代码负责根据输入变量来创建和配置所有云资源
+    # Main Resource Definitions
+    # 
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on input variables.
     # ------------------------------------------------------------------------------
 
-    # 配置阿里云提供商
+    # Configure Alibaba Cloud provider.
     provider "alicloud" {
       region = "cn-hangzhou"
     }
 
-    # 生成一个随机字符串
     # Generate a random string.
     resource "random_string" "lowercase" {
       length  = 8
@@ -54,13 +53,13 @@ Workspace:
       numeric = false
     }
 
-    # 定义本地变量
+    # Define local variables.
     locals {
       common_name = "lindorm-demo-${random_string.lowercase.result}"
       sorted_zone_ids = sort(data.alicloud_zones.default.ids)
       max_zone_id     = local.sorted_zone_ids[length(local.sorted_zone_ids) - 1]
       
-      # 定义 ECS 启动命令
+      # Define ECS startup command.
       ecs_command = <<-SHELL
               #!/bin/bash
               function log_info() {
@@ -87,19 +86,19 @@ Workspace:
                 SHELL
     }
 
-    # 查询可用区
+    # Query availability zones.
     data "alicloud_zones" "default" {
       available_disk_category     = "cloud_essd"
       available_instance_type     = var.instance_type
     }
 
-    # 创建专有网络VPC
+    # Create a VPC.
     resource "alicloud_vpc" "vpc" {
       cidr_block = "192.168.0.0/16"
       vpc_name = "vpc-${local.common_name}"
     }
 
-    # 创建交换机VSwitch
+    # Create a VSwitch.
     resource "alicloud_vswitch" "vswitch" {
       vpc_id = alicloud_vpc.vpc.id
       cidr_block = "192.168.0.0/24"
@@ -107,13 +106,13 @@ Workspace:
       vswitch_name = "vsw-${local.common_name}"
     }
 
-    # 创建安全组
+    # Create a security group.
     resource "alicloud_security_group" "security_group" {
       vpc_id = alicloud_vpc.vpc.id
       security_group_name = "sg-${local.common_name}"
     }
 
-    # 创建安全组规则
+    # Create a security group rule.
     resource "alicloud_security_group_rule" "security_group_security_group_ingress_0_694f6680" {
       port_range = "80/80"
       cidr_ip = "0.0.0.0/0"
@@ -122,7 +121,7 @@ Workspace:
       type = "ingress"
     }
 
-    # 查询最新的镜像
+    # Query the latest image.
     data "alicloud_images" "alinux3" {
       name_regex  = "^aliyun_3_x64_*"
       owners      = "system"
@@ -130,7 +129,7 @@ Workspace:
       status = "Available"
     }
 
-    # 创建ECS实例
+    # Create an ECS instance.
     resource "alicloud_instance" "ecs_instance" {
       availability_zone    = "${local.max_zone_id}"
       vpc_id               = alicloud_vpc.vpc.id
@@ -144,7 +143,7 @@ Workspace:
       internet_max_bandwidth_out = 5
     }
 
-    # 创建Lindorm实例
+    # Create a Lindorm instance.
     resource "alicloud_lindorm_instance" "lindorm_instance" {
       instance_storage = 160
       zone_id = "${local.max_zone_id}"
@@ -159,7 +158,7 @@ Workspace:
       instance_name = "lindorm-${local.common_name}"
     }
 
-    # 定义ECS命令资源
+    # Define ECS command resource.
     resource "alicloud_ecs_command" "deploy_application_on_ecs_alicloud_ecs_command" {
       type = "RunShellScript"
       timeout = 300
@@ -168,7 +167,7 @@ Workspace:
       working_dir      = "/root"
     }
 
-    # 创建ECS命令调用
+    # Create ECS invocation.
     resource "alicloud_ecs_invocation" "deploy_application_on_ecs_alicloud_ecs_invocation" {
       instance_id = [alicloud_instance.ecs_instance.id]
       command_id = alicloud_ecs_command.deploy_application_on_ecs_alicloud_ecs_command.id
@@ -179,40 +178,43 @@ Workspace:
 
   output.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输出值
+    # Module Outputs
     #
-    # 本文件定义了模块执行成功后返回给调用方的值
-    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户
+    # This file defines the values returned to the caller after successful module execution.
+    # These outputs can be referenced by other Terraform configurations or displayed to users after the apply command completes.
     # ------------------------------------------------------------------------------
-
-    # 输出 Lindorm 实例 ID
+    
+    # Outputs the Lindorm instance id.
     output "lindorm_instance_id" {
       value       = alicloud_lindorm_instance.lindorm_instance.id
-      description = "Lindorm 实例 ID"
+      description = "Lindorm instance id"
     }
 
-    # 输出 ECS 实例 ID
+    # Outputs the ECS instance id.
     output "ecs_instance_id" {
       value       = alicloud_instance.ecs_instance.id
-      description = "ECS 实例 ID"
+      description = "ECS instance id"
     }
 
 
-    # 输出 ECS 登录地址
+    # Outputs the ECS login address.
     output "ecs_login_address" {
-      description = "ECS登录地址"
+      description = "ECS login address"
       value       = format("https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=%s&instanceId=%s","cn-hangzhou",alicloud_instance.ecs_instance.id)
     }
 
-    # 输出 ECS 实例用户名
+    # Outputs the ECS instance username.
     output "ecs_instance_username" {
       value       = "root"
-      description = "ECS 实例用户名"
+      description = "ECS instance username"
     }
 
-    # 输出 ECS 实例密码
+    # Outputs the ECS instance password.
     output "ecs_instance_password" {
       value       = var.instance_password
       sensitive   = true
-      description = "ECS 实例密码"
+      description = "ECS instance password"
     }
+
+
+
