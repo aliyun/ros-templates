@@ -3,83 +3,82 @@ Transform: Aliyun::Terraform-v1.5
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-      - acs:technical-solution:ecs:基于SelectDB的极致性价比实时日志存储与检索分析-tech_solu_225
+      - acs:technical-solution:ecs:Cost-Effective Real-Time Log Storage and Retrieval Analysis with SelectDB-tech_solu_225
 Workspace:
   variables.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输入变量
+    # Module Input Variables
     #
-    # 本文件定义了该 Terraform 模块所有可配置的输入变量
-    # 每个变量都包含了详细的说明，以帮助用户正确配置模块
+    # This file defines all configurable input variables for this Terraform module.
+    # Each variable contains detailed descriptions to help users configure the module correctly.
     # ------------------------------------------------------------------------------
 
-    # 指定ECS实例的规格型号
+    # Specifies the ECS instance type
     variable "instance_type" {
       type        = string
       default     = "ecs.g8i.4xlarge"
-      description = "ECS实例类型，建议选择配备 16 vCPU 64 GiB 配置的实例"
+      description = "ECS instance type, recommended to choose an instance with 16 vCPU and 64 GiB configuration"
     }
 
-    # ECS服务器root账号密码
+    # ECS server root account password
     variable "ecs_instance_password" {
       type        = string
-      sensitive   = true
-      description = "ECS服务器root账号密码"
+      description = "ECS server root account password"
       #default    = ""
       validation {
         condition     = can(regex("^[0-9A-Za-z_!@#$%^&*()_+\\-=\\+]+$", var.ecs_instance_password)) && length(var.ecs_instance_password) >= 8 && length(var.ecs_instance_password) <= 30
-        error_message = "长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）"
+        error_message = "Length 8-30, must include three items (uppercase letters, lowercase letters, numbers, special symbols from !@#$%^&*()_+-=)"
       }
     }
 
-    # SelectDB实例规格
+    # SelectDB instance specification
     variable "instance_class" {
       type        = string
       default     = "selectdb.4xlarge"
-      description = "SelectDB实例规格"
+      description = "SelectDB instance specification"
     }
 
-    # SelectDB内核版本
+    # SelectDB engine version
     variable "selectdb_engine_version" {
       type        = string
       default     = "4.0.4"
-      description = "SelectDB内核版本"
+      description = "SelectDB engine version"
       validation {
         condition = contains(["3.0.12", "4.0.4"], var.selectdb_engine_version)
-        error_message = "无效的配置信息，请检查并重新输入"
+        error_message = "Invalid configuration information, please check and re-enter"
       }
     }
 
-    # SelectDB admin账号密码
+    # SelectDB admin account password
     variable "db_password" {
       type        = string
-      sensitive   = true
-      description = "SelectDB admin账号密码"
+      description = "SelectDB admin account password"
       #default    = ""
       validation {
         condition     = can(regex("^[0-9A-Za-z_!@#$%^&*()_+\\-=\\+]+$", var.db_password)) && length(var.db_password) >= 8 && length(var.db_password) <= 30
-        error_message = "长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）"
+        error_message = "Length 8-30, must include three items (uppercase letters, lowercase letters, numbers, special symbols from !@#$%^&*()_+-=)"
       }
     }
+
   main.tf: |-
     # ------------------------------------------------------------------------------
-    # 核心资源定义
-    #
-    # 本文件包含了模块的核心基础设施资源
-    # 这里的代码负责根据输入变量来创建和配置所有云资源
+    # Main Resource Definitions
+    # 
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on input variables.
     # ------------------------------------------------------------------------------
 
-    # 配置阿里云提供商
+    # Configure the Alibaba Cloud provider
     provider "alicloud" {
       region = "cn-hangzhou"
     }
 
-    # 创建随机ID用于资源命名
+    # Create a random ID for resource naming
     resource "random_id" "suffix" {
       byte_length = 8
     }
 
-    # 定义本地变量common_name
+    # Define local variable common_name
     locals {
       common_name = "SelectDB-${random_id.suffix.id}"
       ecs_command = <<SHELL
@@ -94,19 +93,19 @@ Workspace:
     SHELL
     }
 
-    # 查询可用区
+    # Query availability zones
     data "alicloud_zones" "default" {
       available_disk_category     = "cloud_essd"
       available_instance_type     = var.instance_type
     }
 
-    # 创建VPC
+    # Create a VPC
     resource "alicloud_vpc" "vpc_select" {
       cidr_block = "192.168.0.0/16"
       vpc_name       = "${local.common_name}-vpc"
     }
 
-    # 创建VSwitch
+    # Create a VSwitch
     resource "alicloud_vswitch" "vsw_select" {
       vpc_id     = alicloud_vpc.vpc_select.id
       zone_id    = data.alicloud_zones.default.ids[0]
@@ -114,13 +113,13 @@ Workspace:
       vswitch_name       = "${local.common_name}-vsw"
     }
 
-    # 创建安全组
+    # Create a Security Group
     resource "alicloud_security_group" "sg_select" {
       security_group_name   = "${local.common_name}-sg"
       vpc_id = alicloud_vpc.vpc_select.id
     }
 
-    # 允许SSH访问
+    # Allow SSH access
     resource "alicloud_security_group_rule" "allow_ssh" {
       type              = "ingress"
       ip_protocol       = "tcp"
@@ -131,7 +130,7 @@ Workspace:
       cidr_ip           = "0.0.0.0/0"
     }
 
-    # 允许HTTP访问
+    # Allow HTTP access
     resource "alicloud_security_group_rule" "allow_http" {
       type              = "ingress"
       ip_protocol       = "tcp"
@@ -142,14 +141,14 @@ Workspace:
       cidr_ip           = "0.0.0.0/0"
     }
 
-    # 获取阿里云官方镜像
+    # Retrieve Alibaba Cloud official image
     data "alicloud_images" "image_id" {
       name_regex  = "^aliyun_3_9_x64_20G*"
-      owners      = "system"  # 官方镜像
-      most_recent = true      # 获取最新版本
+      owners      = "system"  # Official image
+      most_recent = true      # Get the latest version
     }
 
-    # 创建ECS实例
+    # Create an ECS instance
     resource "alicloud_instance" "ecs_instance" {
       vpc_id                     = alicloud_vpc.vpc_select.id
       vswitch_id                 = alicloud_vswitch.vsw_select.id
@@ -163,7 +162,7 @@ Workspace:
       password                   = var.ecs_instance_password
     }
 
-    # 创建SelectDB实例
+    # Create a SelectDB instance
     resource "alicloud_selectdb_db_instance" "selectdb_instance" {
       vpc_id                  = alicloud_vpc.vpc_select.id
       zone_id                 = data.alicloud_zones.default.ids[0]
@@ -180,7 +179,7 @@ Workspace:
       }
     }
 
-    # 创建ECS命令资源
+    # Create an ECS command resource
     resource "alicloud_ecs_command" "run_tpcc_alicloud_ecs_command" {
       name             = "commond_install"
       description      = "commond_install_description"
@@ -190,7 +189,7 @@ Workspace:
       working_dir      = "/root"
     }
 
-    # 创建ECS命令调用资源
+    # Create an ECS command invocation resource
     resource "alicloud_ecs_invocation" "run_tpcc_alicloud_ecs_invocation" {
       instance_id = [alicloud_instance.ecs_instance.id]
       command_id = alicloud_ecs_command.run_tpcc_alicloud_ecs_command.id
@@ -201,40 +200,40 @@ Workspace:
     }
   outputs.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输出值
+    # Module Outputs
     #
-    # 本文件定义了模块执行成功后返回给调用方的值
-    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户
+    # This file defines the values returned to the caller after successful module execution.
+    # These outputs can be referenced by other Terraform configurations or displayed to users after the apply command completes.
     # ------------------------------------------------------------------------------
 
-    # 输出ECS登录用户
+    # Outputs the ECS login user
     output "ecs_account" {
-      description = "ECS登录用户"
+      description = "ECS login user"
       value       = "root"
     }
 
-    # 输出ECS用户root密码
+    # Outputs the ECS user root password
     output "ecs_login_password" {
-      description = "ECS用户root密码"
+      description = "ECS user root password"
       value       = var.ecs_instance_password
       sensitive   = true
     }
 
-    # 输出SelectDB登录用户
+    # Outputs the SelectDB login user
     output "selectdb_account" {
-      description = "SelectDB登录用户"
+      description = "SelectDB login user"
       value       = "admin"
     }
 
-    # 输出SelectDB用户admin密码
+    # Outputs the SelectDB user admin password
     output "selectdb_login_password" {
-      description = "SelectDB用户admin密码"
+      description = "SelectDB user admin password"
       value       = var.db_password
       sensitive   = true
     }
 
-    # 输出SelectDB VPC地址
+    # Outputs the SelectDB VPC connection string
     output "selectdb_vpc_connection_string" {
-      description = "SelectDB VPC地址"
+      description = "SelectDB VPC connection string"
       value       = alicloud_selectdb_db_instance.selectdb_instance.instance_net_infos[0].connection_string
     }

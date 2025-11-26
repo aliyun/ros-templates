@@ -3,35 +3,35 @@ Transform: Aliyun::Terraform-v1.5
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-      - acs:technical-solution:internet-application-development:原生 SQL 轻松实现多模态智能检索-tech_solu_262
+      - acs:technical-solution:internet-application-development:Native SQL for Easy Multimodal Intelligent Search-tech_solu_262
 Workspace:
   variable.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输入变量
+    # Module Input Variables
     #
-    # 本文件定义了该 Terraform 模块所有可配置的输入变量
-    # 每个变量都包含了详细的说明，以帮助用户正确配置模块
+    # This file defines all configurable input variables for this Terraform module.
+    # Each variable contains detailed descriptions to help users configure the module correctly.
     # ------------------------------------------------------------------------------
 
-    # OSS存储桶名称
+    # Name of the OSS bucket
     variable "bucket_name" {
       type        = string
-      description = "bucket_name,在同一可用区下请保持唯一"
+      description = "bucket_name, please keep unique within the same availability zone"
       default     = "test-bucket-polar"
     }
 
-    # PolarDB数据库用户名
+    # Username for PolarDB
     variable "account_name" {
       type        = string
       default     = "polar_ai"
       description = "account_name"
       validation {
         condition     = can(regex("^[a-z][a-z0-9_]{0,30}[a-z0-9]$", var.account_name))
-        error_message = "数据库用户名必须以字母开头，以字母或数字结尾，只能包含字母、数字和下划线最多32个字符"
+        error_message = "The database username must start with a letter, end with a letter or number, and can only contain letters, numbers, and underscores with a maximum of 32 characters"
       }
     }
 
-    # PolarDB数据库密码
+    # Password for PolarDB
     variable "db_password" {
       type        = string
       sensitive   = true
@@ -39,35 +39,35 @@ Workspace:
       #default    = ""
       validation {
         condition     = can(regex("^[0-9A-Za-z_!@#$%^&*()_+\\-=\\+]+$", var.db_password)) && length(var.db_password) >= 8 && length(var.db_password) <= 30
-        error_message = "长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）"
+        error_message = "Length 8-30, must include three items (uppercase letters, lowercase letters, numbers, special symbols from !@#$%^&*()_+-=)"
       }
     }
 
-    # PolarDB数据库名称
+    # Name of the PolarDB database
     variable "dbname" {
       type        = string
       default     = "db-test"
       description = "dbname"
       validation {
         condition     = can(regex("^[a-z][a-z0-9_-]{0,62}[a-z0-9]$", var.dbname))
-        error_message = "由小写字母、数字、中划线（-）、下划线（_）组成，小写字母或数字结尾，以字母开头，以字母或数字结尾，最长 64 个字符"
+        error_message = "Composed of lowercase letters, numbers, hyphens (-), and underscores (_), ending with a lowercase letter or number, starting with a letter, ending with a letter or number, up to 64 characters"
       }
     }
 
   main.tf: |-
     # ------------------------------------------------------------------------------
-    # 核心资源定义
+    # Main Resource Definitions
     #
-    # 本文件包含了模块的核心基础设施资源
-    # 这里的代码负责根据输入变量来创建和配置所有云资源
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on input variables.
     # ------------------------------------------------------------------------------
 
-    # 配置阿里云提供商
+    # Configure Alibaba Cloud provider
     provider "alicloud" {
       region = "cn-beijing"
     }
 
-    # 创建随机字符串用于命名
+    # Generate random string for naming
     resource "random_string" "lowercase" {
       length  = 8
       special = false
@@ -75,30 +75,30 @@ Workspace:
       numeric = false
     }
 
-    # 创建随机ID用于命名
+    # Generate random ID for naming
     resource "random_id" "suffix" {
       byte_length = 8
     }
 
-    # 定义本地变量用于统一命名
+    # Define local variable for naming convention
     locals {
       common_name = "SmartSearch-${random_id.suffix.id}"
     }
 
-    # 查询可用区
+    # Query availability zones
     data "alicloud_polardb_node_classes" "default" {
       db_type    = "PostgreSQL"
       pay_type   = "PostPaid"
       category   = "SENormal"
     }
 
-    # 创建VPC
+    # Create VPC
     resource "alicloud_vpc" "vpc" {
       cidr_block = "192.168.0.0/16"
       vpc_name   = "VPC_${local.common_name}"
     }
 
-    # 创建VSwitch
+    # Create VSwitch
     resource "alicloud_vswitch" "vswitch" {
       vpc_id       = alicloud_vpc.vpc.id
       cidr_block   = "192.168.1.0/24"
@@ -106,7 +106,7 @@ Workspace:
       vswitch_name = "vsw_001_${local.common_name}"
     }
 
-    # 创建PolarDB集群
+    # Create PolarDB cluster
     resource "alicloud_polardb_cluster" "polardb_cluster" {
       vpc_id              = alicloud_vpc.vpc.id
       db_type             = "PostgreSQL"
@@ -122,7 +122,7 @@ Workspace:
       db_node_num         = 2
     }
 
-    # 创建PolarDB账户
+    # Create PolarDB account
     resource "alicloud_polardb_account" "account" {
       db_cluster_id    = alicloud_polardb_cluster.polardb_cluster.id
       account_name     = var.account_name
@@ -130,12 +130,11 @@ Workspace:
       account_type     = "Super"
     }
 
-    # 查询PolarDB端点信息
+    # Query PolarDB endpoints
     data "alicloud_polardb_endpoints" "polardb_endpoints" {
       db_cluster_id = alicloud_polardb_cluster.polardb_cluster.id
     }
 
-    # 创建PolarDB端点地址
     # Create PolarDB endpoint address
     resource "alicloud_polardb_endpoint_address" "dbcluster_endpoint_address" {
       db_endpoint_id = data.alicloud_polardb_endpoints.polardb_endpoints.endpoints[0].db_endpoint_id
@@ -146,7 +145,7 @@ Workspace:
       ]
     }
 
-    # 创建PolarDB数据库
+    # Create PolarDB database
     resource "alicloud_polardb_database" "polardb_database" {
       db_cluster_id      = alicloud_polardb_cluster.polardb_cluster.id
       db_name            = var.dbname
@@ -154,12 +153,12 @@ Workspace:
       account_name       = var.account_name
     }
 
-    # 启用OSS服务
+    # Enable OSS service
     data "alicloud_oss_service" "open_oss" {
       enable = "On"
     }
 
-    # 创建OSS存储桶
+    # Create OSS bucket
     resource "alicloud_oss_bucket" "ossbucket" {
       bucket          = "${var.bucket_name}-${random_string.lowercase.result}"
       force_destroy   = true
@@ -168,39 +167,39 @@ Workspace:
 
   output.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输出值
+    # Module Outputs
     #
-    # 本文件定义了模块执行成功后返回给调用方的值
-    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户
+    # This file defines the values returned to the caller after successful module execution.
+    # These outputs can be referenced by other Terraform configurations or displayed to users after the apply command completes.
     # ------------------------------------------------------------------------------
 
-    # 输出OSS存储桶名
+    # Output OSS bucket name
     output "bucket_name" {
       value       = alicloud_oss_bucket.ossbucket.bucket
-      description = "对象存储存储桶名"
+      description = "OSS bucket name"
     }
 
-    # 输出PolarDB数据库用户名
+    # Output PolarDB database username
     output "account_name" {
       value       = var.account_name
-      description = "PolarDB 数据库用户名"
+      description = "PolarDB database username"
     }
 
-    # 输出PolarDB数据库密码
+    # Output PolarDB database password
     output "account_password" {
       value       = var.db_password
       sensitive   = true
-      description = "PolarDB 数据库密码"
+      description = "PolarDB database password"
     }
 
-    # 输出PolarDB数据库名称
+    # Output PolarDB database name
     output "dbname" {
       value       = var.dbname
-      description = "PolarDB 数据库名称"
+      description = "PolarDB database name"
     }
 
-    # 输出PolarDB数据库公网地址
+    # Output PolarDB public address
     output "connection_string" {
       value       = format("%s:5432", alicloud_polardb_endpoint_address.dbcluster_endpoint_address.connection_string)
-      description = "PolarDB 数据库的公网地址"
+      description = "Public address of the PolarDB database"
     }

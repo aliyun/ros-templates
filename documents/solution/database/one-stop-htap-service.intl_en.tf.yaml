@@ -3,101 +3,99 @@ Transform: Aliyun::Terraform-v1.5
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-      - acs:technical-solution:database:RDS+ClickHouse构建一站式HTAP-tech_solu_19
+      - acs:technical-solution:database:RDS+ClickHouse for Building One-Stop HTAP-tech_solu_19
 Workspace:
   variable.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输入变量
+    # Module Input Variables
     #
-    # 本文件定义了该 Terraform 模块所有可配置的输入变量
-    # 每个变量都包含了详细的说明，以帮助用户正确配置模块
+    # This file defines all configurable input variables for this Terraform module.
+    # Each variable contains detailed descriptions to help users configure the module correctly.
     # ------------------------------------------------------------------------------
     
-    # 数据库实例规格
+    # Database instance type
     variable "db_instance_class" {
       type        = string
       default     = "8C32G"
       validation {
         condition     = contains(["8C32G", "16C64G", "32C128G","64C256G"], var.db_instance_class)
-        error_message = "无效的配置信息，请检查并重新输入"
+        error_message = "Invalid configuration information, please check and re-enter"
       }
-      description = "数据库实例规格，请在以下规格中选择【8C32G, 16C64G, 32C128G,64C256G】"
+      description = "Database instance specifications, please choose from the following specifications [8C32G, 16C64G, 32C128G, 64C256G]"
     }
     
-    # RDS数据库用户名
+    # RDS database username
     variable "rds_db_user" {
       type        = string
       default     = "rds_user"
       validation {
         condition     = can(regex("^[a-z][a-z0-9_]{0,30}[a-z0-9]$", var.rds_db_user))
-        error_message = "数据库用户名必须以字母开头，以字母或数字结尾，只能包含字母、数字和下划线最多32个字符"
+        error_message = "The database username must start with a letter, end with a letter or number, and can only contain letters, numbers, and underscores up to 32 characters"
       }
-      description = "RDS数据库账号"
+      description = "RDS database account"
     }
     
-    # 数据库密码
+    # Database password
     variable "db_password" {
       type        = string
-      sensitive   = true
-      description = "数据库密码"
+      description = "Database password"
       #default    = ""
       validation {
         condition     = can(regex("^[0-9A-Za-z_!@#$%^&*()_+\\-=\\+]+$", var.db_password)) && length(var.db_password) >= 8 && length(var.db_password) <= 30
-        error_message = "长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）"
+        error_message = "Length 8-30, must include three items (uppercase letters, lowercase letters, numbers, special symbols from !@#$%^&*()_+-=)"
       }
     }
     
-    # ClickHouse数据库用户名
+    # ClickHouse database username
     variable "click_house_user" {
       type        = string
       default     = "ck_user"
       validation {
         condition     = can(regex("^[a-z][a-z0-9_]{0,30}[a-z0-9]$", var.click_house_user))
-        error_message = "数据库用户名必须以字母开头，以字母或数字结尾，只能包含字母、数字和下划线最多32个字符"
+        error_message = "The database username must start with a letter, end with a letter or number, and can only contain letters, numbers, and underscores up to 32 characters"
       }
-      description = "ClickHouse数据库账号"
+      description = "ClickHouse database account"
     }
     
-    # ECS实例类型
+    # ECS instance type
     variable "ecs_instance_type" {
       type        = string
       default     = "ecs.e-c1m2.large"
-      description = "实例类型"
+      description = "Instance type"
     }
     
-    # ECS实例密码
+    # ECS instance password
     variable "ecs_instance_password" {
       type        = string
-      description = "ecs实例密码"
+      description = "ECS instance password"
       #default    = ""
-      sensitive   = true
       validation {
         condition     = can(regex("^[0-9A-Za-z_!@#$%^&*()_+\\-=\\+]+$", var.ecs_instance_password)) && length(var.ecs_instance_password) >= 8 && length(var.ecs_instance_password) <= 30
-        error_message = "长度8-30，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）"
+        error_message = "Length 8-30, must include three items (uppercase letters, lowercase letters, numbers, special symbols from !@#$%^&*()_+-=)"
       }
     }
   main.tf: |-
     # ------------------------------------------------------------------------------
-    # 核心资源定义
+    # Main Resource Definitions
     #
-    # 本文件包含了模块的核心基础设施资源
-    # 这里的代码负责根据输入变量来创建和配置所有云资源
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on input variables.
     # ------------------------------------------------------------------------------
     
-    # 配置阿里云提供商
+    # Configures Alibaba Cloud provider
     provider "alicloud" {
       region = "cn-hangzhou"
     }
     
-    # 创建一个随机ID
+    # Create a random ID
     resource "random_id" "suffix" {
       byte_length = 8
     }
     
-    # 定义本地变量
+    # Defines local variables
     locals {
       common_name = "rdsmysql2ck-${random_id.suffix.id}"
-      # 选择第一个共同可用区（或根据逻辑选择）
+      # Select the first common availability zone (or choose based on logic)
       database_class = {
         RDS={
             "8C32G"= "mysql.x4.xlarge.2c"
@@ -123,7 +121,7 @@ Workspace:
     SHELL
     }
     
-    # 查询满足条件的可用区
+    # Query availability zones
     data "alicloud_db_zones" "zones_ids" {
       engine                   = "MySQL"
       engine_version           = "8.0"
@@ -132,13 +130,13 @@ Workspace:
       db_instance_storage_type = "cloud_essd"
     }
     
-    # 创建专有网络VPC
+    # Create a VPC
     resource "alicloud_vpc" "vpc" {
       vpc_name = "vpc_${local.common_name}"
       cidr_block = "192.168.0.0/16"
     }
     
-    # 创建交换机VSwitch
+    # Create a VSwitch
     resource "alicloud_vswitch" "vswitch" {     
       vpc_id = alicloud_vpc.vpc.id
       zone_id = data.alicloud_db_zones.zones_ids.ids.1
@@ -146,12 +144,12 @@ Workspace:
       vswitch_name = "vswitch_${local.common_name}"
     }
     
-    # 创建安全组
+    # Create a Security Group
     resource "alicloud_security_group" "security_group" {
       vpc_id = alicloud_vpc.vpc.id
     }
     
-    # 创建RDS数据库实例
+    # Create an RDS database instance
     resource "alicloud_db_instance" "rds_instance" {
       instance_name = "rdsmysql_${local.common_name}"
       engine = "MySQL"
@@ -167,7 +165,7 @@ Workspace:
       instance_type = lookup(local.database_class["RDS"], var.db_instance_class, "rds.mysql.s1.small")
     }
     
-    # 创建数据库
+    # Create a database
     resource "alicloud_db_database" "database" {
       character_set   = "utf8mb4"
       instance_id     = alicloud_db_instance.rds_instance.id
@@ -175,7 +173,7 @@ Workspace:
       description     = "tpcc_${local.common_name}"
     }
     
-    # 创建数据库账号
+    # Create a database account
     resource "alicloud_db_account" "default" {
       db_instance_id      = alicloud_db_instance.rds_instance.id
       account_name        = var.rds_db_user
@@ -183,7 +181,7 @@ Workspace:
       account_type        = "Super"
     }
     
-    # 创建ClickHouse数据库集群
+    # Create a ClickHouse database cluster
     resource "alicloud_click_house_db_cluster" "click_house" {
       db_cluster_version      = "23.8"
       category                = "Basic"
@@ -199,7 +197,7 @@ Workspace:
       db_cluster_description  = "ck_${local.common_name}"
     }
     
-    # 创建ClickHouse数据库账号
+    # Create a ClickHouse database account
     resource "alicloud_click_house_account" "default" {
       db_cluster_id       = alicloud_click_house_db_cluster.click_house.id
       account_name        = var.click_house_user
@@ -207,14 +205,14 @@ Workspace:
       type                = "Super"
     }
     
-    # 获取最新的CentOS 7.9系统镜像
+    # Retrieve the latest CentOS 7.9 system image
     data "alicloud_images" "centos_7_9" {
       name_regex  = "^centos_7_9_x64_*"
-      owners      = "system"  # 官方镜像
-      most_recent = true      # 获取最新版本
+      owners      = "system"  # Official image
+      most_recent = true      # Get the latest version
     }
     
-    # 创建ECS实例
+    # Create an ECS instance
     resource "alicloud_instance" "ecs_instance" {
       availability_zone    = data.alicloud_db_zones.zones_ids.ids.1
       vpc_id               = alicloud_vpc.vpc.id
@@ -227,7 +225,7 @@ Workspace:
       image_id             = data.alicloud_images.centos_7_9.images[0].id
     }
     
-    # 创建ECS命令资源
+    # Create ECS command resource
     resource "alicloud_ecs_command" "run_tpcc_alicloud_ecs_command" {
       name             = "commond_install"
       description      = "commond_install_description"
@@ -237,7 +235,7 @@ Workspace:
       working_dir      = "/root"
     }
     
-    # 创建ECS命令调用资源
+    # Create ECS invocation resource
     resource "alicloud_ecs_invocation" "run_tpcc_alicloud_ecs_invocation" {
       instance_id = [alicloud_instance.ecs_instance.id]
       command_id = alicloud_ecs_command.run_tpcc_alicloud_ecs_command.id
@@ -248,61 +246,58 @@ Workspace:
     }
   output.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输出值
+    # Module Outputs
     #
-    # 本文件定义了模块执行成功后返回给调用方的值
-    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户
+    # This file defines the values returned to the caller after successful module execution.
+    # These outputs can be referenced by other Terraform configurations or displayed to users after the apply command completes.
     # ------------------------------------------------------------------------------
     
-    # 输出创建的VPC资源ID
+    # Outputs the ID of the created VPC resource
     output "vpc_id" {
       value = alicloud_vpc.vpc.id
     }
     
-    # 输出创建的RDS实例ID
+    # Outputs the ID of the created RDS instance
     output "rds_instance_id" {
       value = alicloud_db_instance.rds_instance.id
     }
     
-    # 输出创建的ClickHouse集群ID
+    # Outputs the ID of the created ClickHouse cluster
     output "click_house_cluster_id" {
       value = alicloud_click_house_db_cluster.click_house.id
     }
     
-    # 输出创建的ECS实例ID
+    # Outputs the ID of the created ECS instance
     output "ecs_instance_id" {
       value = alicloud_instance.ecs_instance.id
     }
 
-    # 输出RDS数据库用户名
+    # Outputs the database username
     output "db_username" {
       value       = var.rds_db_user
-      description = "RDS数据库用户名"
+      description = "RDS database username"
     }
 
-    # 输出RDS数据库密码
+    # Outputs the database password
     output "db_password" {
       value       = var.db_password
-      description = "RDS 数据库密码"
-      sensitive = true 
+      description = "RDS database password"
     }
 
-    # 输出ClickHouse数据库用户名
+    # Outputs the ClickHouse database username
     output "ck_db_name" {
       value       = var.click_house_user
-      description = "ClickHouse 数据库用户名"
+      description = "ClickHouse database username"
     }    
 
-    # 输出ClickHouse数据库密码
+    # Outputs the ClickHouse database password
     output "ck_db_password" {
       value       = var.db_password
-      description = "ClickHouse 数据库密码"
-      sensitive = true 
+      description = "ClickHouse database password"
     }    
 
-    # 输出ECS实例密码
+    # Outputs the Ecs instance password
     output "ecs_instance_password" {
       value       = var.ecs_instance_password
-      description = "ECS 实例密码"
-      sensitive = true 
-    }        
+      description = "ECS instance password"
+    } 

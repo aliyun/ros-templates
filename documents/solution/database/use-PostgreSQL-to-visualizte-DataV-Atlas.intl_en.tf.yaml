@@ -3,61 +3,61 @@ Transform: Aliyun::Terraform-v1.5
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-      - acs:technical-solution:db:一站式时空决策，释放空间数据价值-tech_solu_267
+      - acs:technical-solution:db:One-Stop Spatio-Temporal Decision-Making, Unlocking Spatial Data Value-tech_solu_267
 Workspace:
   variable.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输入变量
+    # Module Input Variables
     #
-    # 本文件定义了该 Terraform 模块所有可配置的输入变量
-    # 每个变量都包含了详细的说明，以帮助用户正确配置模块
+    # This file defines all configurable input variables for this Terraform module.
+    # Each variable contains detailed descriptions to help users configure the module correctly.
     # ------------------------------------------------------------------------------
 
-    # RDS实例规格
+    # RDS instance class
     variable "db_instance_class" {
       type        = string
       default     = "pg.n4.2c.1m"
       nullable    = false
-      description = "实例规格"
+      description = "Instance specification"
     }
 
-    # RDS数据库账号
+    # RDS database username
     variable "rds_db_user" {
       type        = string
       default     = "test_user"
       nullable    = false
-      description = "RDS数据库账号"
+      description = "RDS database account"
     }
 
-    # RDS数据库名称
+    # RDS database name
     variable "db_name" {
       type        = string
       default     = "food_test"
       nullable    = false
-      description = "RDS数据库名称"
+      description = "RDS database name"
     }
 
-    # RDS数据库密码
+    # RDS database password
     variable "db_password" {
       type        = string
       sensitive   = true
-      description = "RDS数据库密码"
+      description = "RDS database password"
       #default    = ""
     }
   main.tf: |-
     # ------------------------------------------------------------------------------
-    # 核心资源定义
-    #
-    # 本文件包含了模块的核心基础设施资源
-    # 这里的代码负责根据输入变量来创建和配置所有云资源
+    # Main Resource Definitions
+    # 
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on input variables.
     # ------------------------------------------------------------------------------
 
-    # 配置阿里云提供商
+    # Configure Alibaba Cloud provider
     provider "alicloud" {
       region = "cn-hangzhou"
     }
 
-    # 生成随机ID用于资源命名
+    # Generate random ID for resource naming
     resource "random_id" "suffix" {
       keepers = {
         user = var.rds_db_user
@@ -65,13 +65,13 @@ Workspace:
       byte_length = 4
     }
 
-    # 定义本地变量
+    # Define local variables
     locals {
       instance_name = "datav-${var.rds_db_user}-${random_id.suffix.hex}"
       connection_prefix = "datav-pg-${random_id.suffix.hex}"
     }
 
-    # 查询可用区
+    # Query availability zones
     data "alicloud_db_zones" "default" {
       engine                   = "PostgreSQL"
       engine_version           = "17.0"
@@ -80,21 +80,21 @@ Workspace:
       db_instance_storage_type = "cloud_essd"
     }
 
-    # 创建VPC
+    # Create VPC
     resource "alicloud_vpc" "vpc" {
       vpc_name   = "VPC_HZ_${random_id.suffix.hex}"
       cidr_block = "192.168.0.0/16"
     }
 
-    # 创建VSwitch
+    # Create VSwitch
     resource "alicloud_vswitch" "vswitch" {
       vpc_id       = alicloud_vpc.vpc.id
       cidr_block   = "192.168.1.0/24"
       vswitch_name = "vsw_001"
-      zone_id      =  data.alicloud_db_zones.default.zones[0].id
+      zone_id      = data.alicloud_db_zones.default.zones[0].id
     }
 
-    # 创建PostgreSQL实例
+    # Create PostgreSQL instance
     resource "alicloud_db_instance" "db_instance" {
       engine                   = "PostgreSQL"
       engine_version           = "17.0"
@@ -109,14 +109,14 @@ Workspace:
       security_ips             = ["47.99.0.0/16", "192.168.0.0/16"]
     }
 
-    # 创建公网连接
+    # Create public connection
     resource "alicloud_db_connection" "public" {
       instance_id       = alicloud_db_instance.db_instance.id
       connection_prefix = local.connection_prefix
       port              = "5432"
     }
 
-    # 创建RDS账号
+    # Create RDS account
     resource "alicloud_rds_account" "account" {
       db_instance_id   = alicloud_db_instance.db_instance.id
       account_type     = "Super"
@@ -124,14 +124,14 @@ Workspace:
       account_name     = var.rds_db_user
     }
 
-    # 创建RDS数据库
+    # Create RDS database
     resource "alicloud_db_database" "db_database" {
       instance_id   = alicloud_db_instance.db_instance.id
       character_set = "utf8"
       name          = var.db_name
     }
 
-    # 设置RDS账号权限
+    # Set RDS account privileges
     resource "alicloud_db_account_privilege" "privilege" {
       instance_id  = alicloud_db_instance.db_instance.id
       account_name = alicloud_rds_account.account.account_name
@@ -140,33 +140,33 @@ Workspace:
     }
   output.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输出值
+    # Module Outputs
     #
-    # 本文件定义了模块执行成功后返回给调用方的值
-    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户
+    # This file defines the values returned to the caller after successful module execution.
+    # These outputs can be referenced by other Terraform configurations or displayed to users after the apply command completes.
     # ------------------------------------------------------------------------------
 
-    # 输出PostgreSQL实例的公网连接地址
+    # Output public connection string of PostgreSQL instance
     output "pg_public_connection_string" {
       value       = alicloud_db_connection.public.connection_string
-      description = "PostgreSQL 外网连接地址"
+      description = "Public connection string of PostgreSQL"
     }
 
-    # 输出数据库账号。
+    # Outputs the database username.
     output "account_name" {
       value       = var.rds_db_user
-      description = "数据库账号"
+      description = "Database Username"
     }
 
-    # 输出数据库密码。
+    # Outputs the database password.
     output "account_password" {
       value       = var.db_password
       sensitive   = true
-      description = "数据库密码"
+      description = "Database Password"
     }
 
-    # 输出数据库名称。
+    # Outputs the database name.
     output "dbname" {
       value       = var.db_name
-      description = "数据库名称"
+      description = "Database Name"
     }

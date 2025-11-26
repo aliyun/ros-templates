@@ -3,72 +3,72 @@ Transform: Aliyun::Terraform-v1.5
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-      - acs:technical-solution:data-analysis:Flink CDC 实现企业级实时数据同步-tech_solu_183
+      - acs:technical-solution:data-analysis:Flink CDC for Enterprise-Level Real-Time Data Synchronization-tech_solu_183
 Workspace:
   variable.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输入变量
+    # Module Input Variables
     #
-    # 本文件定义了该 Terraform 模块所有可配置的输入变量
-    # 每个变量都包含了详细的说明，以帮助用户正确配置模块
+    # This file defines all configurable input variables for this Terraform module.
+    # Each variable contains detailed descriptions to help users configure the module correctly.
     # ------------------------------------------------------------------------------
 
-    # RDS实例的规格型号
+    # Instance type for the RDS
     variable "dbinstance_class" {
       type        = string
-      description = "RDS实例规格"
+      description = "RDS instance specification"
       default     = "mysql.n2.medium.1"
     }
 
-    # RDS数据库的账号名称
+    # Account name for the RDS database
     variable "db_user_name" {
       type        = string
       default     = "db_user"
       nullable    = false
-      description = "RDS数据库账号"
+      description = "RDS database account"
     }
 
-    # RDS数据库的密码
+    # Password for the RDS database
     variable "db_password" {
       type        = string
       sensitive   = true
-      description = "RDS数据库密码"
+      description = "RDS database password"
       #default    = ""
     }
 
-    # OSS存储空间的名称
+    # Name of the OSS bucket
     variable "bucket_name" {
       type        = string
-      description = "OSS存储空间名称"
+      description = "OSS bucket name"
       default     = "flink-cdc"
     }
 
-    # OSS文件目录名称
+    # Directory name within the OSS bucket
     variable "directory_name" {
       type        = string
       default     = "warehouse"
       nullable    = false
-      description = "Bucket 文件目录名称"
+      description = "Bucket directory name"
     }
 
-    # Flink实例的名称
+    # Name of the Flink instance
     variable "flink_instance_name" {
       type        = string
-      description = "Flink实例名称"
+      description = "Flink instance name"
       default     = "flink-cdc-test"
     }
 
   main.tf: |-
     # ------------------------------------------------------------------------------
-    # 核心资源定义
-    #
-    # 本文件包含了模块的核心基础设施资源
-    # 这里的代码负责根据输入变量来创建和配置所有云资源
+    # Main Resource Definitions
+    # 
+    # This file contains the core infrastructure resources of the module.
+    # The code here is responsible for creating and configuring all cloud resources based on input variables.
     # ------------------------------------------------------------------------------
 
-    # 配置阿里云提供商
+    # Configure the Alibaba Cloud provider
     provider "alicloud" {
-      region = "cn-hangzhou"
+      region = "ap-southeast-1"
     }
 
     resource "random_string" "lowercase" {
@@ -78,12 +78,12 @@ Workspace:
       numeric = false
     }
 
-    # 本地变量，资源名称前缀
+    # Local variable, resource name prefix
     locals {
       common_name = "flink-cdc-${random_string.lowercase.result}"
     }
 
-    # 查询可用区
+    # Query availability zones
     data "alicloud_db_zones" "zones_ids" {
       engine                   = "MySQL"
       engine_version           = "8.0"
@@ -92,18 +92,18 @@ Workspace:
       db_instance_storage_type = "cloud_essd"
     }
 
-    # 启用OSS服务
+    # Enable OSS service
     data "alicloud_oss_service" "open_oss" {
       enable = "On"
     }
 
-    # 创建VPC
+    # Create a VPC
     resource "alicloud_vpc" "vpc" {
       vpc_name   = "vpc-${local.common_name}"
       cidr_block = "192.168.0.0/16"
     }
 
-    # 创建交换机VSwitch
+    # Create a VSwitch
     resource "alicloud_vswitch" "vswitch" {
       vpc_id       = alicloud_vpc.vpc.id
       cidr_block   = "192.168.1.0/24"
@@ -111,7 +111,7 @@ Workspace:
       zone_id      = data.alicloud_db_zones.zones_ids.ids.1
     }
 
-    # 创建RDS实例
+    # Create an RDS instance
     resource "alicloud_db_instance" "rdsdbinstance" {
       zone_id                  = data.alicloud_db_zones.zones_ids.ids.1
       vpc_id                   = alicloud_vpc.vpc.id
@@ -126,7 +126,7 @@ Workspace:
       released_keep_policy     = "None"
     }
 
-    # 创建RDS账户
+    # Create an RDS account
     resource "alicloud_rds_account" "account" {
       db_instance_id   = alicloud_db_instance.rdsdbinstance.id
       account_type     = "Super"
@@ -134,7 +134,7 @@ Workspace:
       account_name     = var.db_user_name
     }
 
-    # 创建数据库
+    # Create databases
     resource "alicloud_db_database" "db_base1" {
       instance_id   = alicloud_db_instance.rdsdbinstance.id
       character_set = "utf8"
@@ -159,13 +159,13 @@ Workspace:
       name          = "user_db3"
     }
 
-    # 创建OSS存储桶
+    # Create an OSS bucket
     resource "alicloud_oss_bucket" "bucket" {
       bucket          = "${var.bucket_name}-${random_string.lowercase.result}"
       force_destroy = true
     }
 
-    # 创建OSS存储桶对象
+    # Create an OSS bucket object
     resource "alicloud_oss_bucket_object" "directory_name" {
       bucket        = alicloud_oss_bucket.bucket.bucket
       key           = "${replace(trimspace(var.directory_name), "/$", "")}/"
@@ -173,7 +173,7 @@ Workspace:
       acl           = "private"
     }
 
-    # 创建Flink实例
+    # Create a Flink instance
     resource "alicloud_realtime_compute_vvp_instance" "flink_instance" {
       zone_id                  = data.alicloud_db_zones.zones_ids.ids.1
       vpc_id                   = alicloud_vpc.vpc.id
@@ -190,45 +190,45 @@ Workspace:
     }
   output.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输出值
+    # Module Outputs
     #
-    # 本文件定义了模块执行成功后返回给调用方的值
-    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户
+    # This file defines the values returned to the caller after successful module execution.
+    # These outputs can be referenced by other Terraform configurations or displayed to users after the apply command completes.
     # ------------------------------------------------------------------------------
-
-    # 输出 RDS 实例 ID
+    
+    # Outputs the RDS instance id.
     output "rds_instance_id" {
       value       = alicloud_db_instance.rdsdbinstance.id
-      description = "RDS 实例 ID"
+      description = "RDS instance id"
     }
 
-    # 输出RDS实例的内网连接地址
+    # Outputs the internal connection address of the RDS.
     output "mysql_host" {
       value       = alicloud_db_instance.rdsdbinstance.connection_string
-      description = "内网连接地址"
+      description = "Internal connection address"
     }
 
-    # 输出数据库账号
+    # Outputs the database username.
     output "db_username" {
       value       = var.db_user_name
-      description = "数据库账号"
+      description = "Database username"
     }
 
-    # 输出数据库密码
+    # Outputs the database password.
     output "db_password" {
       value       = var.db_password
       sensitive   = true
-      description = "数据库密码"
+      description = "Database password"
     }
 
-    # 输出 OSS 存储空间的名称
+    # Outputs the OSS bucket name.
     output "bucket_name" {
       value       = alicloud_oss_bucket.bucket.bucket
-      description = "OSS 存储空间的名称"
+      description = "OSS bucket name"
     }
 
-    # 输出 OSS 文件目录名称
+    # Outputs the OSS directory prefix.
     output "oss_prefix" {
       value       = var.directory_name
-      description = "OSS 文件目录名称"
+      description = "OSS object key prefix"
     }
