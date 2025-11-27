@@ -3,9 +3,17 @@ Transform: Aliyun::Terraform-v1.5
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-      - acs:technical-solution:internet-application-development:应用日志数据归档-tech_solu_08
+      - acs:technical-solution:ai:通过RocketMQ实现多智能体异步通信-tech_solu_306
 Workspace:
   variable.tf: |-
+    # ------------------------------------------------------------------------------
+    # 模块输入变量 (Module Input Variables)
+    #
+    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
+    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
+    # 请参考这些描述来正确配置模块。
+    # ------------------------------------------------------------------------------
+    
     # 指定创建的ECS云服务器的规格。
     variable "ecs_instance_type" {
       type        = string
@@ -29,7 +37,7 @@ Workspace:
     # 本文件包含了模块的核心基础设施资源。
     # 这里的代码负责根据输入变量来创建和配置所有云资源。
     # ------------------------------------------------------------------------------
-
+    
     # 配置阿里云提供商 (Provider) 
     provider "alicloud" {
       region = "cn-chengdu"
@@ -101,6 +109,43 @@ Workspace:
       internet_max_bandwidth_out = 5
     }
 
+
+    # 创建一个RocketMQ实例
+    resource "alicloud_rocketmq_instance" "rocketmq" {
+      product_info {
+        msg_process_spec       = "rmq.s2.2xlarge"
+        message_retention_time = "70"
+      }
+
+      sub_series_code = "cluster_ha"
+      series_code     = "standard"
+      payment_type    = "PayAsYouGo"
+      instance_name   = "ROCKETMQ5-${local.common_name}"
+      service_code    = "rmq"
+
+      network_info {
+        vpc_info {
+          vpc_id = alicloud_vpc.vpc.id
+          vswitches {
+            vswitch_id = alicloud_vswitch.ecs_vswitch.id
+          }
+        }
+        internet_info {
+          internet_spec = "disable"
+          flow_out_type = "uninvolved"
+        }
+      }
+
+      acl_info {
+        acl_types             = ["default", "apache_acl"]
+        default_vpc_auth_free = false
+      }
+
+      tags = {
+        version_capability = "lite-topic"
+      }
+
+    }
 
 
   output.tf: |-
