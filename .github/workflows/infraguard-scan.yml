@@ -1,0 +1,111 @@
+name: Infraguard Template Scan
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'documents/**'
+      - 'examples/**'
+      - 'integrate/**'
+      - 'solutions/**'
+  pull_request:
+    branches:
+      - '**'
+    paths:
+      - 'documents/**'
+      - 'examples/**'
+      - 'integrate/**'
+      - 'solutions/**'
+
+jobs:
+  infraguard-scan:
+    name: Scan ROS Templates with Infraguard
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v45
+        with:
+          files: |
+            documents/**/*.json
+            documents/**/*.yaml
+            documents/**/*.yml
+            examples/**/*.json
+            examples/**/*.yaml
+            examples/**/*.yml
+            integrate/**/*.json
+            integrate/**/*.yaml
+            integrate/**/*.yml
+            solutions/**/*.json
+            solutions/**/*.yaml
+            solutions/**/*.yml
+          files_ignore: |
+            **/*.tf.yml
+            **/*.tf.yaml
+
+      - name: Filter and prepare files for scan
+        id: filter-files
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: |
+          # Get the list of changed files
+          CHANGED_FILES="${{ steps.changed-files.outputs.all_changed_files }}"
+          
+          # Filter out tf.yml and tf.yaml files (additional safety check)
+          FILTERED_FILES=""
+          for file in $CHANGED_FILES; do
+            if [[ ! "$file" =~ \.tf\.yml$ ]] && [[ ! "$file" =~ \.tf\.yaml$ ]]; then
+              if [[ -f "$file" ]]; then
+                FILTERED_FILES="$FILTERED_FILES $file"
+              fi
+            fi
+          done
+          
+          # Trim leading/trailing whitespace
+          FILTERED_FILES=$(echo "$FILTERED_FILES" | xargs)
+          
+          echo "files=$FILTERED_FILES" >> $GITHUB_OUTPUT
+          echo "has_files=$([[ -n \"$FILTERED_FILES\" ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          
+          echo "Files to scan:"
+          echo "$FILTERED_FILES" | tr ' ' '\n'
+
+      - name: Setup Go
+        if: steps.filter-files.outputs.has_files == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.24'
+          cache: false
+
+      - name: Install Infraguard
+        if: steps.filter-files.outputs.has_files == 'true'
+        run: |
+          go install github.com/aliyun/infraguard/cmd/infraguard@v0.1.0
+          echo "Infraguard version:"
+          infraguard version || true
+
+      - name: Run Infraguard scan
+        if: steps.filter-files.outputs.has_files == 'true'
+        run: |
+          FILES="${{ steps.filter-files.outputs.files }}"
+          POLICY_PATH=".infraguard-policies/ros-best-practices"
+          
+          echo "Scanning files with Infraguard..."
+          echo "Policy path: $POLICY_PATH"
+          echo "Files to scan:"
+          echo "$FILES" | tr ' ' '\n'
+          echo ""
+          
+          infraguard scan --policy "$POLICY_PATH" $FILES
+
+      - name: No files to scan
+        if: steps.changed-files.outputs.any_changed != 'true' || steps.filter-files.outputs.has_files != 'true'
+        run: |
+          echo "No matching template files (json/yaml/yml) were changed in the monitored directories."
+          echo "Skipping Infraguard scan."
