@@ -1,0 +1,119 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建SAE应用、命名空间及SLB绑定，配置ECS资源与负载均衡，自动化部署容器应用。
+  en: Create SAE applications, namespaces, and SLB bindings, configure ECS resources
+    with load balancing, and automate the deployment of containerized applications.
+Parameters:
+  ZoneId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VpcId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+      ZoneId: ZoneId
+  SecurityGroupId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+  NamespaceName:
+    Type: String
+    Description: 命名空间名称
+    Default: mytest
+  NamespaceId:
+    Type: String
+    Description: 命名空间ID
+    Default: mytest
+  Description:
+    Type: String
+    Description: 命名空间的描述信息
+    Default: null
+  AppName:
+    Type: String
+    Description: 应用名称
+    Default: test
+  LoadBalancerSpec:
+    Type: String
+    Description: 负载均衡实例的规格
+    Default: slb.s2.medium
+Resources:
+  LoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      MasterZoneId:
+        Ref: ZoneId
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+  Namespace:
+    Type: ALIYUN::SAE::Namespace
+    Properties:
+      NamespaceName:
+        Ref: NamespaceName
+      NamespaceId:
+        Fn::Sub: ${ALIYUN::Region}:${NamespaceId}
+      NamespaceDescription:
+        Ref: Description
+    DependsOn: LoadBalancer
+  SaeApp:
+    Type: ALIYUN::SAE::Application
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      AppName:
+        Ref: AppName
+      NamespaceId:
+        Fn::GetAtt:
+        - Namespace
+        - NamespaceId
+      Cpu: 500
+      Memory: 1024
+      Replicas: 2
+      Deploy: true
+      Timezone: Asia/Shanghai
+      SaeVersion: v2
+      AutoConfig: false
+
+      PackageType: Image
+      Jdk: Dragonwell 21
+      ImageUrl:
+        Fn::Sub: registry.${ALIYUN::Region}.aliyuncs.com/sae-serverless-demo/sae-demo:web-springboot-hellosae-v1.0
+      ProgrammingLanguage: java
+      AppSource: micro_service
+    DependsOn:
+    - Namespace
+  BindSlb:
+    Type: ALIYUN::SAE::SlbBinding
+    Properties:
+      AppId:
+        Ref: SaeApp
+      Intranet: '[{"port": 80, "targetPort": 8080, "protocol": "TCP"}]'
+      InternetSlbId:
+        Ref: LoadBalancer
+    DependsOn:
+    - LoadBalancer
+    - SaeApp
+Outputs:
+  AppId:
+    Value:
+      Fn::GetAtt:
+      - SaeApp
+      - AppId
+  ChangeOrderId:
+    Value:
+      Fn::GetAtt:
+      - SaeApp
+      - ChangeOrderId
+  NamespaceId:
+    Value:
+      Fn::GetAtt:
+      - Namespace
+      - NamespaceId

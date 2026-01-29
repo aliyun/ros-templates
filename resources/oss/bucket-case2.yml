@@ -1,0 +1,147 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建OSS存储桶并启用CDN加速，配置域名解析与优化文件分发策略，支持全球访问与自定义缓存规则。
+  en: Create an OSS bucket and enable CDN acceleration, configure domain name resolution, and optimize file distribution strategies to support global access and custom caching rules.
+Parameters:
+  Scope:
+    Type: String
+    Label:
+      zh-cn: 加速区域
+      en: Acceleration area
+    Description:
+      zh-cn: 选择加速区域。加速区域为仅中国内地和全球时，服务域名必须备案。
+      en: Select the acceleration area. When the acceleration region is only in mainland China and the world, the service domain name must be filed.
+    Default: domestic
+    AllowedValues:
+      - domestic
+      - overseas
+      - global
+  DomainName:
+    Type: String
+    Label:
+      zh-cn: 加速域名
+      en: Accelerated domain name
+    Description:
+      zh-cn: 加速域名是指接入CDN，用于加速源站的域名。请填写您账号下的域名。
+      en: Accelerated domain name refers to the domain name of the access CDN used to accelerate the source site. Please fill in the domain name under your account.
+  BucketName:
+    Type: String
+    Label:
+      en: Bucket Name
+      zh-cn: 存储空间名称
+    Description:
+      en: The name must be 3 to 63 bytes in length, The name must start and end with a lowercase letter or digit.The name can contain only lowercase letters, digits, and hyphens (-).;<br><b>note：<font color='blue'>A bucket name must be globally unique within OSS. Bucket names cannot be changed after the bucket is created.</b></font>
+      zh-cn: 长度为3~63个字符，必须以小写字母或数字开头和结尾，可以包含小写字母、数字和连字符(-);<br><b>注：<font color='blue'>需要全网唯一性，已经存在的不能在创建。</b></font>
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: image-example-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+Resources:
+  OssBucket:
+    Type: ALIYUN::OSS::Bucket
+    DependsOn: AutoEnableOSS
+    Properties:
+      BucketName:
+        Ref: BucketName
+      DeletionForce: true
+  AutoEnableCDN:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: CDN
+  AutoEnableOSS:
+    Type: ALIYUN::ROS::AutoEnableService
+    Properties:
+      ServiceName: OSS
+  Domain:
+    Type: ALIYUN::CDN::Domain
+    Properties:
+      Sources:
+        Fn::Sub:
+          - '[{"content":"${content}", "type":"oss", "priority":"20", "port":80, "weight":"10"}]'
+          - content:
+              Fn::GetAtt:
+                - OssBucket
+                - DomainName
+      CdnType: web
+      Scope:
+        Ref: Scope
+      DomainName:
+        Ref: DomainName
+    DependsOn: AutoEnableCDN
+  DomainRecord:
+    Type: ALIYUN::DNS::DomainRecord
+    Properties:
+      Type: CNAME
+      RR:
+        Fn::Select:
+          - 0
+          - Fn::Split:
+              - .
+              - Ref: DomainName
+      Value:
+        Fn::GetAtt:
+          - Domain
+          - Cname
+      DomainName:
+        Fn::Join:
+          - .
+          - Fn::Select:
+              - '1:'
+              - Fn::Split:
+                  - .
+                  - Ref: DomainName
+    DependsOn: Domain
+  DomainConfig:
+    Type: ALIYUN::CDN::DomainConfig
+    Properties:
+      FunctionList:
+        - FunctionArgs:
+            - ArgName: file_type
+              ArgValue: jpg,png,jpeg
+            - ArgName: weight
+              ArgValue: '99'
+            - ArgName: ttl
+              ArgValue: '7776000'
+          FunctionName: filetype_based_ttl_set
+        - FunctionArgs:
+            - ArgName: private_oss_auth
+              ArgValue: 'on'
+            - ArgName: perm_private_oss_tbl
+              ArgValue: ''
+          FunctionName: l2_oss_key
+        - FunctionArgs:
+            - ArgName: filetype
+              ArgValue: jpeg
+            - ArgName: webp
+              ArgValue: 'off'
+            - ArgName: orient
+              ArgValue: 'off'
+            - ArgName: slim
+              ArgValue: '90'
+            - ArgName: enable
+              ArgValue: 'on'
+          FunctionName: image_transform
+      DomainNames:
+        Ref: Domain
+    DependsOn: DomainRecord
+Outputs:
+  Cname:
+    Description: CNAME
+    Value:
+      Fn::GetAtt:
+        - Domain
+        - Cname
+  DomainName:
+    Description: DomainName
+    Value:
+      Ref: Domain
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - Scope
+          - DomainName
+          - BucketName

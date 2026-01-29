@@ -1,0 +1,147 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建双可用区VPC网络，含安全组，自动配置子网CIDR，支持自定义IP范围。
+  en: Create a dual-Availability Zone VPC network, inclusive of security groups, with automatic subnet CIDR configuration and support for custom IP ranges.
+Parameters:
+  VSwitch1ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - VSwitch2ZoneId
+      AutoSelectFirst: true
+    Type: String
+    Description:
+      zh-cn: VSwitch可用区id，</font><a href='https://help.aliyun.com/document_detail/123712.html' target='_blank'><b> 查看可用区信息</b><font color='blue'></a>。
+      en: VSwitch available area id, <a href='https://help.aliyun.com/document_detail/123712.html' target='_blank'><b><font color='blue'>View region and zone info</font></b></a>.
+    Label:
+      zh-cn: 交换机1可用区ID
+      en: VSwitch 1 ZoneId
+  VSwitch2CidrBlock:
+    Default: 192.168.2.0/24
+    Type: String
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    Label:
+      zh-cn: 交换机2子网网段
+      en: VSwitch 2 CIDR Block
+  VSwitch1CidrBlock:
+    Default: 192.168.1.0/24
+    Type: String
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    Label:
+      zh-cn: 交换机1子网网段
+      en: VSwitch 1 CIDR Block
+  VpcCidrBlock:
+    Default: 192.168.0.0/16
+    Type: String
+    Description:
+      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    Label:
+      zh-cn: 专有网络网段
+      en: VPC CIDR Block
+  VSwitch2ZoneId:
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - VSwitch1ZoneId
+      AutoSelectFirst: true
+    Description:
+      zh-cn: VSwitch可用区id，不同其他虚拟交换机的可用区Id；</font><a href='https://help.aliyun.com/document_detail/123712.html' target='_blank'><b> 查看可用区信息</b><font color='blue'></a>。
+      en: VSwitch available area id, VSwitch available area id, Different from the available area of another virtual switch; <a href='https://help.aliyun.com/document_detail/123712.html' target='_blank'><b><font color='blue'>View region and zone info</font></b></a>.
+    Default: cn-hangzhou-h
+    Label:
+      zh-cn: 交换机2可用区ID
+      en: VSwitch 2 ZoneId
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    Type: String
+Outputs:
+  VSwitch1Name:
+    Description: Name of created VSwitch1.
+    Value:
+      Fn::GetAtt:
+        - VSwitch1
+        - VSwitchName
+  VpcName:
+    Description: Name of created VPC.
+    Value:
+      Fn::GetAtt:
+        - Vpc
+        - VpcName
+  VSwitch2Name:
+    Description: Name of created VSwitch2.
+    Value:
+      Fn::GetAtt:
+        - VSwitch2
+        - VSwitchName
+Resources:
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName:
+        Fn::Join:
+          - '-'
+          - - VSwitch1
+            - StackId
+            - Ref: ALIYUN::StackId
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: VSwitch2CidrBlock
+      ZoneId:
+        Ref: VSwitch2ZoneId
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName:
+        Fn::Join:
+          - '-'
+          - - VSwitch1
+            - StackId
+            - Ref: ALIYUN::StackId
+      VpcId:
+        Ref: Vpc
+      CidrBlock:
+        Ref: VSwitch1CidrBlock
+      ZoneId:
+        Ref: VSwitch1ZoneId
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+      CidrBlock:
+        Ref: VpcCidrBlock
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - Priority: 1
+          IpProtocol: all
+          NicType: intranet
+          SourceCidrIp: 0.0.0.0/0
+          PortRange: '-1/-1'
+      VpcId:
+        Ref: Vpc
+      SecurityGroupEgress:
+        - Priority: 1
+          IpProtocol: all
+          DestCidrIp: 0.0.0.0/0
+          NicType: intranet
+          PortRange: '-1/-1'
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - VpcCidrBlock
+          - VSwitch1ZoneId
+          - VSwitch1CidrBlock
+          - VSwitch2ZoneId
+          - VSwitch2CidrBlock
+        Label:
+          default: 基础网络配置

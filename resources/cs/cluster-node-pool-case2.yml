@@ -1,0 +1,121 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  ClusterId:
+    AssociationProperty: ALIYUN::CS::Cluster::ClusterId
+    Type: String
+  VpcId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  ZoneId1:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId2
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区1
+  VSwitchId1:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId1}
+      VpcId: ${VpcId}
+  ZoneId2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId1
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区2
+  VSwitchId2:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId2}
+      VpcId: ${VpcId}
+  InstanceType:
+    Type: CommaDelimitedList
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      CreateACKClusterParams:
+        NetworkPlugin: terway-eniip
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+Resources:
+  NodePools:
+    Type: 'ALIYUN::CS::ClusterNodePool'
+    Properties:
+      ClusterId:
+        Ref: ClusterId
+      NodePoolInfo:
+          Name: k8s-hpa-cluster-nodepool
+      ScalingGroup:
+        VSwitchIds:
+          - Ref: VSwitchId1
+          - Ref: VSwitchId2
+        ZoneIds:
+          - Ref: ZoneId1
+          - Ref: ZoneId2
+        SystemDiskCategory: cloud_essd
+        SystemDiskPerformanceLevel: PL0
+        SystemDiskSize: 40
+        InstanceTypes:
+          Ref: InstanceType
+        LoginPassword:
+          Ref: InstancePassword
+        Platform: AliyunLinux
+        ImageId: aliyun_3_9_x64_20G_alibase_20231219.vhd
+      KubernetesConfig:
+        Runtime: containerd
+        RuntimeVersion: 1.6.28
+      AutoScaling:
+        Enable: true
+        MinInstances: 2
+        MaxInstances: 10
+Outputs:
+  NodePoolId:
+    Description:
+      zh-cn: coffee服务访问地址。
+      en: The addresses of coffee service.
+    Value:
+      Ref: NodePools
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ClusterId
+          - VpcId
+          - ZoneId1
+          - VSwitchId1
+          - ZoneId2
+          - VSwitchId2
+          - InstanceType
+          - InstancePassword
+

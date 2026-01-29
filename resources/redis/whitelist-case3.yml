@@ -1,0 +1,283 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 该模板通过DTS实现MySQL与Redis的缓存同步，包括VPC、ECS、RDS、Redis实例创建及安全配置，同时设置消费组确保数据一致性。
+  en: This template achieves cache synchronization between MySQL and Redis via DTS,
+    encompassing the creation and security configuration of VPC, ECS, RDS, and Redis
+    instances, alongside the establishment of consumer groups to ensure data consistency.
+Parameters:
+  ZoneId:
+    Type: String
+    Label:
+      en: VSwitch Availability Zone
+      zh-cn: 交换机可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  RDSDBUser:
+    Type: String
+    Label:
+      en: RDS DB Username
+      zh-cn: RDS数据库账号
+    Description:
+      en: Username of database.
+      zh-cn: RDS数据库账号。
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin
+        with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: demouser123
+    MinLength: 2
+    MaxLength: 16
+  DbName:
+    Type: String
+    Label:
+      en: RDS DB Name
+      zh-cn: RDS数据库名称
+    ConstraintDescription:
+      en: Consist of 2 to 16 characters of lowercase letters, underline. Must begin with a letter and be end with an alphanumeric character.
+      zh-cn: 由 2 到 16 个小写字母组成，下划线。必须以字母开头，以字母数字字符结尾。
+    Default: demodb
+    Required: true
+    MinLength: 2
+    MaxLength: 16
+  RDSDBPassword:
+    Type: String
+    Label:
+      en: RDS DB Password
+      zh-cn: RDS数据库密码
+    Description:
+      en: RDS database password, consisting of letters, numbers, and underline(_),
+        is 8 to 32 characters long,Must contain three different types of characters.
+      zh-cn: RDS数据库密码，由字母、数字、下划线（_）组成，长度为8~32个字符，必须包含3种不同类型的字符。
+    ConstraintDescription:
+      en: Consisting of letters, numbers, and underline(_),
+        is 8 to 32 characters long.
+      zh-cn: 由字母、数字、下划线（_）组成，长度为8~32个字符。
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      EngineVersion: "8.0"
+      Engine: MySQL
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      CommodityCode: bards
+    Default: mysql.x4.medium.2c
+  DtsJobName:
+    Type: String
+    Label:
+      en: Dts Job Name
+      zh-cn: 同步任务名称
+    Description:
+      en: You are advised to configure a name with service significance (without unique requirement) for easy identification.
+      zh-cn: 建议配置具有业务意义的名称（无唯一性要求），便于后续识别。
+    Default: mysql2redis_dts
+  RedisInstanceClass:
+    Type: String
+    Label:
+      en: Tair Specifications
+      zh-cn: Tair 规格
+    Description:
+      en: <font color='blue'><b>Before selecting a model, please confirm whether the model is in stock in the current availability zone. To save testing costs, it is recommended to use a model with 2G memory, for example:tair.rdb.2g</b></font>, see detail:<a href='https://help.aliyun.com/zh/redis/product-overview/enhanced-performance' target='_blank'><b><font color='red'>Specification inquiry</font></b></a>.
+      zh-cn: <font color='blue'><b>选择机型前请先确认当前可用区下该机型是否有库存，为节省测试成本，推荐使用2GB的规格，例如：tair.rdb.2g</b></font>，<a href='https://help.aliyun.com/zh/redis/product-overview/enhanced-performance' target='_blank'><b><font color='red'>规格查询</font></b></a>。
+    AssociationProperty: ALIYUN::REDIS::Instance::InstanceClass
+    AssociationPropertyMetadata:
+      Engine: Redis
+      ProductType: Tair_rdb
+      InstanceChargeType: PostPaid
+      ZoneId: ${ZoneId1}
+      OrderType: BUY
+    Default: tair.rdb.2g
+  RedisPassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: 'Length 8-32 characters, can contain size letters, Numbers and special symbols,
+        including:! @ # $ % ^ & * ( ) _ + - ='
+      zh-cn: 长度8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+    ConstraintDescription:
+      en: '8-32 characters, can contain size letters, Numbers and special symbols,
+        including:! @ # $ % ^ & * ( ) _ + - ='
+      zh-cn: 8-32个字符,可包含大小字母、数字及特殊符号（包含：!@#$%^&*()_+-=）
+    MinLength: '8'
+    MaxLength: '32'
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchName:
+        Fn::Join:
+          - '-'
+          - - VSwitch
+            - StackId
+            - Ref: ALIYUN::StackId
+      CidrBlock: 192.168.0.0/24
+  RdsDBInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      DBInstanceStorage: 100
+      Engine: MySQL
+      EngineVersion: "8.0"
+      MasterUserPassword:
+        Ref: RDSDBPassword
+      MasterUserType: Super
+      MasterUsername:
+        Ref: RDSDBUser
+      DBMappings:
+        - CharacterSetName: utf8mb4
+          DBName:
+            Ref: DbName
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      SecurityIPList: 192.168.0.0/16
+      SlaveZoneIds:
+        - Ref: ZoneId
+  RedisInstance:
+    Type: ALIYUN::REDIS::Instance
+    Properties:
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      InstanceClass:
+        Ref: RedisInstanceClass
+      InstanceName: rds_mysql2redis_redis
+      EvictionPolicy: noeviction
+      EngineVersion: '6.0'
+      Password:
+        Ref: RedisPassword
+  Whitelist:
+    Type: ALIYUN::REDIS::Whitelist
+    Properties:
+      InstanceId:
+        Ref: RedisInstance
+      SecurityIps: 192.168.0.0/16
+  MigrationJob:
+    Type: ALIYUN::DTS::SynchronizationJob2
+    Properties:
+      DtsJobName:
+        Ref: DtsJobName
+      SourceEndpoint:
+        InstanceType: RDS
+        InstanceID:
+          Ref: RdsDBInstance
+        EngineName: MYSQL
+        Region:
+          Ref: ALIYUN::Region
+        UserName:
+          Ref: RDSDBUser
+        Password:
+          Ref: RDSDBPassword
+      DestinationEndpoint:
+        InstanceType: Redis
+        InstanceID:
+          Ref: RedisInstance
+        EngineName: Redis
+        Region:
+          Ref: ALIYUN::Region
+        Password:
+          Ref: RedisPassword
+      StructureInitialization: false
+      DelayNotice: true
+      ErrorNotice: true
+      DelayRuleTime: 60
+      DataInitialization: true
+      DataSynchronization: true
+      DbList:
+        Fn::GetJsonValue:
+          - DbList
+          - Fn::Sub: '{ "DbList": { "${DbName}": {   "name": "0",   "all": true,   "customAttachedColumn": {     "__DTS_TP_TO_REDIS_KEY__": {       "name": "__DTS_TP_TO_REDIS_KEY__",       "syntacticType": "ADD",       "value": "__DB__+''.''+__TB__+''.''+pk_str_with_name_value(''.'',''.'')",       "type": "STRING",       "length": ""     },     "__DTS_TP_TO_REDIS_VALUE__": {       "name": "__DTS_TP_TO_REDIS_VALUE__",       "syntacticType": "ADD",       "value": "tp2redis_json_value()",       "type": "STRING",       "length": ""     }   } }}}'
+  DtsInstance:
+    Type: ALIYUN::DTS::Instance
+    Properties:
+      JobId:
+        Fn::GetAtt:
+          - MigrationJob
+          - DtsJobId
+      InstanceClass: small
+      PayType: PostPaid
+      AutoStart: true
+      Type: SYNC
+      SourceRegion:
+        Ref: ALIYUN::Region
+      DestinationRegion:
+        Ref: ALIYUN::Region
+      SourceEndpointEngineName: MySQL
+      DestinationEndpointEngineName: Redis
+Outputs:
+  RdsInstanceAddress:
+    Description:
+      en: RDS Instance Address.
+      zh-cn: RDS实例地址。
+    Value:
+      'Fn::Sub':
+        - 'https://rdsnext.console.aliyun.com/detail/${InstanceID}/basicInfo?region=${Region}'
+        - InstanceID:
+            Ref: RdsDBInstance
+          Region:
+            Ref: ALIYUN::Region
+  TairInstanceAddress:
+    Description:
+      en: Tair Instance Address.
+      zh-cn: Tair实例地址。
+    Value:
+      'Fn::Sub':
+        - 'https://kvstore.console.aliyun.com/Redis/instance/${Region}/${InstanceID}'
+        - InstanceID:
+            Ref: RedisInstance
+          Region:
+            Ref: ALIYUN::Region
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            en: Infrastructure Configuration
+            zh-cn: 基础资源配置（必填）
+      - Parameters:
+          - DBInstanceClass
+          - DbName
+          - RDSDBUser
+          - RDSDBPassword
+        Label:
+          default: RDS
+      - Parameters:
+          - RedisInstanceClass
+          - RedisPassword
+        Label:
+          default: Tair
+      - Parameters:
+          - DtsJobName
+        Label:
+          default: DTS
+    TemplateTags:
+      - acs:technical-solution:database:实时同步RDS与Redis构建缓存一致性-tech_solu_21

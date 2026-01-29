@@ -1,0 +1,227 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 原生 SQL 轻松实现多模态智能检索。
+  en: Native SQL easily realizes multimodal intelligent retrieval.
+Parameters:
+  CommonName:
+    Type: String
+    Default: SmartSearch
+  BucketName:
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: test-bucket-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    Type: String
+    Label:
+      zh-cn: Bucket名称
+      en: Bucket Name
+  ZoneId:
+    Type: String
+    Label:
+      zh-cn: 可用区ID
+      en: Available Zone ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  AccountName:
+    Type: String
+    Label:
+      zh-cn: 数据库用户名
+      en: Account Name
+    Description:
+      zh-cn: 长度不超过16个字符。以小写英文字母开头，可包含小写英文字母、数字和下划线（_）。
+      en: The length should not exceed 16 characters. It begins with a lowercase English letter and can contain lowercase English letters, numbers and underscores (_).
+    ConstraintDescription:
+      zh-cn: 长度不超过16个字符。以小写英文字母开头，可包含小写英文字母、数字和下划线（_）。
+      en: The length should not exceed 16 characters. It begins with a lowercase English letter and can contain lowercase English letters, numbers and underscores (_).
+    AllowedPattern: '^[a-z][a-z0-9_]{0,30}[a-z0-9]$'
+    Default: polar_ai
+    MaxLength: 16
+    MinLength: 2
+  AccountPassword:
+    Type: String
+    Description:
+      en: Server login password, Length 8-32, must contain three(Capital letters, lowercase letters, numbers, !@#$%^&*()_+-= Special symbol in)
+      zh-cn: 数据库访问密码,长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-= 中的特殊符号）
+    Label:
+      en: Account Password
+      zh-cn: 数据库密码
+    ConstraintDescription:
+      en: Length 8-32, must contain three(Capital letters, lowercase letters, numbers, !@#$%^&*()_+-=Special symbol in)
+      zh-cn: 长度8-32，必须包含三项（大写字母、小写字母、数字、 !@#$%^&*()_+-=中的特殊符号）
+    AllowedPattern: '^[0-9A-Za-z_!@#$%^&*()_+\-=\+]+$'
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+  DBName:
+    Type: String
+    Label:
+      en: Database Name
+      zh-cn: 数据库名称
+    AllowedPattern: ^[a-z][a-z0-9_-]{0,62}[a-z0-9]$
+    Description:
+      en: It is composed of lowercase letters, numbers, an underscore (-), and an underscore (_), ending with a lowercase letter or number, beginning with a letter, and ending with a letter or number, with a maximum of 64 characters.
+      zh-cn: 由小写字母、数字、中划线（-）、下划线（_）组成，小写字母或数字结尾，以字母开头，以字母或数字结尾，最长 64 个字符。
+    ConstraintDescription:
+      en: It is composed of lowercase letters, numbers, an underscore (-), and an underscore (_), ending with a lowercase letter or number, beginning with a letter, and ending with a letter or number, with a maximum of 64 characters.
+      zh-cn: 由小写字母、数字、中划线（-）、下划线（_）组成，小写字母或数字结尾，以字母开头，以字母或数字结尾，最长 64 个字符。
+    Default: db-test
+  PolarDBNodeClass:
+    Type: String
+    Label:
+      en: PolarDB Node Specifications
+      zh-cn: 规格和代理
+    AssociationProperty: ALIYUN::POLARDB::DBCluster::DBNodeClass
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      DBVersion: "14"
+      DBType: PostgreSQL
+      PayType: Postpaid
+      CommodityCode: polardb_payg
+    Default: polar.pg.g2.2xlarge.c
+Resources:
+  VPC:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: VPC_${CommonName}
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName:
+        Fn::Sub: vsw_001_${CommonName}
+  PolardbCluster:
+    Type: ALIYUN::POLARDB::DBCluster
+    Properties:
+      VpcId:
+        Ref: VPC
+      SecurityIPList: 0.0.0.0/0
+      DBType: PostgreSQL
+      ClusterNetworkType: VPC
+      ZoneId:
+        Ref: ZoneId
+      VSwitchId:
+        Ref: VSwitch
+      DBVersion: "14"
+      CreationCategory: SENormal
+      StorageSpace: 20
+      HotStandbyCluster: 'OFF'
+      DBNodeClass:
+        Ref: PolarDBNodeClass
+      PayType: Postpaid
+      DBNodeNum: 2
+      StorageType: ESSDPL1
+  Account:
+    Type: ALIYUN::POLARDB::Account
+    Properties:
+      DBClusterId:
+        Ref: PolardbCluster
+      AccountName:
+        Ref: AccountName
+      AccountPassword:
+        Ref: AccountPassword
+      AccountType: Super
+  Database:
+    DependsOn: Account
+    Type: ALIYUN::POLARDB::Database
+    Properties:
+      CharacterSetName: utf8
+      AccountPrivilege: ReadWrite
+      AccountName:
+        Ref: AccountName
+      DBClusterId:
+        Ref: PolardbCluster
+      DBName:
+        Ref: DBName
+      Collate: C
+      Ctype: C
+  DBClusterEndpointAddress:
+    Type: ALIYUN::POLARDB::DBClusterEndpointAddress
+    DependsOn: Account
+    Properties:
+      DBClusterId:
+        Ref: PolardbCluster
+      DBEndpointId:
+        Fn::GetAtt:
+          - PolardbCluster
+          - ClusterEndpointId
+  OSSBucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+      DeletionForce: true
+      RedundancyType: ZRS
+Outputs:
+  BucketName:
+    Description:
+      en: OSS Bucket Name.
+      zh-cn: 对象存储存储桶名。
+    Value:
+      Ref: BucketName
+  AccountName:
+    Description:
+      en: PolarDB account name.
+      zh-cn: PolarDB 数据库用户名。
+    Value:
+      Ref: AccountName
+  AccountPassword:
+    NoEcho: true
+    Description:
+      en: PolarDB account password.
+      zh-cn: PolarDB 数据库密码。
+    Value:
+      Ref: AccountPassword
+  DBName:
+    Description:
+      en: PolarDB database name.
+      zh-cn: PolarDB 数据库名称。
+    Value:
+      Ref: DBName
+  ConnectionString:
+    Description:
+      en: PolarDB database connection string.
+      zh-cn: PolarDB 数据库的公网地址。
+    Value:
+      Fn::Sub: ${DBClusterEndpointAddress.ConnectionString}:5432
+Metadata:
+  ALIYUN::ROS::Interface:
+    Outputs:
+      - BucketName
+      - AccountName
+      - AccountPassword
+      - DBName
+      - ConnectionString
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+        Label:
+          default:
+            en: Network Configuration
+            zh-cn: 网络基础配置
+      - Parameters:
+          - BucketName
+        Label:
+          default:
+            en: OSS Configuration
+            zh-cn: OSS 础配置
+      - Parameters:
+          - PolarDBNodeClass
+          - DBName
+          - AccountName
+          - AccountPassword
+        Label:
+          default:
+            en: PolarDB PostgreSQL Configuration
+            zh-cn: 云数据库 PolarDB PostgreSQL 配置
+    TemplateTags:
+      - acs:technical-solution:internet-application-development:原生 SQL 轻松实现多模态智能检索-tech_solu_262
+    Hidden:
+      - CommonName

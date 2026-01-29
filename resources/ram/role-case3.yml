@@ -1,0 +1,148 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建RAM角色以管理操作审计，将审计日志存储至指定OSS桶，并配置SLS项目。
+  en: Create RAM roles to manage operation auditing, with audit logs stored in a designated OSS bucket, and configure an SLS project for further log processing and analysis.
+Parameters:
+  RoleName:
+    Type: String
+    Label:
+      en: Role Name
+      zh-cn: 角色名
+    Description:
+      en: Ram role name, 1 to 64 characters in length, beginning with English letters or numbers, hyphens allowed, unique in the account.
+      zh-cn: Ram角色名称，长度为1-64个字符，以英文字母或数字开头，允许使用连字符，账号内唯一。
+    ConstraintDescription:
+      en: 1 to 64 characters in length, beginning with English letters or numbers, hyphens allowed.
+      zn-cn: 长度为1-64个字符，以英文字母或数字开头，允许使用连字符。
+    Default: ActionTrailTestRole
+    MinLength: 1
+    MaxLength: 64
+  TrailName:
+    Type: String
+    Label:
+      en: Trail Name
+      zh-cn: 跟踪名称
+    Description:
+      en: Trail Name, 6 to 36 characters in length, must start with a letter, and can contain letters, numbers, dashes (-), and underscores (_), unique in the account
+      zh-cn: 跟踪名称，长度为6-36个字符，必须以字母开头，可包含字母、数字、短横线（-）和下划线（_），账号内唯一。
+    Default: TestTrail
+  EventRW:
+    Type: String
+    Label:
+      en: Event RW
+      zh-cn: 读写类型
+    Description:
+      en: Read and write types of delivery events
+      zh-cn: 投递事件的读写类型
+    Default: Write
+    AllowedValues:
+      - Write
+      - Read
+      - All
+  OssBucketName:
+    Type: String
+    Label:
+      en: Bucket Name
+      zh-cn: Bucket名称
+    Description:
+      en: Tracking OSS storage space written
+      zh-cn: 跟踪写入的OSS存储空间
+    AssociationProperty: ALIYUN::OSS::Bucket::BucketName
+    AssociationPropertyMetadata:
+      RegionId: ${RegionId}
+  OssKeyPrefix:
+    Type: String
+    Label:
+      en: Key Prefix
+      zh-cn: 文件名前缀
+    Description:
+      en: Track the prefix of the OSS storage space file name written, can be empty. 6 to 32 characters in length, must start with a letter, and can contain letters, numbers, dashes (-), slashes (/), and underscores (_)
+      zh-cn: 跟踪写入的OSS存储空间文件名的前缀，可以为空。长度为6-32个字符，必须以字母开头，可包含字母、数字、短横线（-）、斜杠（/）和下划线（_）
+    Default: ''
+  SlsProjectName:
+    Type: String
+    Label:
+      en: Project Name
+      zh-cn: 日志项目名称
+    Description:
+      en: Log service items to track delivery targets
+      zh-cn: 跟踪投递目标的日志服务项目
+Resources:
+  Role:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - actiontrail.aliyuncs.com
+        Version: '1'
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - oss:ListObjects
+                  - oss:PutObject
+                  - oss:GetBucketLocation
+                Effect: Allow
+                Resource:
+                  - '*'
+              - Action:
+                  - log:PostLogStoreLogs
+                  - log:CreateLogstore
+                Effect: Allow
+                Resource:
+                  - '*'
+              - Action:
+                  - mns:PublishMessage
+                Effect: Allow
+                Resource:
+                  - '*'
+            Version: '1'
+          PolicyName:
+            Fn::Sub: ActionTrailPolicy-${ALIYUN::StackId}
+      RoleName:
+        Ref: RoleName
+  Trail:
+    Type: ALIYUN::ACTIONTRAIL::Trail
+    Properties:
+      EventRW:
+        Ref: EventRW
+      Name:
+        Ref: TrailName
+      OssBucketName:
+        Ref: OssBucketName
+      OssKeyPrefix:
+        Ref: OssKeyPrefix
+      RoleName:
+        Fn::GetAtt:
+          - Role
+          - RoleName
+      SlsProjectArn:
+        Fn::Sub: acs:log:${ALIYUN::Region}::project/${SlsProjectName}
+      SlsWriteRoleArn:
+        Fn::Sub: acs:ram::${ALIYUN::TenantId}:role/${Role.RoleName}
+    DependsOn: Role
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - RoleName
+        Label:
+          default: RAM
+      - Parameters:
+          - TrailName
+          - EventRW
+        Label:
+          default: Trail
+      - Parameters:
+          - OssBucketName
+          - OssKeyPrefix
+        Label:
+          default: OSS
+      - Parameters:
+          - SlsProjectName
+        Label:
+          default: SLS

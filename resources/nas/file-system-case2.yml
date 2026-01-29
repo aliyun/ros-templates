@@ -1,0 +1,129 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建NAS文件系统、访问组、访问规则及挂载目标，配置协议、存储类型、权限及网络设置。
+  en: Create NAS file systems, access groups, access rules, and mount targets, configure
+    protocols, storage types, permissions, and network settings.
+Parameters:
+  Description:
+    Type: String
+    Description: File system description.
+    Default: mytest
+  ProtocolType:
+    Type: String
+    Description: Type of protocol used.
+    Default: NFS
+    AllowedValues:
+    - NFS
+    - SMB
+  StorageType:
+    Type: String
+    Description: The file system type.
+    Default: Capacity
+    AllowedValues:
+    - Performance
+    - Capacity
+  AccessGroupName:
+    Type: String
+    Default: mytest
+  VSwitchId:
+    Type: String
+  VpcId:
+    Type: String
+  Priority:
+    Type: Number
+    Description: 'Allowed Values: 1~100'
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  UserAccessType:
+    Type: String
+    Default: no_squash
+    AllowedValues:
+    - no_squash
+    - root_squash
+    - all_squash
+  SourceCidrIp:
+    Type: String
+    Description: Address or address segment
+    Default: 0.0.0.0/0
+  RWAccessType:
+    Type: String
+    Description: 'Read-write permission type: RDWR (default), RDONLY'
+    Default: RDWR
+    AllowedValues:
+    - RDWR
+    - RDONLY
+Resources:
+  FileSystem:
+    Type: ALIYUN::NAS::FileSystem
+    Properties:
+      ProtocolType:
+        Ref: ProtocolType
+      StorageType:
+        Ref: StorageType
+      Description:
+        Ref: Description
+  AccessGroup:
+    Type: ALIYUN::NAS::AccessGroup
+    Properties:
+      AccessGroupType: Vpc
+      AccessGroupName:
+        Ref: AccessGroupName
+  AccessRule:
+    Type: ALIYUN::NAS::AccessRule
+    Properties:
+      Priority:
+        Ref: Priority
+      UserAccessType:
+        Ref: UserAccessType
+      AccessGroupName:
+        Fn::GetAtt:
+        - AccessGroup
+        - AccessGroupName
+      SourceCidrIp:
+        Ref: SourceCidrIp
+      RWAccessType:
+        Ref: RWAccessType
+    DependsOn: AccessGroup
+  MountTarget:
+    Type: ALIYUN::NAS::MountTarget
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      FileSystemId:
+        Fn::GetAtt:
+        - FileSystem
+        - FileSystemId
+      NetworkType: Vpc
+      AccessGroupName:
+        Fn::GetAtt:
+        - AccessGroup
+        - AccessGroupName
+    DependsOn:
+    - AccessRule
+    - FileSystem
+Outputs:
+  FileSystemId:
+    Description: ID of the file system created
+    Value:
+      Fn::GetAtt:
+      - FileSystem
+      - FileSystemId
+  AccessGroupName:
+    Description: Permission group name
+    Value:
+      Fn::GetAtt:
+      - AccessGroup
+      - AccessGroupName
+  AccessRuleId:
+    Value:
+      Fn::GetAtt:
+      - AccessRule
+      - AccessRuleId
+  MountTargetDomain:
+    Value:
+      Fn::GetAtt:
+      - MountTarget
+      - MountTargetDomain

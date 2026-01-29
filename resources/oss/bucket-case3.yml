@@ -1,0 +1,236 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Mappings: {}
+Parameters:
+  DashScopeApiKey:
+    NoEcho: true
+    Label:
+      zh-cn: DashScope API-KEY
+      en: DashScope API-KEY
+    Type: String
+    Description:
+      zh-cn: 开通灵积模型服务，并获得 API-KEY。请参考： <a href="https://help.aliyun.com/zh/dashscope/developer-reference/activate-dashscope-and-create-an-api-key"  target="_blank">开通DashScope并创建API-KEY</a>。
+      en: 'Activate DashScope and obtain the API-KEY. Please refer to:  <a href="https://help.aliyun.com/zh/dashscope/developer-reference/activate-dashscope-and-create-an-api-key"  target="_blank">Activate DashScope and create API-KEY</a>.'
+    AssociationProperty: ALIYUN::DashScope::ApiKey
+  CommonName:
+    Default: wanxiang
+    Type: String
+  InstancePassword:
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+    Default: Null
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    NoEcho: true
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+  ZoneId:
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+    Default: Null
+    Required: true
+    Label:
+      zh-cn: 可用区
+      en: Availability Zone
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+  BucketName:
+    AssociationPropertyMetadata:
+      Length: 5
+      Prefix: drawing-with-tongyi-wanxiang-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+    Description:
+      zh-cn: 3到63个字符，不以连字符(-)开头和结尾，可以包含小写字母、数字和连字符(-)；<br>备注：<font color='blue'><b>需要保证整个网络的唯一性，已经存在的无法创建</b></font>
+      en: '3 to 63 characters, not beginning and ending with a hyphen (-), can contain lowercase letters, Numbers and hyphens (-);<br>Note: <font color=''blue''><b>need whole network uniqueness, already existing can not be created.</b></font>'
+    MinLength: 3
+    Label:
+      zh-cn: 存储空间名称
+      en: Bucket Name
+    AllowedPattern: ^[a-z0-9]+[a-z0-9\-]*[a-z0-9]+$
+    Type: String
+    MaxLength: 63
+    AssociationProperty: AutoCompleteInput
+    ConstraintDescription:
+      zh-cn: 3 到 63 个字符，不以连字符 (-) 开头和结尾，可以包含小写字母、数字和连字符 (-)
+      en: 3 to 63 characters, not beginning and ending with a hyphen (-), can contain lowercase letters, Numbers and hyphens (-)
+  InstanceType:
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      InstanceChargeType: PostPaid
+      ZoneId: ${ZoneId}
+    Default: Null
+    Required: true
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    Type: String
+Outputs:
+  EcsLoginAddress:
+    Description:
+      zh-cn: ECS登录地址。
+      en: Ecs login address.
+    Value:
+      Fn::Sub: https://ecs-workbench.aliyun.com/?from=EcsConsole&instanceType=ecs&regionId=${ALIYUN::Region}&instanceId=${EcsInstance}
+  ExperienceAddress:
+    Description:
+      zh-cn: 体验地址。
+      en: Experience address.
+    Value:
+      Fn::Sub:
+        - http://${PublicIp}/wanx-demo
+        - PublicIp:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - EcsInstance
+                  - PublicIps
+Description:
+  zh-cn: 创建VPC、ECS实例、OSS存储桶，配置安全组和RAM访问权限，安装Java与应用，实现文本绘图与人像美化服务。
+  en: Create a Virtual Private Cloud (VPC), Elastic Compute Service (ECS) instances, Object Storage Service (OSS) buckets, configure Security Groups and Resource Access Management (RAM) permissions, install Java and applications, and implement text drawing and portrait beautification services.
+Conditions: {}
+Resources:
+  CustomPolicy:
+    Type: ALIYUN::RAM::ManagedPolicy
+    Properties:
+      PolicyName:
+        Fn::Sub: create_by_solution-${ALIYUN::StackId}
+      PolicyDocument:
+        Version: '1'
+        Statement:
+          - Action:
+              - oss:GetObject
+              - oss:PutObject
+            Resource:
+              - Fn::Sub: acs:oss:oss-${ALIYUN::Region}:${ALIYUN::TenantId}:${BucketName}/*
+            Effect: Allow
+  InstallApp:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+
+          cat << EOF >> ~/.bash_profile
+          export DASHSCOPE_API_KEY=${DashScopeApiKey}
+          export OSS_ACCESS_KEY_ID=${AccessKey.AccessKeyId}
+          export OSS_ACCESS_KEY_SECRET=${AccessKey.AccessKeySecret}
+          export WANX_DEMO_OSS_BUCKET=${BucketName}
+          export WANX_DEMO_OSS_ENDPOINT=https://oss-${ALIYUN::Region}.aliyuncs.com
+          EOF
+
+          source ~/.bash_profile 
+          wget https://help-static-aliyun-doc.aliyuncs.com/demos/wanx-demo-0.0.1-SNAPSHOT.jar
+          nohup java -jar wanx-demo-0.0.1-SNAPSHOT.jar > wanx-demo.log 2>&1 &
+      Type: RunShellScript
+      Sync: true
+      InstanceIds:
+        - Ref: EcsInstance
+      Timeout: 3600
+    DependsOn:
+      - ModuleInstallJava.Install
+  AccessKey:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Ref: User
+  Bucket:
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+      DeletionForce: true
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+  ModuleInstallJava.Install:
+    Type: ALIYUN::OOS::Execution
+    Properties:
+      SafetyCheck: Skip
+      Parameters:
+        action: install
+        packageName: ACS-Extension-java-1853370294850618
+        regionId:
+          Ref: ALIYUN::Region
+        targets:
+          ResourceIds:
+            - Ref: EcsInstance
+          RegionId:
+            Ref: ALIYUN::Region
+          Type: ResourceIds
+        parameters: Null
+      TemplateName: ACS-ECS-BulkyConfigureOOSPackageWithTemporaryURL
+    Metadata:
+      ALIYUN::ROS::Module:
+        LogicalIdHierarchy: ModuleInstallJava
+        TypeHierarchy: MODULE::ACS::OOS::Extension
+  User:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Fn::Sub: create_by_solution-${ALIYUN::StackId}
+      PolicyAttachments:
+        Custom:
+          - Ref: CustomPolicy
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+  EcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Ref: Vpc
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InternetMaxBandwidthOut: 5
+      VSwitchId:
+        Ref: VSwitch
+      Password:
+        Ref: InstancePassword
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs
+      InstanceType:
+        Ref: InstanceType
+      ZoneId:
+        Ref: ZoneId
+      MaxAmount: 1
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - DashScopeApiKey
+          - BucketName
+          - ZoneId
+          - InstanceType
+          - InstancePassword
+    Hidden:
+      - CommonName
