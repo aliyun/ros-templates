@@ -1,0 +1,112 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建双可用区ALB负载均衡。
+  en: Create a dual-Availability-Zone ALB.
+Parameters:
+  CommonName:
+    Type: String
+    Default: elastic-app
+  ZoneId1:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId2
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区1
+  ZoneId2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId1
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区2
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch1:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  VSwitch2:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.2.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  Alb:
+    Type: 'ALIYUN::ALB::LoadBalancer'
+    Properties:
+      LoadBalancerName:
+        Fn::Sub: ${CommonName}-alb
+      LoadBalancerEdition: Basic
+      VpcId:
+        Ref: Vpc
+      LoadBalancerBillingConfig:
+        PayType: PostPay
+      AddressType: Internet
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId1
+          VSwitchId:
+            Ref: VSwitch1
+        - ZoneId:
+            Ref: ZoneId2
+          VSwitchId:
+            Ref: VSwitch2
+  AlbServerGroup:
+    Type: 'ALIYUN::ALB::ServerGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ServerGroupType: Instance
+      ServerGroupName:
+        Fn::Sub: ${CommonName}-server-group
+      HealthCheckConfig:
+        HealthCheckConnectPort: 80
+        HealthCheckCodes:
+          - http_2xx
+          - http_3xx
+        HealthCheckProtocol: HTTP
+        HealthCheckEnabled: true
+        HealthCheckPath: /
+      StickySessionConfig:
+        StickySessionEnabled: false
+  AlbListener:
+    Type: 'ALIYUN::ALB::Listener'
+    Properties:
+      ListenerPort: 80
+      DefaultActions:
+        - Type: ForwardGroup
+          ForwardGroupConfig:
+            ServerGroupTuples:
+              - ServerGroupId:
+                  Ref: AlbServerGroup
+      LoadBalancerId:
+        Ref: Alb
+      ListenerProtocol: HTTP
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId1
+          - ZoneId2
+    Hidden:
+      - CommonName

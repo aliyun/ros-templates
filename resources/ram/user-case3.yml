@@ -1,0 +1,166 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Conditions:
+  CreateInstance:
+    Fn::Equals:
+      - Ref: SelectInstance
+      - false
+Parameters:
+  UserName:
+    Type: String
+    Description: 自定义RAM用户名称
+    Label:
+      zh-cn: RAM用户名称
+      en: RAM User Name
+    Default: test123123123
+  RoleName:
+    Type: String
+    Description: 自定义RAM角色名称
+    Label:
+      zh-cn: RAM角色名称
+      en: RAM Rol Name
+    Default: test123123123
+  SelectInstance:
+    Type: Boolean
+    Label:
+      en: Whether to select an existing Bucket
+      zh-cn: 是否选择已有Bucket
+    Default: true
+  ExistBucketName:
+    Type: String
+    Label:
+      en: Existing Bucket
+      zh-cn: 已有Bucket
+    AssociationProperty: ALIYUN::OSS::Bucket::BucketName
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectInstance}
+            - true
+    Default: ''
+  BucketName:
+    Type: String
+    Label:
+      zh-cn: 新建存储空间名称
+      en: NewBucketName
+    Description:
+      zh-cn: Bucket 名称在 OSS 范围内必须全局唯一。长度为3~63个字符。必须以小写英文字母或数字开头和结尾，可包含小写英文字母、数字和短划线（-）。
+      en: Bucket names must be globally unique within the scope of OSS. The length is 3~63 characters. Must start and end with a lowercase English letter or number, and can contain lowercase English letters, numbers, and dashes (-).
+    AssociationProperty: AutoCompleteInput
+    AssociationPropertyMetadata:
+      Length: 6
+      Prefix: my-bucketname-
+      CharacterClasses:
+        - Class: lowercase
+          min: 1
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectInstance}
+            - false
+    AllowedPattern: ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+  AccessControl:
+    Type: String
+    Label:
+      en: Access Control
+      zh-cn: 读写权限
+    Description:
+      en: Set the access permission of the bucket
+      zh-cn: 设置Bucket读写权限
+    Default: private
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${SelectInstance}
+            - false
+    AllowedValues:
+      - private
+      - public-read
+      - public-read-write
+Resources:
+  RamUser:
+    Type: ALIYUN::RAM::User
+    Properties:
+      UserName:
+        Ref: UserName
+  RamAK:
+    Type: ALIYUN::RAM::AccessKey
+    Properties:
+      UserName:
+        Fn::GetAtt:
+          - RamUser
+          - UserName
+    DependsOn: RamUser
+  MyBucket:
+    Condition: CreateInstance
+    Type: ALIYUN::OSS::Bucket
+    Properties:
+      AccessControl:
+        Ref: AccessControl
+      BucketName:
+        Ref: BucketName
+  Role:
+    Type: ALIYUN::RAM::Role
+    Properties:
+      RoleName:
+        Ref: RoleName
+      AssumeRolePolicyDocument:
+        Version: '1'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              RAM:
+                - Fn::Sub: acs:ram::${ALIYUN::TenantId}:root
+      Policies:
+        - PolicyName:
+            Fn::Join:
+              - ''
+              - - Policy-
+                - Ref: ALIYUN::StackId
+          PolicyDocument:
+            Version: '1'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - oss:PutObject
+                Resource:
+                  - Fn::Sub:
+                      - acs:oss:*:*:${BucketName}/*
+                      - BucketName:
+                          Fn::If:
+                            - CreateInstance
+                            - Ref: BucketName
+                            - Ref: ExistBucketName
+Outputs:
+  AKSecret:
+    Value:
+      Fn::GetAtt:
+        - RamAK
+        - AccessKeySecret
+  AKId:
+    Value:
+      Fn::GetAtt:
+        - RamAK
+        - AccessKeyId
+  UserId:
+    Value:
+      Fn::GetAtt:
+        - RamUser
+        - UserId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - SelectInstance
+          - ExistBucketName
+          - BucketName
+          - AccessControl
+        Label:
+          default: OSS
+      - Parameters:
+          - UserName
+          - RoleName
+        Label:
+          default: RAM

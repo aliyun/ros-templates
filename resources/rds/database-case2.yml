@@ -1,0 +1,158 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建一台按量付费的RDS Serverless MySQL实例并绑定数据库和数据库账号。
+  en: Create a pay-as-you-go RDS Serverless MySQL instance and bind it to a database and a database user.
+Parameters:
+  VpcId:
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Type: String
+    Description:
+      zh-cn: 现有虚拟专有网络的实例ID
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
+    Label:
+      zh-cn: 专有网络VPC实例ID
+      en: VPC ID
+  RdsAccountName:
+    Default: db_root
+    Type: String
+    Description:
+      zh-cn: MySQL 管理员用户名称
+      en: Account Name
+    Label:
+      zh-cn: 用户名称
+      en: Account Name
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+    Label:
+      zh-cn: 主可用区
+      en: Primary Availability Zone
+  VSwitch:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+    Type: String
+    Description:
+      zh-cn: 现有业务网络交换机的实例ID
+      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
+    Label:
+      zh-cn: 交换机实例ID
+      en: VSwitch ID
+  DBInstanceClass:
+    Default: mysql.n2.serverless.1c
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      Engine: MySQL
+      EngineVersion: '8.0'
+      InstanceChargeType: Serverless
+      DBInstanceStorageType: cloud_essd
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Class
+  RdsAccountPassword:
+    Type: String
+    NoEcho: true
+    Description:
+      zh-cn: |-
+        长度为8~32个字符。由大写英文字母、小写英文字母、数字、特殊字符中的任意三种组成。支持的特殊字符如下：
+        !@#$&amp;%^*()_+-= 。
+      en: |-
+        The length is 8 ~ 32 characters. It is composed of uppercase English letters, lowercase English letters, numbers and special characters. The special characters supported are as follows:
+        !@#$& amp;%^* ()_+-=  .
+    Label:
+      zh-cn: 用户密码
+      en: DB Account Password
+Outputs:
+  PublicConnectionString:
+    Value:
+      Fn::GetAtt:
+        - RDSInstance
+        - PublicConnectionString
+  InnerIPAddress:
+    Value:
+      Fn::GetAtt:
+        - RDSInstance
+        - InnerIPAddress
+  AccountName:
+    Value:
+      Fn::GetAtt:
+        - RdsAccount
+        - AccountName
+  PublicIPAddress:
+    Value:
+      Fn::GetAtt:
+        - RDSInstance
+        - PublicIPAddress
+  DBName:
+    Value:
+      Fn::GetAtt:
+        - Database
+        - DBName
+  InnerConnectionString:
+    Value:
+      Fn::GetAtt:
+        - RDSInstance
+        - InnerConnectionString
+Resources:
+  RDSInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      Category: serverless_basic
+      Engine: MySQL
+      DBInstanceStorage: 20
+      ServerlessConfig:
+        MinCapacity: 0.5
+        AutoPause: false
+        MaxCapacity: 8
+        SwitchForce: false
+      DBInstanceStorageType: cloud_essd
+      PayType: Serverless
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitch
+      EngineVersion: '8.0'
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList: 0.0.0.0/0
+  RdsAccount:
+    Type: ALIYUN::RDS::Account
+    Properties:
+      DBInstanceId:
+        Ref: RDSInstance
+      AccountPassword:
+        Ref: RdsAccountPassword
+      AccountType: Super
+      AccountName:
+        Ref: RdsAccountName
+  Database:
+    Type: ALIYUN::RDS::Database
+    Properties:
+      CharacterSetName: UTF8
+      DBInstanceId:
+        Ref: RDSInstance
+      DBName: springboot_demo
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - VpcId
+          - ZoneId
+          - VSwitch
+        Label:
+          default:
+            zh-cn: 网络配置
+            en: Network Configuration
+      - Parameters:
+          - DBInstanceClass
+          - RdsAccountName
+          - RdsAccountPassword
+        Label:
+          default:
+            zh-cn: RDS配置
+            en: RDS Configuration

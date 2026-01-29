@@ -1,0 +1,134 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建一台包年包月的多可用区RDS MySQL高可用版实例。
+  en: Create a multi-AZ RDS MySQL High-Availability edition instance with a prepaid subscription.
+Parameters:
+  VSwitch2:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId2}
+    Type: String
+    Description:
+      zh-cn: 现有业务网络交换机的实例ID
+      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
+    Label:
+      zh-cn: 交换机2实例ID
+      en: VSwitch2 ID
+  VpcId:
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Type: String
+    Description:
+      zh-cn: 现有虚拟专有网络的实例ID
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
+    Label:
+      zh-cn: 专有网络VPC实例ID
+      en: VPC ID
+  ZoneId1:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId2
+    Type: String
+    Label:
+      zh-cn: 主可用区
+      en: Primary Availability Zone
+  ZoneId2:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId1
+    Type: String
+    Label:
+      zh-cn: 备可用区
+      en: Standby Availability Zone
+  VSwitch1:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId1}
+    Type: String
+    Description:
+      zh-cn: 现有业务网络交换机的实例ID
+      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
+    Label:
+      zh-cn: 交换机1实例ID
+      en: VSwitch1 ID
+  DBInstanceClass:
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      Engine: MySQL
+      Category: HighAvailability
+      EngineVersion: '8.0'
+      InstanceChargeType: Prepaid
+      DBInstanceStorageType: cloud_essd
+    Type: String
+    Label:
+      zh-cn: 实例规格
+      en: Instance Class
+Outputs:
+  InnerIPAddress:
+    Value:
+      Fn::GetAtt:
+        - RDSInstance
+        - InnerIPAddress
+  InnerConnectionString:
+    Value:
+      Fn::GetAtt:
+        - RDSInstance
+        - InnerConnectionString
+  PublicConnectionString:
+    Value:
+      Fn::GetAtt:
+        - RDSInstance
+        - PublicConnectionString
+  PublicIPAddress:
+    Value:
+      Fn::GetAtt:
+        - RDSInstance
+        - PublicIPAddress
+Resources:
+  RDSInstance:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      Category: HighAvailability
+      Engine: MySQL
+      PayType: Prepaid
+      SlaveZoneIds:
+        - Ref: ZoneId2
+      DBInstanceStorage: 20
+      PeriodType: Month
+      DBInstanceStorageType: cloud_essd
+      Period: 1
+      ZoneId:
+        Ref: ZoneId1
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Fn::Join:
+          - ','
+          - - Ref: VSwitch1
+            - Ref: VSwitch2
+      EngineVersion: '8.0'
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList: 0.0.0.0/0
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - VpcId
+          - ZoneId1
+          - ZoneId2
+          - VSwitch1
+          - VSwitch2
+        Label:
+          default:
+            zh-cn: 网络配置
+            en: Network Configuration
+      - Parameters:
+          - DBInstanceClass
+        Label:
+          default:
+            zh-cn: RDS配置
+            en: RDS Configuration

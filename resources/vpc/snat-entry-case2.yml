@@ -1,0 +1,63 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  ZoneId:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: vpc
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+      VSwitchName: app-vsw
+  NatGateway:
+    Type: 'ALIYUN::VPC::NatGateway'
+    Properties:
+      NatGatewayName: ngw
+      VSwitchId:
+        Ref: VSwitch
+      NatType: Enhanced
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId
+  Eip:
+    Type: 'ALIYUN::VPC::EIP'
+    Properties:
+      DeletionProtection: false
+      Isp: BGP
+      Bandwidth: 200
+      InternetChargeType: PayByTraffic
+  EipAssociation:
+    Type: 'ALIYUN::VPC::EIPAssociation'
+    Properties:
+      InstanceId:
+        Ref: NatGateway
+      AllocationId:
+        Ref: Eip
+  SNat:
+    Type: 'ALIYUN::VPC::SnatEntry'
+    DependsOn: EipAssociation
+    Properties:
+      SnatTableId:
+        Fn::GetAtt:
+          - NatGateway
+          - SNatTableId
+      SnatEntryName: snat
+      SourceVSwitchIds:
+        - Ref: VSwitch
+      SnatIp:
+        Fn::GetAtt:
+          - Eip
+          - EipAddress

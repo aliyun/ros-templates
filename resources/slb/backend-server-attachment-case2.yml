@@ -1,0 +1,96 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建ECS实例组，配置灵活，自动绑定至三个SLB实例，实现负载均衡。
+  en: Create an ECS instance group with flexible configuration and automatically bind to three SLB instances to achieve load balancing.
+Parameters:
+  ZoneId:
+    Type: String
+    Default: null
+    Required: true
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+  VpcId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  VSwitchId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+      VpcId: ${VpcId}
+  SecurityGroupId:
+    Type: String
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+  InstanceType:
+    Type: String
+    Label: ECS Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+  Password:
+    Type: String
+    Label: ECS Instance Password
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  SlbInstanceId:
+    AssociationProperty: ALIYUN::SLB::LoadBalancer::LoadBalancerId
+    Type: String
+Resources:
+  InstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      VSwitchId:
+        Ref: VSwitchId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      ImageId: centos_7
+      AllocatePublicIP: 'false'
+      MaxAmount: 2
+      Password:
+        Ref: Password
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskCategory: cloud_essd
+      UserData:
+        Fn::Join:
+        - ''
+        - - '#!/bin/sh
+
+            '
+          - 'ip_addr=`ifconfig eth0 | awk ''/inet /{print $2}''`
+
+            '
+          - 'host_name=`hostname`
+
+            '
+          - 'echo "$ip_addr $host_name" >> /etc/hosts
+
+            '
+  AttachmentECSToSLB:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      LoadBalancerId:
+        Ref: SlbInstanceId
+      BackendServerList:
+        Fn::GetAtt:
+        - InstanceGroup
+        - InstanceIds
+      BackendServerWeightList:
+      - '100'
+Outputs:
+  InstanceIds:
+    Description: The instance id list of created ecs instance.
+    Value:
+      Fn::GetAtt:
+      - InstanceGroup
+      - InstanceIds

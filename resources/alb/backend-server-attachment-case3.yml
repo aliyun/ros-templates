@@ -1,0 +1,271 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建双可用区高可用NGINX网站，含VPC、ECS实例、ALB负载均衡、安全组及自动部署配置。
+  en: Establish a dual-Availability Zone high-availability NGINX website, encompassing
+    a Virtual Private Cloud (VPC), Elastic Cloud Server (ECS) instances, an Application
+    Load Balancer (ALB), Security Groups, and automated deployment configurations.
+Parameters:
+  CommonName:
+    Type: String
+    Default: elastic-app
+  ZoneId1:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+      ExclusiveTo:
+        - ZoneId2
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区1
+  ZoneId2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::ZoneId'
+    AssociationPropertyMetadata:
+      AutoSelectFirst: true
+      ExclusiveTo:
+        - ZoneId1
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区2
+  InstanceType1:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格1
+    Description:
+      zh-cn: 本方案会创建一个抢占式实例，并且自动部署nginx服务。
+      en: >-
+        This solution will create a spot instance and automatically deploy a 
+        nginx service.
+    Default: null
+  InstanceType2:
+    Type: String
+    AssociationProperty: 'ALIYUN::ECS::Instance::InstanceType'
+    AssociationPropertyMetadata:
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      SystemDiskCategory: cloud_essd
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格2
+    Description:
+      zh-cn: 本方案会创建一个抢占式实例，并且自动部署nginx服务。
+      en: >-
+        This solution will create a spot instance and automatically deploy a 
+        nginx service.
+    Default: null
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: >-
+        Server login password, Length 8-30, must contain three(Capital letters,
+        lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special
+        symbol in)
+      zh-cn: >-
+        服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+        中的特殊符号）
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: >-
+        Length 8-30, must contain three(Capital letters, lowercase letters,
+        numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: '长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/ 中的特殊符号）'
+    AssociationProperty: 'ALIYUN::ECS::Instance::Password'
+    Default: null
+Resources:
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName:
+        Fn::Sub: ${CommonName}-vpc
+  VSwitch1:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  VSwitch2:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.2.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName:
+        Fn::Sub: ${CommonName}-vsw
+  SecurityGroup:
+    Type: 'ALIYUN::ECS::SecurityGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName:
+        Fn::Sub: ${CommonName}-sg
+      SecurityGroupIngress:
+        - PortRange: 443/443
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+  EcsInstance1:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchId:
+        Ref: VSwitch1
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs-1
+      InstanceType:
+        Ref: InstanceType1
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 0
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+      UserData:
+        Fn::Sub: |-
+          #!/bin/bash
+          yum -y install nginx-1.20.1
+          instanceId=`curl http://100.100.100.200/latest/meta-data/instance-id`
+          echo "Welcome to Nginx. Current instance is $instanceId" > /usr/share/nginx/html/index.html 
+          systemctl start nginx 
+          systemctl enable nginx
+  EcsInstance2:
+    Type: 'ALIYUN::ECS::InstanceGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchId:
+        Ref: VSwitch2
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: aliyun_3_9_x64_20G_alibase_
+      InstanceName:
+        Fn::Sub: ${CommonName}-ecs-2
+      InstanceType:
+        Ref: InstanceType2
+      SystemDiskCategory: cloud_essd
+      MaxAmount: 1
+      InternetMaxBandwidthOut: 0
+      SpotStrategy: SpotAsPriceGo
+      Password:
+        Ref: InstancePassword
+      UserData:
+        Fn::Sub: |-
+          #!/bin/bash
+          yum -y install nginx-1.20.1
+          instanceId=`curl http://100.100.100.200/latest/meta-data/instance-id`
+          echo "Welcome to Nginx. Current instance is $instanceId" > /usr/share/nginx/html/index.html 
+          systemctl start nginx 
+          systemctl enable nginx
+  Alb:
+    Type: 'ALIYUN::ALB::LoadBalancer'
+    Properties:
+      LoadBalancerName:
+        Fn::Sub: ${CommonName}-alb
+      LoadBalancerEdition: Basic
+      VpcId:
+        Ref: Vpc
+      LoadBalancerBillingConfig:
+        PayType: PostPay
+      AddressType: Internet
+      ZoneMappings:
+        - ZoneId:
+            Ref: ZoneId1
+          VSwitchId:
+            Ref: VSwitch1
+        - ZoneId:
+            Ref: ZoneId2
+          VSwitchId:
+            Ref: VSwitch2
+  AlbServerGroup:
+    Type: 'ALIYUN::ALB::ServerGroup'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      ServerGroupType: Instance
+      ServerGroupName:
+        Fn::Sub: ${CommonName}-server-group
+      HealthCheckConfig:
+        HealthCheckConnectPort: 80
+        HealthCheckCodes:
+          - http_2xx
+          - http_3xx
+        HealthCheckProtocol: HTTP
+        HealthCheckEnabled: true
+        HealthCheckPath: /
+      StickySessionConfig:
+        StickySessionEnabled: false
+  AlbBackendServerAttachment:
+    Type: 'ALIYUN::ALB::BackendServerAttachment'
+    Properties:
+      ServerGroupId:
+        Ref: AlbServerGroup
+      Servers:
+        - ServerType: Ecs
+          ServerId:
+            Ref: EcsInstance1
+          Port: 80
+        - ServerType: Ecs
+          ServerId:
+            Ref: EcsInstance2
+          Port: 80
+  AlbListener:
+    Type: 'ALIYUN::ALB::Listener'
+    Properties:
+      ListenerPort: 80
+      DefaultActions:
+        - Type: ForwardGroup
+          ForwardGroupConfig:
+            ServerGroupTuples:
+              - ServerGroupId:
+                  Ref: AlbServerGroup
+      LoadBalancerId:
+        Ref: Alb
+      ListenerProtocol: HTTP
+Outputs:
+  WebUrl:
+    Description:
+      zh-cn: Web 访问地址。
+      en: The Addresses of Web.
+    Value:
+      'Fn::Sub': 'http://${Alb.DNSName}'
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId1
+          - InstanceType1
+          - ZoneId2
+          - InstanceType2
+          - InstancePassword
+    TemplateTags:
+      - acs:example:弹性计算:搭建高可用的 nginx 网站
+    Hidden:
+      - CommonName

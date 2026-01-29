@@ -1,0 +1,253 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建SLB与2个ECS实例，配置网络与安全组，将ECS实例加入SLB后端。
+  en: Create an SLB (Server Load Balancer) with two ECS (Elastic Compute Service) instances, configure the network and security groups, then add the ECS instances to the SLB backend.
+Parameters:
+  SystemDiskCategory:
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${ECSInstanceType}
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Category
+  AddressType:
+    Default: internet
+    Label:
+      zh-cn: 网络类型
+      en: Address Type
+    Type: String
+    Description:
+      zh-cn: 负载均衡实例的网络类型，可选值：internet：公网访问，intranet：内网访问。
+      en: 'Network type of LoadBalancer. Optional value: Internet: public network access, Intranet: Intranet access.'
+    AllowedValues:
+      - internet
+      - intranet
+  ECSInternetChargeType:
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
+    Description:
+      zh-cn: 访问公网计费方式。
+      en: The charge type of public internet ECS instance.
+    Default: PayByTraffic
+    Label:
+      zh-cn: 公网付费方式
+      en: Internet Charge Type
+    AllowedValues:
+      - PayByBandwidth
+      - PayByTraffic
+    Type: String
+  ECSInstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::ECSInstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId}
+    Type: String
+    Description:
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.n1.large <font color='green'>2vCPU 4GiB</font>]<br></b>[ecs.n1.xlarge <font color='green'>8vCPU 16GiB</font>]<br></b>[ecs.n1.3xlarge <font color='green'>16vCPU 32GiB</font>]
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the current available zone under the model is in stock, some models need to be reported in advance</b></font><br><font color='blue'><b>2.List of optional models</font><br></b></font>[ecs.n1.large <font color='green'>2vCPU 4GiB</font>]<br></b>[ecs.n1.xlarge <font color='green'>8vCPU 16GiB</font>]<br></b>[ecs.n1.3xlarge <font color='green'>16vCPU 32GiB</font>]
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+  Password:
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers, special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+    Description:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    MinLength: '8'
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    NoEcho: true
+    MaxLength: '30'
+    Type: String
+  ImageId:
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: ${ECSInstanceType}
+      SupportedImageOwnerAlias:
+        - system
+        - self
+        - others
+    Type: String
+    Label:
+      zh-cn: 镜像ID
+      en: Image ID
+  Bandwidth:
+    Description:
+      zh-cn: 固定带宽计费方式的公网类型实例的带宽峰值。
+      en: The bandwidth peak of a public network type instance of fixed bandwidth billing.
+    Default: 1
+    MaxValue: 1000
+    MinValue: 1
+    Label:
+      zh-cn: 带宽峰值
+      en: The Peak Bandwidth
+    Type: Number
+  SLBInternetChargeType:
+    AssociationPropertyMetadata:
+      LocaleKey: InternetChargeType
+    Description:
+      zh-cn: 公网类型实例的付费方式。
+      en: The charge type of public internet SLB instance.
+    Default: paybytraffic
+    Label:
+      zh-cn: 公网付费方式
+      en: Internet Charge Type
+    AllowedValues:
+      - paybybandwidth
+      - paybytraffic
+    Type: String
+  LoadBalancerSpec:
+    Default: slb.s1.small
+    Type: String
+    Description:
+      zh-cn: 实例规格，详见：</b><a href='https://help.aliyun.com/document_detail/85939.html' target='_blank'><b><font color='blue'>性能保障型</b></font></a>
+      en: Instance specifications, see detail：</b><a href='https://www.alibabacloud.com/help/doc-detail/85939.html' target='_blank'><b><font color='blue'>Performance support type</b></font></a>
+    Label:
+      zh-cn: 实例规格
+      en: Instance Specification
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Type: String
+    Description:
+      zh-cn: 可用区ID，需确认所选可用区下是否支持ECS、VPC、VSwitch等资源。
+      en: The available zone ID, you should confirm the zone support ECS、VPC、VSwitch or not.
+    Label:
+      zh-cn: 可用区ID
+      en: Zone ID
+Outputs:
+  BackendServerInstanceId:
+    Description:
+      zh-cn: 创建ECS的实例IDs
+      en: The instance IDs of create EcsInstanceGroup
+    Value:
+      Fn::GetAtt:
+        - EcsInstanceGroup
+        - InstanceIds
+  BackendServerPublicIp:
+    Description:
+      zh-cn: 创建ECS的实例公共IPs。
+      en: The instance public IPs of create EcsInstanceGroup.
+    Value:
+      Fn::GetAtt:
+        - EcsInstanceGroup
+        - PublicIps
+  SlbIpAddress:
+    Description:
+      zh-cn: 负载均衡器的IP地址。
+      en: The IP address of the load balancer.
+    Value:
+      Fn::GetAtt:
+        - LoadBalancer
+        - IpAddress
+  LoadBalancerId:
+    Description:
+      zh-cn: 已创建负载平衡的ID。
+      en: The ID of load balance created.
+    Value:
+      Fn::GetAtt:
+        - LoadBalancer
+        - LoadBalancerId
+Resources:
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: MySecurityGroup
+  Attachment:
+    Type: ALIYUN::SLB::BackendServerAttachment
+    Properties:
+      BackendServers:
+        - ServerId:
+            Fn::Select:
+              - '0'
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - InstanceIds
+          Weight: 100
+        - ServerId:
+            Fn::Select:
+              - '1'
+              - Fn::GetAtt:
+                  - EcsInstanceGroup
+                  - InstanceIds
+          Weight: 100
+      LoadBalancerId:
+        Ref: LoadBalancer
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  EcsInstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      VpcId:
+        Fn::GetAtt:
+          - Vpc
+          - VpcId
+      SecurityGroupId:
+        Fn::GetAtt:
+          - SecurityGroup
+          - SecurityGroupId
+      ImageId:
+        Ref: ImageId
+      IoOptimized: optimized
+      InternetChargeType:
+        Ref: ECSInternetChargeType
+      VSwitchId:
+        Ref: VSwitch
+      Password:
+        Ref: Password
+      InstanceType:
+        Ref: ECSInstanceType
+      MaxAmount: 2
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId
+  LoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      InternetChargeType:
+        Ref: SLBInternetChargeType
+      Bandwidth:
+        Ref: Bandwidth
+      AddressType:
+        Ref: AddressType
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - ECSInternetChargeType
+          - ECSInstanceType
+          - ImageId
+          - SystemDiskCategory
+          - Password
+        Label:
+          default:
+            zh-cn: 云服务器
+            en: ECS
+      - Parameters:
+          - LoadBalancerSpec
+          - AddressType
+          - SLBInternetChargeType
+          - Bandwidth
+        Label:
+          default:
+            zh-cn: 负载均衡
+            en: SLB

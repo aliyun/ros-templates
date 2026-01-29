@@ -1,0 +1,123 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建支持多可用区高可用的RDS实例。
+  en: Create an RDS instance supporting multi-zone high availability.
+Parameters:
+  ZoneId1:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId2
+    Label:
+      en: Primary Availability Zone
+      zh-cn: 主可用区
+  ZoneId2:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      ExclusiveTo:
+        - ZoneId1
+    Label:
+      en: Standby Availability Zone
+      zh-cn: 备可用区
+  DBInstanceClass:
+    Type: String
+    Label:
+      en: Instance Class
+      zh-cn: 实例规格
+    AssociationProperty: ALIYUN::RDS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${ZoneId1}
+      EngineVersion: '8.0'
+      Engine: MySQL
+      Category: HighAvailability
+      InstanceChargeType: PostPaid
+      DBInstanceStorageType: cloud_essd
+      CommodityCode: bards
+    Default: mysql.n2.medium.2c
+  DBUserName:
+    Type: String
+    Label:
+      en: Database Account
+      zh-cn: 数据库账号
+    Description:
+      en: The value can contain a maximum of 32 letters, including lowercase letters, uppercase letters, digits, and underscores (_). It must start with a letter and end with a letter or digit.
+      zh-cn: 由小写字母、大写字母、数字、下划线（_）组成，以字母开头，以字母或数字结尾，最多32个字符。
+    Default: testuser
+  DBPassword:
+    Type: String
+    Label:
+      en: Password
+      zh-cn: 密码
+    Description:
+      en: 'The password must be 8 to 32 characters in length and must contain at least three of the following types: uppercase letters, lowercase letter, digits, and special characters. Special characters include <span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>'
+      zh-cn: 必须包含三种及以上类型：大写字母、小写字母、数字、特殊符号。长度为8～32位。特殊字符包括<span style="background:#E7E9EB;"><b>!@#$%^&*()_+-=</b></span>
+    AssociationProperty: ALIYUN::RDS::Instance::AccountPassword
+    NoEcho: true
+Resources:
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      VpcName: rds-database-agent-vpc
+  VSwitch1:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.1.0/24
+      ZoneId:
+        Ref: ZoneId1
+      VSwitchName: rds-database-vsw-001
+  VSwitch2:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.2.0/24
+      ZoneId:
+        Ref: ZoneId2
+      VSwitchName: rds-database-vsw-002
+  Database:
+    Type: ALIYUN::RDS::DBInstance
+    Properties:
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      ZoneId:
+        Ref: ZoneId1
+      SlaveZoneIds:
+        - Ref: ZoneId2
+      DBInstanceStorage: 20
+      Category: HighAvailability
+      DBInstanceStorageType: cloud_essd
+      VSwitchId:
+        Fn::Join:
+          - ','
+          - - Ref: VSwitch1
+            - Ref: VSwitch2
+      Engine: MySQL
+      PayType: Postpaid
+      VpcId:
+        Ref: Vpc
+      EngineVersion: '8.0'
+      SecurityIPList: 192.168.0.0/16
+      MasterUsername:
+        Ref: DBUserName
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUserType: Normal
+Outputs: {}
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId1
+          - ZoneId2
+          - DBInstanceClass
+          - DBUserName
+          - DBPassword
+        Label:
+          default:
+            en: RDS Configuration
+            zh-cn: RDS配置

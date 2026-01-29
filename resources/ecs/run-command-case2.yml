@@ -1,0 +1,234 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 部署Django环境。
+  en: Deploy the Django environment.
+Parameters:
+  ZoneId:
+    Default: Null
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    Required: true
+    Type: String
+    Label:
+      zh-cn: 可用区
+      en: Availability Zone
+  InstanceType:
+    AssociationPropertyMetadata:
+      SystemDiskCategory: cloud_essd
+      SpotStrategy: SpotAsPriceGo
+      InstanceChargeType: PostPaid
+      ZoneId: ${ZoneId}
+    Default: Null
+    Required: true
+    Label:
+      zh-cn: 实例类型
+      en: Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    Type: String
+  InstancePassword:
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+    Confirm: true
+    Default: Null
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    NoEcho: true
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+  ImageId:
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        aliyun_3_x64_20G_alibase_20240528.vhd:
+          zh-cn: Alibaba Cloud Linux 3
+          en: Alibaba Cloud Linux 3
+    Default: aliyun_3_x64_20G_alibase_20240528.vhd
+    Required: true
+    Label:
+      zh-cn: 实例镜像
+      en: Image of Instance
+    AllowedValues:
+      - aliyun_3_x64_20G_alibase_20240528.vhd
+    Type: String
+Outputs: {}
+Conditions: {}
+Resources:
+  SecurityGroupIngress_80:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      SecurityGroupId:
+        Ref: SecurityGroup
+      NicType: intranet
+      SourceCidrIp: 0.0.0.0/0
+      PortRange: 80/80
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupIngress:
+        - PortRange: 80/80
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+        - PortRange: '-1/-1'
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: icmp
+      VpcId:
+        Ref: Vpc
+      SecurityGroupName: deploy_django_by_ros_sg
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: deploy_django_by_ros_vpc
+      CidrBlock: 192.168.0.0/16
+  DeployDjango:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      Type: RunShellScript
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/bash
+          sudo yum -y install nginx python3-devel.x86_64
+
+
+          sudo pip3 install Django uwsgi
+          sudo mkdir /home/myblog && cd /home/myblog
+
+          sudo /usr/local/bin/django-admin.py startproject uwsgi_project
+
+          sudo sed -i 's/ALLOWED_HOSTS = \[\]/ALLOWED_HOSTS = \["*"\]/g' /home/myblog/uwsgi_project/uwsgi_project/settings.py
+          sudo mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+          sudo mv /etc/uwsgi.ini /etc/uwsgi.ini.bak
+
+          cat << "EOF" > /etc/nginx/nginx.conf
+          user nginx;
+          worker_processes auto;
+          error_log /var/log/nginx/error.log;
+          pid /run/nginx.pid;
+          # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+          include /usr/share/nginx/modules/*.conf;
+          events {
+            worker_connections 1024;
+          }
+          http {
+            log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                              '$status $body_bytes_sent "$http_referer" '
+                              '"$http_user_agent" "$http_x_forwarded_for"';
+            access_log  /var/log/nginx/access.log  main;
+            sendfile            on;
+            tcp_nopush          on;
+            tcp_nodelay         on;
+            keepalive_timeout   65;
+            types_hash_max_size 4096;
+            include             /etc/nginx/mime.types;
+            default_type        application/octet-stream;
+            # Load modular configuration files from the /etc/nginx/conf.d directory.
+            # See http://nginx.org/en/docs/ngx_core_module.html#include
+            # for more information.
+            include /etc/nginx/conf.d/*.conf;
+            upstream django {
+                server 127.0.0.1:8001; #具体端口必须与您uWSGI配置文件中定义的端口一致
+            }
+            server {
+              listen       80; #设置的nginx访问端口
+              server_name  test;
+              charset      utf-8;
+              # Load configuration files for the default server block.
+              include /etc/nginx/default.d/*.conf;
+              location /static {
+                autoindex on;
+                alias /home/myblog/uwsgi_project/uwsgi_project/static; #具体目录以您现场具体部署的目录为准
+              }
+              location / {
+                uwsgi_pass 127.0.0.1:8001;
+                include uwsgi_params; #具体目录以您现场具体部署的目录为准
+                include /etc/nginx/uwsgi_params; #具体目录以您现场具体部署的目录为准
+                uwsgi_param UWSGI_SCRIPT iCourse.wsgi; #具体目录以您现场具体部署的目录为准
+                uwsgi_param UWSGI_CHDIR /iCourse; #具体目录以您现场具体部署的目录为准
+                index  index.html index.htm;
+                client_max_body_size 35m;
+                index index.html index.htm;
+              }
+              error_page 404 /404.html;
+                location = /40x.html {
+              }
+              error_page 500 502 503 504 /50x.html;
+                location = /50x.html {
+              }
+            }
+          }      
+          EOF
+
+          cat << "EOF" > /etc/uwsgi.ini
+          [uwsgi]
+          socket = 127.0.0.1:8001
+          chdir = /home/myblog/uwsgi_project/
+          wsgi-file = uwsgi_project/wsgi.py
+          processes = 4
+          threads = 2
+          vacuum = true
+          buffer-size = 65536
+          EOF
+
+          cat << "EOF" > /etc/systemd/system/uwsgi.service
+          [Unit]
+          Description=uwsgi service
+          After=network.target
+          [Service]
+          Type=simple
+          User=nginx
+          Group=nginx
+          ExecStart=/usr/local/bin/uwsgi --ini /etc/uwsgi.ini
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          sudo systemctl daemon-reload
+          sudo systemctl enable nginx.service
+          sudo systemctl restart nginx.service
+          sudo systemctl enable uwsgi.service
+          sudo systemctl restart uwsgi.service
+      Sync: true
+      InstanceIds:
+        - Ref: EcsInstance
+      Timeout: 3600
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName: deploy_django_by_ros_vsw
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+  EcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      SystemDiskCategory: cloud_essd
+      VpcId:
+        Ref: Vpc
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId:
+        Ref: ImageId
+      InternetMaxBandwidthOut: 100
+      SpotStrategy: SpotAsPriceGo
+      VSwitchId:
+        Ref: VSwitch
+      Password:
+        Ref: InstancePassword
+      InstanceName: deploy_django_by_ros_ecs
+      InstanceType:
+        Ref: InstanceType
+      ZoneId:
+        Ref: ZoneId
+      MaxAmount: 1
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - ImageId
+          - InstanceType
+          - InstancePassword

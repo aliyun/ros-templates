@@ -1,0 +1,222 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建ECS实例，配置VPC、安全组、多IP地址、系统盘及网络接口，支持自定义实例规格、镜像和网络设置。
+  en: Create an ECS instance, configure VPC, security group, multiple IP addresses, system disk and network interface, and support customizing instance specifications, mirroring and network settings.
+Parameters:
+  EcsInstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: VSwitchZoneId
+    Type: String
+    Description:
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the current available zone under the model is in stock, some models need to be reported in advance</b></font><br><font color='blue'><b>2.List of optional models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+  VSwitchZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    Type: String
+    Description:
+      zh-cn: 可用区ID，<br><b>注： <font color='blue'>选择可用区前请确认该可用区是否支持创建ECS资源的规格</font></b>
+      en: Availability Zone ID,<br><b>note： <font color='blue'>Before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources</font></b>
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+  EcsSystemDiskSize:
+    Default: 40
+    Type: Number
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size, range of values: 40-500, units: GB.'
+    Label:
+      zh-cn: 系统盘空间
+      en: System Disk Space
+  EcsPassword:
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    Type: String
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    NoEcho: true
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+  EcsImageId:
+    AssociationPropertyMetadata:
+      InstanceType: ${EcsInstanceType}
+      SupportedImageOwnerAlias:
+        - system
+        - self
+        - others
+    Description:
+      zh-cn: 实例镜像，详见：<b><a href='https://help.aliyun.com/document_detail/112977.html' target='_blank'><font color='blue'>查找镜像</font></a></b>
+      en: 'Instance Image ID. see detail: <b><a href=''https://www.alibabacloud.com/help/doc-detail/112977.html'' target=''_blank''><font color=''blue''>Find the mirror</font></a></b>'
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
+    Label:
+      zh-cn: 镜像ID
+      en: Image ID
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    Type: String
+  EcsSystemDiskCategory:
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${EcsInstanceType}
+    Type: String
+    Description:
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+  IpAddressCount:
+    Description:
+      zh-cn: 取值范围：1-9。
+      en: 'Allowed values: 1~9.'
+    Default: 1
+    MaxValue: 9
+    MinValue: 1
+    Label:
+      zh-cn: 网卡分配IPv4数量
+      en: Number of IPv4 Network Card
+    Type: Number
+Outputs:
+  InstanceId:
+    Value:
+      Ref: EcsInstance
+  EIP:
+    Value:
+      Fn::GetAtt:
+        - Eip
+        - EipAddress
+  PrimaryPrivateIPAddress:
+    Value:
+      Fn::GetAtt:
+        - EcsInstance
+        - PrivateIp
+  AddPrivateIPAddressList:
+    Value:
+      Fn::GetAtt:
+        - EcsAssignPrivateIpAddresses
+        - PrivateIpAddresses
+Resources:
+  EcsAssignPrivateIpAddresses:
+    Type: ALIYUN::ECS::AssignPrivateIpAddresses
+    Properties:
+      NetworkInterfaceId:
+        Ref: EcsENI
+      SecondaryPrivateIpAddressCount:
+        Ref: IpAddressCount
+    DependsOn:
+      - EcsENI
+  EcsENI:
+    Type: ALIYUN::ECS::NetworkInterface
+    Properties:
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      VSwitchId:
+        Ref: EcsVSwitch
+  EcsSecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupName:
+        Fn::Join:
+          - _
+          - - StackId
+            - Ref: ALIYUN::StackId
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      InstanceChargeType: Postpaid
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName:
+        Fn::Join:
+          - _
+          - - StackId
+            - Ref: ALIYUN::StackId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: VSwitchZoneId
+  EcsEniAttachment:
+    Type: ALIYUN::ECS::NetworkInterfaceAttachment
+    Properties:
+      InstanceId:
+        Ref: EcsInstance
+      NetworkInterfaceId:
+        Ref: EcsENI
+    DependsOn:
+      - EcsInstance
+      - EipAssociation
+  EcsInstance:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      SystemDiskCategory:
+        Ref: EcsSystemDiskCategory
+      VpcId:
+        Ref: EcsVpc
+      SecurityGroupId:
+        Ref: EcsSecurityGroup
+      SystemDiskSize:
+        Ref: EcsSystemDiskSize
+      ImageId:
+        Ref: EcsImageId
+      AllocatePublicIP: false
+      InstanceChargeType: PostPaid
+      VSwitchId:
+        Ref: EcsVSwitch
+      IoOptimized: optimized
+      Password:
+        Ref: EcsPassword
+      InstanceType:
+        Ref: EcsInstanceType
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName:
+        Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+      CidrBlock: 192.168.0.0/16
+  EipAssociation:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: EcsENI
+      AllocationId:
+        Ref: Eip
+      Mode: NAT
+    DependsOn:
+      - EcsAssignPrivateIpAddresses
+      - Eip
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - VSwitchZoneId
+          - IpAddressCount
+        Label:
+          default:
+            zh-cn: 专有网络
+            en: VPC
+      - Parameters:
+          - EcsInstanceType
+          - EcsImageId
+          - EcsSystemDiskCategory
+          - EcsSystemDiskSize
+          - EcsPassword
+        Label:
+          default:
+            zh-cn: 云服务器
+            en: ECS

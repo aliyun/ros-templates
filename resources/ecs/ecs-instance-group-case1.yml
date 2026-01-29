@@ -1,0 +1,148 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Creates VPC ECS instance
+Parameters:
+  VpcId:
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Type: String
+    Description:
+      en: Please search the ID starting with (vpc-xxx) from console-Virtual Private Cloud
+      zh-cn: 现有专有网络的实例ID
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+  VSwitchZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    Type: String
+    Description:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+  VSwitchId:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${VSwitchZoneId}
+    Type: String
+    Description:
+      en: Instance ID of existing business network switches, console-Virtual Private Cloud-VSwitches under query
+      zh-cn: 现有业务网络交换机的实例ID
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+  SecurityGroupId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+    Description:
+      en: Please search the business security group ID starting with(sg-xxx)from console-ECS-Network & Security
+      zh-cn: 现有业务安全组的实例ID
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+  InstanceType:
+    Type: String
+    Description:
+      zh-cn: 填写vSwitch可用区下可使用的规格。
+      en: Fill in the specifications that can be used under the VSwitch availability zone.
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${VSwitchZoneId}
+  SystemDiskCategory:
+    Type: String
+    Label:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    Description:
+      en: System Disk Type
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      ZoneId: ${VSwitchZoneId}
+      InstanceType: ${InstanceType}
+Resources:
+  OpsEcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      MaxAmount: 1
+      HostName: OpsEcsInstance
+      UserData:
+        Fn::Sub:
+          - |
+            #!/bin/bash
+            RootPassword=${RootPassword}
+            ProdIP=${ProdIP}
+            SSHConfig() {
+            echo '[ ! -f /root/.ssh/id_rsa.pub ] && ssh-keygen -t rsa -P "" -f ~/.ssh/id_rsa &>/dev/null' >> /tmp/auto_ssh.sh
+            echo 'while read line;do' >> /tmp/auto_ssh.sh
+            echo '        ip=`echo $line | cut -d " " -f1`' >> /tmp/auto_ssh.sh
+            echo '        user_name=`echo $line | cut -d " " -f2`' >> /tmp/auto_ssh.sh
+            echo '        pass_word=`echo $line | cut -d " " -f3`' >> /tmp/auto_ssh.sh
+            echo 'expect <<EOF' >> /tmp/auto_ssh.sh
+            echo '        spawn ssh-copy-id -i /root/.ssh/id_rsa.pub $user_name@$ip' >> /tmp/auto_ssh.sh
+            echo '        expect {' >> /tmp/auto_ssh.sh
+            echo '                  "yes/no" { send "yes\n";exp_continue}' >> /tmp/auto_ssh.sh
+            echo '                  "password" { send "$pass_word\n"}' >> /tmp/auto_ssh.sh
+            echo '        }' >> /tmp/auto_ssh.sh
+            echo '        expect eof' >> /tmp/auto_ssh.sh
+            echo 'EOF' >> /tmp/auto_ssh.sh
+            echo 'done < /tmp/host_ip.txt' >> /tmp/auto_ssh.sh
+            }
+            SetHostsConfig() {
+            echo "`ifconfig eth0 | awk '/inet /{print $2}'` root ${RootPassword}" >> /tmp/host_ip.txt
+            echo "${ProdIP} root ${RootPassword}" >> /tmp/host_ip.txt
+            sh /tmp/auto_ssh.sh
+            }
+            main() {
+            yum install -y expect
+            SSHConfig
+            SetHostsConfig
+            rm -rf /tmp/host_ip.txt
+            }
+            main
+          - ProdIP:
+              Fn::Select:
+                - '0'
+                - Fn::GetAtt:
+                    - ProdEcsInstance
+                    - PrivateIps
+            RootPassword: Admin@123!
+      VpcId:
+        Ref: VpcId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      VSwitchId:
+        Ref: VSwitchId
+      ImageId: centos_7
+      AllocatePublicIP: false
+      InstanceType:
+        Ref: InstanceType
+      SystemDiskSize: 40
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      Password: Admin@123!
+  ProdEcsInstance:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      MaxAmount: 1
+      HostName: ProdEcsInstance
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      VpcId:
+        Ref: VpcId
+      SecurityGroupId:
+        Ref: SecurityGroupId
+      SystemDiskSize: 40
+      ImageId: centos_7
+      VSwitchId:
+        Ref: VSwitchId
+      Password: Admin@123!
+      InstanceType:
+        Ref: InstanceType
+      AllocatePublicIP: false
+Outputs: {}

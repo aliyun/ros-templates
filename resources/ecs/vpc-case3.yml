@@ -1,0 +1,115 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建VPC与VSwitch，配置内网SLB，支持指定规格与地址类型。
+  en: Create a Virtual Private Cloud (VPC) and Virtual Switch (VSwitch), configure an internal Load Balancer (SLB), with support for specifying instance types and address types.
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR Block
+      zh-cn: 专有网络网段
+    Description:
+      en: 'The IP address range of the VPC in the CIDR block form. You can use the following IP address ranges and their subnets: 10.0.0.0/8 172.16.0.0/12  192.168.0.0/16'
+      zh-cn: 专有网络的网段，可选值：10.0.0.0/8，172.16.0.0/12，192.168.0.0/16。
+    Default: 192.168.0.0/16
+    AllowedValues:
+      - 192.168.0.0/16
+      - 172.16.0.0/12
+      - 10.0.0.0/8
+  VSwitchZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    Default: Null
+    Description:
+      en: The available zone ID, you should confirm the zone support SLB or not.
+      zh-cn: 可用区ID，需确认所选可用区下是否支持SLB等资源。
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机网段
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied by other VSwitches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 192.168.0.0/24
+  LoadBalancerSpec:
+    Type: String
+    Label:
+      en: Specification
+      zh-cn: 规格
+    Description:
+      en: Load balancing specification, <a href='https://help.aliyun.com/document_detail/85939.html' target='_blank'><font color='blue'><b>Slb spec detail</b></font>.</a>
+      zh-cn: 负载均衡规格，<a href='https://help.aliyun.com/document_detail/85939.html' target='_blank'><font color='blue'><b>规格详情</b></font></a>。
+    Default: slb.s1.small
+Conditions: {}
+Resources:
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+      VpcName:
+        Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+  EcsVSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      ZoneId:
+        Ref: VSwitchZoneId
+      VpcId:
+        Ref: EcsVpc
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      VSwitchName:
+        Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+  SlbLoadBalancer:
+    Type: ALIYUN::SLB::LoadBalancer
+    Properties:
+      VpcId:
+        Ref: EcsVpc
+      VSwitchId:
+        Ref: EcsVSwitch
+      AddressType: intranet
+      LoadBalancerName:
+        Fn::Join:
+          - '-'
+          - - StackId
+            - Ref: ALIYUN::StackId
+      LoadBalancerSpec:
+        Ref: LoadBalancerSpec
+      PayType: PayOnDemand
+    DependsOn: EcsVSwitch
+Outputs:
+  SlbLoadBalancerId:
+    Description:
+      en: The ID of load balance created.
+      zh-cn: 创建的负载均衡ID。
+    Value:
+      Fn::GetAtt:
+        - SlbLoadBalancer
+        - LoadBalancerId
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - VpcCidrBlock
+          - VSwitchZoneId
+          - VSwitchCidrBlock
+        Label:
+          default:
+            en: VPC
+            zh-cn: 专有网络
+      - Parameters:
+          - LoadBalancerSpec
+        Label:
+          default:
+            en: SLB
+            zh-cn: 负载均衡

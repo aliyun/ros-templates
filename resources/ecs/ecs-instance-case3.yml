@@ -1,0 +1,374 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  zh-cn: 创建ECS实例，配置弹性IP，挂载2个数据盘，设置网络环境与安全组规则。
+  en: Create an ECS instance, configure elastic IP, mount 2 data disks, and set network environment and security group rules.
+Parameters:
+  FirstDataDiskCategory:
+    AssociationProperty: ALIYUN::ECS::Disk::DataDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      zh-cn: 数据盘1的磁盘类别
+      en: First Data Disk Category
+  SystemDiskCategory:
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: InstanceType
+      ZoneId: ZoneId
+    Type: String
+    Label:
+      zh-cn: 系统盘类型
+      en: System Disk Type
+  SecondDataDiskSize:
+    Default: 40
+    Type: Number
+    Description:
+      zh-cn: 第二个数据盘的大小，单位为GB。值范围：cloud:[5,2000]、cloud_efficiency:[20,32768]、cloud_ssd:[20,32768]、ephemeral_ssd:[5,800]。该值应等于或大于特定快照。
+      en: 'The size of the Second volume, unit in GB.Value range: cloud: [5,2000], cloud_efficiency: [20,32768], cloud_ssd: [20,32768], ephemeral_ssd: [5,800].The value should be equal to or greater than the specific snapshot.'
+    Label:
+      zh-cn: 数据盘2的磁盘大小
+      en: Second Data Disk Size
+  SystemDiskSize:
+    Default: 40
+    Type: Number
+    Description:
+      zh-cn: 系统盘的大小，单位为GB。值范围：cloud:[5,2000]、cloud_efficiency:[20,32768]、cloud_ssd:[20,32768]、ephemeral_ssd:[5,800]。该值应等于或大于特定快照。
+      en: 'Disk size of the system disk, unit in GB.Value range: cloud: [5,2000], cloud_efficiency: [20,32768], cloud_ssd: [20,32768], ephemeral_ssd: [5,800].The value should be equal to or greater than the specific snapshot.'
+    Label:
+      zh-cn: 系统盘大小
+      en: System Disk Space
+  VpcCidrBlock:
+    Default: 192.168.0.0/16
+    Label:
+      zh-cn: 专有网络网段
+      en: VPC CIDR Block
+    Type: String
+    Description:
+      zh-cn: 新建专有网络IP地址段范围，推荐使用以下的IP地址段<br><font color='green'>[10.0.0.0/8]</font><br><font color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: New proprietary network IP address segment range, recommended use of the following IP address segments<br><font color='green'>[10.0.0.0/8]</font><br><font color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+    AllowedValues:
+      - 192.168.0.0/16
+      - 172.16.0.0/12
+      - 10.0.0.0/8
+  FirstDataDiskSize:
+    Default: 40
+    Type: Number
+    Description:
+      zh-cn: 第一个数据盘的大小，单位为GB。值范围：cloud:[5,2000]、cloud_efficiency:[20,32768]、cloud_ssd:[20,32768]、ephemeral_ssd:[5,800]。该值应等于或大于特定快照。
+      en: 'The size of the first volume, unit in GB.Value range: cloud: [5,2000], cloud_efficiency: [20,32768], cloud_ssd: [20,32768], ephemeral_ssd: [5,800].The value should be equal to or greater than the specific snapshot.'
+    Label:
+      zh-cn: 数据盘1的磁盘容量
+      en: First Data Disk Size
+  SecondDataDiskCategory:
+    AssociationProperty: ALIYUN::ECS::Disk::DataDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      ZoneId: ${ZoneId}
+    Type: String
+    Label:
+      zh-cn: 数据盘2的磁盘类别
+      en: Second Data Disk Category
+  VSwitchCidrBlock:
+    Default: 192.168.0.0/24
+    Type: String
+    Description:
+      zh-cn: 新建交换机的网段，所属虚拟专有网络的子网
+      en: Network segments of new switches, subnets of virtual proprietary networks
+    Label:
+      zh-cn: 交换机网段
+      en: VSwitch CIDR Block
+  Password:
+    ConstraintDescription:
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三种；特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;' <>,.?/
+      en: 'Length 8-30, must contain upper case letters, lower case letters, Numbers, special symbols three; special characters include: ()`~!@#$%^&*_-+=|{}[]:;''<>,.?/'
+    Description:
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+    MinLength: 8
+    Label:
+      zh-cn: 实例密码
+      en: Instance Password
+    AllowedPattern: '[a-zA-Z0-9-\(\)\`\~\!@\#\$%\^&\*-+=\|\{\}\[\]\:\;\‘\,\.\?\/]*'
+    NoEcho: true
+    MaxLength: 30
+    Type: String
+  InstanceType:
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ZoneId
+    Type: String
+    Description:
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the current available zone under the model is in stock, some models need to be reported in advance</b></font><br><font color='blue'><b>2.List of optional models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+    Label:
+      zh-cn: 实例规格
+      en: Instance Type
+  ZoneId:
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+    Type: String
+    Description:
+      zh-cn: 可用区ID。<br><b>注： <font color='blue'>选择前请确认该可用区是否支持创建ECS资源的规格，建议与其他交换机可用区不同</font></b>
+      en: Availability Zone ID.<br><b>note：<font color='blue'>before selecting, please confirm that the Availability Zone supports the specification of creating ECS resources,which is recommended to be different from other VSwitch Availability Zone</font></b>
+    Label:
+      zh-cn: 交换机可用区
+      en: VSwitch Availability Zone
+  ImageId:
+    AssociationPropertyMetadata:
+      InstanceType: ${InstanceType}
+      SupportedImageOwnerAlias:
+        - system
+        - self
+        - others
+    Description:
+      zh-cn: 镜像ID, 详见：<b><a href='https://help.aliyun.com/document_detail/112977.html' target='_blank'><font color='blue'>查找镜像</font></a></b>
+      en: Image ID，See detail：<b><a href='https://www.alibabacloud.com/help/doc-detail/112977.html' target='_blank'><font color='blue'>Find the mirror</font></a></b>
+    Default: centos_7_04_64_20G_alibase_201701015.vhd
+    Label:
+      zh-cn: 镜像ID
+      en: Image ID
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    Type: String
+Outputs:
+  VpcId:
+    Description: Id of created VPC.
+    Value:
+      Fn::GetAtt:
+        - Vpc
+        - VpcId
+  InstanceId:
+    Description: The instance id of created ecs instance.
+    Value:
+      Fn::GetAtt:
+        - WebServer
+        - InstanceId
+  SecurityGroupId:
+    Description: generated security group id for security group.
+    Value:
+      Fn::GetAtt:
+        - SecurityGroup
+        - SecurityGroupId
+  EipId:
+    Description: ID that Aliyun assigns to represent the allocation of the address for use with VPC. Returned only for VPC elastic IP addresses.
+    Value:
+      Fn::GetAtt:
+        - Eip
+        - AllocationId
+  ZoneId:
+    Description: Zone ID of created instance.
+    Value:
+      Fn::GetAtt:
+        - WebServer
+        - ZoneId
+  VSwitchId:
+    Description: Id of created VSwitch.
+    Value:
+      Fn::GetAtt:
+        - VSwitch
+        - VSwitchId
+Resources:
+  EIPBind:
+    Type: ALIYUN::VPC::EIPAssociation
+    Properties:
+      InstanceId:
+        Ref: WebServer
+      AllocationId:
+        Ref: Eip
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: ece3b051-66c9-46d6-9961-f184d342b21f
+  Eip:
+    Type: ALIYUN::VPC::EIP
+    Properties:
+      InternetChargeType: PayByTraffic
+      Bandwidth: 1
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: a914d36e-d429-46d6-bbd0-a22acd07b096
+  SecurityGroupEgress:
+    Type: ALIYUN::ECS::SecurityGroupEgress
+    Properties:
+      DestCidrIp: 0.0.0.0/0
+      IpProtocol: all
+      SecurityGroupId:
+        Ref: SecurityGroup
+      NicType: intranet
+      PortRange: '-1/-1'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: faa26b3c-3507-41e9-9959-5db9a9e67446
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: Vpc
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: fde92bb4-877d-4e7b-b9dd-be6f5e552544
+  SecurityGroupIngress:
+    Type: ALIYUN::ECS::SecurityGroupIngress
+    Properties:
+      IpProtocol: all
+      SecurityGroupId:
+        Ref: SecurityGroup
+      NicType: intranet
+      SourceCidrIp: 0.0.0.0/0
+      PortRange: '-1/-1'
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 2a6cfdef-e236-4966-a976-dd7e7bbc37a5
+  WebServer:
+    Type: ALIYUN::ECS::Instance
+    Properties:
+      UserData:
+        Fn::Join:
+          - ''
+          - - |
+              #!/bin/sh
+            - |
+              logs=~/mount_logs
+            - |
+              i=1
+            - |
+              total=2
+            - |
+              while [ $i -le $total ]
+            - |
+              do
+            - |2
+                  disk_suffix=`echo $i|awk '{printf "%c", 97+$i}'`
+            - |
+              fdisk -S 56 /dev/vd$disk_suffix <<ESXU
+            - |
+              n
+            - |
+              p
+            - |
+              1
+            - |+
+
+            - |+
+
+            - |
+              w
+            - |
+              ESXU
+            - |2
+                  echo "/dev/vd$disk_suffix is fdisked!" >> $logs
+            - |2
+                  mkfs.ext4 /dev/vd${disk_suffix}1
+            - |2
+                  if [ $? -eq 0 ];then
+            - |2
+                      echo "/dev/vd${disk_suffix}1 is formated!" >> $logs
+            - |2
+                  fi
+            - |2
+                  touch ~/test_ftab
+            - |2
+                  mkdir $disk_suffix$i
+            - |2
+                  disk_uuid=`blkid | grep /dev/vd${disk_suffix}1 |awk '{printf $2}'|sed 's/\"//g'`
+            - |
+              cat << ESXU > ~/test_ftab
+            - |
+              $disk_uuid         $disk_suffix$i       ext4       defaults        0 0
+            - |
+              ESXU
+            - |2
+                  cat ~/test_ftab >> /etc/fstab
+            - |2
+                  mount -a
+            - |2
+                  chmod -R 777 $disk_suffix$i
+            - |2
+                  rm -rf ~/test_ftab
+            - |2
+                  echo "/dev/vd${disk_suffix}1 is mounted!" >> $logs
+            - |2
+                  let i+=1
+            - |
+              done
+      SystemDiskCategory:
+        Ref: SystemDiskCategory
+      VpcId:
+        Ref: Vpc
+      SecurityGroupId:
+        Ref: SecurityGroup
+      SystemDiskSize:
+        Ref: SystemDiskSize
+      ImageId:
+        Ref: ImageId
+      AllocatePublicIP: 'false'
+      VSwitchId:
+        Ref: VSwitch
+      IoOptimized: optimized
+      Password:
+        Ref: Password
+      DiskMappings:
+        - Category:
+            Ref: FirstDataDiskCategory
+          Size:
+            Ref: FirstDataDiskSize
+        - Category:
+            Ref: SecondDataDiskCategory
+          Size:
+            Ref: SecondDataDiskSize
+      InstanceType:
+        Ref: InstanceType
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: 4f476130-0cde-4cff-a973-2cb026e18f13
+  Vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidrBlock
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: adfdd097-9c30-49ff-8738-ae3b59eada43
+  VSwitch:
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VpcId:
+        Fn::GetAtt:
+          - Vpc
+          - VpcId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+      ZoneId:
+        Ref: ZoneId
+    Metadata:
+      ALIYUN::ROS::Designer:
+        id: bd814869-3bd7-4551-a5db-0ec7ad3d3246
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - VpcCidrBlock
+          - VSwitchCidrBlock
+        Label:
+          default:
+            zh-cn: 基础资源配置（必填）
+            en: Infrastructure Configuration
+      - Parameters:
+          - InstanceType
+          - ImageId
+          - Password
+        Label:
+          default:
+            zh-cn: ECS 配置（必填）
+            en: ECS Configuration
+      - Parameters:
+          - SystemDiskSize
+          - SystemDiskCategory
+          - FirstDataDiskSize
+          - FirstDataDiskCategory
+          - SecondDataDiskSize
+          - SecondDataDiskCategory
+        Label:
+          default:
+            zh-cn: ECS 磁盘配置（必填）
+            en: ECS Disk Configuration
