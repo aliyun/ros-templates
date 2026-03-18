@@ -1,0 +1,459 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Parameters:
+  pay_type:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+  pay_period_unit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${pay_type}
+              - PostPaid
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+  pay_period:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${pay_type}
+              - PostPaid
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+  ecs_instance_type:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      ZoneId: ${zone_id}
+      InstanceChargeType: ${pay_type}
+  zone_id:
+    Type: String
+    Label:
+      en: Availability Zone
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  whether_create_vpc:
+    Type: Boolean
+    Label:
+      en: WhetherCreateVpc
+      zh-cn: 是否新建 VPC
+    Default: false
+  vpc_cidr_block:
+    Type: String
+    Label:
+      en: VPC CIDR IPv4 Block
+      zh-cn: 专有网络 IPv4 网段
+    Description:
+      zh-cn: VPC 的 ip 地址段范围，<br>您可以使用以下的 ip 地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${whether_create_vpc}
+            - true
+    Default: 192.168.0.0/16
+  vswitch_cidr_block:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于 VPC 的子网段。
+      en: Must belong to the subnet segment of VPC.
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: VpcCidrBlock
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${whether_create_vpc}
+            - true
+    Default: 192.168.1.0/24
+  vpc_id:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络 VPC 实例 ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${whether_create_vpc}
+            - false
+    Default: ''
+  vswitch_id:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例 ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${vpc_id}
+      ZoneId: ${zone_id}
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ${whether_create_vpc}
+            - false
+    Default: ''
+  instance_password:
+    Type: String
+    NoEcho: true
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码，长度 8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  system_disk_category:
+    Type: String
+    Label:
+      en: System Disk Category
+      zh-cn: 系统盘类型
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+      InstanceType: ${ecs_instance_type}
+    AllowedValues:
+      - cloud_efficiency
+      - cloud_ssd
+      - cloud_essd
+  system_disk_size:
+    Type: Number
+    Label:
+      zh-cn: 系统盘空间 (GB)
+      en: System Disk Space (GB)
+    Default: 200
+  internet_max_bandwidth_out:
+    Type: Number
+    Label:
+      zh-cn: 流量公网带宽
+      en: Internet Max Bandwidth Out
+    Default: 10
+    MinValue: 1
+    MaxValue: 100
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - pay_type
+          - pay_period_unit
+          - pay_period
+        Label:
+          default:
+            en: pay_type Configuration
+            zh-cn: 付费类型配置
+      - Parameters:
+          - zone_id
+        Label:
+          default:
+            zh-cn: 可用区配置
+            en: Zone Configuration
+      - Parameters:
+          - ecs_instance_type
+        Label:
+          default:
+            zh-cn: ECS 实例规格配置
+            en: ECS Instance Type Configuration
+      - Parameters:
+          - whether_create_vpc
+          - vpc_cidr_block
+          - vswitch_cidr_block
+          - vpc_id
+          - vswitch_id
+        Label:
+          default:
+            zh-cn: VPC 配置
+            en: VPC Configuration
+      - Parameters:
+          - instance_password
+          - system_disk_category
+          - system_disk_size
+          - internet_max_bandwidth_out
+        Label:
+          default:
+            en: Instance
+            zh-cn: ECS 实例详细配置
+    TemplateTags:
+      - acs:example:ISV 软件部署：创建单 ECS 实例并部署 Nginx
+Workspace:
+  variable.tf: |-
+    variable "pay_type" {
+      type        = string
+      description = "付费类型 (PostPaid 或 PrePaid)"
+      default     = "PostPaid"
+      validation {
+        condition     = contains(["PostPaid", "PrePaid"], var.pay_type)
+        error_message = "付费类型必须是 PostPaid 或 PrePaid。"
+      }
+    }
+
+    variable "pay_period_unit" {
+      type        = string
+      description = "购买资源时长周期 (Month 或 Year)"
+      default     = "Month"
+      validation {
+        condition     = contains(["Month", "Year"], var.pay_period_unit)
+        error_message = "周期必须是 Month 或 Year。"
+      }
+    }
+
+    variable "pay_period" {
+      type        = number
+      description = "购买资源时长"
+      default     = 1
+      validation {
+        condition     = var.pay_period >= 1 && var.pay_period <= 9
+        error_message = "时长必须在 1-9 之间。"
+      }
+    }
+
+    variable "ecs_instance_type" {
+      type        = string
+      description = "实例规格"
+    }
+
+    variable "zone_id" {
+      type        = string
+      description = "可用区"
+    }
+
+    variable "whether_create_vpc" {
+      type        = bool
+      description = "是否新建 VPC"
+      default     = false
+    }
+
+    variable "vpc_cidr_block" {
+      type        = string
+      description = "VPC CIDR IPv4 网段"
+      default     = "192.168.0.0/16"
+    }
+
+    variable "vswitch_cidr_block" {
+      type        = string
+      description = "交换机子网网段"
+      default     = "192.168.1.0/24"
+    }
+
+    variable "vpc_id" {
+      type        = string
+      description = "现有 VPC ID"
+      default     = ""
+    }
+
+    variable "vswitch_id" {
+      type        = string
+      description = "现有交换机 ID"
+      default     = ""
+    }
+
+    variable "instance_password" {
+      type        = string
+      description = "实例密码，长度 8-30，必须包含三项（大写字母、小写字母、数字、特殊符号）"
+      sensitive   = true
+    }
+
+    variable "system_disk_category" {
+      type        = string
+      description = "系统盘类型"
+      default     = "cloud_efficiency"
+      validation {
+        condition     = contains(["cloud_efficiency", "cloud_ssd", "cloud_essd"], var.system_disk_category)
+        error_message = "系统盘类型必须是 cloud_efficiency、cloud_ssd 或 cloud_essd。"
+      }
+    }
+
+    variable "system_disk_size" {
+      type        = number
+      description = "系统盘大小 (GB)"
+      default     = 200
+    }
+
+    variable "internet_max_bandwidth_out" {
+      type        = number
+      description = "公网带宽 (Mbps)"
+      default     = 10
+      validation {
+        condition     = var.internet_max_bandwidth_out >= 1 && var.internet_max_bandwidth_out <= 100
+        error_message = "公网带宽必须在 1-100 Mbps 之间。"
+      }
+    }
+
+    terraform {
+      required_providers {
+        alicloud = {
+          source  = "aliyun/alicloud"
+          version = ">= 1.200.0"
+        }
+      }
+    }
+
+    provider "alicloud" {
+      region = substr(var.zone_id, 0, length(var.zone_id) - 2)
+    }
+
+    # -----------------------------------------------------------------------------
+    # 本地变量 (Local Values)
+    # -----------------------------------------------------------------------------
+
+    locals {
+      create_vpc = var.whether_create_vpc
+      vpc_id     = local.create_vpc ? alicloud_vpc.main[0].id : var.vpc_id
+      vswitch_id = local.create_vpc ? alicloud_vswitch.main[0].id : var.vswitch_id
+      ecs_command = <<SHELL
+    #!/bin/bash
+    set -e
+    yum install -y nginx
+    systemctl enable nginx.service
+    systemctl start nginx.service
+    nginx -v
+    echo "Nginx installation completed successfully"
+    SHELL
+    }
+
+    resource "alicloud_vpc" "main" {
+      count      = local.create_vpc ? 1 : 0
+      vpc_name   = "terraform-vpc"
+      cidr_block = var.vpc_cidr_block
+    }
+
+    resource "alicloud_vswitch" "main" {
+      count             = local.create_vpc ? 1 : 0
+      vpc_id            = alicloud_vpc.main[0].id
+      cidr_block        = var.vswitch_cidr_block
+      availability_zone = var.zone_id
+      vswitch_name      = "terraform-vswitch"
+    }
+
+    resource "alicloud_security_group" "main" {
+      name        = "terraform-sg"
+      vpc_id      = local.vpc_id
+      description = "Security group for ECS instance"
+    }
+    
+    resource "alicloud_security_group_rule" "http_ingress" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "80/80"
+      security_group_id = alicloud_security_group.main.id
+      cidr_ip           = "140.205.11.249"
+      priority          = 1
+      nic_type          = "intranet"
+    }
+
+    # 出方向规则
+    resource "alicloud_security_group_rule" "egress" {
+      type              = "egress"
+      ip_protocol       = "all"
+      port_range        = "-1/-1"
+      security_group_id = alicloud_security_group.main.id
+      cidr_ip           = "140.205.11.249"
+      priority          = 1
+      nic_type          = "intranet"
+    }
+
+    data "alicloud_images" "image_id" {
+      name_regex  = "^aliyun_3_9_x64_20G*"
+      owners      = "system"  # 官方镜像
+      most_recent = true      # 获取最新版本
+    }
+
+    resource "alicloud_instance" "main" {
+      instance_name        = "terraform-ecs"
+      image_id             = data.alicloud_images.image_id.images[0].id
+      instance_type        = var.ecs_instance_type
+      security_groups      = [alicloud_security_group.main.id]
+      vswitch_id           = local.vswitch_id
+      system_disk_category = var.system_disk_category
+      system_disk_size     = var.system_disk_size
+      password             = var.instance_password
+      internet_max_bandwidth_out = var.internet_max_bandwidth_out
+      instance_charge_type = var.pay_type
+      period_unit = var.pay_period_unit
+      period      = var.pay_period
+      
+    }
+
+    resource "alicloud_ecs_command" "nginx_install_command" {
+      name            = "nginx-install-command"
+      type            = "RunShellScript"
+      command_content = base64encode(local.ecs_command)
+      timeout         = 3600
+      working_dir      = "/root"
+    }
+    
+    resource "alicloud_ecs_invocation" "install_command" {
+      command_id  = alicloud_ecs_command.nginx_install_command.id
+      instance_id = [alicloud_instance.main.id]
+      depends_on = [alicloud_instance.main]
+      timeouts {
+        create = "60m"
+      }
+    }
+
+    output "instance_id" {
+      description = "ECS 实例 ID"
+      value       = alicloud_instance.main.id
+    }
+
+    output "public_ip" {
+      description = "公网 IP 地址"
+      value       = alicloud_instance.main.public_ip
+    }
+
+    output "endpoint" {
+      description = "网站公网访问地址"
+      value       = "http://${alicloud_instance.main.public_ip}"
+    }
+
+    output "vpc_id" {
+      description = "VPC ID"
+      value       = local.vpc_id
+    }
+
+    output "vswitch_id" {
+      description = "交换机 ID"
+      value       = local.vswitch_id
+    }
