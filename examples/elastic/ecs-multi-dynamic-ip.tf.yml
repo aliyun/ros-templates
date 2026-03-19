@@ -117,6 +117,63 @@ Metadata:
     TemplateTags:
       - acs:example:网络:创建绑定了多个私网地址的ECS
 Workspace:
+  main.tf: |+
+    resource "alicloud_vpc" "ecs_vpc" {
+          cidr_block = "192.168.0.0/16"
+        }
+
+        resource "alicloud_eip" "eip" {
+          payment_type = "PayAsYouGo"
+          internet_charge_type = "PayByTraffic"
+        }
+
+        resource "alicloud_vswitch" "ecs_vswitch" {
+          zone_id = var.vswitch_zone_id
+          cidr_block = "192.168.0.0/24"
+          vpc_id = alicloud_vpc.ecs_vpc.id
+        }
+
+        resource "alicloud_ecs_network_interface" "EcsENI" {
+          vswitch_id = alicloud_vswitch.ecs_vswitch.id
+          security_group_ids = [alicloud_security_group.ecs_security_group.id]
+        }
+
+        resource "alicloud_security_group" "ecs_security_group" {
+          vpc_id = alicloud_vpc.ecs_vpc.id
+        }
+
+        resource "alicloud_instance" "ecs_instance" {
+          image_id = var.ecs_image_id
+          allocate_public_ip = false
+          password = var.ecs_password
+          instance_charge_type = "PostPaid"
+          instance_type = var.ecs_instance_type
+          system_disk_size = var.ecs_system_disk_size
+          vswitch_id = alicloud_vswitch.ecs_vswitch.id
+          system_disk_category = var.ecs_system_disk_category
+          security_groups = [alicloud_security_group.ecs_security_group.id]
+        }
+
+        resource "alicloud_network_interface" "ecs_eni" {
+          vswitch_id          = alicloud_vswitch.ecs_vswitch.id
+          security_group_ids  = [alicloud_security_group.ecs_security_group.id]
+        }
+
+        resource "alicloud_eip_association" "eip_association" {
+          allocation_id = alicloud_eip.eip.id
+          instance_id   = alicloud_network_interface.ecs_eni.id
+          mode          = "NAT"
+          instance_type = "NetworkInterface"
+
+          depends_on = [alicloud_instance.ecs_instance]
+        }
+
+        resource "alicloud_network_interface_attachment" "ecs_eni_attachment" {
+          instance_id          = alicloud_instance.ecs_instance.id
+          network_interface_id = alicloud_network_interface.ecs_eni.id
+
+          depends_on = [alicloud_eip_association.eip_association]
+        }
   variable.tf: |-
     variable "vswitch_zone_id" {
       type = string
@@ -240,64 +297,8 @@ Workspace:
       }
       EOT
     }
-    
-    resource "alicloud_vpc" "ecs_vpc" {
-      cidr_block = "192.168.0.0/16"
-    }
-    
-    resource "alicloud_eip" "eip" {
-      payment_type = "PayAsYouGo"
-      internet_charge_type = "PayByTraffic"
-    }
-    
-    resource "alicloud_vswitch" "ecs_vswitch" {
-      zone_id = var.vswitch_zone_id
-      cidr_block = "192.168.0.0/24"
-      vpc_id = alicloud_vpc.ecs_vpc.id
-    }
-    
-    resource "alicloud_ecs_network_interface" "EcsENI" {
-      vswitch_id = alicloud_vswitch.ecs_vswitch.id
-      security_group_ids = [alicloud_security_group.ecs_security_group.id]
-    }
-    
-    resource "alicloud_security_group" "ecs_security_group" {
-      vpc_id = alicloud_vpc.ecs_vpc.id
-    }
-    
-    resource "alicloud_instance" "ecs_instance" {
-      image_id = var.ecs_image_id
-      allocate_public_ip = false
-      password = var.ecs_password
-      instance_charge_type = "PostPaid"
-      instance_type = var.ecs_instance_type
-      system_disk_size = var.ecs_system_disk_size
-      vswitch_id = alicloud_vswitch.ecs_vswitch.id
-      system_disk_category = var.ecs_system_disk_category
-      security_groups = [alicloud_security_group.ecs_security_group.id]
-    }
-    
-    resource "alicloud_network_interface" "ecs_eni" {
-      vswitch_id          = alicloud_vswitch.ecs_vswitch.id
-      security_group_ids  = [alicloud_security_group.ecs_security_group.id]
-    }
-    
-    resource "alicloud_eip_association" "eip_association" {
-      allocation_id = alicloud_eip.eip.id
-      instance_id   = alicloud_network_interface.ecs_eni.id
-      mode          = "NAT"
-      instance_type = "NetworkInterface"
-      
-      depends_on = [alicloud_instance.ecs_instance]
-    }
-    
-    resource "alicloud_network_interface_attachment" "ecs_eni_attachment" {
-      instance_id          = alicloud_instance.ecs_instance.id
-      network_interface_id = alicloud_network_interface.ecs_eni.id
-      
-      depends_on = [alicloud_eip_association.eip_association]
-    }
-    
+
+  output.tf: |+
     output "EIP" {
       description = "弹性公网 IP 地址"
       value       = alicloud_eip.eip.ip_address
@@ -312,4 +313,5 @@ Workspace:
       description = "实例主私网 IP 地址"
       value       = alicloud_instance.ecs_instance.private_ip
     }
+    
     
