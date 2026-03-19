@@ -1,0 +1,498 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Parameters:
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
+  SecurityGroupId:
+    Type: String
+    Label:
+      en: Business Security Group ID
+      zh-cn: 业务安全组ID
+    AssociationProperty: ALIYUN::ECS::SecurityGroup::SecurityGroupId
+    AssociationPropertyMetadata:
+      VpcId: ${VpcId}
+  PodCidr:
+    Type: String
+    Label:
+      zh-cn: Pod 网络 CIDR
+      en: Pod Network CIDR
+    Description:
+      zh-cn: 请填写有效的私有网段，即以下网段及其子网：10.0.0.0/8，172.16-31.0.0/12-16，192.168.0.0/16<br>不能与 VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
+      en: 'Please fill in a valid private segment, i.e. the following segments and their subnets: 10.0.0.0/8, 172.16-31.0.0/12-16, 192.168.0.0/16<br> which cannot duplicate the network segments already used by clusters in VPC and VPC Kunetberes. <font color=''blue''><b>Cannot be modified after successful creation</b></font>'
+    AssociationProperty: ALIYUN::CS::ManagedKubernetesCluster::PodCidr
+    Default: 172.20.0.0/16
+  ServiceCidr:
+    Type: String
+    Label:
+      zh-cn: Service CIDR
+      en: Service CIDR
+    Description:
+      zh-cn: 可选范围：10.0.0.0/16-24，172.16-31.0.0/16-24，192.168.0.0/16-24<br>不能与 VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>
+      en: 'Optional range: 10.0.0.0/16-24, 172.16-31.0.0/16-24, 192.168.0.0/16-24<br> cannot duplicate segments already used by existing Kubernetes clusters in VPC and VPC.<font color=''blue''><b>Cannot be modified after successful creation</b></font>'
+    AssociationProperty: ALIYUN::CS::ManagedKubernetesCluster::ServiceCidr
+    Default: 172.21.0.0/20
+  WorkerInstanceTypes:
+    Type: CommaDelimitedList
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: ${PayPeriod}
+      ZoneId: ${ZoneId}
+    Label:
+      en: Instance Type
+      zh-cn: 实例规格
+  WorkerSystemDiskSize:
+    Type: Number
+    Label:
+      zh-cn: Worker节点系统盘空间
+      en: Worker System Disk Space
+    Description:
+      zh-cn: 系统盘大小, 取值范围：[40, 500], 单位：GB。
+      en: 'System disk size, range of values: 40-500, units: GB.'
+    Default: 40
+    MinValue: 40
+    MaxValue: 500
+  WorkerSystemDiskCategory:
+    Type: String
+    Label:
+      en: Worker System Disk Category
+      zh-cn: Worker节点系统盘类型
+    AssociationPropertyMetadata:
+      LocaleKey: DiskCategory
+    Default: cloud_essd
+    AllowedValues:
+      - cloud_efficiency
+      - cloud_ssd
+      - cloud_essd
+  LoginPassword:
+    Type: String
+    NoEcho: true
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: Login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - PayType
+          - PayPeriodUnit
+          - PayPeriod
+        Label:
+          default:
+            en: PayType Configuration
+            zh-cn: 付费类型配置
+      - Parameters:
+          - VpcId
+          - ZoneId
+          - VSwitchId
+          - SecurityGroupId
+        Label:
+          default:
+            zh-cn: 基础资源配置（必填）
+            en: Infrastructure Configuration
+      - Parameters:
+          - PodCidr
+          - ServiceCidr
+          - WorkerInstanceTypes
+          - WorkerSystemDiskSize
+          - WorkerSystemDiskCategory
+          - LoginPassword
+        Label:
+          default:
+            zh-cn: Kubernetes基本配置（必填）
+            en: Kubernetes Basic Configuration
+    TemplateTags:
+      - acs:example:ISV软件部署:创建Kubernetes专有版集群(已VPC)
+Workspace:
+  variable.tf: |-
+    variable "PayType" {
+      type = string
+      default = "PostPaid"
+      description = <<EOT
+      {
+        "Label": {
+          "en": "ECS Instance Charge Type",
+          "zh-cn": "付费类型"
+        },
+        "AssociationProperty": "ChargeType",
+        "AssociationPropertyMetadata": {
+          "LocaleKey": "InstanceChargeType"
+        },
+        "AllowedValues": [
+          "PostPaid",
+          "PrePaid"
+        ]
+      }
+      EOT
+    }
+
+    variable "PayPeriodUnit" {
+      type = string
+      default = "Month"
+      description = <<EOT
+      {
+        "Label": {
+          "en": "Pay Period Unit",
+          "zh-cn": "购买资源时长周期"
+        },
+        "AssociationProperty": "PayPeriodUnit",
+        "AssociationPropertyMetadata": {
+          "Visible": {
+            "Condition": {
+              "Fn::Not": {
+                "Fn::Equals": [
+                  "PayType",
+                  "PostPaid"
+                ]
+              }
+            }
+          }
+        },
+        "AllowedValues": [
+          "Month",
+          "Year"
+        ]
+      }
+      EOT
+    }
+  
+    variable "PayPeriod" {
+      default = 1
+      type = number
+      description = <<EOT
+      {
+        "Label": {
+          "en": "Period",
+          "zh-cn": "购买资源时长"
+        },
+        "AssociationProperty": "PayPeriod",
+        "AssociationPropertyMetadata": {
+          "Visible": {
+            "Condition": {
+              "Fn::Not": {
+                "Fn::Equals": [
+                  "PayType",
+                  "PostPaid"
+                ]
+              }
+            }
+          }
+        },
+        "AllowedValues": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+      EOT
+    }
+    
+    variable "VpcId" {
+      type = string
+      description = <<EOT
+      {
+        "Label": {
+          "en": "VPC ID",
+          "zh-cn": "专有网络VPC实例ID"
+        },
+        "AssociationProperty": "ALIYUN::ECS::VPC::VPCId"
+      }
+      EOT
+    }
+  
+    variable "ZoneId" {
+      type = string
+      description = <<EOT
+      {
+        "Label": {
+          "en": "Zone ID",
+          "zh-cn": "可用区"
+        },
+        "AssociationProperty": "ALIYUN::ECS::Instance:ZoneId"
+      }
+      EOT
+    }
+  
+    variable "VSwitchId" {
+      type = string
+      description = <<EOT
+      {
+        "Label": {
+          "en": "VSwitch ID",
+          "zh-cn": "交换机实例ID"
+        },
+        "AssociationProperty": "ALIYUN::ECS::VSwitch::VSwitchId",
+        "AssociationPropertyMetadata": {
+          "VpcId": "VpcId",
+          "ZoneId": "ZoneId"
+        }
+      }
+      EOT
+    }
+  
+    variable "SecurityGroupId" {
+      type = string
+      description = <<EOT
+      {
+        "Label": {
+          "en": "Business Security Group ID",
+          "zh-cn": "业务安全组ID"
+        },
+        "AssociationProperty": "ALIYUN::ECS::SecurityGroup::SecurityGroupId",
+        "AssociationPropertyMetadata": {
+          "VpcId": "VpcId"
+        }
+      }
+      EOT
+    }
+  
+    variable "PodCidr" {
+      type = string
+      default = "172.20.0.0/16"
+      description = <<EOT
+      {
+        "Label": {
+          "zh-cn": "Pod 网络 CIDR",
+          "en": "Pod Network CIDR"
+        },
+        "Description": {
+          "zh-cn": "请填写有效的私有网段，即以下网段及其子网：10.0.0.0/8，172.16-31.0.0/12-16，192.168.0.0/16<br>不能与 VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>",
+          "en": "Please fill in a valid private segment, i.e. the following segments and their subnets: 10.0.0.0/8, 172.16-31.0.0/12-16, 192.168.0.0/16<br> which cannot duplicate the network segments already used by clusters in VPC and VPC Kunetberes. <font color='blue'><b>Cannot be modified after successful creation</b></font>"
+        },
+        "AssociationProperty": "ALIYUN::CS::ManagedKubernetesCluster::PodCidr"
+      }
+      EOT
+    }
+  
+    variable "ServiceCidr" {
+      type = string
+      default = "172.21.0.0/20"
+      description = <<EOT
+      {
+        "Label": {
+          "zh-cn": "Service CIDR",
+          "en": "Service CIDR"
+        },
+        "Description": {
+          "zh-cn": "可选范围：10.0.0.0/16-24，172.16-31.0.0/16-24，192.168.0.0/16-24<br>不能与 VPC 及 VPC 内已有 Kubernetes 集群使用的网段重复。<font color='blue'><b>创建成功后不能修改</b></font>",
+          "en": "Optional range: 10.0.0.0/16-24, 172.16-31.0.0/16-24, 192.168.0.0/16-24<br> cannot duplicate segments already used by existing Kubernetes clusters in VPC and VPC.<font color='blue'><b>Cannot be modified after successful creation</b></font>"
+        },
+        "AssociationProperty": "ALIYUN::CS::ManagedKubernetesCluster::ServiceCidr"
+      }
+      EOT
+    }
+  
+    variable "WorkerInstanceTypes" {
+      type = list(string)
+      description = <<EOT
+      {
+        "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
+        "AssociationPropertyMetadata": {
+          "InstanceChargeType": "PayPeriod",
+          "ZoneId": "ZoneId"
+        },
+        "Label": {
+          "en": "Instance Type",
+          "zh-cn": "实例规格"
+        }
+      }
+      EOT
+    }
+  
+    variable "WorkerSystemDiskSize" {
+      default = 40
+      type = number
+      description = <<EOT
+      {
+        "Label": {
+          "zh-cn": "Worker节点系统盘空间",
+          "en": "Worker System Disk Space"
+        },
+        "Description": {
+          "zh-cn": "系统盘大小, 取值范围：[40, 500], 单位：GB。",
+          "en": "System disk size, range of values: 40-500, units: GB."
+        },
+        "MinValue": 40,
+        "MaxValue": 500
+      }
+      EOT
+    }
+  
+    variable "WorkerSystemDiskCategory" {
+      type = string
+      default = "cloud_essd"
+      description = <<EOT
+      {
+        "Label": {
+          "en": "Worker System Disk Category",
+          "zh-cn": "Worker节点系统盘类型"
+        },
+        "AssociationPropertyMetadata": {
+          "LocaleKey": "DiskCategory"
+        },
+        "AllowedValues": [
+          "cloud_efficiency",
+          "cloud_ssd",
+          "cloud_essd"
+        ]
+      }
+      EOT
+    }
+    
+    variable "LoginPassword" {
+      type = string
+      description = <<EOT
+      {
+        "NoEcho": true,
+        "Label": {
+          "en": "Instance Password",
+          "zh-cn": "实例密码"
+        },
+        "Description": {
+          "en": "Login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)",
+          "zh-cn": "登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）"
+        },
+        "ConstraintDescription": {
+          "en": "Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).",
+          "zh-cn": "长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。"
+        },
+        "AssociationProperty": "ALIYUN::ECS::Instance::Password"
+      }
+      EOT
+    }
+
+  main.tf: |-
+    provider "alicloud" {
+      // Provider configuration will be inherited from environment variables or provider block
+    }
+    # Kubernetes托管版。
+    resource "alicloud_cs_managed_kubernetes" "k8s" {
+      # Kubernetes集群名称。
+      name               = "cluster_demo"
+      # 创建Pro版集群。
+      cluster_spec       = "ack.pro.small"
+      worker_vswitch_ids = [var.VSwitchId]
+      pod_vswitch_ids    = [var.VSwitchId]
+      service_cidr       = var.ServiceCidr
+      security_group_id    = var.SecurityGroupId
+      pod_cidr             = var.PodCidr
+      proxy_mode            = "ipvs"
+      addons {
+        name = "flannel"
+      }
+    }
+
+    resource "alicloud_cs_kubernetes_node_pool" "node_pool" {
+      node_pool_name       = "default-nodepool"
+      cluster_id           = alicloud_cs_managed_kubernetes.k8s.id
+      vswitch_ids          = [var.VSwitchId]
+      period               = var.PayPeriod
+      period_unit          = var.PayPeriodUnit
+      instance_charge_type = var.PayType
+      system_disk_category = var.WorkerSystemDiskCategory
+      system_disk_size     = var.WorkerSystemDiskSize
+      instance_types       = var.WorkerInstanceTypes
+      password             = var.LoginPassword
+      platform             = "AliyunLinux"
+      image_id             = "aliyun_3_9_x64_20G_alibase_20231219.vhd"
+      runtime_name    = "containerd"
+      runtime_version = "1.6.28"
+      scaling_config {
+        enable   = true
+        min_size = 2
+        max_size = 10
+      }
+    }
+
+  output.tf: |-
+    output "cluster_id" {
+      value = alicloud_cs_managed_kubernetes.k8s.id
+    }
+
+    output "worker_ram_role_name" {
+      value = alicloud_cs_managed_kubernetes.k8s.worker_ram_role_name
+    }
