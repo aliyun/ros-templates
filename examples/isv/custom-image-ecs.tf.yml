@@ -218,6 +218,113 @@ Metadata:
     TemplateTags:
       - acs:example:ISV 软件部署：创建单 ECS 实例并部署 Nginx
 Workspace:
+  main.tf: |+
+    resource "alicloud_vpc" "main" {
+      count      = local.create_vpc ? 1 : 0
+      vpc_name   = "terraform-vpc"
+      cidr_block = var.vpc_cidr_block
+    }
+
+    resource "alicloud_vswitch" "main" {
+      count             = local.create_vpc ? 1 : 0
+      vpc_id            = alicloud_vpc.main[0].id
+      cidr_block        = var.vswitch_cidr_block
+      availability_zone = var.zone_id
+      vswitch_name      = "terraform-vswitch"
+    }
+
+    resource "alicloud_security_group" "main" {
+      name        = "terraform-sg"
+      vpc_id      = local.vpc_id
+      description = "Security group for ECS instance"
+    }
+    
+    resource "alicloud_security_group_rule" "http_ingress" {
+      type              = "ingress"
+      ip_protocol       = "tcp"
+      port_range        = "80/80"
+      security_group_id = alicloud_security_group.main.id
+      cidr_ip           = "140.205.11.249"
+      priority          = 1
+      nic_type          = "intranet"
+    }
+
+    # 出方向规则
+    resource "alicloud_security_group_rule" "egress" {
+      type              = "egress"
+      ip_protocol       = "all"
+      port_range        = "-1/-1"
+      security_group_id = alicloud_security_group.main.id
+      cidr_ip           = "140.205.11.249"
+      priority          = 1
+      nic_type          = "intranet"
+    }
+
+    data "alicloud_images" "image_id" {
+      name_regex  = "^aliyun_3_9_x64_20G*"
+      owners      = "system"  # 官方镜像
+      most_recent = true      # 获取最新版本
+    }
+
+    resource "alicloud_instance" "main" {
+      instance_name        = "terraform-ecs"
+      image_id             = data.alicloud_images.image_id.images[0].id
+      instance_type        = var.ecs_instance_type
+      security_groups      = [alicloud_security_group.main.id]
+      vswitch_id           = local.vswitch_id
+      system_disk_category = var.system_disk_category
+      system_disk_size     = var.system_disk_size
+      password             = var.instance_password
+      internet_max_bandwidth_out = var.internet_max_bandwidth_out
+      instance_charge_type = var.pay_type
+      period_unit = var.pay_period_unit
+      period      = var.pay_period
+      
+    }
+
+    resource "alicloud_ecs_command" "nginx_install_command" {
+      name            = "nginx-install-command"
+      type            = "RunShellScript"
+      command_content = base64encode(local.ecs_command)
+      timeout         = 3600
+      working_dir      = "/root"
+    }
+    
+    resource "alicloud_ecs_invocation" "install_command" {
+      command_id  = alicloud_ecs_command.nginx_install_command.id
+      instance_id = [alicloud_instance.main.id]
+      depends_on = [alicloud_instance.main]
+      timeouts {
+        create = "60m"
+      }
+    }
+
+  output.tf: |+
+    output "instance_id" {
+      description = "ECS 实例 ID"
+      value       = alicloud_instance.main.id
+    }
+
+    output "public_ip" {
+      description = "公网 IP 地址"
+      value       = alicloud_instance.main.public_ip
+    }
+
+    output "endpoint" {
+      description = "网站公网访问地址"
+      value       = "http://${alicloud_instance.main.public_ip}"
+    }
+
+    output "vpc_id" {
+      description = "VPC ID"
+      value       = local.vpc_id
+    }
+
+    output "vswitch_id" {
+      description = "交换机 ID"
+      value       = local.vswitch_id
+    }
+
   variable.tf: |-
     variable "pay_type" {
       type        = string
@@ -351,109 +458,4 @@ Workspace:
     nginx -v
     echo "Nginx installation completed successfully"
     SHELL
-    }
-
-    resource "alicloud_vpc" "main" {
-      count      = local.create_vpc ? 1 : 0
-      vpc_name   = "terraform-vpc"
-      cidr_block = var.vpc_cidr_block
-    }
-
-    resource "alicloud_vswitch" "main" {
-      count             = local.create_vpc ? 1 : 0
-      vpc_id            = alicloud_vpc.main[0].id
-      cidr_block        = var.vswitch_cidr_block
-      availability_zone = var.zone_id
-      vswitch_name      = "terraform-vswitch"
-    }
-
-    resource "alicloud_security_group" "main" {
-      name        = "terraform-sg"
-      vpc_id      = local.vpc_id
-      description = "Security group for ECS instance"
-    }
-    
-    resource "alicloud_security_group_rule" "http_ingress" {
-      type              = "ingress"
-      ip_protocol       = "tcp"
-      port_range        = "80/80"
-      security_group_id = alicloud_security_group.main.id
-      cidr_ip           = "140.205.11.249"
-      priority          = 1
-      nic_type          = "intranet"
-    }
-
-    # 出方向规则
-    resource "alicloud_security_group_rule" "egress" {
-      type              = "egress"
-      ip_protocol       = "all"
-      port_range        = "-1/-1"
-      security_group_id = alicloud_security_group.main.id
-      cidr_ip           = "140.205.11.249"
-      priority          = 1
-      nic_type          = "intranet"
-    }
-
-    data "alicloud_images" "image_id" {
-      name_regex  = "^aliyun_3_9_x64_20G*"
-      owners      = "system"  # 官方镜像
-      most_recent = true      # 获取最新版本
-    }
-
-    resource "alicloud_instance" "main" {
-      instance_name        = "terraform-ecs"
-      image_id             = data.alicloud_images.image_id.images[0].id
-      instance_type        = var.ecs_instance_type
-      security_groups      = [alicloud_security_group.main.id]
-      vswitch_id           = local.vswitch_id
-      system_disk_category = var.system_disk_category
-      system_disk_size     = var.system_disk_size
-      password             = var.instance_password
-      internet_max_bandwidth_out = var.internet_max_bandwidth_out
-      instance_charge_type = var.pay_type
-      period_unit = var.pay_period_unit
-      period      = var.pay_period
-      
-    }
-
-    resource "alicloud_ecs_command" "nginx_install_command" {
-      name            = "nginx-install-command"
-      type            = "RunShellScript"
-      command_content = base64encode(local.ecs_command)
-      timeout         = 3600
-      working_dir      = "/root"
-    }
-    
-    resource "alicloud_ecs_invocation" "install_command" {
-      command_id  = alicloud_ecs_command.nginx_install_command.id
-      instance_id = [alicloud_instance.main.id]
-      depends_on = [alicloud_instance.main]
-      timeouts {
-        create = "60m"
-      }
-    }
-
-    output "instance_id" {
-      description = "ECS 实例 ID"
-      value       = alicloud_instance.main.id
-    }
-
-    output "public_ip" {
-      description = "公网 IP 地址"
-      value       = alicloud_instance.main.public_ip
-    }
-
-    output "endpoint" {
-      description = "网站公网访问地址"
-      value       = "http://${alicloud_instance.main.public_ip}"
-    }
-
-    output "vpc_id" {
-      description = "VPC ID"
-      value       = local.vpc_id
-    }
-
-    output "vswitch_id" {
-      description = "交换机 ID"
-      value       = local.vswitch_id
     }
