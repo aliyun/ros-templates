@@ -167,126 +167,6 @@ Resources:
         Ref: DiskCategory
       SystemDiskSize:
         Ref: DiskSize
-      UserData:
-        Fn::Replace:
-        - ros-notify:
-            Fn::GetAtt:
-            - RosWaitConditionHandle
-            - CurlCli
-        - Fn::Join:
-          - ''
-          - - "#!/bin/sh \n"
-            - "set -e \n"
-            - "sleep 10 \n"
-            - "OSS_NAME=\"ros-template-resources\" \n"
-            - "OSS_REGION=\"cn-beijing\" \n"
-            - "JDK_RPM=\"jdk-8u251-linux-i586.rpm\" \n"
-            - "BASH_PATH=\"/etc/profile\" \n"
-            - "ENDPOINT=\".aliyuncs.com\" \n"
-            - "ENV_DIR=\"/software\" \n"
-            - " \n"
-            - "installJavaAndConfig() { \n"
-            - "    # install \n"
-            - "    yum -y install glibc.i686 expect \n"
-            - "    wget https://${OSS_NAME}.oss-${OSS_REGION}${ENDPOINT}/JDK/${JDK_RPM}\
-              \ \n"
-            - "    rpm -Uvh ${JDK_RPM} && rm -f ${JDK_RPM} \n"
-            - "    # config \n"
-            - "    JAVA_HOME=`find / -name jdk1.8.0_*`  \n"
-            - "    echo \"export JAVA_HOME=${JAVA_HOME}\" >> ${BASH_PATH}  \n"
-            - "    echo \"export JRE_HOME=${JAVA_HOME}/jre\" >> ${BASH_PATH}  \n"
-            - "    echo \"export CLASSPATH=.:${JAVA_HOME}/lib:${JAVA_HOME}/jre/lib\"\
-              \ >> ${BASH_PATH}  \n"
-            - "    echo \"export PATH=${JAVA_HOME}/bin:$PATH\" >> ${BASH_PATH}  \n"
-            - "    source ${BASH_PATH} \n"
-            - "} \n"
-            - " \n"
-            - "createEnv(){ \n"
-            - "    mkdir -p ${ENV_DIR} \n"
-            - "} \n"
-            - '
-
-              '
-            - "installAndConfigHadoop(){ \n"
-            - "    # download \n"
-            - "    HADOOP_HOME=${ENV_DIR}/hadoop \n"
-            - "    wget https://${OSS_NAME}.oss-${OSS_REGION}${ENDPOINT}/Hadoop/hadoop-2.7.7.tar.gz\
-              \ \n"
-            - "    tar -zxvf hadoop-2.7.7.tar.gz -C ${ENV_DIR} && cd ${ENV_DIR} &&\
-              \ mv hadoop-2.7.7 hadoop \n"
-            - "    echo \"export HADOOP_HOME=${HADOOP_HOME}\" >> ${BASH_PATH}  \n"
-            - "    echo \"export PATH=${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:$PATH\"\
-              \ >> ${BASH_PATH}  \n"
-            - "    source ${BASH_PATH} \n"
-            - '    # config core-site.xml
-
-              '
-            - "    cd  ${HADOOP_HOME}/etc/hadoop/ \n"
-            - "    mv core-site.xml bak.core-site.xml \n"
-            - "    echo '<configuration>' > core-site.xml \n"
-            - "    echo '    <property>' >> core-site.xml \n"
-            - "    echo '        <name>fs.defaultFS</name>' >> core-site.xml \n"
-            - "    echo \"       <value>hdfs://localhost</value>\" >> core-site.xml\
-              \ \n"
-            - "    echo '    </property>' >> core-site.xml \n"
-            - "    echo '</configuration>' >> core-site.xml \n"
-            - "    # hdfs-site.xml \n"
-            - "    mv hdfs-site.xml bak.hdfs-site.xml \n"
-            - "    echo '<configuration>' > hdfs-site.xml \n"
-            - "    echo '    <property>' >> hdfs-site.xml \n"
-            - "    echo '        <name>dfs.replication</name>' >> hdfs-site.xml \n"
-            - "    echo \"       <value>1</value>\" >> hdfs-site.xml \n"
-            - "    echo '    </property>' >> hdfs-site.xml \n"
-            - "    echo '</configuration>' >> hdfs-site.xml \n"
-            - "    # config java home \n"
-            - "    sed -i 's/export JAVA_HOME=/#export JAVA_HOME=/' hadoop-env.sh\
-              \ \n"
-            - "    sed -i \"/#export JAVA_HOME=/a export JAVA_HOME=${JAVA_HOME}\"\
-              \ hadoop-env.sh \n"
-            - "    cd ~ \n"
-            - "} \n"
-            - " \n"
-            - "configSSH() { \n"
-            - "    ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa \n"
-            - "    cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys \n"
-            - "    chmod 0600 ~/.ssh/authorized_keys \n"
-            - "    echo '#!/bin/bash' >> ssh_copy.sh \n"
-            - "    echo 'expect <<EOF' >> ssh_copy.sh \n"
-            - "    echo 'set timeout 150' >> ssh_copy.sh \n"
-            - "    echo 'spawn ssh-copy-id -i /root/.ssh/id_rsa.pub $1' >> ssh_copy.sh\
-              \ \n"
-            - "    echo 'expect {' >> ssh_copy.sh \n"
-            - "    echo '\"yes/no\" {' >> ssh_copy.sh \n"
-            - "    echo 'send \"yes\\n\"' >> ssh_copy.sh \n"
-            - "    echo '}' >> ssh_copy.sh \n"
-            - "    echo '}' >> ssh_copy.sh \n"
-            - "    echo 'expect eof' >> ssh_copy.sh \n"
-            - "    echo 'EOF' >> ssh_copy.sh \n"
-            - "    chmod +x ssh_copy.sh \n"
-            - "    bash ssh_copy.sh localhost \n"
-            - "    bash ssh_copy.sh 0.0.0.0 \n"
-            - "} \n"
-            - " \n"
-            - "start() { \n"
-            - "    cd ${HADOOP_HOME} \n"
-            - "    bin/hdfs namenode -format \n"
-            - "    sbin/start-dfs.sh \n"
-            - "} \n"
-            - " \n"
-            - "main() { \n"
-            - "    installJavaAndConfig \n"
-            - "    createEnv \n"
-            - "    installAndConfigHadoop \n"
-            - "    configSSH \n"
-            - "    start \n"
-            - "} \n"
-            - " \n"
-            - "main \n"
-            - "curl -IL 127.0.0.1:50070 > /tmp/access.log \n"
-            - "if [[ $? -eq 0 ]]; \n"
-            - "then \n"
-            - "    ros-notify \n"
-            - "fi \n"
     Metadata:
       ALIYUN::ROS::Designer:
         id: 2e3cee51-dd38-4ded-9d3d-b9323335cc22
@@ -316,6 +196,125 @@ Resources:
     Metadata:
       ALIYUN::ROS::Designer:
         id: 623afd38-c9d7-4fce-b1ef-2abd77fb8cc7
+  RunCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      CommandContent:
+        Fn::Sub: |-
+          #!/bin/sh 
+          set -e 
+          sleep 10 
+          OSS_NAME="ros-template-resources" 
+          OSS_REGION="cn-beijing" 
+          JDK_RPM="jdk-8u251-linux-i586.rpm" 
+          BASH_PATH="/etc/profile" 
+          ENDPOINT=".aliyuncs.com" 
+          ENV_DIR="/software" 
+          
+          installJavaAndConfig() { 
+              # install 
+              yum -y install java-1.8.0-openjdk-devel
+              # config 
+              JAVA_HOME=$(ls -d /usr/lib/jvm/java-1.8.0-openjdk* 2>/dev/null | head -1)
+              if [ -z "$JAVA_HOME" ]; then
+                  echo "Error: JAVA_HOME not found!"
+                  exit 1
+              fi
+              echo "Found JAVA_HOME: $JAVA_HOME"
+              echo "export JAVA_HOME=${!JAVA_HOME}" >> ${!BASH_PATH}  
+              echo "export JRE_HOME=${!JAVA_HOME}/jre" >> ${!BASH_PATH}  
+              echo "export CLASSPATH=.:${!JAVA_HOME}/lib:${!JAVA_HOME}/jre/lib" >> ${!BASH_PATH}  
+              echo "export PATH=${!JAVA_HOME}/bin:$PATH" >> ${!BASH_PATH}  
+              source ${!BASH_PATH} 
+          } 
+          
+          createEnv(){ 
+              mkdir -p ${!ENV_DIR} 
+          } 
+          
+          installAndConfigHadoop(){ 
+              # download 
+              HADOOP_HOME=${!ENV_DIR}/hadoop 
+              wget https://${!OSS_NAME}.oss-${!OSS_REGION}${!ENDPOINT}/Hadoop/hadoop-2.7.7.tar.gz 
+              tar -zxvf hadoop-2.7.7.tar.gz -C ${!ENV_DIR} && cd ${!ENV_DIR} && mv hadoop-2.7.7 hadoop 
+              echo "export HADOOP_HOME=${!HADOOP_HOME}" >> ${!BASH_PATH}  
+              echo "export PATH=${!JAVA_HOME}/bin:${!HADOOP_HOME}/bin:${!HADOOP_HOME}/sbin:$PATH" >> ${!BASH_PATH}  
+              source ${!BASH_PATH} 
+              # config core-site.xml
+              cd  ${!HADOOP_HOME}/etc/hadoop/ 
+              mv core-site.xml bak.core-site.xml 
+              echo '<configuration>' > core-site.xml 
+              echo '    <property>' >> core-site.xml 
+              echo '        <name>fs.defaultFS</name>' >> core-site.xml 
+              echo "       <value>hdfs://localhost</value>" >> core-site.xml 
+              echo '    </property>' >> core-site.xml 
+              echo '</configuration>' >> core-site.xml 
+              # hdfs-site.xml 
+              mv hdfs-site.xml bak.hdfs-site.xml 
+              echo '<configuration>' > hdfs-site.xml 
+              echo '    <property>' >> hdfs-site.xml 
+              echo '        <name>dfs.replication</name>' >> hdfs-site.xml 
+              echo "       <value>1</value>" >> hdfs-site.xml 
+              echo '    </property>' >> hdfs-site.xml 
+              echo '</configuration>' >> hdfs-site.xml 
+              # config java home 
+              echo "" >> ${!HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+              echo "export JAVA_HOME=${!JAVA_HOME}" >> ${!HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+              cd ~ 
+          } 
+          
+          configSSH() { 
+              yum install -y expect
+              ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa 
+              cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys 
+              chmod 0600 ~/.ssh/authorized_keys 
+              echo '#!/bin/bash' >> ssh_copy.sh 
+              echo 'expect <<EOF' >> ssh_copy.sh 
+              echo 'set timeout 150' >> ssh_copy.sh 
+              echo 'spawn ssh-copy-id -i /root/.ssh/id_rsa.pub $1' >> ssh_copy.sh 
+              echo 'expect {' >> ssh_copy.sh 
+              echo '"yes/no" {' >> ssh_copy.sh 
+              echo 'send "yes\n"' >> ssh_copy.sh 
+              echo '}' >> ssh_copy.sh 
+              echo '}' >> ssh_copy.sh 
+              echo 'expect eof' >> ssh_copy.sh 
+              echo 'EOF' >> ssh_copy.sh 
+              chmod +x ssh_copy.sh 
+              bash ssh_copy.sh localhost 
+              bash ssh_copy.sh 0.0.0.0 
+          } 
+          
+          start() { 
+              cd ${!HADOOP_HOME} 
+              rm -rf /tmp/hadoop-*
+              bin/hdfs namenode -format -force
+              sbin/start-dfs.sh
+              jps
+          } 
+          
+          main() { 
+              installJavaAndConfig 
+              createEnv 
+              installAndConfigHadoop 
+              configSSH 
+              start 
+          } 
+          
+          main
+          sleep 10
+          curl -IL 127.0.0.1:50070 > /tmp/access.log
+          if [[ $? -eq 0 ]];
+          then
+              ${RosWaitConditionHandle.CurlCli} --data-binary '{"status": "SUCCESS"}' 
+          fi
+      Type: RunShellScript
+      Sync: true
+      InstanceIds:
+        Fn::GetAtt:
+          - HDFSServer
+          - InstanceIds
+      Timeout: 7200
+    DependsOn: EipAssociation
   RosWaitConditionHandle:
     Type: ALIYUN::ROS::WaitConditionHandle
     Properties: {}
@@ -328,7 +327,7 @@ Resources:
       Count: 1
       Handle:
         Ref: RosWaitConditionHandle
-      Timeout: 1800
+      Timeout: 2400
     Metadata:
       ALIYUN::ROS::Designer:
         id: c8cd85d7-0384-43ce-a8b1-8d504347c3b5
