@@ -1,0 +1,1009 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: Aliyun::Terraform-v1.5
+Parameters:
+  ZoneId1:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID，选择创建交换机1，3，5的可用区（需要指定与交换机2，4，6不同可用区）
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  ZoneId2:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID，选择创建交换机2，4，6的可用区（需要指定与交换机1，3，5不同可用区）
+    AssociationProperty: ALIYUN::ECS::Instance:ZoneId
+  InstanceChargeType:
+    Type: String
+    Label:
+      en: ECS Instance Billing Method
+      zh-cn: ECS实例的付费模式
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+  EcsPeriodUnit:
+    Type: String
+    Label:
+      en: ECS Purchase cycle of prepaid resources
+      zh-cn: 云服务器预付费资源的购买周期
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${InstanceChargeType}
+              - PostPaid
+    Default: Week
+    AllowedValues:
+      - Week
+      - Month
+  EcsPeriod:
+    Type: Number
+    Label:
+      en: ECS Purchase duration of prepaid resources
+      zh-cn: 云服务器预付费资源的购买时长
+    Description:
+      en: 'When the purchase cycle of prepaid resource is week, the value range is: [1,2,3,4]; when the purchase cycle of prepaid resource is month, the value is: [1,2,3,4,5,6,7,8,9,12,24,36,48,60]<br>'
+      zh-cn: 云服务器预付费资源的购买时长，当预付费资源的购买周期为Week时，取值范围：[1，2，3，4]; 当预付费资源的购买周期为Month时，取值：[1，2，3，4，5，6，7，8，9，12，24，36，48，60]<br>
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${InstanceChargeType}
+              - PostPaid
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 12
+      - 24
+      - 36
+      - 48
+      - 60
+  InstancePassword:
+    Type: String
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    Description:
+      en: The 8-30 long login password of instance, consists of the uppercase, lowercase letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+      zh-cn: 长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+    AllowedPattern: '[0-9A-Za-z\_\-&:;''<>,=%`~!@#\(\)\$\^\*\+\|\{\}\[\]\.\?\/]+$'
+    MinLength: '8'
+    MaxLength: '30'
+    NoEcho: true
+  Vpc1CidrBlock:
+    Type: String
+    Label:
+      en: Stage VPC CIDR Block
+      zh-cn: Stage专有网络网段
+    Default: 192.168.0.0/16
+  VSwitch1CidrBlock:
+    Type: String
+    Label:
+      en: Stage VSwitch1 CIDR Block
+      zh-cn: 交换机1子网段(所属Stage专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 192.168.0.0/24
+  VSwitch2CidrBlock:
+    Type: String
+    Label:
+      en: Stage VSwitch2 CIDR Block
+      zh-cn: 交换机2子网段(所属Stage专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 192.168.1.0/24
+  StageVpcInstanceType:
+    Type: String
+    Label:
+      en: Stage Vpc Instance Type
+      zh-cn: 预发环境的ECS实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the current available zone under the model is in stock, some models need to be reported in advance</b></font><br><font color='blue'><b>2.List of optional models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: ${InstanceChargeType}
+      ZoneId: ${ZoneId2}
+  StageVpcSystemDiskCategory:
+    Type: String
+    Label:
+      en: Stage Vpc System Disk Category
+      zh-cn: 预发环境的ECS系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${StageVpcInstanceType}
+      ZoneId: ${ZoneId2}
+  Vpc2CidrBlock:
+    Type: String
+    Label:
+      en: Prod VPC CIDR Block
+      zh-cn: Prod专有网络网段
+    Default: 172.16.0.0/16
+  VSwitch3CidrBlock:
+    Type: String
+    Label:
+      en: Prod VSwitch 3 CIDR Block
+      zh-cn: 交换机3子网段(所属Prod专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 172.16.0.0/24
+  VSwitch4CidrBlock:
+    Type: String
+    Label:
+      en: Prod VSwitch 4 CIDR Block
+      zh-cn: 交换机4子网段(所属Prod专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 172.16.1.0/24
+  ProdVpcInstanceType:
+    Type: String
+    Label:
+      en: Prod Vpc Instance Type
+      zh-cn: 生产环境的ECS实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the current available zone under the model is in stock, some models need to be reported in advance</b></font><br><font color='blue'><b>2.List of optional models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: ${InstanceChargeType}
+      ZoneId: ${ZoneId1}
+  ProdVpcSystemDiskCategory:
+    Type: String
+    Label:
+      en: Prod Vpc System Disk Category
+      zh-cn: 测试环境的ECS系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${ProdVpcInstanceType}
+      ZoneId: ${ZoneId1}
+  Vpc3CidrBlock:
+    Type: String
+    Label:
+      en: Ops VPC CIDR Block
+      zh-cn: Ops专有网络网段
+    Default: 10.0.0.0/16
+  VSwitch5CidrBlock:
+    Type: String
+    Label:
+      en: Ops VSwitch 5 CIDR Block
+      zh-cn: 交换机5子网段(所属Ops专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.0.0.0/24
+  VSwitch6CidrBlock:
+    Type: String
+    Label:
+      en: Ops VSwitch 6 CIDR Block
+      zh-cn: 交换机6子网段(所属Ops专有网络)
+    Description:
+      en: Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.
+      zh-cn: 必须是所属专有网络的子网段，并且没有被其他交换机占用。
+    Default: 10.0.1.0/24
+  OpsVpcInstanceType:
+    Type: String
+    Label:
+      en: Ops Vpc Instance Type
+      zh-cn: 运维环境的ECS实例规格
+    Description:
+      en: <font color='blue'><b>1.Before selecting the model please confirm that the current available zone under the model is in stock, some models need to be reported in advance</b></font><br><font color='blue'><b>2.List of optional models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]
+      zh-cn: <font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: ${InstanceChargeType}
+      ZoneId: ${ZoneId1}
+  OpsVpcSystemDiskCategory:
+    Type: String
+    Label:
+      en: Ops Vpc System Disk Category
+      zh-cn: 运维环境的ECS系统盘类型
+    Description:
+      en: '<font color=''blue''><b>Optional values:</b></font><br>[cloud_efficiency: <font color=''green''>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color=''green''>SSD Cloud Disk</font>]<br>[cloud_essd: <font color=''green''>ESSD Cloud Disk</font>]<br>[cloud: <font color=''green''>Cloud Disk</font>]<br>[ephemeral_ssd: <font color=''green''>Local SSD Cloud Disk</font>]'
+      zh-cn: '<font color=''blue''><b>可选值：</b></font><br>[cloud_efficiency: <font color=''green''>高效云盘</font>]<br>[cloud_ssd: <font color=''green''>SSD云盘</font>]<br>[cloud_essd: <font color=''green''>ESSD云盘</font>]<br>[cloud: <font color=''green''>普通云盘</font>]<br>[ephemeral_ssd: <font color=''green''>本地SSD盘</font>]'
+    AssociationProperty: ALIYUN::ECS::Disk::SystemDiskCategory
+    AssociationPropertyMetadata:
+      InstanceType: ${OpsVpcInstanceType}
+      ZoneId: ${ZoneId1}
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ZoneId1
+          - ZoneId2
+        Label:
+          default: Zones Configuration
+      - Parameters:
+          - InstanceChargeType
+          - EcsPeriodUnit
+          - EcsPeriod
+          - InstancePassword
+        Label:
+          default: ECS Common Configuration
+      - Parameters:
+          - Vpc1CidrBlock
+          - VSwitch1CidrBlock
+          - VSwitch2CidrBlock
+          - StageVpcInstanceType
+          - StageVpcSystemDiskCategory
+        Label:
+          default: Stage Configuration
+      - Parameters:
+          - Vpc2CidrBlock
+          - VSwitch3CidrBlock
+          - VSwitch4CidrBlock
+          - ProdVpcInstanceType
+          - ProdVpcSystemDiskCategory
+        Label:
+          default: Prod Configuration
+      - Parameters:
+          - Vpc3CidrBlock
+          - VSwitch5CidrBlock
+          - VSwitch6CidrBlock
+          - OpsVpcInstanceType
+          - OpsVpcSystemDiskCategory
+        Label:
+          default: Ops Configuration
+    TemplateTags:
+      - acs:example:网络场景:隔离VPC使用共享服务
+Workspace:
+  main.tf: |+
+    provider "alicloud" {
+      // Provider configuration will be inherited from environment variables or provider block
+    }
+    
+    data "alicloud_images" "image_id" {
+      name_regex = "^centos_7_9_x64*"
+      owners      = "system"  # 官方镜像
+      most_recent = true      # 获取最新版本
+    }
+    resource "alicloud_vpc" "vpc1" {
+      cidr_block = var.Vpc1CidrBlock
+    }
+    
+    resource "alicloud_security_group" "ecs_security_group1" {
+      vpc_id = alicloud_vpc.vpc1.id
+    }
+    
+    resource "alicloud_vswitch" "vswitch2" {
+      zone_id    = var.ZoneId2
+      vpc_id     = alicloud_vpc.vpc1.id
+      cidr_block = var.VSwitch2CidrBlock
+    }
+    
+    resource "alicloud_instance" "ecs1" {
+      vpc_id               = alicloud_vpc.vpc1.id
+      vswitch_id           = alicloud_vswitch.vswitch2.id
+      security_groups      = [alicloud_security_group.ecs_security_group1.id]
+      image_id             = data.alicloud_images.image_id.images[0].id
+      instance_charge_type = var.InstanceChargeType
+      instance_name        = "StageInstance"
+      instance_type        = var.StageVpcInstanceType
+      password             = var.InstancePassword
+      period               = var.EcsPeriod
+      period_unit          = var.EcsPeriodUnit
+      system_disk_category = var.StageVpcSystemDiskCategory
+    }
+    
+    resource "alicloud_vpc" "vpc2" {
+      cidr_block = var.Vpc2CidrBlock
+    }
+    
+    resource "alicloud_security_group" "ecs_security_group2" {
+      vpc_id = alicloud_vpc.vpc2.id
+    }
+    
+    resource "alicloud_vswitch" "vswitch3" {
+      zone_id    = var.ZoneId1
+      vpc_id     = alicloud_vpc.vpc2.id
+      cidr_block = var.VSwitch3CidrBlock
+    }
+    
+    resource "alicloud_instance" "ecs2" {
+      vpc_id               = alicloud_vpc.vpc2.id
+      vswitch_id           = alicloud_vswitch.vswitch3.id
+      security_groups      = [alicloud_security_group.ecs_security_group2.id]
+      image_id             = data.alicloud_images.image_id.images[0].id
+      instance_charge_type = var.InstanceChargeType
+      instance_name        = "ProdInstance"
+      instance_type        = var.ProdVpcInstanceType
+      password             = var.InstancePassword
+      period               = var.EcsPeriod
+      period_unit          = var.EcsPeriodUnit
+      system_disk_category = var.ProdVpcSystemDiskCategory
+    }
+    
+    resource "alicloud_vpc" "vpc3" {
+      cidr_block = var.Vpc3CidrBlock
+    }
+    
+    resource "alicloud_security_group" "ecs_security_group3" {
+      vpc_id = alicloud_vpc.vpc3.id
+    }
+    
+    resource "alicloud_vswitch" "vswitch5" {
+      zone_id    = var.ZoneId1
+      vpc_id     = alicloud_vpc.vpc3.id
+      cidr_block = var.VSwitch5CidrBlock
+    }
+    
+    resource "alicloud_instance" "ecs3" {
+      vpc_id               = alicloud_vpc.vpc3.id
+      vswitch_id           = alicloud_vswitch.vswitch5.id
+      security_groups      = [alicloud_security_group.ecs_security_group3.id]
+      image_id             = data.alicloud_images.image_id.images[0].id
+      instance_charge_type = var.InstanceChargeType
+      instance_name        = "OpsInstance"
+      instance_type        = var.OpsVpcInstanceType
+      password             = var.InstancePassword
+      period               = var.EcsPeriod
+      period_unit          = var.EcsPeriodUnit
+      system_disk_category = var.OpsVpcSystemDiskCategory
+    }
+    
+    resource "alicloud_cen_instance" "cen_instance" {
+      depends_on = [
+        alicloud_instance.ecs1,
+        alicloud_instance.ecs2,
+        alicloud_instance.ecs3
+      ]
+    }
+    
+    resource "alicloud_cen_transit_router" "transit_router" {
+      cen_id = alicloud_cen_instance.cen_instance.id
+    }
+    
+    resource "alicloud_vswitch" "vswitch1" {
+      zone_id    = var.ZoneId1
+      vpc_id     = alicloud_vpc.vpc1.id
+      cidr_block = var.VSwitch1CidrBlock
+    }
+    
+    resource "alicloud_cen_transit_router_vpc_attachment" "transit_router_vpc1_attachment" {
+      vpc_id                          = alicloud_vpc.vpc1.id
+      cen_id                          = alicloud_cen_instance.cen_instance.id
+      route_table_association_enabled = false
+      route_table_propagation_enabled = true
+      transit_router_id               = alicloud_cen_transit_router.transit_router.transit_router_id
+      depends_on = [
+        alicloud_cen_instance.cen_instance,
+        alicloud_vswitch.vswitch1,
+        alicloud_vswitch.vswitch2,
+        alicloud_vpc.vpc1,
+        alicloud_cen_transit_router.transit_router
+      ]
+      zone_mappings {
+        zone_id = var.ZoneId1
+        vswitch_id = alicloud_vswitch.vswitch1.id
+      }
+      zone_mappings {
+        zone_id = var.ZoneId2
+        vswitch_id = alicloud_vswitch.vswitch2.id
+      }
+    }
+    
+    resource "alicloud_vswitch" "vswitch4" {
+      zone_id    = var.ZoneId2
+      vpc_id     = alicloud_vpc.vpc2.id
+      cidr_block = var.VSwitch4CidrBlock
+    }
+    
+    resource "alicloud_cen_transit_router_vpc_attachment" "transit_router_vpc2_attachment" {
+      vpc_id                          = alicloud_vpc.vpc2.id
+      cen_id                          = alicloud_cen_instance.cen_instance.id
+      route_table_association_enabled = false
+      route_table_propagation_enabled = true
+      transit_router_id               = alicloud_cen_transit_router.transit_router.transit_router_id
+      depends_on = [
+        alicloud_cen_instance.cen_instance,
+        alicloud_vswitch.vswitch3,
+        alicloud_vswitch.vswitch4,
+        alicloud_vpc.vpc2,
+        alicloud_cen_transit_router.transit_router
+      ]
+      zone_mappings {
+        zone_id = var.ZoneId1
+        vswitch_id = alicloud_vswitch.vswitch3.id
+      }
+      zone_mappings {
+        zone_id = var.ZoneId2
+        vswitch_id = alicloud_vswitch.vswitch4.id
+      }
+    }
+    
+    resource "alicloud_vswitch" "vswitch6" {
+      zone_id    = var.ZoneId2
+      vpc_id     = alicloud_vpc.vpc3.id
+      cidr_block = var.VSwitch6CidrBlock
+    }
+    
+    resource "alicloud_cen_transit_router_vpc_attachment" "transit_router_vpc3_attachment" {
+      vpc_id                          = alicloud_vpc.vpc3.id
+      cen_id                          = alicloud_cen_instance.cen_instance.id
+      route_table_association_enabled = true
+      route_table_propagation_enabled = true
+      transit_router_id               = alicloud_cen_transit_router.transit_router.transit_router_id
+      depends_on = [
+        alicloud_cen_instance.cen_instance,
+        alicloud_vswitch.vswitch5,
+        alicloud_vswitch.vswitch6,
+        alicloud_vpc.vpc3,
+        alicloud_cen_transit_router.transit_router
+      ]
+      zone_mappings {
+        zone_id = var.ZoneId1
+        vswitch_id = alicloud_vswitch.vswitch5.id
+      }
+      zone_mappings {
+        zone_id = var.ZoneId2
+        vswitch_id = alicloud_vswitch.vswitch6.id
+      }
+    }
+    
+    resource "alicloud_cen_transit_router_route_table" "transit_router_route_table" {
+      transit_router_id = alicloud_cen_transit_router.transit_router.transit_router_id
+      depends_on = [
+        alicloud_cen_transit_router_vpc_attachment.transit_router_vpc1_attachment,
+        alicloud_cen_transit_router_vpc_attachment.transit_router_vpc2_attachment,
+        alicloud_cen_transit_router_vpc_attachment.transit_router_vpc3_attachment
+      ]
+    }
+    
+    resource "alicloud_cen_transit_router_route_entry" "transit_router_route_entry" {
+      transit_router_route_entry_destination_cidr_block = var.Vpc3CidrBlock
+      transit_router_route_entry_next_hop_id            = alicloud_cen_transit_router_vpc_attachment.transit_router_vpc3_attachment.transit_router_attachment_id
+      transit_router_route_entry_next_hop_type          = "Attachment"
+      transit_router_route_table_id                     = alicloud_cen_transit_router_route_table.transit_router_route_table.transit_router_route_table_id
+    }
+    
+    resource "alicloud_cen_transit_router_route_table_association" "transit_router_route_table_association1" {
+      transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.transit_router_vpc1_attachment.transit_router_attachment_id
+      transit_router_route_table_id = alicloud_cen_transit_router_route_table.transit_router_route_table.transit_router_route_table_id
+    }
+    
+    resource "alicloud_route_entry" "route1" {
+      destination_cidrblock = "0.0.0.0/0"
+      nexthop_id            = alicloud_cen_transit_router_vpc_attachment.transit_router_vpc1_attachment.transit_router_attachment_id
+      nexthop_type          = "Attachment"
+      route_table_id        = alicloud_vpc.vpc1.route_table_id
+      depends_on = [
+        alicloud_cen_transit_router_route_entry.transit_router_route_entry,
+        alicloud_cen_transit_router_route_table_association.transit_router_route_table_association1
+      ]
+    }
+    
+    resource "alicloud_cen_transit_router_route_table_association" "transit_router_route_table_association2" {
+      transit_router_attachment_id  = alicloud_cen_transit_router_vpc_attachment.transit_router_vpc2_attachment.transit_router_attachment_id
+      transit_router_route_table_id = alicloud_cen_transit_router_route_table.transit_router_route_table.transit_router_route_table_id
+    }
+    
+    resource "alicloud_route_entry" "route2" {
+      destination_cidrblock = "0.0.0.0/0"
+      nexthop_id            = alicloud_cen_transit_router_vpc_attachment.transit_router_vpc2_attachment.transit_router_attachment_id
+      nexthop_type          = "Attachment"
+      route_table_id        = alicloud_vpc.vpc2.route_table_id
+      depends_on = [
+        alicloud_cen_transit_router_route_entry.transit_router_route_entry,
+        alicloud_cen_transit_router_route_table_association.transit_router_route_table_association2
+      ]
+    }
+    
+    resource "alicloud_route_entry" "route3" {
+      destination_cidrblock = "0.0.0.0/0"
+      nexthop_id            = alicloud_cen_transit_router_vpc_attachment.transit_router_vpc3_attachment.transit_router_attachment_id
+      nexthop_type          = "Attachment"
+      route_table_id        = alicloud_vpc.vpc3.route_table_id
+      depends_on = [
+        alicloud_cen_transit_router_route_entry.transit_router_route_entry,
+        alicloud_cen_transit_router_vpc_attachment.transit_router_vpc3_attachment
+      ]
+    }
+    
+    resource "alicloud_security_group_rule" "ecs_security_group1_security_group_egress_0_7b27cf3c" {
+      cidr_ip           = "0.0.0.0/0"
+      ip_protocol       = "all"
+      nic_type          = "intranet"
+      port_range        = "-1/-1"
+      priority          = 1
+      security_group_id = alicloud_security_group.ecs_security_group1.id
+      type              = "egress"
+    }
+    
+    resource "alicloud_security_group_rule" "ecs_security_group1_security_group_ingress_0_86eb0ad3" {
+      ip_protocol       = "all"
+      nic_type          = "intranet"
+      port_range        = "-1/-1"
+      priority          = 1
+      cidr_ip           = "0.0.0.0/0"
+      security_group_id = alicloud_security_group.ecs_security_group1.id
+      type              = "ingress"
+    }
+    
+    resource "alicloud_security_group_rule" "ecs_security_group2_security_group_egress_0_3a3089db" {
+      cidr_ip           = "0.0.0.0/0"
+      ip_protocol       = "all"
+      nic_type          = "intranet"
+      port_range        = "-1/-1"
+      priority          = 1
+      security_group_id = alicloud_security_group.ecs_security_group2.id
+      type              = "egress"
+    }
+    
+    resource "alicloud_security_group_rule" "ecs_security_group2_security_group_ingress_0_fab22b99" {
+      ip_protocol       = "all"
+      nic_type          = "intranet"
+      port_range        = "-1/-1"
+      priority          = 1
+      cidr_ip           = "0.0.0.0/0"
+      security_group_id = alicloud_security_group.ecs_security_group2.id
+      type              = "ingress"
+    }
+    
+    resource "alicloud_security_group_rule" "ecs_security_group3_security_group_egress_0_b92fb924" {
+      cidr_ip           = "0.0.0.0/0"
+      ip_protocol       = "all"
+      nic_type          = "intranet"
+      port_range        = "-1/-1"
+      priority          = 1
+      security_group_id = alicloud_security_group.ecs_security_group3.id
+      type              = "egress"
+    }
+    
+    resource "alicloud_security_group_rule" "ecs_security_group3_security_group_ingress_0_ed973f3c" {
+      ip_protocol       = "all"
+      nic_type          = "intranet"
+      port_range        = "-1/-1"
+      priority          = 1
+      cidr_ip           = "0.0.0.0/0"
+      security_group_id = alicloud_security_group.ecs_security_group3.id
+      type              = "ingress"
+    }
+
+  variable.tf: |+
+      variable "ZoneId1" {
+        type        = string
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Zone ID",
+            "zh-cn": "可用区ID，选择创建交换机1，3，5的可用区（需要指定与交换机2，4，6不同可用区）"
+          },
+          "AssociationProperty": "ALIYUN::ECS::Instance:ZoneId"
+        }
+        EOT
+      }
+      
+      variable "ZoneId2" {
+        type        = string
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Zone ID",
+            "zh-cn": "可用区ID，选择创建交换机2，4，6的可用区（需要指定与交换机1，3，5不同可用区）"
+          },
+          "AssociationProperty": "ALIYUN::ECS::Instance:ZoneId"
+        }
+        EOT
+      }
+      
+      variable "InstanceChargeType" {
+        type        = string
+        default     = "PostPaid"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "ECS Instance Billing Method",
+            "zh-cn": "ECS实例的付费模式"
+          },
+          "AssociationPropertyMetadata": {
+            "LocaleKey": "InstanceChargeType"
+          },
+          "AllowedValues": [
+            "PostPaid",
+            "PrePaid"
+          ]
+        }
+        EOT
+      }
+      
+      variable "EcsPeriodUnit" {
+        type        = string
+        default     = "Week"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "ECS Purchase cycle of prepaid resources",
+            "zh-cn": "云服务器预付费资源的购买周期"
+          },
+          "AssociationPropertyMetadata": {
+            "Visible": {
+              "Condition": {
+                "Fn::Not": {
+                  "Fn::Equals": [
+                    "$${InstanceChargeType}",
+                    "PostPaid"
+                  ]
+                }
+              }
+            }
+          },
+          "AllowedValues": [
+            "Week",
+            "Month"
+          ]
+        }
+        EOT
+      }
+      
+      variable "EcsPeriod" {
+        type        = number
+        default     = 1
+        description = <<EOT
+        {
+          "Label": {
+            "en": "ECS Purchase duration of prepaid resources",
+            "zh-cn": "云服务器预付费资源的购买时长"
+          },
+          "Description": {
+            "en": "When the purchase cycle of prepaid resource is week, the value range is: [1,2,3,4]; when the purchase cycle of prepaid resource is month, the value is: [1,2,3,4,5,6,7,8,9,12,24,36,48,60]<br>",
+            "zh-cn": "云服务器预付费资源的购买时长，当预付费资源的购买周期为Week时，取值范围：[1，2，3，4]; 当预付费资源的购买周期为Month时，取值：[1，2，3，4，5，6，7，8，9，12，24，36，48，60]<br>"
+          },
+          "AssociationPropertyMetadata": {
+            "Visible": {
+              "Condition": {
+                "Fn::Not": {
+                  "Fn::Equals": [
+                    "$${InstanceChargeType}",
+                    "PostPaid"
+                  ]
+                }
+              }
+            }
+          },
+          "AllowedValues": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            12,
+            24,
+            36,
+            48,
+            60
+          ]
+        }
+        EOT
+      }
+      
+      variable "InstancePassword" {
+        type        = string
+        sensitive   = true
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Instance Password",
+            "zh-cn": "实例密码"
+          },
+          "Description": {
+            "en": "The 8-30 long login password of instance, consists of the uppercase, lowercase letter and number. <br> special characters include()`~!@#$%^&*_-+=|{}[]:;'<>,.?/",
+            "zh-cn": "长度8-30，必须包含大写字母、小写字母、数字、特殊符号三个；<br>特殊字符包括：()`~!@#$%^&*_-+=|{}[]:;'<>,.?/"
+          },
+          "ConstraintDescription": {
+            "en": "Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in).",
+            "zh-cn": "长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。"
+          },
+          "AllowedPattern": "[0-9A-Za-z\\_\\-&:;'<>,=%`~!@#\\(\\)\\$\\^\\*\\+\\|\\{\\}\\[\\]\\.\\?\\/]+$",
+          "MinLength": "8",
+          "MaxLength": "30"
+        }
+        EOT
+      }
+      
+      variable "Vpc1CidrBlock" {
+        type        = string
+        default     = "192.168.0.0/16"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Stage VPC CIDR Block",
+            "zh-cn": "Stage专有网络网段"
+          }
+        }
+        EOT
+      }
+      
+      variable "VSwitch1CidrBlock" {
+        type        = string
+        default     = "192.168.0.0/24"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Stage VSwitch1 CIDR Block",
+            "zh-cn": "交换机1子网段(所属Stage专有网络)"
+          },
+          "Description": {
+            "en": "Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.",
+            "zh-cn": "必须是所属专有网络的子网段，并且没有被其他交换机占用。"
+          }
+        }
+        EOT
+      }
+      
+      variable "VSwitch2CidrBlock" {
+        type        = string
+        default     = "192.168.1.0/24"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Stage VSwitch2 CIDR Block",
+            "zh-cn": "交换机2子网段(所属Stage专有网络)"
+          },
+          "Description": {
+            "en": "Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.",
+            "zh-cn": "必须是所属专有网络的子网段，并且没有被其他交换机占用。"
+          }
+        }
+        EOT
+      }
+      
+      variable "StageVpcInstanceType" {
+        type        = string
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Stage Vpc Instance Type",
+            "zh-cn": "预发环境的ECS实例规格"
+          },
+          "Description": {
+            "en": "<font color='blue'><b>1.Before selecting the model please confirm that the current available zone under the model is in stock, some models need to be reported in advance</b></font><br><font color='blue'><b>2.List of optional models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]",
+            "zh-cn": "<font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]"
+          },
+          "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
+          "AssociationPropertyMetadata": {
+            "InstanceChargeType": "$${InstanceChargeType}",
+            "ZoneId": "$${ZoneId2}"
+          }
+        }
+        EOT
+      }
+      
+      variable "StageVpcSystemDiskCategory" {
+        type        = string
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Stage Vpc System Disk Category",
+            "zh-cn": "预发环境的ECS系统盘类型"
+          },
+          "Description": {
+            "en": "<font color='blue'><b>Optional values:</b></font><br>[cloud_efficiency: <font color='green'>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color='green'>SSD Cloud Disk</font>]<br>[cloud_essd: <font color='green'>ESSD Cloud Disk</font>]<br>[cloud: <font color='green'>Cloud Disk</font>]<br>[ephemeral_ssd: <font color='green'>Local SSD Cloud Disk</font>]",
+            "zh-cn": "<font color='blue'><b>可选值：</b></font><br>[cloud_efficiency: <font color='green'>高效云盘</font>]<br>[cloud_ssd: <font color='green'>SSD云盘</font>]<br>[cloud_essd: <font color='green'>ESSD云盘</font>]<br>[cloud: <font color='green'>普通云盘</font>]<br>[ephemeral_ssd: <font color='green'>本地SSD盘</font>]"
+          },
+          "AssociationProperty": "ALIYUN::ECS::Disk::SystemDiskCategory",
+          "AssociationPropertyMetadata": {
+            "InstanceType": "$${StageVpcInstanceType}",
+            "ZoneId": "$${ZoneId2}"
+          }
+        }
+        EOT
+      }
+      
+      variable "Vpc2CidrBlock" {
+        type        = string
+        default     = "172.16.0.0/16"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Prod VPC CIDR Block",
+            "zh-cn": "Prod专有网络网段"
+          }
+        }
+        EOT
+      }
+      
+      variable "VSwitch3CidrBlock" {
+        type        = string
+        default     = "172.16.0.0/24"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Prod VSwitch 3 CIDR Block",
+            "zh-cn": "交换机3子网段(所属Prod专有网络)"
+          },
+          "Description": {
+            "en": "Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.",
+            "zh-cn": "必须是所属专有网络的子网段，并且没有被其他交换机占用。"
+          }
+        }
+        EOT
+      }
+      
+      variable "VSwitch4CidrBlock" {
+        type        = string
+        default     = "172.16.1.0/24"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Prod VSwitch 4 CIDR Block",
+            "zh-cn": "交换机4子网段(所属Prod专有网络)"
+          },
+          "Description": {
+            "en": "Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.",
+            "zh-cn": "必须是所属专有网络的子网段，并且没有被其他交换机占用。"
+          }
+        }
+        EOT
+      }
+      
+      variable "ProdVpcInstanceType" {
+        type        = string
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Prod Vpc Instance Type",
+            "zh-cn": "生产环境的ECS实例规格"
+          },
+          "Description": {
+            "en": "<font color='blue'><b>1.Before selecting the model please confirm that the current available zone under the model is in stock, some models need to be reported in advance</b></font><br><font color='blue'><b>2.List of optional models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]",
+            "zh-cn": "<font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]"
+          },
+          "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
+          "AssociationPropertyMetadata": {
+            "InstanceChargeType": "$${InstanceChargeType}",
+            "ZoneId": "$${ZoneId1}"
+          }
+        }
+        EOT
+      }
+      
+      variable "ProdVpcSystemDiskCategory" {
+        type        = string
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Prod Vpc System Disk Category",
+            "zh-cn": "测试环境的ECS系统盘类型"
+          },
+          "Description": {
+            "en": "<font color='blue'><b>Optional values:</b></font><br>[cloud_efficiency: <font color='green'>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color='green'>SSD Cloud Disk</font>]<br>[cloud_essd: <font color='green'>ESSD Cloud Disk</font>]<br>[cloud: <font color='green'>Cloud Disk</font>]<br>[ephemeral_ssd: <font color='green'>Local SSD Cloud Disk</font>]",
+            "zh-cn": "<font color='blue'><b>可选值：</b></font><br>[cloud_efficiency: <font color='green'>高效云盘</font>]<br>[cloud_ssd: <font color='green'>SSD云盘</font>]<br>[cloud_essd: <font color='green'>ESSD云盘</font>]<br>[cloud: <font color='green'>普通云盘</font>]<br>[ephemeral_ssd: <font color='green'>本地SSD盘</font>]"
+          },
+          "AssociationProperty": "ALIYUN::ECS::Disk::SystemDiskCategory",
+          "AssociationPropertyMetadata": {
+            "InstanceType": "$${ProdVpcInstanceType}",
+            "ZoneId": "$${ZoneId1}"
+          }
+        }
+        EOT
+      }
+      
+      variable "Vpc3CidrBlock" {
+        type        = string
+        default     = "10.0.0.0/16"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Ops VPC CIDR Block",
+            "zh-cn": "Ops专有网络网段"
+          }
+        }
+        EOT
+      }
+      
+      variable "VSwitch5CidrBlock" {
+        type        = string
+        default     = "10.0.0.0/24"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Ops VSwitch 5 CIDR Block",
+            "zh-cn": "交换机5子网段(所属Ops专有网络)"
+          },
+          "Description": {
+            "en": "Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.",
+            "zh-cn": "必须是所属专有网络的子网段，并且没有被其他交换机占用。"
+          }
+        }
+        EOT
+      }
+      
+      variable "VSwitch6CidrBlock" {
+        type        = string
+        default     = "10.0.1.0/24"
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Ops VSwitch 6 CIDR Block",
+            "zh-cn": "交换机6子网段(所属Ops专有网络)"
+          },
+          "Description": {
+            "en": "Must be a sub-network segment of the proprietary network and is not occupied by other v-switches.",
+            "zh-cn": "必须是所属专有网络的子网段，并且没有被其他交换机占用。"
+          }
+        }
+        EOT
+      }
+      
+      variable "OpsVpcInstanceType" {
+        type        = string
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Ops Vpc Instance Type",
+            "zh-cn": "运维环境的ECS实例规格"
+          },
+          "Description": {
+            "en": "<font color='blue'><b>1.Before selecting the model please confirm that the current available zone under the model is in stock, some models need to be reported in advance</b></font><br><font color='blue'><b>2.List of optional models</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB Intranet bandwidth1Gbps In-grid sending and receiving packages30MillionPPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB Intranet bandwidth1.5Gbps In-grid sending and receiving packages50MillionPPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB Intranet bandwidth2.5Gbps In-grid sending and receiving packages80MillionPPS</font>]",
+            "zh-cn": "<font color='blue'><b>1.选择机型前请先确认当前可用区下该机型是否有货，部分机型需要提前报备</b></font><br><font color='blue'><b>2.可选机型列表</font><br></b></font>[ecs.c5.large <font color='green'>2vCPU 4GiB 内网带宽1Gbps 内网收发包30万PPS</font>]<br></b>[ecs.c5.xlarge <font color='green'>4vCPU 8GiB 内网带宽1.5Gbps 内网收发包50万PPS</font>]<br></b>[ecs.c5.2xlarge <font color='green'>8vCPU 16GiB 内网带宽2.5Gbps 内网收发包80万PPS</font>]"
+          },
+          "AssociationProperty": "ALIYUN::ECS::Instance::InstanceType",
+          "AssociationPropertyMetadata": {
+            "InstanceChargeType": "$${InstanceChargeType}",
+            "ZoneId": "$${ZoneId1}"
+          }
+        }
+        EOT
+      }
+      
+      variable "OpsVpcSystemDiskCategory" {
+        type        = string
+        description = <<EOT
+        {
+          "Label": {
+            "en": "Ops Vpc System Disk Category",
+            "zh-cn": "运维环境的ECS系统盘类型"
+          },
+          "Description": {
+            "en": "<font color='blue'><b>Optional values:</b></font><br>[cloud_efficiency: <font color='green'>Efficient Cloud Disk</font>]<br>[cloud_ssd: <font color='green'>SSD Cloud Disk</font>]<br>[cloud_essd: <font color='green'>ESSD Cloud Disk</font>]<br>[cloud: <font color='green'>Cloud Disk</font>]<br>[ephemeral_ssd: <font color='green'>Local SSD Cloud Disk</font>]",
+            "zh-cn": "<font color='blue'><b>可选值：</b></font><br>[cloud_efficiency: <font color='green'>高效云盘</font>]<br>[cloud_ssd: <font color='green'>SSD云盘</font>]<br>[cloud_essd: <font color='green'>ESSD云盘</font>]<br>[cloud: <font color='green'>普通云盘</font>]<br>[ephemeral_ssd: <font color='green'>本地SSD盘</font>]"
+          },
+          "AssociationProperty": "ALIYUN::ECS::Disk::SystemDiskCategory",
+          "AssociationPropertyMetadata": {
+            "InstanceType": "$${OpsVpcInstanceType}",
+            "ZoneId": "$${ZoneId1}"
+          }
+        }
+        EOT
+      }
+  output.tf: |+
+    output "ecs_instance_id1" {
+      value = alicloud_instance.ecs1.id
+    }
+    
+    output "ecs_instance_id2" {
+      value = alicloud_instance.ecs2.id
+    }
+    
+    output "ecs_instance_id3" {
+      value = alicloud_instance.ecs3.id
+    }
