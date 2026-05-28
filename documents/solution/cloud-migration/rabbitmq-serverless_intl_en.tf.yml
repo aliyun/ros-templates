@@ -3,27 +3,27 @@ Transform: Aliyun::Terraform-v1.5
 Metadata:
   ALIYUN::ROS::Interface:
     TemplateTags:
-      - acs:technical-solution:cloud-migration:云消息队列RabbitMQ版Serverless系列优势和实践-tech_solu_122
+      - acs:technical-solution:cloud-migration:Advantages and best practices of ApsaraMQ for RabbitMQ Serverless Edition-tech_solu_122
 Workspace:
   variable.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输入变量 (Module Input Variables)
+    # Module Input Variables
     #
-    # 本文件定义了该 Terraform 模块所有可配置的输入变量。
-    # 每个变量都包含了详细的 'description'，以说明其用途、格式和默认值逻辑。
-    # 请参考这些描述来正确配置模块。
+    # This file defines all configurable input variables for this Terraform module.
+    # Each variable includes a detailed description to explain its purpose, format, and default value logic.
+    # Refer to these descriptions to properly configure the module.
     # ------------------------------------------------------------------------------
 
   main.tf: |-
     # ------------------------------------------------------------------------------
-    # 核心资源定义 (Main Resource Definitions)
+    # Main Resource Definitions
     #
-    # 本文件包含了模块的核心基础设施资源。
-    # 这里的代码负责根据输入变量来创建和配置所有云资源。
+    # This file contains the core infrastructure resources for the module.
+    # It is responsible for creating and configuring all cloud resources based on the input variables.
     # ------------------------------------------------------------------------------
 
-    # 锁定 alicloud provider 版本：alicloud_amqp_instance 的 vpc_id / vswitch_ids / security_group_id
-    # 是从 v1.274.0 起新增并强制要求的，旧版本 provider 会忽略这些字段导致 API 缺参报错。
+    # Pin alicloud provider version: alicloud_amqp_instance requires vpc_id / vswitch_ids / security_group_id
+    # since v1.274.0. Older providers silently drop these fields and the API call fails with MissingVswitchIds.
     terraform {
       required_providers {
         alicloud = {
@@ -33,17 +33,17 @@ Workspace:
       }
     }
 
-    # 配置阿里云提供商 (Provider)
+    # Configure the Alibaba Cloud provider
     provider "alicloud" {
-      region = "cn-hangzhou"
+      region = "ap-southeast-1"
     }
 
-    # 查询当前部署地域
+    # Query the current deployment region
     data "alicloud_regions" "current_region_ds" {
       current = true
     }
 
-    # 创建一个随机ID，用于生成唯一的资源名称后缀，避免命名冲突
+    # Create a random ID to generate a unique resource name suffix to avoid naming conflicts
     resource "random_string" "suffix" {
       length  = 8
       lower   = true
@@ -52,23 +52,23 @@ Workspace:
       special = false
     }
 
-    # 定义一个局部变量，将随机ID用作通用名称后缀
+    # Define a local variable to use the random ID as a common name suffix
     locals {
       common_name = random_string.suffix.id
       region = data.alicloud_regions.current_region_ds.regions.0.id
     }
 
-    # 查询当前地域 NLB 支持的可用区。
-    # RabbitMQ Serverless 通过 PrivateLink + NLB 接入，VSwitch 所属可用区必须属于 NLB 支持的可用区子集。
+    # Query NLB-supported zones in the current region.
+    # RabbitMQ Serverless uses PrivateLink + NLB internally, so VSwitch zones must be a subset of NLB-supported zones.
     data "alicloud_nlb_zones" "default" {}
 
-    # 创建VPC（RabbitMQ Serverless 实例要求关联 VPC）
+    # Create a VPC (RabbitMQ Serverless instance requires an associated VPC)
     resource "alicloud_vpc" "default" {
       vpc_name   = "vpc-rabbitmq-${local.common_name}"
       cidr_block = "172.16.0.0/16"
     }
 
-    # 创建两个位于不同 NLB 可用区的 VSwitch（alicloud_amqp_instance 要求 vswitch_ids 提供 2 个）
+    # Create two VSwitches in different NLB-supported zones (alicloud_amqp_instance requires exactly 2 vswitch_ids)
     resource "alicloud_vswitch" "vsw1" {
       vpc_id       = alicloud_vpc.default.id
       cidr_block   = "172.16.1.0/24"
@@ -83,23 +83,23 @@ Workspace:
       vswitch_name = "vsw-rabbitmq-2-${local.common_name}"
     }
 
-    # 创建安全组
+    # Create a security group
     resource "alicloud_security_group" "default" {
       name   = "sg-rabbitmq-${local.common_name}"
       vpc_id = alicloud_vpc.default.id
     }
 
-    # 创建一个RAM用户
+    # Create a RAM user
     resource "alicloud_ram_user" "ram_user" {
       name = "create-by-solution-${local.common_name}"
     }
 
-    # 为前面创建的RAM用户生成一个Access Key
+    # Generate an AccessKey pair for the RAM user created above
     resource "alicloud_ram_access_key" "ramak" {
       user_name = alicloud_ram_user.ram_user.name
     }
 
-    # 创建一个RAM策略
+    # Create a RAM policy
     resource "alicloud_ram_policy" "policy" {
       policy_name     = "ram-policy-${local.common_name}"
       policy_document = <<EOF
@@ -120,14 +120,14 @@ Workspace:
       description     = "allow all amqp operations"
     }
 
-    # 为RAM用户授权RAM策略
+    # Attach the RAM policy to the RAM user
     resource "alicloud_ram_user_policy_attachment" "attach_policy_to_user" {
       user_name   = alicloud_ram_user.ram_user.name
       policy_type = "Custom"
       policy_name = alicloud_ram_policy.policy.policy_name
     }
 
-    # 创建RabbitMQ实例
+    # Create a RabbitMQ instance
     resource "alicloud_amqp_instance" "default" {
       instance_name          = "test-instance-${local.common_name}"
       payment_type           = "PayAsYouGo"
@@ -177,13 +177,13 @@ Workspace:
 
   output.tf: |-
     # ------------------------------------------------------------------------------
-    # 模块输出值 (Module Outputs)
+    # Module Outputs
     #
-    # 本文件定义了模块执行成功后返回给调用方的值。
-    # 这些输出可以被其他 Terraform 配置引用，或在 apply 命令结束后显示给用户。
+    # This file defines the values returned to the caller after the module execution is successful.
+    # These outputs can be referenced by other Terraform configurations, or displayed to users after the apply command completes.
     # ------------------------------------------------------------------------------
 
     output "rabbitmq_detail_address" {
-      description = "RabbitMQ实例详情页。"
+      description = "The details page of the RabbitMQ instance."
       value       = format("https://amqp.console.aliyun.com/region/%s/instance/%s/instance-detail", local.region, alicloud_amqp_instance.default.id)
     }
