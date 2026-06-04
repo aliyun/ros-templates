@@ -89,6 +89,41 @@ Workspace:
       vpc_id = alicloud_vpc.default.id
     }
 
+    # Create RabbitMQ service-linked roles:
+    # - AliyunServiceRoleForAmqpNetwork: required when the instance accesses the VPC via PrivateLink
+    # - AliyunServiceRoleForAmqpMonitoring: required when support_tracing=true enables monitoring/Dashboard
+    # When a brand-new account creates an AMQP instance for the first time without these SLRs,
+    # the AMQP backend returns "the role doesn't exist (please create the service-linked role first)".
+    # The data sources probe whether the roles already exist (case-insensitive, because the actual
+    # role name may be AliyunServiceRoleForAMQPNetwork while docs use Amqp), so re-runs do not
+    # fail with EntityAlreadyExists.Role.
+
+    # Activate the PrivateLink service: RabbitMQ Serverless accesses the VPC via PrivateLink,
+    # and the AMQP backend returns "user doesn't activate pvl product" when the account has not
+    # activated PrivateLink. This data source idempotently opens the service; if it is already
+    # opened, it simply returns the existing status.
+    data "alicloud_privatelink_service" "open" {
+      enable = "On"
+    }
+
+    data "alicloud_ram_roles" "amqp_network_check" {
+      name_regex = "(?i)^AliyunServiceRoleForAmqpNetwork$"
+    }
+
+    data "alicloud_ram_roles" "amqp_monitoring_check" {
+      name_regex = "(?i)^AliyunServiceRoleForAmqpMonitoring$"
+    }
+
+    resource "alicloud_resource_manager_service_linked_role" "amqp_network" {
+      count        = length(data.alicloud_ram_roles.amqp_network_check.roles) == 0 ? 1 : 0
+      service_name = "network.amqp.aliyuncs.com"
+    }
+
+    resource "alicloud_resource_manager_service_linked_role" "amqp_monitoring" {
+      count        = length(data.alicloud_ram_roles.amqp_monitoring_check.roles) == 0 ? 1 : 0
+      service_name = "monitoring.amqp.aliyuncs.com"
+    }
+
     # Create a RAM user
     resource "alicloud_ram_user" "ram_user" {
       name = "create-by-solution-${local.common_name}"
@@ -137,6 +172,14 @@ Workspace:
       vpc_id                 = alicloud_vpc.default.id
       vswitch_ids            = [alicloud_vswitch.vsw1.id, alicloud_vswitch.vsw2.id]
       security_group_id      = alicloud_security_group.default.id
+
+      depends_on = [
+        data.alicloud_privatelink_service.open,
+        data.alicloud_ram_roles.amqp_network_check,
+        data.alicloud_ram_roles.amqp_monitoring_check,
+        alicloud_resource_manager_service_linked_role.amqp_network,
+        alicloud_resource_manager_service_linked_role.amqp_monitoring,
+      ]
     }
 
     resource "alicloud_amqp_static_account" "default" {

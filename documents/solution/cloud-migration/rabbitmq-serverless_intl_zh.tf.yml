@@ -89,6 +89,40 @@ Workspace:
       vpc_id = alicloud_vpc.default.id
     }
 
+    # 创建 RabbitMQ 服务关联角色：
+    # - AliyunServiceRoleForAmqpNetwork：实例通过 PrivateLink 接入 VPC 时必需
+    # - AliyunServiceRoleForAmqpMonitoring：support_tracing=true 启用监控/Dashboard 时必需
+    # 首次在新账号下创建实例时，若未提前创建上述 SLR，AMQP 后端会返回
+    # "请先创建服务关联角色 (the role doesn't exist)" 错误。
+    # 开通私网连接（PrivateLink）服务：RabbitMQ Serverless 通过 PrivateLink 接入 VPC，
+    # 账号未激活该产品时 AMQP 后端会返回
+    # "user doesn't activate pvl product / 当前用户未激活私网接入点产品"。
+    # 该 data 源会幂等地激活 PrivateLink；已开通则直接返回开通状态。
+    data "alicloud_privatelink_service" "open" {
+      enable = "On"
+    }
+
+    # 通过 data 源探测角色是否已存在，避免重复创建时返回 EntityAlreadyExists.Role。
+    # 使用 (?i) 大小写不敏感匹配，因为后端实际下发的角色名可能是 AMQP 全大写
+    # （如 AliyunServiceRoleForAMQPNetwork），而文档中写作 Amqp 混合大小写。
+    data "alicloud_ram_roles" "amqp_network_check" {
+      name_regex = "(?i)^AliyunServiceRoleForAmqpNetwork$"
+    }
+
+    data "alicloud_ram_roles" "amqp_monitoring_check" {
+      name_regex = "(?i)^AliyunServiceRoleForAmqpMonitoring$"
+    }
+
+    resource "alicloud_resource_manager_service_linked_role" "amqp_network" {
+      count        = length(data.alicloud_ram_roles.amqp_network_check.roles) == 0 ? 1 : 0
+      service_name = "network.amqp.aliyuncs.com"
+    }
+
+    resource "alicloud_resource_manager_service_linked_role" "amqp_monitoring" {
+      count        = length(data.alicloud_ram_roles.amqp_monitoring_check.roles) == 0 ? 1 : 0
+      service_name = "monitoring.amqp.aliyuncs.com"
+    }
+
     # 创建一个RAM用户
     resource "alicloud_ram_user" "ram_user" {
       name = "create-by-solution-${local.common_name}"
@@ -137,6 +171,14 @@ Workspace:
       vpc_id                 = alicloud_vpc.default.id
       vswitch_ids            = [alicloud_vswitch.vsw1.id, alicloud_vswitch.vsw2.id]
       security_group_id      = alicloud_security_group.default.id
+
+      depends_on = [
+        data.alicloud_privatelink_service.open,
+        data.alicloud_ram_roles.amqp_network_check,
+        data.alicloud_ram_roles.amqp_monitoring_check,
+        alicloud_resource_manager_service_linked_role.amqp_network,
+        alicloud_resource_manager_service_linked_role.amqp_monitoring,
+      ]
     }
 
     resource "alicloud_amqp_static_account" "default" {
