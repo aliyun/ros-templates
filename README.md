@@ -507,6 +507,7 @@ Examples and best practices of ROS templates. The templates are categorized as f
 | [quickly-build-large-screen.yml](./documents/solution/data-analysis/quickly-build-large-screen.yml)                   | Quickly build a large screen of enterprise management.                                                            |
 | [efficient-storage-and-processing-of-multimedia-data.yml](./documents/solution/data-analysis/efficient-storage-and-processing-of-multimedia-data.yml)                   | Efficient storage and processing of multimedia data.                                                           |
 | [Rapid-Enterprise-Data-Analysis-Agent.yaml](./documents/solution/data-analysis/Rapid-Enterprise-Data-Analysis-Agent.yaml)                   | Rapid Enterprise Data Analysis Agent Development.                                                           |
+| [build-agentic-lakehouse-on-starrocks.yml](./documents/solution/data-analysis/build-agentic-lakehouse-on-starrocks.yml)                   | Building an Agentic Lakehouse for Omni-Modal Data.                                                           |
 
 - database
 
