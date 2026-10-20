@@ -1,10 +1,10 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 创建EHPC集群，含NAS文件系统、OSS存储桶，配置访问规则与挂载目标，支持计算节点与登录实例类型定制。
-  en: Create an EHPC (Elastic High Performance Computing) cluster, inclusive of a
+  zh-cn: 创建EHPC 2.0集群，含NAS文件系统、OSS存储桶，配置访问规则与挂载目标作为集群共享存储，支持管理节点实例类型与镜像定制。
+  en: Create an EHPC 2.0 (Elastic High Performance Computing) cluster, inclusive of a
     NAS (Network Attached Storage) file system and OSS (Object Storage Service) buckets.
-    Configure access rules and mount targets, with support for customized compute
-    node and login instance types.
+    Configure access rules and mount targets as the cluster shared storage, with support
+    for customized manager node instance type and image.
 Parameters:
   BucketStorageClass:
     Type: String
@@ -15,12 +15,16 @@ Parameters:
     Type: String
   AccessGroupName:
     Type: String
-  EcsOrderComputeCount:
-    Type: Number
-    Default: 1
+  ClusterName:
+    Type: String
+    Default: mytest
   EcsOrderLoginInstanceType:
     Type: String
+    Description: Instance type of the manager node.
     Default: ecs.g6.large
+  ImageId:
+    Type: String
+    Description: Image of the manager node, must be an OS supported by E-HPC 2.0.
   BucketName:
     Type: String
     Default: mytest
@@ -28,7 +32,7 @@ Parameters:
     Type: String
   BucketAccessControl:
     Type: String
-    Default: private
+    Default: public-read
   Password:
     Type: String
 Resources:
@@ -71,34 +75,71 @@ Resources:
       AccessGroupName:
         Ref: AccessGroup
   Cluster:
-    Type: ALIYUN::EHPC::Cluster
+    Type: ALIYUN::EHPC::ClusterV2
     Properties:
+      ClusterName:
+        Ref: ClusterName
+      ClusterCategory: Standard
+      ClusterMode: Integrated
+      VpcId:
+        Ref: VpcId
       VSwitchId:
         Ref: VSwitchId
-      ImageOwnerAlias: system
-      EcsOrderComputeCount:
-        Ref: EcsOrderComputeCount
-      EcsOrderLoginInstanceType:
-        Ref: EcsOrderLoginInstanceType
-      EcsOrderLoginCount:
-        Ref: EcsOrderComputeCount
-      EhpcVersion: 1.0.0
-      VolumeMountpoint:
-        Ref: MountTarget
-      EcsOrderManagerInstanceType:
-        Ref: EcsOrderLoginInstanceType
-      Name:
-        Fn::Join:
-        - '-'
-        - - Cluster
-          - Ref: ALIYUN::StackId
-      VolumeId:
-        Ref: FileSystem
-      EcsOrderComputeInstanceType:
-        Ref: EcsOrderLoginInstanceType
-      OsTag: CentOS_7.2_64
-      Password:
-        Ref: Password
+      ClusterCredentials:
+        Password:
+          Ref: Password
+      Manager:
+        ManagerNode:
+          InstanceType:
+            Ref: EcsOrderLoginInstanceType
+          ImageId:
+            Ref: ImageId
+          InstanceChargeType: PostPaid
+          SystemDisk:
+            Category: cloud_essd
+            Size: 40
+            Level: PL0
+        Scheduler:
+          Type: SLURM
+          Version: 22.05.8
+        DNS:
+          Type: NIS
+          Version: '1.0'
+        DirectoryService:
+          Type: NIS
+          Version: '1.0'
+      # An E-HPC 2.0 Standard Edition cluster must have the /home, /opt, and /ehpcdata shared directories mounted together.
+      SharedStorages:
+      - FileSystemId:
+          Ref: FileSystem
+        MountTargetDomain:
+          Fn::GetAtt:
+          - MountTarget
+          - MountTargetDomain
+        MountDirectory: /home
+        NASDirectory: /
+        ProtocolType: NFS
+        MountOptions: -t nfs -o vers=3,nolock,proto=tcp,noresvport
+      - FileSystemId:
+          Ref: FileSystem
+        MountTargetDomain:
+          Fn::GetAtt:
+          - MountTarget
+          - MountTargetDomain
+        MountDirectory: /opt
+        NASDirectory: /
+        ProtocolType: NFS
+        MountOptions: -t nfs -o vers=3,nolock,proto=tcp,noresvport
+      - FileSystemId:
+          Ref: FileSystem
+        MountTargetDomain:
+          Fn::GetAtt:
+          - MountTarget
+          - MountTargetDomain
+        MountDirectory: /ehpcdata
+        NASDirectory: /
+        ProtocolType: NFS
+        MountOptions: -t nfs -o vers=3,nolock,proto=tcp,noresvport
     DependsOn:
     - AccessRule
     - FileSystem
@@ -116,3 +157,9 @@ Outputs:
       Fn::GetAtt:
       - FileSystem
       - FileSystemId
+  ClusterId:
+    Description: ID of the E-HPC cluster
+    Value:
+      Fn::GetAtt:
+      - Cluster
+      - ClusterId
