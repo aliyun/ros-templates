@@ -1,10 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  zh-cn: 创建一个ECI容器组，包含VPC、交换机、NAT网关、EIP和安全组，支持日志收集，配置容器镜像、CPU、内存和端口映射。
-  en: Create an ECI (Elastic Container Instance) container group, encompassing a VPC
-    (Virtual Private Cloud), switch, NAT Gateway, EIP (Elastic IP), and security group,
-    with support for log collection. Configure the container with image specifications,
-    CPU allocation, memory limits, and port mappings.
+  zh-cn: 在已有的交换机和安全组中创建一个ECI容器组，支持日志收集，配置容器镜像、CPU、内存和端口映射。
+  en: Create an ECI (Elastic Container Instance) container group in an existing VSwitch
+    and security group, with support for log collection. Configure the container with
+    image specifications, CPU allocation, memory limits, and port mappings.
 Parameters:
   ContainerName:
     Type: String
@@ -26,14 +25,12 @@ Parameters:
     - Always
     - OnFailure
     - Never
-  VSwitchName:
+  VSwitchId:
     Type: String
-    Default: mytest
-  ZoneId:
+    Description: The ID of the existing VSwitch.
+  SecurityGroupId:
     Type: String
-  VpcName:
-    Type: String
-    Default: mytest
+    Description: The ID of the existing security group, which must belong to the VPC of the VSwitch.
   SlsEnable:
     Type: Boolean
     Description: Enable user log collection. The default is false.
@@ -42,77 +39,13 @@ Parameters:
     - 'true'
     - 'false'
 Resources:
-  VPC:
-    Type: ALIYUN::ECS::VPC
-    Properties:
-      VpcName:
-        Ref: VpcName
-      CidrBlock: 192.168.0.0/16
-  VSwitch:
-    Type: ALIYUN::ECS::VSwitch
-    Properties:
-      ZoneId:
-        Ref: ZoneId
-      VpcId:
-        Ref: VPC
-      VSwitchName:
-        Ref: VSwitchName
-      CidrBlock: 192.168.10.0/24
-    DependsOn: VPC
-  NatGateway:
-    Type: ALIYUN::VPC::NatGateway
-    Properties:
-      VpcId:
-        Ref: VPC
-      VSwitchId:
-        Ref: VSwitch
-    DependsOn:
-      - VSwitch
-      - SG
-  EIP:
-    Type: ALIYUN::VPC::EIP
-    Properties:
-      InstanceChargeType: Postpaid
-      InternetChargeType: PayByTraffic
-    DependsOn:
-      - SG
-  EIPAssociation:
-    Type: ALIYUN::VPC::EIPAssociation
-    Properties:
-      InstanceId:
-        Ref: NatGateway
-      AllocationId:
-        Ref: EIP
-    DependsOn:
-    - EIP
-    - NatGateway
-  SnatEntry:
-    Type: ALIYUN::VPC::SnatEntry
-    Properties:
-      SourceVSwitchIds:
-      - Ref: VSwitch
-      SnatTableId:
-        Fn::GetAtt:
-        - NatGateway
-        - SNatTableId
-      SnatIp:
-        Fn::GetAtt:
-        - EIP
-        - EipAddress
-    DependsOn: EIPAssociation
-  SG:
-    Type: ALIYUN::ECS::SecurityGroup
-    Properties:
-      VpcId:
-        Ref: VPC
-    DependsOn: VPC
   ContainerGroup:
     Type: ALIYUN::ECI::ContainerGroup
     Properties:
       VSwitchId:
-        Ref: VSwitch
+        Ref: VSwitchId
       SecurityGroupId:
-        Ref: SG
+        Ref: SecurityGroupId
       Container:
       - Name:
           Ref: ContainerName
