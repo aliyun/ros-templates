@@ -232,8 +232,8 @@ Resources:
     Properties:
       SecurityGroupId:
         Ref: SecurityGroup
-      IpProtocol: all
-      PortRange: -1/-1
+      IpProtocol: tcp
+      PortRange: 80/80
       SourceCidrIp: 0.0.0.0/0
   WebServer:
     Type: ALIYUN::ECS::Instance
@@ -281,9 +281,96 @@ Resources:
               systemctl enable httpd
               systemctl status httpd
             
-              yum install -y yum-utils epel-release http://rpms.remirepo.net/enterprise/remi-release-7.rpm 
-              yum-config-manager --enable remi-php82
-              yum -y install php php-opcache php-mysqlnd php-pdo php-gd php-ldap php-odbc php-pear php-xml php-xmlrpc php-mbstring php-soap
+              # Remi EL7 的 PHP 8.2 最高仅到 8.2.20，低于安全基线；改为编译固定校验的安全版本。
+              sh -eu <<'ROS_PHP_BUILD'
+            PHP_BUILD_DIR=$(mktemp -d /tmp/ros-php.XXXXXX)
+            cd "$PHP_BUILD_DIR"
+            # 归档仓库仅用于本次 PHP 编译依赖，不改系统全局仓库配置。
+            cat > yum.conf <<'ROS_PHP_YUM'
+            [main]
+            reposdir=/dev/null
+            gpgcheck=1
+            [ros-php-base]
+            name=CentOS 7 PHP build dependencies
+            baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/os/$basearch/
+            gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+            [ros-php-updates]
+            name=CentOS 7 PHP build dependency updates
+            baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/updates/$basearch/
+            gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+            [ros-php-epel-archive]
+            name=EPEL 7 archive PHP build dependencies
+            baseurl=https://mirrors.aliyun.com/epel-archive/7/$basearch/
+            gpgkey=https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-7
+            ROS_PHP_YUM
+            # 构建依赖对应原 php-gd、php-ldap、php-odbc、php-xml、php-soap、php-mbstring 扩展。
+            yum -c "$PHP_BUILD_DIR/yum.conf" install -y httpd-devel gcc make pkgconfig curl xz libxml2-devel sqlite-devel zlib-devel perl-core libpng-devel libjpeg-turbo-devel freetype-devel openldap-devel unixODBC-devel oniguruma-devel autoconf
+            # PHP 使用独立的受维护 OpenSSL，避免旧系统库的 API 兼容问题。
+            OPENSSL_PREFIX=/opt/ros/php/openssl-3.5.9
+            # 镜像仅提供传输备选，每次下载均须通过同一官方 SHA256 校验。
+            OPENSSL_DOWNLOADED=0
+            for OPENSSL_URL in \
+                https://dev-www.libreoffice.org/src/openssl-3.5.9.tar.gz \
+                https://sources.immortalwrt.org/openssl-3.5.9.tar.gz \
+                https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz; do
+                if curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 15 --max-time 1800 -o openssl.tar.gz "$OPENSSL_URL" &&
+                    printf '%s\n' '603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a  openssl.tar.gz' | sha256sum -c -; then
+                    OPENSSL_DOWNLOADED=1
+                    break
+                fi
+            done
+            [ "$OPENSSL_DOWNLOADED" -eq 1 ] || exit 1
+            tar -xzf openssl.tar.gz
+            cd openssl-3.5.9
+            ./config --prefix="$OPENSSL_PREFIX" --libdir=lib --openssldir=/etc/pki/tls shared
+            make -j2
+            make install_sw
+            cd "$PHP_BUILD_DIR"
+            curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 1200 -o php.tar.xz https://www.php.net/distributions/php-8.3.36.tar.xz
+            printf '%s\n' 'dd54693aa334c5c4d72e9aee96b082c2473750a18a6c1d105789c93a3b1692fd  php.tar.xz' | sha256sum -c -
+            tar -xJf php.tar.xz
+            cd php-8.3.36
+            PKG_CONFIG_PATH="$OPENSSL_PREFIX/lib/pkgconfig" LDFLAGS="-Wl,-rpath,$OPENSSL_PREFIX/lib" ./configure --prefix=/opt/ros/php/8.3.36 --with-config-file-path=/opt/ros/php/8.3.36/etc --with-config-file-scan-dir=/opt/ros/php/8.3.36/etc/php.d --with-apxs2=/usr/bin/apxs --with-openssl --with-zlib --enable-mysqlnd --with-mysqli=mysqlnd --with-pdo-mysql=mysqlnd --enable-gd --with-jpeg --with-freetype --with-libdir=lib64 --with-ldap --with-unixODBC=/usr --enable-mbstring --enable-soap --enable-opcache
+            make -j2
+            make install
+            mkdir -p /opt/ros/php/8.3.36/etc/php.d
+            cp php.ini-production /opt/ros/php/8.3.36/etc/php.ini
+            printf '%s\n' 'zend_extension=opcache.so' > /opt/ros/php/8.3.36/etc/php.d/opcache.ini
+            ln -sf /opt/ros/php/8.3.36/bin/php /usr/bin/php
+            cd "$PHP_BUILD_DIR"
+            # 原 php-xmlrpc 对应扩展自 PHP 8 移出核心，改用 PECL 源码构建后显式加载。
+            curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 600 -o xmlrpc.tgz https://pecl.php.net/get/xmlrpc-1.0.0RC3.tgz
+            printf '%s\n' '65ce03491782f9d9d5e9bc70bfe684255e5afa8486a2960c7a7cab033882a282  xmlrpc.tgz' | sha256sum -c -
+            tar -xzf xmlrpc.tgz
+            cd xmlrpc-1.0.0RC3
+            /opt/ros/php/8.3.36/bin/phpize
+            ./configure --with-php-config=/opt/ros/php/8.3.36/bin/php-config
+            make -j2
+            make install
+            printf '%s\n' 'extension=xmlrpc.so' > /opt/ros/php/8.3.36/etc/php.d/xmlrpc.ini
+            cd "$PHP_BUILD_DIR"
+            # 原 php-pear 依赖的 --with-pear 自 PHP 8 移除，改用官方离线安装器。
+            curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 600 -o install-pear-nozlib.phar https://pear.php.net/install-pear-nozlib.phar
+            printf '%s\n' 'a71349da29f1a6e3f0792695b167e582375a93c70c0e9d35e7c4675697c5f039  install-pear-nozlib.phar' | sha256sum -c -
+            /opt/ros/php/8.3.36/bin/php -n -d memory_limit=-1 install-pear-nozlib.phar -d /opt/ros/php/8.3.36/lib/php -b /opt/ros/php/8.3.36/bin
+            cat > /etc/httpd/conf.d/ros-php.conf <<'ROS_PHP_APACHE'
+            <FilesMatch \.php$>
+                SetHandler application/x-httpd-php
+            </FilesMatch>
+            DirectoryIndex index.php index.html
+            ROS_PHP_APACHE
+            php -r 'exit(PHP_VERSION === "8.3.36" ? 0 : 1);'
+            php -i | grep -q '^OpenSSL Library Version => OpenSSL 3\.5\.9 '
+            # 原 Remi 扩展清单逐项核对实际加载状态，php-mysqlnd 由 mysqli 与 pdo_mysql 承接。
+            for PHP_EXTENSION in gd ldap odbc mysqli pdo pdo_mysql mbstring soap xml xmlrpc openssl; do
+                php -r 'exit(extension_loaded($argv[1]) ? 0 : 1);' "$PHP_EXTENSION"
+            done
+            php -v | grep -q 'Zend OPcache'
+            /opt/ros/php/8.3.36/bin/pear version
+            httpd -t
+            httpd -M 2>/dev/null | grep -q 'php_module'
+            ROS_PHP_BUILD
+              [ "$?" -eq 0 ] || exit 1
               echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php
               systemctl restart httpd
               echo "Step1: Install Environment" >> .ros.provision

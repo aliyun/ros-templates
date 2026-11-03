@@ -352,11 +352,199 @@ Resources:
               echo "#########################"
               echo "# Install PHP"
               echo "#########################"
-              yum install -y \
-                https://mirrors.aliyun.com/ius/ius-release-el7.rpm \
-                https://mirrors.aliyun.com/epel/epel-release-latest-7.noarch.rpm
-              rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
-              yum -y install php70w-devel php70w.x86_64 php70w-cli.x86_64 php70w-common.x86_64 php70w-gd.x86_64 php70w-ldap.x86_64 php70w-mbstring.x86_64 php70w-mcrypt.x86_64  php70w-pdo.x86_64   php70w-mysqlnd  php70w-fpm php70w-opcache php70w-pecl-redis php70w-pecl-mongodb
+              sh -eu <<'ROS_PHP_BUILD'
+            PHP_BUILD_DIR=$(mktemp -d /tmp/ros-php.XXXXXX)
+
+            cd "$PHP_BUILD_DIR"
+
+            # 归档仓库仅用于本次 PHP 编译依赖，不改系统全局仓库配置。
+
+            cat > yum.conf <<'ROS_PHP_YUM'
+
+            [main]
+
+            reposdir=/dev/null
+
+            gpgcheck=1
+
+            [ros-php-base]
+
+            name=CentOS 7 PHP build dependencies
+
+            baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/os/$basearch/
+
+            gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+            [ros-php-updates]
+
+            name=CentOS 7 PHP build dependency updates
+
+            baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/updates/$basearch/
+
+            gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+            [ros-php-epel-archive]
+
+            name=EPEL 7 archive PHP build dependencies
+
+            baseurl=https://mirrors.aliyun.com/epel-archive/7/$basearch/
+
+            gpgkey=https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-7
+
+            ROS_PHP_YUM
+
+            # 构建依赖对应原 gd、ldap、mbstring、mcrypt 与两个 PECL 扩展的编译需要。
+
+            yum -c "$PHP_BUILD_DIR/yum.conf" install -y gcc gcc-c++ make pkgconfig curl xz libxml2-devel sqlite-devel zlib-devel perl-core libpng-devel libjpeg-turbo-devel freetype-devel openldap-devel oniguruma-devel libmcrypt-devel autoconf
+
+            # PHP 使用独立的受维护 OpenSSL，避免旧系统库的 API 兼容问题。
+
+            OPENSSL_PREFIX=/opt/ros/php/openssl-3.5.9
+
+            # 镜像仅提供传输备选，每次下载均须通过同一官方 SHA256 校验。
+
+            OPENSSL_DOWNLOADED=0
+
+            for OPENSSL_URL in \
+                https://gh-proxy.com/https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz \
+                https://dev-www.libreoffice.org/src/openssl-3.5.9.tar.gz \
+                https://sources.immortalwrt.org/openssl-3.5.9.tar.gz \
+                https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz; do
+                if curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 15 --max-time 1800 -o openssl.tar.gz "$OPENSSL_URL" &&
+                    printf '%s\n' '603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a  openssl.tar.gz' | sha256sum -c -; then
+                    OPENSSL_DOWNLOADED=1
+                    break
+                fi
+            done
+
+            [ "$OPENSSL_DOWNLOADED" -eq 1 ] || exit 1
+
+            tar -xzf openssl.tar.gz
+
+            cd openssl-3.5.9
+
+            ./config --prefix="$OPENSSL_PREFIX" --libdir=lib --openssldir=/etc/pki/tls shared
+
+            make -j2
+
+            make install_sw
+
+            cd "$PHP_BUILD_DIR"
+
+            curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 1200 -o php.tar.xz https://www.php.net/distributions/php-8.3.36.tar.xz
+
+            printf '%s\n' 'dd54693aa334c5c4d72e9aee96b082c2473750a18a6c1d105789c93a3b1692fd  php.tar.xz' | sha256sum -c -
+
+            tar -xJf php.tar.xz
+
+            cd php-8.3.36
+
+            PKG_CONFIG_PATH="$OPENSSL_PREFIX/lib/pkgconfig" LDFLAGS="-Wl,-rpath,$OPENSSL_PREFIX/lib" ./configure --prefix=/opt/ros/php/8.3.36 --with-config-file-path=/opt/ros/php/8.3.36/etc --with-config-file-scan-dir=/opt/ros/php/8.3.36/etc/php.d --enable-fpm --with-fpm-user=nginx --with-fpm-group=nginx --with-openssl --with-zlib --enable-mysqlnd --with-mysqli=mysqlnd --with-pdo-mysql=mysqlnd --enable-gd --with-jpeg --with-freetype --with-libdir=lib64 --with-ldap --enable-mbstring --enable-opcache
+
+            make -j2
+
+            make install
+
+            mkdir -p /opt/ros/php/8.3.36/etc/php.d
+
+            cp php.ini-production /opt/ros/php/8.3.36/etc/php.ini
+
+            ln -sf /opt/ros/php/8.3.36/bin/php /usr/bin/php
+
+            printf '%s\n' 'zend_extension=opcache.so' > /opt/ros/php/8.3.36/etc/php.d/opcache.ini
+
+            # 池配置沿用原 RPM 的 TCP 监听地址，Nginx 的 fastcgi_pass 保持不变。
+
+            cp /opt/ros/php/8.3.36/etc/php-fpm.conf.default /opt/ros/php/8.3.36/etc/php-fpm.conf
+
+            cp /opt/ros/php/8.3.36/etc/php-fpm.d/www.conf.default /opt/ros/php/8.3.36/etc/php-fpm.d/www.conf
+
+            sed -i 's|^listen = .*|listen = 127.0.0.1:9000|' /opt/ros/php/8.3.36/etc/php-fpm.d/www.conf
+
+            grep -q '^listen = 127\.0\.0\.1:9000$' /opt/ros/php/8.3.36/etc/php-fpm.d/www.conf
+
+            cat > /etc/systemd/system/php-fpm.service <<'ROS_PHP_FPM_UNIT'
+
+            [Unit]
+
+            Description=The PHP FastCGI Process Manager
+
+            After=syslog.target network.target
+
+            [Service]
+
+            Type=simple
+
+            ExecStart=/opt/ros/php/8.3.36/sbin/php-fpm --nodaemonize --fpm-config /opt/ros/php/8.3.36/etc/php-fpm.conf
+
+            ExecReload=/bin/kill -USR2 $MAINPID
+
+            PrivateTmp=true
+
+            [Install]
+
+            WantedBy=multi-user.target
+
+            ROS_PHP_FPM_UNIT
+
+            systemctl daemon-reload
+
+            cd "$PHP_BUILD_DIR"
+
+            # 原 mcrypt、redis、mongodb 三个扩展在 PHP 8 均需 PECL 源码构建，逐个固定版本与哈希。
+
+            curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 600 -o mcrypt.tgz https://pecl.php.net/get/mcrypt-1.0.9.tgz
+
+            printf '%s\n' '2a9ef0817d3bf677f6d7baf8e325629a2758974735d8abad6566384788d424a5  mcrypt.tgz' | sha256sum -c -
+
+            curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 600 -o redis.tgz https://pecl.php.net/get/redis-6.2.0.tgz
+
+            printf '%s\n' '5069c13dd22bd9e494bb246891052cb6cc0fc9a1b45c6a572a8be61773101363  redis.tgz' | sha256sum -c -
+
+            curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 900 -o mongodb.tgz https://pecl.php.net/get/mongodb-2.5.5.tgz
+
+            printf '%s\n' '0eaf84ff709f73183d80597f31ff02937f6aefde01eb895a0aa19334a290cec0  mongodb.tgz' | sha256sum -c -
+
+            tar -xzf mcrypt.tgz
+
+            tar -xzf redis.tgz
+
+            tar -xzf mongodb.tgz
+
+            for PHP_PECL_BUILD in mcrypt-1.0.9 redis-6.2.0 mongodb-2.5.5; do
+                cd "$PHP_BUILD_DIR/$PHP_PECL_BUILD"
+                /opt/ros/php/8.3.36/bin/phpize
+                if [ "$PHP_PECL_BUILD" = mongodb-2.5.5 ]; then
+                    PKG_CONFIG_PATH="$OPENSSL_PREFIX/lib/pkgconfig" LDFLAGS="-Wl,-rpath,$OPENSSL_PREFIX/lib" ./configure --with-php-config=/opt/ros/php/8.3.36/bin/php-config --with-mongodb-ssl=openssl --with-mongodb-sasl=no
+                else
+                    PKG_CONFIG_PATH="$OPENSSL_PREFIX/lib/pkgconfig" LDFLAGS="-Wl,-rpath,$OPENSSL_PREFIX/lib" ./configure --with-php-config=/opt/ros/php/8.3.36/bin/php-config
+                fi
+                make -j2
+                make install
+            done
+
+            printf '%s\n' 'extension=mcrypt.so' > /opt/ros/php/8.3.36/etc/php.d/mcrypt.ini
+
+            printf '%s\n' 'extension=redis.so' > /opt/ros/php/8.3.36/etc/php.d/redis.ini
+
+            printf '%s\n' 'extension=mongodb.so' > /opt/ros/php/8.3.36/etc/php.d/mongodb.ini
+
+            php -r 'exit(PHP_VERSION === "8.3.36" ? 0 : 1);'
+
+            php -i | grep -q '^OpenSSL Library Version => OpenSSL 3\.5\.9 '
+
+            php -v | grep -q 'Zend OPcache'
+
+            # 原扩展清单逐项核对实际加载状态；pdo_mysql 由 mysqlnd 提供，与原模板一致。
+
+            for PHP_EXTENSION in gd ldap mbstring mcrypt mysqli pdo pdo_mysql redis mongodb openssl; do
+                php -r 'exit(extension_loaded($argv[1]) ? 0 : 1);' "$PHP_EXTENSION"
+            done
+
+            /opt/ros/php/8.3.36/sbin/php-fpm -t -y /opt/ros/php/8.3.36/etc/php-fpm.conf
+
+            ROS_PHP_BUILD
+              [ "$?" -eq 0 ] || exit 1
               php -v
               echo "Step4: Install PHP" >> .ros.provision
             else
@@ -556,7 +744,39 @@ Resources:
               echo "#########################"
               echo "# Install wordpress"
               echo "#########################"
-              yum -y install wordpress
+              sh -eu <<'ROS_WORDPRESS_INSTALL'
+            WORDPRESS_DIR=$(mktemp -d /tmp/ros-wordpress.XXXXXX)
+
+            cd "$WORDPRESS_DIR"
+
+            curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 900 -o wordpress.tar.gz https://ros-template-resources.oss-cn-beijing.aliyuncs.com/WordPress/wordpress-6.3.1-zh_CN.tar.gz
+
+            printf '%s\n' 'f6151bf2348b0b74c1072ff75c9899cb872431f87a0ac43c6b90e565733bd6e5  wordpress.tar.gz' | sha256sum -c -
+
+            tar -xzf wordpress.tar.gz
+
+            mkdir -p /etc/wordpress
+
+            cp wordpress/wp-config-sample.php /etc/wordpress/wp-config.php
+
+            rm -rf /usr/share/wordpress
+
+            mv wordpress /usr/share/wordpress
+
+            chown -R nginx:nginx /usr/share/wordpress /etc/wordpress
+
+            # Step9 的转移、软链与三条 sed 替换仍按原文执行，此处先核对占位符存在。
+
+            grep -q 'database_name_here' /etc/wordpress/wp-config.php
+
+            grep -q 'username_here' /etc/wordpress/wp-config.php
+
+            grep -q 'password_here' /etc/wordpress/wp-config.php
+
+            php -l /usr/share/wordpress/index.php
+
+            ROS_WORDPRESS_INSTALL
+              [ "$?" -eq 0 ] || exit 1
               echo "Step8: Install wordpress" >> .ros.provision
             else
               echo "#########################"

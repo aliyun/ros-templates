@@ -75,17 +75,14 @@ Parameters:
   ECSImageId:
     Type: String
     Label:
-      en: Application Server Image
-      zh-cn: 应用服务镜像
+      en: Base OS Image
+      zh-cn: 基础操作系统镜像
     Description:
-      en: "Server Instance Image ID. </b><br>[Shanghai: <font color='green'>m-uf6j125b6mhvg27jo58a</font>]<br>[Hangzhou: <font color='green'>m-bp1h0ys627i2ke0dx0t1</font>]<br>[Beijing: <font color='green'>m-2zeir96eip2yw414w1jd</font>]<br>[Qingdao: <font color='green'>m-m5e81ywnfuk84x1r7v0n</font>]<br>[Shenzhen: <font color='green'>m-wz98u1criwvafhq3ctfm</font>]<br>[Zhangjiakou: <font color='green'>m-8vbg3h5yp5ncag0q31lt</font>]<br>[Hohhot: <font color='green'>m-hp34cnncgeiowbkzpmic</font>]<br>[Hong Kong: <font color='green'>m-j6c0e5hkfmzk6d8bfss1</font>]<br>[US(Silincon Valley): <font color='green'>m-rj981ywnfuk84x1r7v0p</font>]<br>note: for more images available, see detail: <b><a href='https://marketplace.alibabacloud.com/products?keywords=magento' target='_blank'><font color='blue'>Magento Image</font></a></b>"
-      zh-cn: 服务器镜像<br>云市场镜像名称：《Magento开源电子商务系统 (LAMP|中文包)》<br><b>参考值：</b><br>[上海：<font
-        color='green'>m-uf6j125b6mhvg27jo58a</font>]<br>[杭州：<font color='green'>m-bp1h0ys627i2ke0dx0t1</font>]<br>[北京：<font
-        color='green'>m-2zeir96eip2yw414w1jd</font>]<br>[青岛：<font color='green'>m-m5e81ywnfuk84x1r7v0n</font>]<br>[深圳：<font
-        color='green'>m-wz98u1criwvafhq3ctfm</font>]<br>[张家口：<font color='green'>m-8vbg3h5yp5ncag0q31lt</font>]<br>[呼和浩特：<font
-        color='green'>m-hp34cnncgeiowbkzpmic</font>]<br>[香港：<font color='green'>m-j6c0e5hkfmzk6d8bfss1</font>]<br>[美西1（硅谷）：<font
-        color='green'>m-rj981ywnfuk84x1r7v0p</font>]<br>注：更多可用区镜像详见：<b><a href='https://market.aliyun.com/products/53616009/cmjj00038197.html'
-        target='_blank'><font color='blue'>Magento镜像</font></a></b>
+      en: "Select an <b>Alibaba Cloud Linux 3</b> public image (x86_64). The Magento application (Apache + PHP + Elasticsearch) will be automatically deployed on the instance via Cloud Assistant RunCommand, no marketplace image required."
+      zh-cn: 请选择 <b>Alibaba Cloud Linux 3</b> 公共镜像（x86_64）。ECS 创建后将通过云助手 RunCommand 自动部署 Magento 应用（Apache + PHP 8.4 + Elasticsearch），无需选择云市场 Magento 镜像。
+    AssociationProperty: ALIYUN::ECS::Image::ImageId
+    AssociationPropertyMetadata:
+      InstanceType: EcsInstanceType
   SystemDiskCategory:
     Type: String
     Label:
@@ -126,8 +123,10 @@ Parameters:
     Description:
       en: Server login password, Length 8-30, must contain three(Capital letters,
         lowercase letters, numbers, ()`~!@#$%^&*_-+=| {}[]:;' <>,.? / Special symbol
-        in).
-      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。
+        in). This password is also used as the Magento admin password, so it must
+        contain both letters and numbers.
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）。该密码同时作为
+        Magento 后台管理员（admin）密码，因此必须同时包含字母和数字。
     ConstraintDescription:
       en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers,
         ()`~!@#$%^&*_-+=| {}[]:;' <>,.? / Special symbol in).
@@ -159,13 +158,10 @@ Parameters:
       en: Type And Version
       zh-cn: 类型与版本
     Description:
-      en: Database type and version number.
-      zh-cn: 数据库类型与版本号。
-    Default: MySQL-5.6
+      en: Database type and version number. Magento 2.4 requires MySQL 8.0.
+      zh-cn: 数据库类型与版本号。Magento 2.4 要求 MySQL 8.0。
+    Default: MySQL-8.0
     AllowedValues:
-    - MySQL-5.5
-    - MySQL-5.6
-    - MySQL-5.7
     - MySQL-8.0
   DBInstanceClass:
     Type: String
@@ -264,6 +260,11 @@ Resources:
         PortRange: 3389/3389
         Priority: 1
         SourceCidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        Policy: accept
+        PortRange: 80/80
+        Priority: 1
+        SourceCidrIp: 0.0.0.0/0
       Tags:
       - Key: best_practice
         Value: '065'
@@ -300,6 +301,7 @@ Resources:
       ImageId:
         Ref: ECSImageId
       AllocatePublicIP: true
+      InternetMaxBandwidthOut: 100
       HostName: APP001
       InstanceName: APP001
       InstanceType:
@@ -367,7 +369,7 @@ Resources:
       DBInstanceStorage:
         Ref: DBInstanceStorage
       DBMappings:
-      - CharacterSetName: utf8
+      - CharacterSetName: utf8mb4
         DBName:
           Ref: DBName
       Engine:
@@ -388,12 +390,261 @@ Resources:
         Ref: RdsUserType
       MasterUsername:
         Ref: RdsUserName
-      MultiAZ: true
       SecurityIPList:
         Ref: VpcCidrBlock
       Tags:
         Key: best_practice
         Value: '065'
+  MagentoDeploy:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      Name: deploy-magento-lamp
+      Type: RunShellScript
+      Sync: true
+      Timeout: 5400
+      InstanceIds:
+      - Ref: ECS
+      CommandContent:
+        Fn::Sub:
+        - |
+          #!/bin/bash
+          set -e
+          exec > >(tee -a /root/magento_install.log) 2>&1
+          echo "=== Magento deployment started ==="
+
+          cloud-init status --wait >/dev/null 2>&1 || true
+
+          DB_HOST='${DbHost}'
+          DB_NAME='${DbName}'
+          DB_USER='${DbUser}'
+          BASE_URL='${BaseUrl}'
+          INSTALL_LOCAL_DB=${InstallLocalDb}
+          CRYPT_MODE=${CryptMode}
+
+          cat > /root/.dbpass <<'PWEOF'
+          ${DbPass}
+          PWEOF
+          DB_PASS=$(cat /root/.dbpass); rm -f /root/.dbpass
+          cat > /root/.adminpass <<'PWEOF'
+          ${AdminPass}
+          PWEOF
+          ADMIN_PASS=$(cat /root/.adminpass); rm -f /root/.adminpass
+
+          if [ "$CRYPT_MODE" = "shared" ]; then
+            CRYPT_KEY=$(printf '%s' "$DB_PASS" | sha256sum | cut -c1-32)
+          else
+            CRYPT_KEY=""
+          fi
+
+          echo "===== [1/6] repos ====="
+          cat > /etc/yum.repos.d/remi-modular.repo <<'REPO'
+          [remi-modular]
+          name=Remi Modular EL8 (aliyun mirror)
+          baseurl=https://mirrors.aliyun.com/remi/enterprise/8/modular/x86_64/
+          enabled=1
+          gpgcheck=0
+          REPO
+          cat > /etc/yum.repos.d/remi-safe.repo <<'REPO'
+          [remi-safe]
+          name=Remi Safe EL8 (aliyun mirror)
+          baseurl=https://mirrors.aliyun.com/remi/enterprise/8/safe/x86_64/
+          enabled=1
+          gpgcheck=0
+          REPO
+          cat > /etc/yum.repos.d/elastic.repo <<'REPO'
+          [elastic-8.x]
+          name=Elastic 8.x (tuna mirror)
+          baseurl=https://mirrors.tuna.tsinghua.edu.cn/elasticstack/8.x/yum/
+          enabled=1
+          gpgcheck=0
+          REPO
+
+          echo "===== [2/6] PHP 8.4 ====="
+          dnf module -y reset php
+          dnf module -y install php:remi-8.4
+          dnf install -y httpd php-cli php-fpm php-mysqlnd php-gd php-intl php-mbstring php-soap php-xsl php-pecl-zip php-bcmath php-sodium php-opcache php-xml php-process mysql
+          PHP_VER=$(php -r 'echo PHP_VERSION;')
+          echo "Installed PHP: $PHP_VER"
+          php -r 'exit(version_compare(PHP_VERSION,"8.4.27",">=")?0:1);' || { echo "FATAL: PHP $PHP_VER is below the required security version 8.4.27"; exit 1; }
+
+          echo "===== [3/6] Elasticsearch 8 ====="
+          dnf install -y elasticsearch
+          /usr/share/elasticsearch/bin/elasticsearch-keystore remove xpack.security.transport.ssl.keystore.secure_password || true
+          /usr/share/elasticsearch/bin/elasticsearch-keystore remove xpack.security.transport.ssl.truststore.secure_password || true
+          /usr/share/elasticsearch/bin/elasticsearch-keystore remove xpack.security.http.ssl.keystore.secure_password || true
+          cat > /etc/elasticsearch/elasticsearch.yml <<'EOF'
+          cluster.name: magento-es
+          node.name: node-1
+          path.data: /var/lib/elasticsearch
+          path.logs: /var/log/elasticsearch
+          network.host: 127.0.0.1
+          http.port: 9200
+          discovery.type: single-node
+          xpack.security.enabled: false
+          EOF
+          printf -- '-Xms512m\n-Xmx512m\n' > /etc/elasticsearch/jvm.options.d/heap.options
+          systemctl enable elasticsearch
+          systemctl restart elasticsearch
+          ES_UP=0
+          for i in $(seq 1 60); do
+            curl -s --max-time 3 http://127.0.0.1:9200 >/dev/null && { ES_UP=1; break; }
+            sleep 5
+          done
+          [ "$ES_UP" = "1" ] || { echo "FATAL: Elasticsearch failed to start"; exit 1; }
+
+          echo "===== [4/6] database ====="
+          if [ "$INSTALL_LOCAL_DB" = "true" ]; then
+            dnf install -y mysql-server
+            grep -q log_bin_trust_function_creators /etc/my.cnf || sed -i '/\[mysqld\]/a log_bin_trust_function_creators = 1' /etc/my.cnf
+            systemctl enable --now mysqld
+            systemctl restart mysqld
+            mysql -e "CREATE DATABASE IF NOT EXISTS $DB_NAME DEFAULT CHARSET utf8mb4; CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS'; GRANT ALL ON $DB_NAME.* TO '$DB_USER'@'localhost'; FLUSH PRIVILEGES;"
+          fi
+          mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SET GLOBAL log_bin_trust_function_creators=1" 2>/dev/null || true
+
+          echo "===== [5/6] Magento source ====="
+          curl -sS https://mirrors.aliyun.com/composer/composer.phar -o /usr/local/bin/composer
+          chmod +x /usr/local/bin/composer
+          composer config -g repos.packagist composer https://mirrors.aliyun.com/composer/
+          curl -sL --retry 5 --retry-delay 5 https://codeload.github.com/magento/magento2/tar.gz/refs/tags/2.4.9 -o /tmp/magento2.tar.gz
+          mkdir -p /var/www/html/magento2
+          tar -xzf /tmp/magento2.tar.gz -C /var/www/html/magento2 --strip-components=1
+          rm -f /tmp/magento2.tar.gz
+          cd /var/www/html/magento2
+          COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --no-interaction --prefer-dist
+
+          sed -i 's/^user = .*/user = apache/; s/^group = .*/group = apache/; s/^;listen.owner = .*/listen.owner = apache/; s/^;listen.group = .*/listen.group = apache/' /etc/php-fpm.d/www.conf
+          cat > /etc/php.d/99-magento.ini <<'EOF'
+          memory_limit = 2G
+          max_execution_time = 300
+          date.timezone = Asia/Shanghai
+          opcache.enable = 1
+          opcache.memory_consumption = 512
+          opcache.max_accelerated_files = 60000
+          opcache.save_comments = 1
+          EOF
+          sed -i 's|DocumentRoot "/var/www/html"|DocumentRoot "/var/www/html/magento2/pub"|' /etc/httpd/conf/httpd.conf
+          sed -i 's|<Directory "/var/www/html">|<Directory "/var/www/html/magento2/pub">|' /etc/httpd/conf/httpd.conf
+          sed -i '/<Directory "\/var\/www\/html\/magento2\/pub">/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/httpd/conf/httpd.conf
+          grep -q 'DirectoryIndex index.php' /etc/httpd/conf/httpd.conf || sed -i 's|^\s*DirectoryIndex index.html|    DirectoryIndex index.php index.html|' /etc/httpd/conf/httpd.conf
+          chown -R apache:apache /var/www/html/magento2
+          systemctl enable php-fpm httpd
+          systemctl restart php-fpm httpd
+
+          echo "===== [6/6] Magento setup ====="
+          mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "CREATE TABLE IF NOT EXISTS magento_deploy_sync (k VARCHAR(64) PRIMARY KEY, v LONGTEXT)"
+          # 原子抢占安装者角色（多节点共库时只有一个节点执行 setup:install）
+          OWNED=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -N -e "INSERT IGNORE INTO magento_deploy_sync (k, v) VALUES ('install_owner', '$(hostname)'); SELECT ROW_COUNT();" | tail -1)
+          if [ "$OWNED" = "1" ]; then
+            echo "This node is the installer, running setup:install"
+            KEY_OPT=""
+            if [ -n "$CRYPT_KEY" ]; then KEY_OPT="--key=$CRYPT_KEY"; fi
+            sudo -u apache /usr/bin/php bin/magento setup:install \
+              --base-url="$BASE_URL" \
+              --db-host="$DB_HOST" --db-name="$DB_NAME" --db-user="$DB_USER" --db-password="$DB_PASS" \
+              --admin-firstname=admin --admin-lastname=admin --admin-email=admin@example.com \
+              --admin-user=admin --admin-password="$ADMIN_PASS" \
+              --backend-frontname=admin \
+              --language=zh_Hans_CN --currency=CNY --timezone=Asia/Shanghai \
+              --search-engine=elasticsearch8 --elasticsearch-host=127.0.0.1 --elasticsearch-port=9200 \
+              --use-rewrites=1 --use-secure=0 $KEY_OPT
+            CFG=$(base64 -w0 app/etc/config.php)
+            mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "INSERT INTO magento_deploy_sync (k, v) VALUES ('config_php', '$CFG') ON DUPLICATE KEY UPDATE v=VALUES(v)"
+            mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "INSERT INTO magento_deploy_sync (k, v) VALUES ('install_done', '1') ON DUPLICATE KEY UPDATE v='1'"
+          else
+            echo "Shared-node mode: waiting for the primary node to finish installation"
+            if [ -z "$CRYPT_KEY" ]; then
+              echo "FATAL: shared-node mode requires CRYPT_KEY"
+              exit 1
+            fi
+            DONE=0
+            for i in $(seq 1 90); do
+              DONE=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -N -e "SELECT v FROM magento_deploy_sync WHERE k='install_done'" 2>/dev/null)
+              [ "$DONE" = "1" ] && break
+              sleep 20
+            done
+            [ "$DONE" = "1" ] || { echo "FATAL: primary node installation did not finish in time"; exit 1; }
+            cat > app/etc/env.php <<ENVEOF
+          <?php
+          return [
+              'backend' => ['frontName' => 'admin'],
+              'remote_storage' => ['driver' => 'file'],
+              'queue' => ['consumers_wait_for_messages' => 1],
+              'crypt' => ['key' => '$CRYPT_KEY'],
+              'db' => [
+                  'table_prefix' => '',
+                  'connection' => [
+                      'default' => [
+                          'host' => '$DB_HOST',
+                          'dbname' => '$DB_NAME',
+                          'username' => '$DB_USER',
+                          'password' => '$DB_PASS',
+                          'model' => 'mysql4',
+                          'engine' => 'innodb',
+                          'initStatements' => 'SET NAMES utf8mb4;',
+                          'active' => '1',
+                          'driver_options' => [1014 => false]
+                      ]
+                  ]
+              ],
+              'resource' => ['default_setup' => ['connection' => 'default']],
+              'x-frame-options' => 'SAMEORIGIN',
+              'MAGE_MODE' => 'default',
+              'session' => ['save' => 'files'],
+              'lock' => ['provider' => 'db'],
+              'directories' => ['document_root_is_pub' => true],
+              'install' => ['date' => '$(date -u '+%a, %d %b %Y %H:%M:%S +0000')']
+          ];
+          ENVEOF
+            mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -N -e "SELECT v FROM magento_deploy_sync WHERE k='config_php'" | base64 -d > app/etc/config.php
+            chown apache:apache app/etc/env.php app/etc/config.php
+            sudo -u apache /usr/bin/php bin/magento setup:upgrade --keep-generated
+          fi
+
+          grep -q '^ServerName' /etc/httpd/conf/httpd.conf || echo 'ServerName 127.0.0.1' >> /etc/httpd/conf/httpd.conf
+          # 预编译 DI 与静态资源：先停 httpd，避免编译期间外部请求触发在线生成与编译清理产生竞争
+          systemctl stop httpd
+          sudo -u apache rm -rf generated/code generated/metadata var/di var/cache var/page_cache var/view_preprocessed
+          sudo -u apache /usr/bin/php bin/magento setup:di:compile
+          sudo -u apache /usr/bin/php bin/magento setup:static-content:deploy zh_Hans_CN en_US -f
+
+          chown -R apache:apache /var/www/html/magento2
+          systemctl restart php-fpm httpd
+
+          HTTP_OK=0
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 180 http://127.0.0.1/)
+            echo "storefront check $i: HTTP $code"
+            if [ "$code" = "200" ] || [ "$code" = "302" ]; then HTTP_OK=1; break; fi
+            sleep 15
+          done
+          [ "$HTTP_OK" = "1" ] || { echo "FATAL: storefront not responding"; exit 1; }
+          echo "=== Magento deployment finished: $BASE_URL ==="
+        - DbHost:
+            Fn::GetAtt:
+            - RdsDBInstance
+            - InnerConnectionString
+          DbName:
+            Ref: DBName
+          DbUser:
+            Ref: RdsUserName
+          DbPass:
+            Ref: RdsUserPassword
+          AdminPass:
+            Ref: EcsPassword
+          BaseUrl:
+            Fn::Join:
+            - ''
+            - - http://
+              - Fn::GetAtt:
+                - SLBLoadBalance
+                - IpAddress
+              - /
+          InstallLocalDb: 'false'
+          CryptMode: 'shared'
+    DependsOn:
+    - ECS
+    - RdsDBInstance
 Outputs:
   ECSPublicIP:
     Description: Magento服务器公网IP
@@ -401,6 +652,28 @@ Outputs:
       Fn::GetAtt:
       - ECS
       - PublicIp
+  Console.MagentoUrl:
+    Description: Magento 站点地址（通过负载均衡访问）
+    Label: Magento URL
+    Value:
+      Fn::Join:
+      - ''
+      - - 'http://'
+        - Fn::GetAtt:
+          - SLBLoadBalance
+          - IpAddress
+        - /
+  Console.MagentoAdminUrl:
+    Description: Magento 后台管理地址（管理员账号 admin，密码同 ECS 登录密码）
+    Label: Magento Admin URL
+    Value:
+      Fn::Join:
+      - ''
+      - - 'http://'
+        - Fn::GetAtt:
+          - SLBLoadBalance
+          - IpAddress
+        - /admin
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
