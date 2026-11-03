@@ -748,8 +748,8 @@ Resources:
             - Ref: DBRootPassword
             - " \n"
             - "yum -y update \n"
-            - "rpm -Uvh https://mirror.webtatic.com/yum/el7/epel-release.rpm \n"
-            - "rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm \n"
+            - "# 原第三方 PHP 仓库的 EPEL 发布包安装步骤已移除，PHP 编译依赖改用本次独立的归档仓库配置。\n"
+            - "# 原第三方 PHP 5.6 仓库发布包安装步骤已移除，不再从已停止维护的渠道取 PHP。\n"
             - "mkdir -p /opt/db \n"
             - "cd /opt/db/ \n"
             - "wget http://repo.mysql.com/mysql-community-release-el6-5.noarch.rpm\
@@ -770,7 +770,7 @@ Resources:
             - "# yum install -y phpmyadmin \n"
             - "mkdir -p /opt/pma \n"
             - "cd /opt/pma/ \n"
-            - "yum install -y httpd php-mysql php \n"
+            - "yum install -y httpd \n"
             - "yum install -y unzip \n"
             - "#if [ ! -f \"phpMyAdmin-4.8.5-all-languages.zip\" ]; then \n"
             - "##    unzip phpMyAdmin-4.8.5-all-languages.zip \n"
@@ -780,14 +780,91 @@ Resources:
             - "#    unzip phpMyAdmin-4.8.5-all-languages.zip \n"
             - "#fi \n"
             - "#unzip phpMyAdmin-4.8.5-all-languages.zip \n"
-            - "yum remove -y php.x86_64 php-cli.x86_64 php-common.x86_64 php-gd.x86_64\
-              \ php-ldap.x86_64 php-mbstring.x86_64 php-mcrypt.x86_64 php-mysql.x86_64\
-              \ php-pdo.x86_64 \n"
+            - "# 原先装再卸的发行版 PHP 包已不再安装，此处无需卸除。\n"
             - "yum list installed | grep php >> /tmp/userdata1.log \n"
-            - "yum install -y php56w.x86_64 php56w-cli.x86_64 php56w-common.x86_64\
-              \ php56w-gd.x86_64 php56w-ldap.x86_64 php56w-mbstring.x86_64 php56w-mcrypt.x86_64php56w-mysql.x86_64\
-              \ php56w-pdo.x86_64 \n"
-            - "yum install -y phpmyadmin \n"
+            - |
+              sh -eu <<'ROS_PHP_BUILD'
+              PHP_BUILD_DIR=$(mktemp -d /tmp/ros-php.XXXXXX)
+              cd "$PHP_BUILD_DIR"
+              # 归档仓库仅用于本次 PHP 编译依赖，不改系统全局仓库配置。
+              cat > yum.conf <<'ROS_PHP_YUM'
+              [main]
+              reposdir=/dev/null
+              gpgcheck=1
+              [ros-php-base]
+              name=CentOS 7 PHP build dependencies
+              baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/os/$basearch/
+              gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+              [ros-php-updates]
+              name=CentOS 7 PHP build dependency updates
+              baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/updates/$basearch/
+              gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+              [ros-php-epel-archive]
+              name=EPEL 7 archive PHP build dependencies
+              baseurl=https://mirrors.aliyun.com/epel-archive/7/$basearch/
+              gpgkey=https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-7
+              ROS_PHP_YUM
+              # 构建依赖对应原 gd、ldap、mbstring、mcrypt 扩展；httpd 为 mod_php 所需。
+              yum -c "$PHP_BUILD_DIR/yum.conf" install -y httpd httpd-devel gcc make pkgconfig curl xz libxml2-devel sqlite-devel zlib-devel perl-core libpng-devel libjpeg-turbo-devel freetype-devel openldap-devel oniguruma-devel libmcrypt-devel autoconf
+              # PHP 使用独立的受维护 OpenSSL，避免旧系统库的 API 兼容问题。
+              OPENSSL_PREFIX=/opt/ros/php/openssl-3.5.9
+              # 镜像仅提供传输备选，每次下载均须通过同一官方 SHA256 校验。
+              OPENSSL_DOWNLOADED=0
+              for OPENSSL_URL in \
+                  https://dev-www.libreoffice.org/src/openssl-3.5.9.tar.gz \
+                  https://sources.immortalwrt.org/openssl-3.5.9.tar.gz \
+                  https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz; do
+                  if curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 15 --max-time 1800 -o openssl.tar.gz "$OPENSSL_URL" &&
+                      printf '%s\n' '603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a  openssl.tar.gz' | sha256sum -c -; then
+                      OPENSSL_DOWNLOADED=1
+                      break
+                  fi
+              done
+              [ "$OPENSSL_DOWNLOADED" -eq 1 ] || exit 1
+              tar -xzf openssl.tar.gz
+              cd openssl-3.5.9
+              ./config --prefix="$OPENSSL_PREFIX" --libdir=lib --openssldir=/etc/pki/tls shared
+              make -j2
+              make install_sw
+              cd "$PHP_BUILD_DIR"
+              curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 1200 -o php.tar.xz https://www.php.net/distributions/php-8.3.36.tar.xz
+              printf '%s\n' 'dd54693aa334c5c4d72e9aee96b082c2473750a18a6c1d105789c93a3b1692fd  php.tar.xz' | sha256sum -c -
+              tar -xJf php.tar.xz
+              cd php-8.3.36
+              PKG_CONFIG_PATH="$OPENSSL_PREFIX/lib/pkgconfig" LDFLAGS="-Wl,-rpath,$OPENSSL_PREFIX/lib" ./configure --prefix=/opt/ros/php/8.3.36 --with-config-file-path=/opt/ros/php/8.3.36/etc --with-config-file-scan-dir=/opt/ros/php/8.3.36/etc/php.d --with-apxs2=/usr/bin/apxs --with-openssl --with-zlib --enable-mysqlnd --with-mysqli=mysqlnd --with-pdo-mysql=mysqlnd --enable-gd --with-jpeg --with-freetype --with-libdir=lib64 --with-ldap --enable-mbstring
+              make -j2
+              make install
+              mkdir -p /opt/ros/php/8.3.36/etc/php.d
+              cp php.ini-production /opt/ros/php/8.3.36/etc/php.ini
+              ln -sf /opt/ros/php/8.3.36/bin/php /usr/bin/php
+              cd "$PHP_BUILD_DIR"
+              # 原 mcrypt 扩展自 PHP 7.2 移出核心，改用 PECL 源码构建后显式加载。
+              curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 600 -o mcrypt.tgz https://pecl.php.net/get/mcrypt-1.0.9.tgz
+              printf '%s\n' '2a9ef0817d3bf677f6d7baf8e325629a2758974735d8abad6566384788d424a5  mcrypt.tgz' | sha256sum -c -
+              tar -xzf mcrypt.tgz
+              cd mcrypt-1.0.9
+              /opt/ros/php/8.3.36/bin/phpize
+              ./configure --with-php-config=/opt/ros/php/8.3.36/bin/php-config
+              make -j2
+              make install
+              printf '%s\n' 'extension=mcrypt.so' > /opt/ros/php/8.3.36/etc/php.d/mcrypt.ini
+              cat > /etc/httpd/conf.d/ros-php.conf <<'ROS_PHP_APACHE'
+              <FilesMatch \.php$>
+                  SetHandler application/x-httpd-php
+              </FilesMatch>
+              DirectoryIndex index.php index.html
+              ROS_PHP_APACHE
+              php -r 'exit(PHP_VERSION === "8.3.36" ? 0 : 1);'
+              php -i | grep -q '^OpenSSL Library Version => OpenSSL 3\.5\.9 '
+              # 原扩展清单逐项核对实际加载状态；已移除的 mysql 扩展由 mysqli 与 pdo_mysql 承接。
+              for PHP_EXTENSION in gd ldap mbstring mcrypt mysqli pdo pdo_mysql openssl; do
+                  php -r 'exit(extension_loaded($argv[1]) ? 0 : 1);' "$PHP_EXTENSION"
+              done
+              httpd -t
+              httpd -M 2>/dev/null | grep -q 'php_module'
+              ROS_PHP_BUILD
+              [ "$?" -eq 0 ] || exit 1
+            - "sh -eu <<'ROS_PMA_INSTALL'\nPMA_BUILD_DIR=$(mktemp -d /tmp/ros-pma.XXXXXX)\ncd \"$PMA_BUILD_DIR\"\ncurl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 900 -o phpmyadmin.zip https://files.phpmyadmin.net/phpMyAdmin/5.2.3/phpMyAdmin-5.2.3-all-languages.zip\nprintf '%s\\n' '2d2e13c735366d318425c78e4ee2cc8fc648d77faba3ddea2cd516e43885733f  phpmyadmin.zip' | sha256sum -c -\nunzip -q phpmyadmin.zip\nrm -rf /usr/share/phpMyAdmin\nmv phpMyAdmin-5.2.3-all-languages /usr/share/phpMyAdmin\nmkdir -p /etc/phpMyAdmin /var/lib/phpMyAdmin/save /var/lib/phpMyAdmin/upload\ncp /usr/share/phpMyAdmin/config.sample.inc.php /etc/phpMyAdmin/config.inc.php\nln -sf /etc/phpMyAdmin/config.inc.php /usr/share/phpMyAdmin/config.inc.php\nchown -R apache:apache /var/lib/phpMyAdmin\n# 访问控制文件沿用原 RPM 的别名、指令与段落，后续 sed 放开访问的改写结果与原模板一致。\ncat > /etc/httpd/conf.d/phpMyAdmin.conf <<'ROS_PMA_APACHE'\nAlias /phpMyAdmin /usr/share/phpMyAdmin\nAlias /phpmyadmin /usr/share/phpMyAdmin\n<Directory /usr/share/phpMyAdmin/>\n    AddDefaultCharset UTF-8\n    <IfModule mod_authz_core.c>\n        <RequireAny>\n            Require ip 127.0.0.1\n            Require ip ::1\n        </RequireAny>\n    </IfModule>\n    <IfModule !mod_authz_core.c>\n        Order Deny,Allow\n        Deny from All\n        Allow from 127.0.0.1\n        Allow from ::1\n    </IfModule>\n</Directory>\nROS_PMA_APACHE\nphp -l /usr/share/phpMyAdmin/index.php\nphp -r 'exit(extension_loaded(\"mysqli\") && extension_loaded(\"mbstring\") ? 0 : 1);'\nhttpd -t\nROS_PMA_INSTALL\n[ \"$?\" -eq 0 ] || exit 1\n"
             - "#mkdir -p /var/www/html/pma \n"
             - "#cp -a phpMyAdmin-4.8.5-all-languages /var/www/html/pma \n"
             - "#cd /var/www/html/pma \n"
@@ -1077,7 +1154,7 @@ Resources:
       Count: 1
       Handle:
         Ref: RosWaitConditionHandle1
-      Timeout: 1800
+      Timeout: 3600
     Metadata:
       ALIYUN::ROS::Designer:
         id: f19ce542-6dd1-44f1-9813-c12a376d178a
@@ -1087,7 +1164,7 @@ Resources:
       Count: 1
       Handle:
         Ref: RosWaitConditionHandle2
-      Timeout: 1800
+      Timeout: 3600
     Metadata:
       ALIYUN::ROS::Designer:
         id: 523d61d7-c12e-4c00-a41b-8160783730af

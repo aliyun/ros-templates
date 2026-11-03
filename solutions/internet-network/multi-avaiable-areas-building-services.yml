@@ -248,7 +248,75 @@ Resources:
           - 'sudo yum check-update
 
             '
-          - "sudo yum -y install httpd php \n"
+          - |
+            # CentOS 7 的 PHP 仓库已停止安全更新，保留 mod_php 接入并编译安全版本。
+            sh -eu <<'ROS_PHP_BUILD'
+            PHP_BUILD_DIR=$(mktemp -d /tmp/ros-php.XXXXXX)
+            cd "$PHP_BUILD_DIR"
+            if grep -q 'CentOS.*release 7' /etc/centos-release 2>/dev/null; then
+                # 归档仓库仅用于本次 PHP 编译依赖，不改系统全局仓库配置。
+                cat > yum.conf <<'ROS_PHP_YUM'
+            [main]
+            reposdir=/dev/null
+            gpgcheck=1
+            gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+            [ros-php-base]
+            name=CentOS 7 PHP build dependencies
+            baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/os/$basearch/
+            [ros-php-updates]
+            name=CentOS 7 PHP build dependency updates
+            baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/updates/$basearch/
+            [ros-php-extras]
+            name=CentOS 7 PHP build dependency extras
+            baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/extras/$basearch/
+            ROS_PHP_YUM
+                yum -c "$PHP_BUILD_DIR/yum.conf" install -y httpd httpd-devel gcc make pkgconfig curl xz libxml2-devel sqlite-devel zlib-devel perl-core
+            else
+                yum install -y httpd httpd-devel gcc make pkgconfig curl xz libxml2-devel sqlite-devel zlib-devel perl-core
+            fi
+            # PHP 使用独立的受维护 OpenSSL，避免旧系统库的 API 兼容问题。
+            OPENSSL_PREFIX=/opt/ros/php/openssl-3.5.9
+            # 镜像仅提供传输备选，每次下载均须通过同一官方 SHA256 校验。
+            OPENSSL_DOWNLOADED=0
+            for OPENSSL_URL in \
+                https://dev-www.libreoffice.org/src/openssl-3.5.9.tar.gz \
+                https://sources.immortalwrt.org/openssl-3.5.9.tar.gz \
+                https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz; do
+                if curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 15 --max-time 1800 -o openssl.tar.gz "$OPENSSL_URL" &&
+                    printf '%s\n' '603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a  openssl.tar.gz' | sha256sum -c -; then
+                    OPENSSL_DOWNLOADED=1
+                    break
+                fi
+            done
+            [ "$OPENSSL_DOWNLOADED" -eq 1 ] || exit 1
+            tar -xzf openssl.tar.gz
+            cd openssl-3.5.9
+            ./config --prefix="$OPENSSL_PREFIX" --libdir=lib --openssldir=/etc/pki/tls shared
+            make -j2
+            make install_sw
+            cd "$PHP_BUILD_DIR"
+            curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 1200 -o php.tar.xz https://www.php.net/distributions/php-8.3.36.tar.xz
+            printf '%s\n' 'dd54693aa334c5c4d72e9aee96b082c2473750a18a6c1d105789c93a3b1692fd  php.tar.xz' | sha256sum -c -
+            tar -xJf php.tar.xz
+            cd php-8.3.36
+            PKG_CONFIG_PATH="$OPENSSL_PREFIX/lib/pkgconfig" LDFLAGS="-Wl,-rpath,$OPENSSL_PREFIX/lib" ./configure --prefix=/opt/ros/php/8.3.36 --with-config-file-path=/opt/ros/php/8.3.36/etc --with-apxs2=/usr/bin/apxs --with-openssl --with-zlib
+            make -j2
+            make install
+            mkdir -p /opt/ros/php/8.3.36/etc
+            cp php.ini-production /opt/ros/php/8.3.36/etc/php.ini
+            ln -sf /opt/ros/php/8.3.36/bin/php /usr/bin/php
+            cat > /etc/httpd/conf.d/ros-php.conf <<'ROS_PHP_APACHE'
+            <FilesMatch \.php$>
+                SetHandler application/x-httpd-php
+            </FilesMatch>
+            DirectoryIndex index.php index.html
+            ROS_PHP_APACHE
+            php -r 'exit(PHP_VERSION === "8.3.36" ? 0 : 1);'
+            php -i | grep -q '^OpenSSL Library Version => OpenSSL 3\.5\.9 '
+            httpd -t
+            httpd -M 2>/dev/null | grep -q 'php_module'
+            ROS_PHP_BUILD
+            [ "$?" -eq 0 ] || exit 1
           - 'cd /var/www/html
 
             '
@@ -308,7 +376,75 @@ Resources:
           - 'sudo yum check-update
 
             '
-          - "sudo yum -y install httpd php \n"
+          - |
+            # CentOS 7 的 PHP 仓库已停止安全更新，保留 mod_php 接入并编译安全版本。
+            sh -eu <<'ROS_PHP_BUILD'
+            PHP_BUILD_DIR=$(mktemp -d /tmp/ros-php.XXXXXX)
+            cd "$PHP_BUILD_DIR"
+            if grep -q 'CentOS.*release 7' /etc/centos-release 2>/dev/null; then
+                # 归档仓库仅用于本次 PHP 编译依赖，不改系统全局仓库配置。
+                cat > yum.conf <<'ROS_PHP_YUM'
+            [main]
+            reposdir=/dev/null
+            gpgcheck=1
+            gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+            [ros-php-base]
+            name=CentOS 7 PHP build dependencies
+            baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/os/$basearch/
+            [ros-php-updates]
+            name=CentOS 7 PHP build dependency updates
+            baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/updates/$basearch/
+            [ros-php-extras]
+            name=CentOS 7 PHP build dependency extras
+            baseurl=https://mirrors.aliyun.com/centos-vault/7.9.2009/extras/$basearch/
+            ROS_PHP_YUM
+                yum -c "$PHP_BUILD_DIR/yum.conf" install -y httpd httpd-devel gcc make pkgconfig curl xz libxml2-devel sqlite-devel zlib-devel perl-core
+            else
+                yum install -y httpd httpd-devel gcc make pkgconfig curl xz libxml2-devel sqlite-devel zlib-devel perl-core
+            fi
+            # PHP 使用独立的受维护 OpenSSL，避免旧系统库的 API 兼容问题。
+            OPENSSL_PREFIX=/opt/ros/php/openssl-3.5.9
+            # 镜像仅提供传输备选，每次下载均须通过同一官方 SHA256 校验。
+            OPENSSL_DOWNLOADED=0
+            for OPENSSL_URL in \
+                https://dev-www.libreoffice.org/src/openssl-3.5.9.tar.gz \
+                https://sources.immortalwrt.org/openssl-3.5.9.tar.gz \
+                https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz; do
+                if curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 15 --max-time 1800 -o openssl.tar.gz "$OPENSSL_URL" &&
+                    printf '%s\n' '603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a  openssl.tar.gz' | sha256sum -c -; then
+                    OPENSSL_DOWNLOADED=1
+                    break
+                fi
+            done
+            [ "$OPENSSL_DOWNLOADED" -eq 1 ] || exit 1
+            tar -xzf openssl.tar.gz
+            cd openssl-3.5.9
+            ./config --prefix="$OPENSSL_PREFIX" --libdir=lib --openssldir=/etc/pki/tls shared
+            make -j2
+            make install_sw
+            cd "$PHP_BUILD_DIR"
+            curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --retry 0 --connect-timeout 30 --max-time 1200 -o php.tar.xz https://www.php.net/distributions/php-8.3.36.tar.xz
+            printf '%s\n' 'dd54693aa334c5c4d72e9aee96b082c2473750a18a6c1d105789c93a3b1692fd  php.tar.xz' | sha256sum -c -
+            tar -xJf php.tar.xz
+            cd php-8.3.36
+            PKG_CONFIG_PATH="$OPENSSL_PREFIX/lib/pkgconfig" LDFLAGS="-Wl,-rpath,$OPENSSL_PREFIX/lib" ./configure --prefix=/opt/ros/php/8.3.36 --with-config-file-path=/opt/ros/php/8.3.36/etc --with-apxs2=/usr/bin/apxs --with-openssl --with-zlib
+            make -j2
+            make install
+            mkdir -p /opt/ros/php/8.3.36/etc
+            cp php.ini-production /opt/ros/php/8.3.36/etc/php.ini
+            ln -sf /opt/ros/php/8.3.36/bin/php /usr/bin/php
+            cat > /etc/httpd/conf.d/ros-php.conf <<'ROS_PHP_APACHE'
+            <FilesMatch \.php$>
+                SetHandler application/x-httpd-php
+            </FilesMatch>
+            DirectoryIndex index.php index.html
+            ROS_PHP_APACHE
+            php -r 'exit(PHP_VERSION === "8.3.36" ? 0 : 1);'
+            php -i | grep -q '^OpenSSL Library Version => OpenSSL 3\.5\.9 '
+            httpd -t
+            httpd -M 2>/dev/null | grep -q 'php_module'
+            ROS_PHP_BUILD
+            [ "$?" -eq 0 ] || exit 1
           - 'cd /var/www/html
 
             '
