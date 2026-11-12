@@ -19,6 +19,37 @@ Workspace:
       description = "选择可用区"
       default     = "cn-hangzhou-j"
     }
+
+    # RDS实例的规格型号
+    variable "dbinstance_class" {
+      type        = string
+      description = "RDS实例规格"
+      default     = "mysql.n2.medium.2c"
+    }
+
+    # RDS数据库的账号名称
+    variable "db_user_name" {
+      type        = string
+      default     = "workshop"
+      nullable    = false
+      description = "RDS数据库账号"
+    }
+
+    # RDS数据库的密码
+    variable "db_password" {
+      type        = string
+      sensitive   = true
+      description = "RDS数据库密码"
+      default     = "workshop#2017"
+    }
+
+    # RDS数据库名称
+    variable "data_base_name" {
+      type        = string
+      sensitive   = true
+      description = "RDS数据库名称"
+      default     = "github_events_share"
+    }
   main.tf: |-
     # ------------------------------------------------------------------------------
     # 核心资源定义
@@ -54,6 +85,37 @@ Workspace:
       cidr_block   = "192.168.0.0/24"
       zone_id      = var.zone_id
       vswitch_name = "${local.common_name}-vsw"
+    }
+
+    # 创建RDS实例
+    resource "alicloud_db_instance" "rdsdbinstance" {
+      zone_id                  = var.zone_id
+      vpc_id                   = alicloud_vpc.vpc.id
+      vswitch_id               = alicloud_vswitch.vswitch.id
+      instance_type            = var.dbinstance_class
+      instance_storage         = 50
+      instance_name            = "olap-analysis-rds"
+      engine                   = "MySQL"
+      engine_version           = "8.0"
+      category                 = "Basic"
+      db_instance_storage_type = "cloud_essd"
+      security_ips             = ["192.168.0.0/16"]
+      released_keep_policy     = "None"
+    }
+
+    # 创建RDS账户
+    resource "alicloud_rds_account" "account" {
+      db_instance_id   = alicloud_db_instance.rdsdbinstance.id
+      account_type     = "Super"
+      account_password = var.db_password
+      account_name     = var.db_user_name
+    }
+
+    # 创建数据库
+    resource "alicloud_db_database" "db_base" {
+      instance_id   = alicloud_db_instance.rdsdbinstance.id
+      character_set = "utf8"
+      name          = var.data_base_name
     }
 
     # 创建Hologram实例
@@ -107,26 +169,34 @@ Workspace:
       description = "交换机实例 ID"
     }
 
-    # 输出JDBC连接地址
-    output "jdbcaddress" {
-      value       = "rm-bp1z69dodhh85z9qa.mysql.rds.aliyuncs.com:3306"
-      description = "JDBC连接地址"
+    # 输出 RDS 实例 ID
+    output "rds_instance_id" {
+      value       = alicloud_db_instance.rdsdbinstance.id
+      description = "RDS 实例 ID"
     }
 
-    # 输出数据库名称
-    output "data_base_name" {
-      value       = "github_events_share"
-      description = "数据库名称"
+    # 输出RDS实例的内网连接地址
+    output "mysql_host" {
+      value       = alicloud_db_instance.rdsdbinstance.connection_string
+      description = "RDS 内网连接地址"
     }
 
-    # 输出数据库用户名
-    output "data_base_user_name" {
-      value       = "workshop"
-      description = "数据库用户名"
+    # 输出数据库账号
+    output "db_username" {
+      value       = var.db_user_name
+      description = "RDS 数据库账号"
     }
 
     # 输出数据库密码
-    output "data_base_password" {
-      value       = "workshop#2017"
-      description = "数据库密码"
+    output "db_password" {
+      value       = var.db_password
+      sensitive   = true
+      description = "RDS 数据库密码"
+    }
+
+    # 输出RDS数据库名称
+    output "data_base_name" {
+      value       = var.data_base_name
+      sensitive   = true
+      description = "RDS 数据库名称"
     }
